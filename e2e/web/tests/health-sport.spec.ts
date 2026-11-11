@@ -8,6 +8,10 @@ import { HealthSportPage } from '../pages/HealthSportPage.js'
  * Then la ligne apparaît dans le tableau et la carte de la semaine augmente de 65 min.
  *
  * Nouveau parcours Santé: no earlier journey to extend.
+ *
+ * MAG-775 extends it: Given la séance prévue « Séance A » et ses 6 exercices (seed
+ * `70-health.yaml`), When j'ouvre sa fiche, Then le bloc « Exercices » montre
+ * « Squat gobelet au sac » et « 3 × 10 · 10 kg ».
  */
 
 interface WorkoutRow {
@@ -58,4 +62,27 @@ test('Santé › Sport lists an added bike ride and the week grows by its 65 min
 
   // …and the card of the week grew by its 65 minutes.
   await expect.poll(() => sport.currentWeekMinutes()).toBe(before + 65)
+})
+
+test.describe('The sheet of a detailed session — MAG-775', () => {
+  // The seed's data, sliced to this journey's account: « Séance A » is its own.
+  test.use({ journeyAccount: 'standard' })
+
+  test('Santé › Sport shows the exercises of « Séance A » on its sheet', async ({ page, journeyUser }) => {
+    const id = journeyUser.ref('e2e_workout_session_a')
+
+    const sport = new HealthSportPage(page)
+    await sport.open()
+
+    // When I open the sheet of « Séance A »…
+    await sport.select(id)
+
+    // Then the « Exercices » block lists its six exercises, the squat with its load.
+    const exercises = sport.exercises(id)
+    await expect(exercises).toBeVisible()
+    await expect(exercises.getByTestId('workout-exercise')).toHaveCount(6)
+    const squat = exercises.getByTestId('workout-exercise').filter({ hasText: 'Squat gobelet au sac' })
+    await expect(squat).toContainText('3 × 10 · 10 kg')
+    await expect(exercises).toContainText('Tractions négatives')
+  })
 })

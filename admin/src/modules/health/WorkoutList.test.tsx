@@ -64,6 +64,32 @@ const PLANNED = {
   externalId: null,
 }
 
+const prescribed = (exercise: string, name: string, unit: string, target: number, loadKg: number | null = null) => ({
+  exercise, name, unit, step: 1, sets: 3, target, targetMin: target, targetMax: target, loadKg,
+  restSeconds: 90, tempo: false, targetRir: null, cue: null, feeling: null, done: [] as { reps?: number }[],
+})
+const PLANNED_EXERCISES = {
+  ...PLANNED,
+  id: '/api/workouts/01PLANEX',
+  title: 'Haut du corps',
+  difficulty: 6,
+  variant: 'normal',
+  exercises: [
+    prescribed('pull-up-negative', 'Tractions négatives', 'reps', 5),
+    prescribed('goblet-squat', 'Squat gobelet au sac', 'reps', 10, 10),
+    prescribed('plank', 'Planche', 'seconds', 30),
+  ],
+}
+const DONE_EXERCISES = {
+  ...BIKE,
+  id: '/api/workouts/01DONEEX',
+  type: 'strength',
+  title: 'Pompes faites',
+  source: 'manual',
+  feeling: 'hard',
+  exercises: [{ ...prescribed('push-up', 'Pompes', 'reps', 8), done: [{ reps: 8 }, { reps: 8 }, { reps: 7 }] }],
+}
+
 function renderList(listed: unknown[] = [RUN, BIKE, PLANNED], overrides: Partial<DataProvider> = {}) {
   const getList = vi.fn((read: string) =>
     Promise.resolve(read === 'workouts' ? { data: listed, total: listed.length } : { data: [], total: 0 }),
@@ -203,5 +229,29 @@ describe('WorkoutList', () => {
 
     expect(deleteOne).not.toHaveBeenCalled()
     expect(screen.getByTestId('workout-row-01RUN')).toBeInTheDocument()
+  })
+
+  test('a session with exercises lists them with their dose, between the metrics and the feeling', async () => {
+    const user = userEvent.setup()
+    renderList([PLANNED_EXERCISES, DONE_EXERCISES, RUN])
+
+    await user.click(await screen.findByTestId('workout-row-01PLANEX'))
+    const planned = within(screen.getByTestId('workout-detail-01PLANEX')).getByRole('region', { name: 'Exercices' })
+    expect(within(planned).getByText('Exercices')).toBeInTheDocument()
+    expect(within(planned).getAllByTestId('workout-exercise').map((row) => row.textContent)).toEqual([
+      'Tractions négatives3 × 5',
+      'Squat gobelet au sac3 × 10 · 10 kg',
+      'Planche3 × 30 s',
+    ])
+
+    await user.click(screen.getByTestId('workout-row-01DONEEX'))
+    const detail = screen.getByTestId('workout-detail-01DONEEX')
+    expect(within(within(detail).getByTestId('workout-exercises')).getByText('8 · 8 · 7')).toBeInTheDocument()
+    const exercisesBlock = within(detail).getByTestId('workout-exercises')
+    const feeling = within(detail).getByText('Ressenti')
+    expect(exercisesBlock.compareDocumentPosition(feeling) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await user.click(screen.getByTestId('workout-row-01RUN'))
+    expect(within(screen.getByTestId('workout-detail-01RUN')).queryByTestId('workout-exercises')).not.toBeInTheDocument()
   })
 })

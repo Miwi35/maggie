@@ -14,6 +14,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 /**
  * The merge-patch has already been applied to $data: it is the whole state
  * wanted, so every field is sent, and an optional one that is null is cleared.
+ * `exercises` is the exception: sent only when the request had it, whole.
  *
  * @implements ProcessorInterface<Workout, Workout>
  */
@@ -42,12 +43,17 @@ class UpdateWorkoutProcessor implements ProcessorInterface
             notes: $data->getNotes(),
             source: $data->getSource()->value,
             externalId: $data->getExternalId(),
+            exercises: $data->requestedExercises(),
+            difficulty: $data->getDifficulty(),
+            variant: $data->getVariant()?->value,
             clearDistance: null === $data->getDistanceMeters(),
             clearKcal: null === $data->getKcal(),
             clearAvgHeartRate: null === $data->getAvgHeartRate(),
             clearFeeling: null === $data->getFeeling(),
             clearNotes: null === $data->getNotes(),
             clearExternalId: null === $data->getExternalId(),
+            clearDifficulty: null === $data->getDifficulty(),
+            clearVariant: null === $data->getVariant(),
         ))->last(HandledStamp::class)->getResult();
     }
 }

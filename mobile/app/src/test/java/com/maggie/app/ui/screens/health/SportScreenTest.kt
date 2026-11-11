@@ -22,6 +22,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Workout
+import com.maggie.app.data.model.WorkoutExercise
 import com.maggie.app.data.repository.WorkoutRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
@@ -246,5 +247,39 @@ class SportScreenTest {
 
         compose.waitUntil(5_000) { viewModel.uiState.value.message == "Séance ajoutée" }
         coVerify { repository.createWorkout(match { it.distanceMeters == 5400 && it.durationMinutes == 32 && it.title == "Course" }) }
+    }
+
+    @Test
+    fun `the detail of a planned session lists its exercises with their doses (MAG-775)`() {
+        val planned = gym.copy(
+            exercises = listOf(
+                WorkoutExercise("pull-up-negative", "Tractions négatives", unit = "reps", sets = 3, target = 5),
+                WorkoutExercise("goblet-squat", "Squat gobelet au sac", unit = "reps", sets = 3, target = 10, loadKg = 10.0),
+                WorkoutExercise("plank", "Planche", unit = "seconds", sets = 3, target = 30),
+            ),
+        )
+        compose.setContent { WorkoutDetail(planned, ZoneId.of("Europe/Paris"), onEdit = {}, onDelete = {}) }
+
+        compose.onNodeWithTag(UiTags.WORKOUT_EXERCISES).assertIsDisplayed()
+        compose.onNodeWithText("Exercices").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.WORKOUT_EXERCISE).assertCountEquals(3)
+        assertTopToBottom(
+            "Tractions" to compose.onNodeWithText("Tractions négatives"),
+            "Squat" to compose.onNodeWithText("Squat gobelet au sac"),
+            "Planche" to compose.onNodeWithText("Planche"),
+        )
+        compose.onNodeWithText("3 × 5").assertIsDisplayed()
+        compose.onNodeWithText("3 × 10 · 10 kg").assertIsDisplayed()
+        compose.onNodeWithText("3 × 30 s").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("Ressenti").fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `the detail of a session without exercises shows no Exercices block (MAG-775)`() {
+        compose.setContent { WorkoutDetail(run, ZoneId.of("Europe/Paris"), onEdit = {}, onDelete = {}) }
+
+        compose.onNodeWithTag(UiTags.WORKOUT_DETAIL).assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("Exercices").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.WORKOUT_EXERCISES).fetchSemanticsNodes().size)
     }
 }

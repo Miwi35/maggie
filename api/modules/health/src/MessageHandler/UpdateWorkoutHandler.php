@@ -42,6 +42,10 @@ class UpdateWorkoutHandler
         $heartRate = $command->clearAvgHeartRate ? null : ($command->avgHeartRate ?? $workout->getAvgHeartRate());
         $notes = $command->clearNotes ? null : ($command->notes ?? $workout->getNotes());
         $externalId = $command->clearExternalId ? null : ($command->externalId ?? $workout->getExternalId());
+        $variant = $command->clearVariant ? null : (null === $command->variant ? $workout->getVariant() : $this->rules->variant($command->variant));
+        $difficulty = $this->rules->difficulty($command->clearDifficulty ? null : ($command->difficulty ?? $workout->getDifficulty()), $source);
+        // The list kept is checked again: a session moved back to planned cannot keep what was done.
+        $exercises = $this->rules->exercises($command->exercises ?? self::kept($workout), $source);
         $this->rules->assert($title, $duration, $distance, $kcal, $heartRate, $notes, $externalId);
 
         if (null !== $externalId && $externalId !== $workout->getExternalId()) {
@@ -62,8 +66,19 @@ class UpdateWorkoutHandler
             ->setFeeling($feeling)
             ->setNotes($notes)
             ->setSource($source)
-            ->setExternalId($externalId);
+            ->setExternalId($externalId)
+            ->setDifficulty($difficulty)
+            ->setVariant($variant);
+        if (null !== $command->exercises) {
+            $workout->replaceExercises($exercises);
+        }
 
         return $this->saveWorkout->execute($workout);
+    }
+
+    /** @return list<array<string, mixed>> the exercises as they are, in the shape a request sends */
+    private static function kept(Workout $workout): array
+    {
+        return $workout->getExercises();
     }
 }

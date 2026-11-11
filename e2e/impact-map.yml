@@ -562,6 +562,7 @@ web:
     areas: [cookbook]
   e2e/web/tests/health-sport.spec.ts:
     areas: [health]
+    paths: [api/fixtures/e2e/70-health.yaml]
   e2e/web/tests/health-sync.spec.ts:
     areas: [health]
   e2e/web/tests/health-suivi.spec.ts:
@@ -849,7 +850,7 @@ mobile:
     paths: [e2e/mobile/scripts/contacts-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/30-health-sport.yaml:
     areas: [health]
-    paths: [e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+    paths: [e2e/mobile/scripts/new-user.js, e2e/mobile/scripts/workouts-api.js, e2e/mobile/subflows/new-user.yaml]
   e2e/mobile/flows/31-health-suivi.yaml:
     areas: [health]
     paths: [e2e/mobile/scripts/body-measurements-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]

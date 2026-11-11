@@ -28,6 +28,9 @@ final class WorkoutJson
             'source' => $workout->getSource()->value,
             'sourceLabel' => $workout->getSource()->label(),
             'externalId' => $workout->getExternalId(),
+            'difficulty' => $workout->getDifficulty(),
+            'variant' => $workout->getVariant()?->value,
+            'exercises' => $workout->getExercises(),
         ];
     }
 

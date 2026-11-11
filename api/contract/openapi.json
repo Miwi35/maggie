@@ -13883,6 +13883,35 @@
                         },
                         "style": "form",
                         "explode": false
+                    },
+                    {
+                        "name": "exercise",
+                        "in": "query",
+                        "description": "The sessions holding this exercise (catalogue slug, e.g. goblet-squat).",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "order[startedAt]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "asc",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
                     }
                 ]
             },
@@ -32313,10 +32342,162 @@
                             "null"
                         ]
                     },
+                    "difficulty": {
+                        "description": "How hard the whole session was, from 1 to 10; a session done only (refused on a planned one).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "variant": {
+                        "description": "A coach session's kind: normal, calibration, soft or deload.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "normal",
+                            "calibration",
+                            "soft",
+                            "deload",
+                            null
+                        ]
+                    },
+                    "requestedExercises": {
+                        "readOnly": true,
+                        "description": "The `exercises` a request sent, as sent: the write path validates them\n({@see \\Maggie\\Health\\Service\\WorkoutRules::exercises()}). Null: not sent.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "exercises": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "exercise",
+                                "step",
+                                "sets",
+                                "target",
+                                "targetMin",
+                                "targetMax",
+                                "restSeconds"
+                            ],
+                            "properties": {
+                                "exercise": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "readOnly": true
+                                },
+                                "unit": {
+                                    "type": "string",
+                                    "enum": [
+                                        "reps",
+                                        "seconds",
+                                        "meters"
+                                    ],
+                                    "readOnly": true
+                                },
+                                "step": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "sets": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "target": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "targetMin": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "targetMax": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "loadKg": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0
+                                },
+                                "restSeconds": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                "tempo": {
+                                    "type": "boolean"
+                                },
+                                "targetRir": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "minimum": 0,
+                                    "maximum": 4
+                                },
+                                "cue": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "feeling": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "enum": [
+                                        "too_easy",
+                                        "right",
+                                        "too_hard",
+                                        null
+                                    ]
+                                },
+                                "done": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "reps": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "seconds": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "meters": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "loadKg": {
+                                                "type": "number",
+                                                "minimum": 0
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -32430,10 +32611,162 @@
                             "null"
                         ]
                     },
+                    "difficulty": {
+                        "description": "How hard the whole session was, from 1 to 10; a session done only (refused on a planned one).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "variant": {
+                        "description": "A coach session's kind: normal, calibration, soft or deload.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "normal",
+                            "calibration",
+                            "soft",
+                            "deload",
+                            null
+                        ]
+                    },
+                    "requestedExercises": {
+                        "readOnly": true,
+                        "description": "The `exercises` a request sent, as sent: the write path validates them\n({@see \\Maggie\\Health\\Service\\WorkoutRules::exercises()}). Null: not sent.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "exercises": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "exercise",
+                                "step",
+                                "sets",
+                                "target",
+                                "targetMin",
+                                "targetMax",
+                                "restSeconds"
+                            ],
+                            "properties": {
+                                "exercise": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "readOnly": true
+                                },
+                                "unit": {
+                                    "type": "string",
+                                    "enum": [
+                                        "reps",
+                                        "seconds",
+                                        "meters"
+                                    ],
+                                    "readOnly": true
+                                },
+                                "step": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "sets": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "target": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "targetMin": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "targetMax": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "loadKg": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0
+                                },
+                                "restSeconds": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                "tempo": {
+                                    "type": "boolean"
+                                },
+                                "targetRir": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "minimum": 0,
+                                    "maximum": 4
+                                },
+                                "cue": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "feeling": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "enum": [
+                                        "too_easy",
+                                        "right",
+                                        "too_hard",
+                                        null
+                                    ]
+                                },
+                                "done": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "reps": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "seconds": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "meters": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "loadKg": {
+                                                "type": "number",
+                                                "minimum": 0
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -32547,10 +32880,162 @@
                             "null"
                         ]
                     },
+                    "difficulty": {
+                        "description": "How hard the whole session was, from 1 to 10; a session done only (refused on a planned one).",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "variant": {
+                        "description": "A coach session's kind: normal, calibration, soft or deload.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "normal",
+                            "calibration",
+                            "soft",
+                            "deload",
+                            null
+                        ]
+                    },
+                    "requestedExercises": {
+                        "readOnly": true,
+                        "description": "The `exercises` a request sent, as sent: the write path validates them\n({@see \\Maggie\\Health\\Service\\WorkoutRules::exercises()}). Null: not sent.",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
                         "example": "https://example.com/"
+                    },
+                    "exercises": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "exercise",
+                                "step",
+                                "sets",
+                                "target",
+                                "targetMin",
+                                "targetMax",
+                                "restSeconds"
+                            ],
+                            "properties": {
+                                "exercise": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "readOnly": true
+                                },
+                                "unit": {
+                                    "type": "string",
+                                    "enum": [
+                                        "reps",
+                                        "seconds",
+                                        "meters"
+                                    ],
+                                    "readOnly": true
+                                },
+                                "step": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "sets": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "target": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "targetMin": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "targetMax": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "loadKg": {
+                                    "type": [
+                                        "number",
+                                        "null"
+                                    ],
+                                    "minimum": 0
+                                },
+                                "restSeconds": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                "tempo": {
+                                    "type": "boolean"
+                                },
+                                "targetRir": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "minimum": 0,
+                                    "maximum": 4
+                                },
+                                "cue": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "feeling": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "enum": [
+                                        "too_easy",
+                                        "right",
+                                        "too_hard",
+                                        null
+                                    ]
+                                },
+                                "done": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "reps": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "seconds": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "meters": {
+                                                "type": "integer",
+                                                "minimum": 0
+                                            },
+                                            "loadKg": {
+                                                "type": "number",
+                                                "minimum": 0
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -32663,10 +33148,162 @@
                                     "null"
                                 ]
                             },
+                            "difficulty": {
+                                "description": "How hard the whole session was, from 1 to 10; a session done only (refused on a planned one).",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "variant": {
+                                "description": "A coach session's kind: normal, calibration, soft or deload.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "normal",
+                                    "calibration",
+                                    "soft",
+                                    "deload",
+                                    null
+                                ]
+                            },
+                            "requestedExercises": {
+                                "readOnly": true,
+                                "description": "The `exercises` a request sent, as sent: the write path validates them\n({@see \\Maggie\\Health\\Service\\WorkoutRules::exercises()}). Null: not sent.",
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "items": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            },
                             "user": {
                                 "type": "string",
                                 "format": "iri-reference",
                                 "example": "https://example.com/"
+                            },
+                            "exercises": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": [
+                                        "exercise",
+                                        "step",
+                                        "sets",
+                                        "target",
+                                        "targetMin",
+                                        "targetMax",
+                                        "restSeconds"
+                                    ],
+                                    "properties": {
+                                        "exercise": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string",
+                                            "readOnly": true
+                                        },
+                                        "unit": {
+                                            "type": "string",
+                                            "enum": [
+                                                "reps",
+                                                "seconds",
+                                                "meters"
+                                            ],
+                                            "readOnly": true
+                                        },
+                                        "step": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "sets": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "target": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "targetMin": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "targetMax": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "loadKg": {
+                                            "type": [
+                                                "number",
+                                                "null"
+                                            ],
+                                            "minimum": 0
+                                        },
+                                        "restSeconds": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                        },
+                                        "tempo": {
+                                            "type": "boolean"
+                                        },
+                                        "targetRir": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "minimum": 0,
+                                            "maximum": 4
+                                        },
+                                        "cue": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "feeling": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "enum": [
+                                                "too_easy",
+                                                "right",
+                                                "too_hard",
+                                                null
+                                            ]
+                                        },
+                                        "done": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "reps": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "seconds": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "meters": {
+                                                        "type": "integer",
+                                                        "minimum": 0
+                                                    },
+                                                    "loadKg": {
+                                                        "type": "number",
+                                                        "minimum": 0
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         },
                         "required": [

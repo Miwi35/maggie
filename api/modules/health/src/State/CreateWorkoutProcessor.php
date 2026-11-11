@@ -42,6 +42,9 @@ class CreateWorkoutProcessor implements ProcessorInterface
             notes: $data->getNotes(),
             source: $data->getSource()->value,
             externalId: $data->getExternalId(),
+            exercises: $data->requestedExercises(),
+            difficulty: $data->getDifficulty(),
+            variant: $data->getVariant()?->value,
         ))->last(HandledStamp::class)->getResult();
     }
 }

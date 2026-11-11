@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import {
+  exerciseFeelingLabel,
   feelingLabel,
   formatDistance,
+  formatDose,
   formatDuration,
   formatLongDate,
   formatShortDate,
@@ -9,6 +11,26 @@ import {
   typeLabel,
   workoutUlid,
 } from './workoutFormat'
+import type { WorkoutExercise } from './workoutFormat'
+
+const exercise = (overrides: Partial<WorkoutExercise>): WorkoutExercise => ({
+  exercise: 'pull-up-negative',
+  name: 'Tractions négatives',
+  unit: 'reps',
+  step: 1,
+  sets: 3,
+  target: 5,
+  targetMin: 3,
+  targetMax: 6,
+  loadKg: null,
+  restSeconds: 120,
+  tempo: true,
+  targetRir: null,
+  cue: null,
+  feeling: null,
+  done: [],
+  ...overrides,
+})
 
 describe('workout labels', () => {
   test('the types, in the plan’s wording', () => {
@@ -64,5 +86,26 @@ describe('workout formats', () => {
   test('the ULID is the end of the IRI', () => {
     expect(workoutUlid('/api/workouts/01JABC')).toBe('01JABC')
     expect(workoutUlid('01JABC')).toBe('01JABC')
+  })
+
+  test('a prescribed dose: sets × target, the unit, the load if any', () => {
+    expect(formatDose(exercise({}))).toBe('3 × 5')
+    expect(formatDose(exercise({ exercise: 'goblet-squat', target: 10, loadKg: 10 }))).toBe('3 × 10 · 10 kg')
+    expect(formatDose(exercise({ exercise: 'plank', unit: 'seconds', target: 30 }))).toBe('3 × 30 s')
+    expect(formatDose(exercise({ unit: 'meters', sets: 2, target: 200 }))).toBe('2 × 200 m')
+    expect(formatDose(exercise({ loadKg: 12.5 }))).toBe('3 × 5 · 12,5 kg')
+  })
+
+  test('a done dose: equal sets with the load they share, unequal ones one by one', () => {
+    const nine = { reps: 9, loadKg: 10 }
+    expect(formatDose(exercise({ target: 10, loadKg: 10, done: [nine, nine, nine] }))).toBe('3 × 9 · 10 kg')
+    expect(formatDose(exercise({ loadKg: 10, done: [{ reps: 9 }, { reps: 9 }] }))).toBe('2 × 9 · 10 kg')
+    expect(formatDose(exercise({ done: [{ reps: 9 }, { reps: 9 }] }))).toBe('2 × 9')
+    expect(formatDose(exercise({ done: [{ reps: 8 }, { reps: 8 }, { reps: 7 }] }))).toBe('8 · 8 · 7')
+    expect(formatDose(exercise({ unit: 'seconds', loadKg: 5, done: [{ seconds: 30 }, { seconds: 25 }] }))).toBe('30 s · 25 s')
+  })
+
+  test('the exercise feelings', () => {
+    expect(['too_easy', 'right', 'too_hard'].map(exerciseFeelingLabel)).toEqual(['Trop facile', 'Juste bien', 'Trop dur'])
   })
 })

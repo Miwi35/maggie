@@ -585,7 +585,8 @@ Maggie\Finance\Entity\Placement:
     user: '@recorded_user'
 
 # The workouts (MAG-705): a run from the watch with every optional figure, and
-# a strength session typed by hand with none.
+# a strength session typed by hand with none but its exercises (MAG-775): a
+# loaded one done in equal sets, one in seconds felt too easy.
 Maggie\Health\Entity\Workout:
   recorded_workout_run:
     type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
@@ -607,6 +608,11 @@ Maggie\Health\Entity\Workout:
     durationMinutes: 45
     source: '<(Maggie\Health\Enum\WorkoutSource::Manual)>'
     user: '@recorded_user'
+    difficulty: 7
+    variant: '<(Maggie\Health\Enum\WorkoutVariant::Normal)>'
+    __calls:
+      - replaceExercises:
+          - ['<(Maggie\Health\Fixture\WorkoutExerciseProvider::of("goblet-squat", 5, 3, 10, 8, 12, 90, 10, "9,9,9", "right"))>', '<(Maggie\Health\Fixture\WorkoutExerciseProvider::of("plank", 2, 3, 30, 20, 45, 60, null, "30,30,25", "too_easy"))>']
 
 # The body measurements (MAG-706): a weighing typed by hand with its body
 # fat, an imported one set aside with a waist size and an externalId.

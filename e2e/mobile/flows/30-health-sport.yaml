@@ -9,6 +9,10 @@ tags:
 # Quand j'ouvre Santé › Sport et j'ajoute une séance (course à pied, 32 min, 5,4 km)
 # Alors elle apparaît dans « Séances » avec la pastille « Saisie »
 #
+# MAG-775 extends it: Étant donné « Séance A » et ses 6 exercices (écrite par
+# `scripts/workouts-api.js`), Quand je touche la séance, Alors la fiche montre « Exercices » et
+# « Tractions négatives ».
+#
 # A new user, so the list starts empty and the only session is the one this flow writes. The
 # title carries a random number all the same, so the row is this run's and no other.
 #
@@ -82,3 +86,23 @@ tags:
     timeout: 20000
 - assertVisible: ".*5,4 km.*"
 - assertVisible: "Saisie"
+
+# MAG-775: « Séance A », done yesterday with its six exercises, written over HTTP — the phone has
+# no form for exercises. Reopened, the list holds it; touched, its sheet shows « Exercices ».
+- runScript:
+    file: ../scripts/workouts-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      TODAY: ${TODAY}
+- openLink: "maggie-e2e://health/sport"
+- extendedWaitUntil:
+    visible: "Séance A"
+    timeout: 30000
+- tapOn: "Séance A"
+- scrollUntilVisible:
+    element:
+      id: "workout_exercises"
+- extendedWaitUntil:
+    visible: "Exercices"
+    timeout: 20000
+- assertVisible: "Tractions négatives"

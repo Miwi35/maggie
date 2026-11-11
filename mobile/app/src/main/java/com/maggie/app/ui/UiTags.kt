@@ -1956,6 +1956,8 @@ object UiTags {
     const val SPORT_EMPTY = "sport_empty"
     const val WORKOUT_ROW_PREFIX = "workout_row_"
     const val WORKOUT_DETAIL = "workout_detail"
+    const val WORKOUT_EXERCISES = "workout_exercises"
+    const val WORKOUT_EXERCISE = "workout_exercise"
     const val WORKOUT_EDIT = "workout_edit"
     const val WORKOUT_DELETE = "workout_delete"
     const val WORKOUT_DELETE_CONFIRM = "workout_delete_confirm"

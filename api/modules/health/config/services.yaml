@@ -13,3 +13,7 @@ services:
     Maggie\Health\Service\ExerciseCatalog:
         arguments:
             $referenceDir: '%kernel.project_dir%/modules/health/config/reference'
+
+    # Makes <workoutExercise(...)> usable in the fixture files (MAG-775).
+    Maggie\Health\Fixture\WorkoutExerciseProvider:
+        tags: ['nelmio_alice.faker.provider']

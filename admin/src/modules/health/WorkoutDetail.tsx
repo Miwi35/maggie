@@ -8,13 +8,14 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import {
   feelingLabel,
   formatDistance,
+  formatDose,
   formatDuration,
   formatLongDate,
   sourceLabel,
   typeLabel,
   workoutUlid,
 } from './workoutFormat'
-import type { Workout, WorkoutType } from './workoutFormat'
+import type { Workout, WorkoutExercise, WorkoutType } from './workoutFormat'
 
 const ICONS: Record<WorkoutType, string> = {
   strength: 'M6.5 7v10M17.5 7v10M3.5 10v4M20.5 10v4M6.5 12h11',
@@ -88,6 +89,27 @@ const Metric = ({ label, value }: { label: string; value: string }) => (
   </Box>
 )
 
+/** « Exercices »: the prescribed exercises in their order, each with its dose (MAG-775). */
+const ExerciseList = ({ exercises }: { exercises: WorkoutExercise[] }) => (
+  <Box component="section" aria-label="Exercices" data-testid="workout-exercises" sx={{ display: 'flex', flexDirection: 'column' }}>
+    <Typography component="span" sx={(theme) => ({ fontSize: 12, color: theme.palette.veilleuse.caption, pb: 0.5 })}>
+      Exercices
+    </Typography>
+    {exercises.map((exercise, index) => (
+      <Box
+        key={`${exercise.exercise}-${index}`}
+        data-testid="workout-exercise"
+        sx={(theme) => ({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, minHeight: 44, borderTop: `1px solid ${theme.palette.divider}`, fontSize: 15 })}
+      >
+        <span>{exercise.name}</span>
+        <Typography component="span" sx={{ fontSize: 15, color: 'text.secondary', fontVariantNumeric: 'tabular-nums', flex: 'none' }}>
+          {formatDose(exercise)}
+        </Typography>
+      </Box>
+    ))}
+  </Box>
+)
+
 /** « Séance »: the selected workout, its figures and how it felt. */
 export const WorkoutDetail = ({ workout, onEdit, onDeleted }: WorkoutDetailProps) => {
   const notify = useNotify()
@@ -135,6 +157,7 @@ export const WorkoutDetail = ({ workout, onEdit, onDeleted }: WorkoutDetailProps
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
         {metrics.flatMap(([label, value]) => (value === null ? [] : [<Metric key={label} label={label} value={value} />]))}
       </Box>
+      {workout.exercises && workout.exercises.length > 0 && <ExerciseList exercises={workout.exercises} />}
       {workout.source !== 'planned' && (
         <Box sx={(theme) => ({ display: 'flex', justifyContent: 'space-between', minHeight: 44, alignItems: 'center', borderTop: `1px solid ${theme.palette.divider}`, fontSize: 15 })}>
           <Typography component="span" sx={{ color: 'text.secondary' }}>
