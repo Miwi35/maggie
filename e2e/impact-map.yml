@@ -924,6 +924,12 @@ mobile:
     areas: [settings, calendar]
     paths:
       - e2e/mobile/scripts/task-settings-api.js
+  e2e/mobile/flows/17g-maggie-settings.yaml:
+    areas: [settings]
+    paths:
+      - e2e/mobile/scripts/rendezvous-api.js
+      - api/modules/core/src/Entity/UserPreference.php
+      - api/modules/core/src/Controller/UpdateUserPreferenceController.php
   e2e/mobile/flows/28-agenda-location-settings.yaml:
     areas: [settings, calendar]
     paths:

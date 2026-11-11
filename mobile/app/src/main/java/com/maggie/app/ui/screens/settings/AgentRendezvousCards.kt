@@ -20,16 +20,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.ui.UiTags
-
-/** The cards of Réglages › Maggie, as `Reglages-Alertes` draws those of Tâches. */
-private val CardBackground = Color(0xFF1A1824)
-private val SavedColor = Color(0xFF7FD1AE)
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
 
 /**
  * Réglages › Maggie (MAG-787): « Digest du matin » and « Bilan du soir », each a card with its switch and its
@@ -71,7 +68,7 @@ internal fun AgentRendezvousCards(
             saved -> Text(
                 "Enregistré",
                 style = MaterialTheme.typography.bodySmall,
-                color = SavedColor,
+                color = if (isMaggieDark()) MaggieTokens.Rhythm.onTrack.second else MaggieTokens.Rhythm.onTrack.first,
                 modifier = Modifier.testTag(UiTags.SETTINGS_RENDEZVOUS_SAVED),
             )
         }
@@ -94,7 +91,7 @@ private fun RendezvousCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
