@@ -6,7 +6,10 @@ namespace Maggie\Health\Message;
 
 final readonly class CreateWorkoutCommand
 {
-    /** @param string $startedAt ISO 8601 with time and offset */
+    /**
+     * @param string           $startedAt ISO 8601 with time and offset
+     * @param list<mixed>|null $exercises the list as sent, checked by the handler (MAG-775)
+     */
     public function __construct(
         public string $userId,
         public string $type,
@@ -20,6 +23,9 @@ final readonly class CreateWorkoutCommand
         public ?string $notes = null,
         public string $source = 'manual',
         public ?string $externalId = null,
+        public ?array $exercises = null,
+        public ?int $difficulty = null,
+        public ?string $variant = null,
     ) {
     }
 }

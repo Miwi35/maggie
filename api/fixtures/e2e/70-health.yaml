@@ -6,6 +6,12 @@
 #   Haut du corps  45 min           manual  3 days ago
 #   Marche rapide  70 min   6,9 km  watch   5 days ago
 #
+# And a coach session planned for tomorrow (MAG-775), « Séance A », with its
+# six exercises, for the « Exercices » block of its sheet:
+#
+#   Tractions négatives 3 × 5 · Squat gobelet au sac 3 × 10 · 10 kg · Pompes 3 × 8
+#   Rowing penché au sac lesté 3 × 10 · 12,5 kg · Pont fessier 3 × 12 · Planche 3 × 30 s
+#
 # The Santé › Suivi journey (MAG-706): ten weighings on the owner's account
 # over the last 30 days, 73,6 kg down to 72,2 kg, four with a body fat, one
 # excluded (66,2 kg, someone else on the scale). None today: the 71,8 kg the
@@ -47,6 +53,22 @@ Maggie\Health\Entity\Workout:
     kcal: 310
     feeling: '<(Maggie\Health\Enum\WorkoutFeeling::VeryGood)>'
     source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+  e2e_workout_session_a:
+    user: '@e2e_user'
+    type: '<(Maggie\Health\Enum\WorkoutType::Strength)>'
+    title: Séance A
+    startedAt: '<e2eDate("+1 day 18:00")>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    variant: '<(Maggie\Health\Enum\WorkoutVariant::Normal)>'
+    __calls:
+      - replaceExercises:
+          - - '<workoutExercise("pull-up-negative", 5, 3, 5, 3, 5, 120)>'
+            - '<workoutExercise("goblet-squat", 5, 3, 10, 8, 12, 90, 10)>'
+            - '<workoutExercise("push-up", 4, 3, 8, 6, 10, 90)>'
+            - '<workoutExercise("bent-over-bag-row", 4, 3, 10, 8, 12, 90, 12.5)>'
+            - '<workoutExercise("glute-bridge", 1, 3, 12, 10, 15, 60)>'
+            - '<workoutExercise("plank", 2, 3, 30, 20, 45, 60)>'
 
 Maggie\Health\Entity\BodyMeasurement:
   e2e_weighing_28:

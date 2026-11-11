@@ -33,6 +33,9 @@ class CreateWorkoutHandler
         $feeling = $this->rules->feeling($command->feeling);
         $source = $this->rules->source($command->source);
         $startedAt = $this->rules->startedAt($command->startedAt);
+        $difficulty = $this->rules->difficulty($command->difficulty, $source);
+        $variant = $this->rules->variant($command->variant);
+        $exercises = $this->rules->exercises($command->exercises ?? [], $source);
         $this->rules->assert($command->title, $command->durationMinutes, $command->distanceMeters, $command->kcal, $command->avgHeartRate, $command->notes, $command->externalId);
 
         if (null !== $command->externalId && null !== $this->workoutRepository->findOneByExternalId($user, $command->externalId)) {
@@ -51,7 +54,10 @@ class CreateWorkoutHandler
             ->setFeeling($feeling)
             ->setNotes($command->notes)
             ->setSource($source)
-            ->setExternalId($command->externalId);
+            ->setExternalId($command->externalId)
+            ->setDifficulty($difficulty)
+            ->setVariant($variant)
+            ->replaceExercises($exercises);
 
         return $this->saveWorkout->execute($workout);
     }

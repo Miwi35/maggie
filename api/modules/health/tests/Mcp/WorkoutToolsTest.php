@@ -232,4 +232,63 @@ class WorkoutToolsTest extends KernelTestCase
         self::assertSame('Séance secrète', $this->reload('secret')?->getTitle());
         $this->assertMercureUpdateCount(0);
     }
+
+    /** @return array<string, mixed> */
+    private static function squat(array $more = []): array
+    {
+        return $more + ['exercise' => 'goblet-squat', 'step' => 5, 'sets' => 3, 'target' => 10, 'targetMin' => 8, 'targetMax' => 12, 'loadKg' => 10, 'restSeconds' => 90];
+    }
+
+    public function testCreateTakesTheExercisesTheDifficultyAndTheVariant(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->call('create', type: 'strength', title: 'Séance A', startedAt: '2026-10-27T18:00:00+01:00', durationMinutes: 45, difficulty: 7, variant: 'calibration', exercises: [
+            self::squat(['done' => [['reps' => 8, 'loadKg' => 10], ['reps' => 8, 'loadKg' => 10], ['reps' => 7, 'loadKg' => 10]], 'feeling' => 'right']),
+        ]);
+
+        self::assertTrue($data['success'], json_encode($data, JSON_THROW_ON_ERROR));
+        self::assertSame(7, $data['workout']['difficulty']);
+        self::assertSame('calibration', $data['workout']['variant']);
+        $squat = $data['workout']['exercises'][0];
+        self::assertSame('Squat gobelet au sac', $squat['name']);
+        self::assertSame('reps', $squat['unit']);
+        self::assertSame([8, 8, 7], array_column($squat['done'], 'reps'));
+
+        $workout = $this->em()->getRepository(Workout::class)->findOneBy(['title' => 'Séance A']);
+        self::assertInstanceOf(Workout::class, $workout);
+        self::assertSame('right', $workout->getExercises()[0]['feeling']);
+        $this->assertMercureUpdatePublished('/api/workouts/'.$workout->getId());
+    }
+
+    public function testListFiltersOnAnExercise(): void
+    {
+        $this->loginFixtureUser();
+        $this->call('update', workoutId: $this->id('strength'), exercises: [self::squat()]);
+
+        $data = $this->call('list', exercise: 'goblet-squat');
+
+        self::assertSame(['Haut du corps'], array_column($data['workouts'], 'title'));
+    }
+
+    public function testARefusedExerciseAnswersTheFieldAndTheSessionAsItIs(): void
+    {
+        $this->loginFixtureUser();
+
+        $unknown = $this->call('update', workoutId: $this->id('strength'), exercises: [self::squat(['exercise' => 'moonwalk'])]);
+        self::assertSame('exercises[0].exercise', $unknown['field']);
+        self::assertSame('Haut du corps', $unknown['current']['title']);
+        self::assertSame([], $unknown['current']['exercises']);
+
+        $planned = $this->call('update', workoutId: $this->id('planned'), difficulty: 7);
+        self::assertSame('difficulty', $planned['field']);
+        self::assertSame('planned', $planned['current']['source']);
+
+        $load = $this->call('create', type: 'strength', title: 'Pompes', startedAt: '2026-10-27T18:00:00+01:00', durationMinutes: 20, exercises: [
+            ['exercise' => 'push-up', 'step' => 4, 'sets' => 3, 'target' => 8, 'targetMin' => 6, 'targetMax' => 10, 'restSeconds' => 90, 'loadKg' => 5],
+        ]);
+        self::assertSame('exercises[0].loadKg', $load['field']);
+        self::assertSame(4, $this->rows());
+        $this->assertMercureUpdateCount(0);
+    }
 }

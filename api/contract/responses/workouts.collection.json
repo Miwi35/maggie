@@ -19,7 +19,8 @@
             "notes": "Sous la pluie",
             "source": "watch",
             "externalId": "watch-4711",
-            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "exercises": []
         },
         {
             "@id": "/api/workouts/01ARZ3NDEKTSV4RRFFQ69G5FAV",
@@ -30,12 +31,73 @@
             "startedAt": "2026-10-18T16:30:00+00:00",
             "durationMinutes": 45,
             "source": "manual",
-            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+            "difficulty": 7,
+            "variant": "normal",
+            "user": "/api/users/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "exercises": [
+                {
+                    "exercise": "goblet-squat",
+                    "name": "Squat gobelet au sac",
+                    "unit": "reps",
+                    "step": 5,
+                    "sets": 3,
+                    "target": 10,
+                    "targetMin": 8,
+                    "targetMax": 12,
+                    "loadKg": 10,
+                    "restSeconds": 90,
+                    "tempo": false,
+                    "targetRir": null,
+                    "cue": null,
+                    "feeling": "right",
+                    "done": [
+                        {
+                            "reps": 9,
+                            "loadKg": 10
+                        },
+                        {
+                            "reps": 9,
+                            "loadKg": 10
+                        },
+                        {
+                            "reps": 9,
+                            "loadKg": 10
+                        }
+                    ]
+                },
+                {
+                    "exercise": "plank",
+                    "name": "Planche",
+                    "unit": "seconds",
+                    "step": 2,
+                    "sets": 3,
+                    "target": 30,
+                    "targetMin": 20,
+                    "targetMax": 45,
+                    "loadKg": null,
+                    "restSeconds": 60,
+                    "tempo": false,
+                    "targetRir": null,
+                    "cue": null,
+                    "feeling": "too_easy",
+                    "done": [
+                        {
+                            "seconds": 30
+                        },
+                        {
+                            "seconds": 30
+                        },
+                        {
+                            "seconds": 25
+                        }
+                    ]
+                }
+            ]
         }
     ],
     "search": {
         "@type": "IriTemplate",
-        "template": "/api/workouts{?type,type[],source,source[],startedAt[before],startedAt[strictly_before],startedAt[after],startedAt[strictly_after]}",
+        "template": "/api/workouts{?type,type[],source,source[],startedAt[before],startedAt[strictly_before],startedAt[after],startedAt[strictly_after],exercise,order[startedAt]}",
         "variableRepresentation": "BasicRepresentation",
         "mapping": [
             {
@@ -83,6 +145,18 @@
             {
                 "@type": "IriTemplateMapping",
                 "variable": "startedAt[strictly_after]",
+                "property": "startedAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exercise",
+                "property": "exercise",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "order[startedAt]",
                 "property": "startedAt",
                 "required": false
             }

@@ -9,6 +9,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Health\Entity\Workout;
+use Maggie\Health\Entity\WorkoutExercise;
 use Maggie\Health\Enum\WorkoutSource;
 use Maggie\Health\Enum\WorkoutType;
 use Symfony\Component\Uid\Ulid;
@@ -29,6 +30,7 @@ class WorkoutRepository extends ServiceEntityRepository
         ?\DateTimeImmutable $after = null,
         ?\DateTimeImmutable $before = null,
         int $limit = 50,
+        ?string $exercise = null,
     ): array {
         $qb = $this->createQueryBuilder('w')
             ->andWhere('w.user = :user')->setParameter('user', $user->getId(), 'ulid')
@@ -40,6 +42,9 @@ class WorkoutRepository extends ServiceEntityRepository
         }
         if (null !== $source) {
             $qb->andWhere('w.source = :source')->setParameter('source', $source);
+        }
+        if (null !== $exercise) {
+            $qb->andWhere('EXISTS (SELECT 1 FROM '.WorkoutExercise::class.' we WHERE we.workout = w AND we.exercise = :exercise)')->setParameter('exercise', $exercise);
         }
         if (null !== $after) {
             $qb->andWhere('w.startedAt >= :after')->setParameter('after', $after);

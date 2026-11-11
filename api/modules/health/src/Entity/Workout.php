@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Health\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
@@ -14,15 +15,20 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Maggie\Health\Dto\WorkoutExerciseInput;
 use Maggie\Health\Enum\WorkoutFeeling;
 use Maggie\Health\Enum\WorkoutSource;
 use Maggie\Health\Enum\WorkoutType;
+use Maggie\Health\Enum\WorkoutVariant;
+use Maggie\Health\Filter\WorkoutExerciseFilter;
 use Maggie\Health\Repository\WorkoutRepository;
 use Maggie\Health\State\CreateWorkoutProcessor;
 use Maggie\Health\State\DeleteWorkoutProcessor;
@@ -48,6 +54,8 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[UniqueEntity(fields: ['user', 'externalId'], message: 'This externalId is already used by another workout.', ignoreNull: 'externalId')]
 #[ApiFilter(SearchFilter::class, properties: ['type' => 'exact', 'source' => 'exact'])]
 #[ApiFilter(DateFilter::class, properties: ['startedAt'])]
+#[ApiFilter(WorkoutExerciseFilter::class, properties: ['exercise'])]
+#[ApiFilter(OrderFilter::class, properties: ['startedAt'])]
 #[ApiResource(operations: [
     new GetCollection(uriTemplate: '/workouts', order: ['startedAt' => 'DESC'], paginationMaximumItemsPerPage: 500),
     new Get(uriTemplate: '/workouts/{id}'),
@@ -75,6 +83,13 @@ class Workout implements MercurePublishable, OwnedByUserInterface
     public const MIN_HEART_RATE = 20;
 
     public const MAX_HEART_RATE = 250;
+
+    public const MIN_DIFFICULTY = 1;
+
+    public const MAX_DIFFICULTY = 10;
+
+    /** Doctrine property → payload key, for {@see self::filterPayload()}. */
+    private const PAYLOAD_KEYS = ['exerciseItems' => 'exercises'];
 
     // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]
@@ -136,6 +151,27 @@ class Workout implements MercurePublishable, OwnedByUserInterface
     #[ApiProperty(description: 'The identifier of the workout in the system it comes from; unique per user, it de-duplicates an import.')]
     private ?string $externalId = null;
 
+    #[ORM\Column(type: 'smallint', nullable: true)]
+    #[ApiProperty(description: 'How hard the whole session was, from 1 to 10; a session done only (refused on a planned one).')]
+    private ?int $difficulty = null;
+
+    #[ORM\Column(length: 16, nullable: true, enumType: WorkoutVariant::class)]
+    #[ApiProperty(description: 'A coach session\'s kind: normal, calibration, soft or deload.')]
+    private ?WorkoutVariant $variant = null;
+
+    /** @var Collection<int, WorkoutExercise> */
+    #[ORM\OneToMany(targetEntity: WorkoutExercise::class, mappedBy: 'workout', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    private Collection $exerciseItems;
+
+    /**
+     * The `exercises` a request sent, as sent: the write path validates them
+     * ({@see \Maggie\Health\Service\WorkoutRules::exercises()}). Null: not sent.
+     *
+     * @var list<mixed>|null
+     */
+    private ?array $requestedExercises = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private User $user;
@@ -143,6 +179,7 @@ class Workout implements MercurePublishable, OwnedByUserInterface
     public function __construct()
     {
         $this->id = new Ulid();
+        $this->exerciseItems = new ArrayCollection();
     }
 
     #[Assert\Callback]
@@ -290,6 +327,118 @@ class Workout implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getDifficulty(): ?int
+    {
+        return $this->difficulty;
+    }
+
+    public function setDifficulty(?int $difficulty): static
+    {
+        $this->difficulty = $difficulty;
+
+        return $this;
+    }
+
+    public function getVariant(): ?WorkoutVariant
+    {
+        return $this->variant;
+    }
+
+    public function setVariant(?WorkoutVariant $variant): static
+    {
+        $this->variant = $variant;
+
+        return $this;
+    }
+
+    /**
+     * The session's exercises, in order (MAG-775): what is prescribed, the sets
+     * done and how each felt; `name` and `unit` are the catalogue's.
+     *
+     * @return list<array<string, mixed>>
+     */
+    #[ApiProperty(
+        description: 'The exercises, in order, always written whole (the list sent replaces the previous one). Each: exercise (catalogue slug), step, sets, target, targetMin, targetMax, loadKg (only if the exercise is loadable), restSeconds, tempo, targetRir (0 to 4), cue, feeling (too_easy, right, too_hard; done session only), done (the sets done: {reps|seconds|meters, loadKg?}, in the exercise\'s unit; done session only). name and unit are read only, from the catalogue.',
+        schema: [
+            'type' => 'array',
+            'items' => [
+                'type' => 'object',
+                'required' => ['exercise', 'step', 'sets', 'target', 'targetMin', 'targetMax', 'restSeconds'],
+                'properties' => [
+                    'exercise' => ['type' => 'string'],
+                    'name' => ['type' => 'string', 'readOnly' => true],
+                    'unit' => ['type' => 'string', 'enum' => ['reps', 'seconds', 'meters'], 'readOnly' => true],
+                    'step' => ['type' => 'integer', 'minimum' => 1],
+                    'sets' => ['type' => 'integer', 'minimum' => 1],
+                    'target' => ['type' => 'integer', 'minimum' => 1],
+                    'targetMin' => ['type' => 'integer', 'minimum' => 1],
+                    'targetMax' => ['type' => 'integer', 'minimum' => 1],
+                    'loadKg' => ['type' => ['number', 'null'], 'minimum' => 0],
+                    'restSeconds' => ['type' => 'integer', 'minimum' => 0],
+                    'tempo' => ['type' => 'boolean'],
+                    'targetRir' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 4],
+                    'cue' => ['type' => ['string', 'null']],
+                    'feeling' => ['type' => ['string', 'null'], 'enum' => ['too_easy', 'right', 'too_hard', null]],
+                    'done' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'reps' => ['type' => 'integer', 'minimum' => 0],
+                                'seconds' => ['type' => 'integer', 'minimum' => 0],
+                                'meters' => ['type' => 'integer', 'minimum' => 0],
+                                'loadKg' => ['type' => 'number', 'minimum' => 0],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    )]
+    public function getExercises(): array
+    {
+        return array_map(static fn (WorkoutExercise $item): array => $item->toArray(), $this->exerciseList());
+    }
+
+    /** @param list<mixed> $exercises */
+    public function setExercises(array $exercises): static
+    {
+        $this->requestedExercises = $exercises;
+
+        return $this;
+    }
+
+    /** @return list<mixed>|null what the request sent as `exercises`, null when it sent none */
+    public function requestedExercises(): ?array
+    {
+        return $this->requestedExercises;
+    }
+
+    /** @return list<WorkoutExercise> */
+    public function exerciseList(): array
+    {
+        $items = $this->exerciseItems->getValues();
+        usort($items, static fn (WorkoutExercise $a, WorkoutExercise $b): int => $a->getPosition() <=> $b->getPosition());
+
+        return $items;
+    }
+
+    /**
+     * Replaces the whole list: the rows are recreated, nothing is merged.
+     *
+     * @param list<WorkoutExerciseInput> $exercises
+     */
+    public function replaceExercises(array $exercises): static
+    {
+        $this->exerciseItems->clear();
+        foreach ($exercises as $index => $input) {
+            $this->exerciseItems->add(new WorkoutExercise($this, $index + 1, $input));
+        }
+        $this->requestedExercises = null;
+
+        return $this;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -318,6 +467,9 @@ class Workout implements MercurePublishable, OwnedByUserInterface
             'notes' => $this->notes,
             'source' => $this->source->value,
             'externalId' => $this->externalId,
-        ], $changedProperties);
+            'difficulty' => $this->difficulty,
+            'variant' => $this->variant?->value,
+            'exercises' => $this->getExercises(),
+        ], $changedProperties, self::PAYLOAD_KEYS);
     }
 }

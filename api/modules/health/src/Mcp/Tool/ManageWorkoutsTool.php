@@ -24,7 +24,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * update is refused with `current`, the workout as it is, so the next call can
  * be whole.
  */
-#[McpTool(name: 'manage_workouts', description: 'List, create, update or delete the user\'s workouts (running, walking, cycling, swimming, strength, climbing, other). action: list, create, update or delete. A workout has type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 WITH time and offset, e.g. 2026-10-20T07:10:00+02:00 — never a date alone, ask the user for the hour), durationMinutes (whole minutes, 1 to 1440), distanceMeters (whole METRES, optional: 5.4 km is 5400), kcal (optional, 0 to 20000), avgHeartRate (optional, bpm, 20 to 250), feeling (optional: very_good, good, hard, very_hard), notes (optional), source (manual, watch, activity, estimated, planned; defaults to manual on create — planned is a session still to do) and externalId (optional, unique per user, de-duplicates an import). list returns the most recent first and filters on type, source, after and before (ISO 8601 with offset, on startedAt), limit default 20, max 100. update and delete need workoutId; on update only the fields provided change (nothing is cleared, an optional field is edited in the admin). create needs type, title, startedAt and durationMinutes — nothing is deduced: ask the user for what is missing. Returns {workouts: [...]} for list and {success, workout} otherwise, each workout with typeLabel, feelingLabel and sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the workout as it is now.')]
+#[McpTool(name: 'manage_workouts', description: 'List, create, update or delete the user\'s workouts (running, walking, cycling, swimming, strength, climbing, other). action: list, create, update or delete. A workout has type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 WITH time and offset, e.g. 2026-10-20T07:10:00+02:00 — never a date alone, ask the user for the hour), durationMinutes (whole minutes, 1 to 1440), distanceMeters (whole METRES, optional: 5.4 km is 5400), kcal (optional, 0 to 20000), avgHeartRate (optional, bpm, 20 to 250), feeling (optional: very_good, good, hard, very_hard), notes (optional), source (manual, watch, activity, estimated, planned; defaults to manual on create — planned is a session still to do) externalId (optional, unique per user, de-duplicates an import), difficulty (optional, how hard the whole session was, 1 to 10 — a session done only, refused on a planned one), variant (optional, a coach session: normal, calibration, soft, deload) and exercises (optional, the ordered list of the session\'s exercises, always sent WHOLE: the list given replaces the previous one, nothing is merged). Each exercise: exercise (a slug of get_exercises), step (its position on the ladder), sets, target (reps, seconds or metres per set, in the exercise\'s unit), targetMin, targetMax, restSeconds, tempo (optional, true = 3 s down and 1 s pause), loadKg (optional, only for a loadable exercise), targetRir (optional, 0 to 4), cue (optional, else the catalogue\'s), feeling (optional: too_easy, right, too_hard) and done (optional, the sets done, each {reps} or {seconds} or {meters} in the exercise\'s unit, plus loadKg if loadable) — feeling and done on a session done only. Read back, each exercise also has name and unit from the catalogue. list returns the most recent first and filters on type, source, exercise (a slug: the sessions holding it), after and before (ISO 8601 with offset, on startedAt), limit default 20, max 100. update and delete need workoutId; on update only the fields provided change (nothing is cleared, an optional field is edited in the admin). create needs type, title, startedAt and durationMinutes — nothing is deduced: ask the user for what is missing. Returns {workouts: [...]} for list and {success, workout} otherwise, each workout with typeLabel, feelingLabel and sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the workout as it is now.')]
 final class ManageWorkoutsTool
 {
     public function __construct(
@@ -35,6 +35,7 @@ final class ManageWorkoutsTool
     ) {
     }
 
+    /** @param list<mixed>|null $exercises the list as the agent sent it, checked by the handler */
     public function __invoke(
         #[Schema(enum: ['list', 'create', 'update', 'delete'])]
         string $action,
@@ -53,15 +54,40 @@ final class ManageWorkoutsTool
         #[Schema(enum: ['manual', 'watch', 'activity', 'estimated', 'planned'])]
         ?string $source = null,
         ?string $externalId = null,
+        ?int $difficulty = null,
+        #[Schema(enum: ['normal', 'calibration', 'soft', 'deload'])]
+        ?string $variant = null,
+        #[Schema(items: ['type' => 'object', 'properties' => [
+            'exercise' => ['type' => 'string'],
+            'step' => ['type' => 'integer'],
+            'sets' => ['type' => 'integer'],
+            'target' => ['type' => 'integer'],
+            'targetMin' => ['type' => 'integer'],
+            'targetMax' => ['type' => 'integer'],
+            'loadKg' => ['type' => 'number'],
+            'restSeconds' => ['type' => 'integer'],
+            'tempo' => ['type' => 'boolean'],
+            'targetRir' => ['type' => 'integer'],
+            'cue' => ['type' => 'string'],
+            'feeling' => ['type' => 'string', 'enum' => ['too_easy', 'right', 'too_hard']],
+            'done' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                'reps' => ['type' => 'integer'],
+                'seconds' => ['type' => 'integer'],
+                'meters' => ['type' => 'integer'],
+                'loadKg' => ['type' => 'number'],
+            ]]],
+        ], 'required' => ['exercise', 'step', 'sets', 'target', 'targetMin', 'targetMax', 'restSeconds']])]
+        ?array $exercises = null,
+        ?string $exercise = null,
         ?string $after = null,
         ?string $before = null,
         ?int $limit = null,
     ): string {
         try {
             return match ($action) {
-                'list' => $this->list($type, $source, $after, $before, $limit),
-                'create' => $this->create($type, $title, $startedAt, $durationMinutes, $distanceMeters, $kcal, $avgHeartRate, $feeling, $notes, $source, $externalId),
-                'update' => $this->update($workoutId, $type, $title, $startedAt, $durationMinutes, $distanceMeters, $kcal, $avgHeartRate, $feeling, $notes, $source, $externalId),
+                'list' => $this->list($type, $source, $exercise, $after, $before, $limit),
+                'create' => $this->create($type, $title, $startedAt, $durationMinutes, $distanceMeters, $kcal, $avgHeartRate, $feeling, $notes, $source, $externalId, $difficulty, $variant, $exercises),
+                'update' => $this->update($workoutId, $type, $title, $startedAt, $durationMinutes, $distanceMeters, $kcal, $avgHeartRate, $feeling, $notes, $source, $externalId, $difficulty, $variant, $exercises),
                 'delete' => $this->delete($workoutId),
                 default => self::json(['error' => "Unknown action: {$action}. Use list, create, update or delete."]),
             };
@@ -72,7 +98,7 @@ final class ManageWorkoutsTool
         }
     }
 
-    private function list(?string $type, ?string $source, ?string $after, ?string $before, ?int $limit): string
+    private function list(?string $type, ?string $source, ?string $exercise, ?string $after, ?string $before, ?int $limit): string
     {
         $user = $this->userContext->requireUser();
 
@@ -83,12 +109,14 @@ final class ManageWorkoutsTool
             null === $after ? null : $this->filterDate('after', $after),
             null === $before ? null : $this->filterDate('before', $before),
             max(1, min($limit ?? 20, 100)),
+            $exercise,
         );
 
         return self::json(['workouts' => WorkoutJson::list($workouts)]);
     }
 
-    private function create(?string $type, ?string $title, ?string $startedAt, ?int $durationMinutes, ?int $distanceMeters, ?int $kcal, ?int $avgHeartRate, ?string $feeling, ?string $notes, ?string $source, ?string $externalId): string
+    /** @param list<mixed>|null $exercises */
+    private function create(?string $type, ?string $title, ?string $startedAt, ?int $durationMinutes, ?int $distanceMeters, ?int $kcal, ?int $avgHeartRate, ?string $feeling, ?string $notes, ?string $source, ?string $externalId, ?int $difficulty, ?string $variant, ?array $exercises): string
     {
         $user = $this->userContext->requireUser();
 
@@ -113,6 +141,9 @@ final class ManageWorkoutsTool
                 notes: $notes,
                 source: $source ?? 'manual',
                 externalId: $externalId,
+                exercises: $exercises,
+                difficulty: $difficulty,
+                variant: $variant,
             ))->last(HandledStamp::class)?->getResult();
         } catch (HandlerFailedException $e) {
             return self::refusal($e);
@@ -121,7 +152,8 @@ final class ManageWorkoutsTool
         return self::json(['success' => true, 'workout' => WorkoutJson::of($workout)]);
     }
 
-    private function update(?string $workoutId, ?string $type, ?string $title, ?string $startedAt, ?int $durationMinutes, ?int $distanceMeters, ?int $kcal, ?int $avgHeartRate, ?string $feeling, ?string $notes, ?string $source, ?string $externalId): string
+    /** @param list<mixed>|null $exercises */
+    private function update(?string $workoutId, ?string $type, ?string $title, ?string $startedAt, ?int $durationMinutes, ?int $distanceMeters, ?int $kcal, ?int $avgHeartRate, ?string $feeling, ?string $notes, ?string $source, ?string $externalId, ?int $difficulty, ?string $variant, ?array $exercises): string
     {
         if (null === $workoutId) {
             return self::json(['error' => 'workoutId is required for update.', 'field' => 'workoutId']);
@@ -135,7 +167,7 @@ final class ManageWorkoutsTool
         // Read before the handler touches the entity: the state it is refused against.
         $current = WorkoutJson::of($before);
 
-        $given = [$type, $title, $startedAt, $durationMinutes, $distanceMeters, $kcal, $avgHeartRate, $feeling, $notes, $source, $externalId];
+        $given = [$type, $title, $startedAt, $durationMinutes, $distanceMeters, $kcal, $avgHeartRate, $feeling, $notes, $source, $externalId, $difficulty, $variant, $exercises];
         if ([] === array_filter($given, static fn (mixed $value): bool => null !== $value)) {
             return self::json(['error' => 'Nothing to change: give at least one field to update.', 'current' => $current]);
         }
@@ -155,6 +187,9 @@ final class ManageWorkoutsTool
                 notes: $notes,
                 source: $source,
                 externalId: $externalId,
+                exercises: $exercises,
+                difficulty: $difficulty,
+                variant: $variant,
             ))->last(HandledStamp::class)?->getResult();
         } catch (HandlerFailedException $e) {
             return self::refusal($e, $current);
