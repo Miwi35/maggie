@@ -35,6 +35,14 @@ def no_agenda_for_the_recall(monkeypatch):
     monkeypatch.setattr(scheduler, "planning_agenda", AsyncMock(return_value=""))
 
 
+@pytest.fixture(autouse=True)
+def rendezvous(monkeypatch):
+    """The daily rendezvous (MAG-787) have their own tests (`test_rendezvous.py`): here, only that the cycle calls them."""
+    sync = AsyncMock(return_value={"scheduled": 0, "cancelled": 0})
+    monkeypatch.setattr(scheduler, "sync_rendezvous", sync)
+    return sync
+
+
 def utc(*args: int) -> datetime:
     return datetime(*args, tzinfo=UTC)
 
@@ -277,6 +285,19 @@ class TestPlanningCycle:
 
         assert sleeps == [scheduler.PLANNING_REFRESH]
         gateway.proaction.assert_not_awaited()
+
+    async def test_every_cycle_lays_down_the_rendezvous_even_without_any_directive(
+        self, agent_db, monkeypatch, clock, rendezvous
+    ):
+        """No planning instruction, nobody planned by the model: the digest and the review still come (MAG-787)."""
+        instants, _ = clock
+        gateway = AsyncMock()
+        instants += [utc(2026, 10, 1, 10, 0), utc(2026, 10, 1, 10, 15)]
+
+        checked_until = await scheduler.run_planning_cycle(gateway, utc(2026, 10, 1, 10, 0))
+
+        gateway.proaction.assert_not_awaited()
+        rendezvous.assert_awaited_once_with(checked_until)
 
     async def test_a_moment_reached_while_the_model_was_busy_is_still_planned(self, agent_db, monkeypatch, clock):
         instants, sleeps = clock

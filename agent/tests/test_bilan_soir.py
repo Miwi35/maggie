@@ -1,5 +1,4 @@
-"""The evening review on the agent's side (MAG-749): the proactions the planning lays down, the single nudge,
-the technical accounts left out, and the on-demand run scripted by the fake model against the simulated API."""
+"""The evening review on the agent's side (MAG-749): out of the planning prompt (MAG-787), the single nudge, and the on-demand run scripted by the fake model against the simulated API."""
 
 import json
 from datetime import UTC, date, datetime
@@ -10,13 +9,12 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app import bilan
-from app.auth import RECETTE_ACCOUNT_EMAIL, SMOKE_ACCOUNT_EMAIL
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import PROACTION_MAX_ITERATIONS
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
 from app.proactions.api import Proaction
-from app.queue import proaction_consumer, scheduler
+from app.queue import proaction_consumer
 from app.queue.scheduler import daily_planning_prompt
 from tests.fake_proaction_api import FakeProactionApi
 
@@ -50,31 +48,13 @@ def relance(summary: str = bilan.BILAN_RELANCE_SUMMARY) -> Proaction:
 
 
 class TestThePlanningPrompt:
-    def test_it_lays_down_the_evening_proaction_and_its_single_nudge(self):
+    def test_the_evening_is_no_longer_the_model_s(self):
+        """The code lays the review down from the settings (MAG-787): the planning prompt says nothing of it."""
         prompt = daily_planning_prompt(DAY)
 
-        assert "Bilan du soir du 2030-11-14" in prompt
-        assert "21:30" in prompt
-        assert f"résumé exactement « {bilan.BILAN_SUMMARY} »" in prompt
-        assert f"résumé exactement « {bilan.BILAN_RELANCE_SUMMARY} »" in prompt
-        assert "30 minutes plus tard" in prompt
-        assert "heure de coucher" in prompt
-
-    def test_a_technical_account_is_planned_without_the_evening(self):
-        assert "Bilan du soir" not in daily_planning_prompt(DAY, evening=False)
-
-    @pytest.mark.parametrize("email", [SMOKE_ACCOUNT_EMAIL, RECETTE_ACCOUNT_EMAIL, "owner@example.com", None])
-    async def test_the_planning_leaves_the_evening_out_for_technical_accounts_only(self, monkeypatch, email):
-        monkeypatch.setattr(scheduler, "resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris")))
-        monkeypatch.setattr(scheduler, "resolve_user_email", AsyncMock(return_value=email))
-        monkeypatch.setattr(scheduler, "planning_agenda", AsyncMock(return_value=""))
-        gateway = AsyncMock()
-        gateway.proaction.return_value = {"response": "ok"}
-
-        await scheduler.generate_proactions(gateway, USER, dry_run=True, now=datetime(2030, 11, 14, 4, tzinfo=UTC))
-
-        evening = email not in {SMOKE_ACCOUNT_EMAIL, RECETTE_ACCOUNT_EMAIL}
-        assert ("Bilan du soir" in gateway.proaction.await_args.args[0]) is evening
+        assert "Bilan du soir" not in prompt
+        assert bilan.BILAN_SUMMARY not in prompt
+        assert "heure de coucher" not in prompt
 
 
 class TestTheReviewDay:

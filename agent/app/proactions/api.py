@@ -20,6 +20,8 @@ CLAIM_TOOL = "claim_due_proactions"
 RECORD_TOOL = "record_proaction_result"
 LIST_TOOL = "list_proactions"
 SCHEDULE_TOOL = "schedule_proaction"
+CANCEL_TOOL = "cancel_proaction"
+RENDEZVOUS_TOOL = "list_daily_rendezvous"
 
 
 class ProactionApiError(RuntimeError):
@@ -119,12 +121,30 @@ async def record(
     return Proaction.from_api(data.get("proaction") or {"id": proaction.id}, proaction.user_id)
 
 
-async def list_for_user(user_id: str) -> list[Proaction]:
-    """Every one of the user's proactions, by time."""
-    data = await _call(LIST_TOOL, {}, user_id)
+async def list_for_user(user_id: str, from_: datetime | None = None, to: datetime | None = None) -> list[Proaction]:
+    """The user's proactions by time: every one, or those scheduled between `from_` and `to`."""
+    arguments = {}
+    if from_ is not None:
+        arguments["from"] = from_.isoformat()
+    if to is not None:
+        arguments["to"] = to.isoformat()
+    data = await _call(LIST_TOOL, arguments, user_id)
     return [Proaction.from_api(p, user_id) for p in data.get("proactions", [])]
 
 
-async def schedule(user_id: str, prompt: str, scheduled_at: datetime) -> Proaction:
-    data = await _call(SCHEDULE_TOOL, {"prompt": prompt, "scheduled_at": scheduled_at.isoformat()}, user_id)
+async def schedule(user_id: str, prompt: str, scheduled_at: datetime, summary: str | None = None) -> Proaction:
+    arguments = {"prompt": prompt, "scheduled_at": scheduled_at.isoformat()}
+    if summary is not None:
+        arguments["summary"] = summary
+    data = await _call(SCHEDULE_TOOL, arguments, user_id)
     return Proaction.from_api(data["proaction"], user_id)
+
+
+async def cancel(user_id: str, proaction_id: str) -> None:
+    await _call(CANCEL_TOOL, {"id": proaction_id}, user_id)
+
+
+async def list_daily_rendezvous() -> list[dict]:
+    """Every user's morning digest and evening review settings (MAG-787), read with the service token."""
+    data = await _call(RENDEZVOUS_TOOL, {}, None)
+    return [u for u in data.get("users", []) if isinstance(u, dict)]

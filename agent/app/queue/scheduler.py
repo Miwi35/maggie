@@ -5,8 +5,6 @@ import time as time_module
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from app.auth import TECHNICAL_ACCOUNT_EMAILS
-from app.bilan import planning_bilan_rules
 from app.config import settings
 from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
@@ -25,9 +23,10 @@ from app.memory.night import memory_night
 from app.proactions import api as proactions_api
 from app.proactions.legacy import migrate_legacy_proactions
 from app.queue.proaction_publisher import publish_proaction
+from app.rendezvous import sync_rendezvous
 from app.trips import planning_trips_rules
 from app.tts.voice_message import purge_voice_messages
-from app.user_timezone import resolve_user_email, resolve_user_timezone
+from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +38,12 @@ JOURNAL_PURGE_INTERVAL = 6 * 3600  # seconds: the journal keeps days, a few hour
 PLANNING_AGENDA_TIMEOUT = 5.0  # seconds: reading the day's events for the recall; past it, planning goes on without
 
 
-def daily_planning_prompt(today: date, *, evening: bool = True) -> str:
+def daily_planning_prompt(today: date) -> str:
     """What the daily planning is asked: today's proactions, from the planning instructions and the agenda.
 
-    `evening` adds the step of the evening review; the technical accounts go without (MAG-749).
-    Named by date, so a second run the same day (a restart, the manual trigger) reads what the first
-    one scheduled and leaves it be (MAG-327).
+    The morning digest and the evening review are not the model's: the code lays them down from the
+    user's settings (`sync_rendezvous`, MAG-787). Named by date, so a second run the same day (a restart,
+    the manual trigger) reads what the first one scheduled and leaves it be (MAG-327).
     """
     day = today.isoformat()
     return (
@@ -57,7 +56,6 @@ def daily_planning_prompt(today: date, *, evening: bool = True) -> str:
         "(les trajets de l'étape 5 ont les leurs), sans recréer celles qui existent déjà ce jour-là. "
         "Respecte les contraintes horaires indiquées dans les consignes. "
         f"{planning_trips_rules(day)}"
-        f"{' ' + planning_bilan_rules(day) if evening else ''}"
     )
 
 
@@ -171,7 +169,7 @@ async def generate_proactions(
     started_at = datetime.now(UTC)
     clock = time_module.monotonic()
     today = (now or started_at).astimezone(await resolve_user_timezone(user_id)).date()
-    prompt = daily_planning_prompt(today, evening=await resolve_user_email(user_id) not in TECHNICAL_ACCOUNT_EMAILS)
+    prompt = daily_planning_prompt(today)
     options: dict = {"silent": True}
     if dry_run:
         options["dry_run"] = True
@@ -247,6 +245,9 @@ async def run_planning_cycle(gateway: LLMGateway, since: datetime) -> datetime:
     schedule = await planning_schedule(since)
     for user_id in [user_id for user_id, target in schedule.items() if target <= checked_until]:
         await plan_user(gateway, user_id)
+    # Every account, instruction or not (MAG-787): after the model's planning, so a digest it laid down
+    # from an instruction is moved to the set hour rather than doubled.
+    await sync_rendezvous(checked_until)
     return checked_until
 
 
