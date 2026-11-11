@@ -6,6 +6,7 @@ namespace Maggie\Health\State;
 
 use ApiPlatform\Validator\Exception\ValidationException;
 use Maggie\Health\Exception\DuplicateWorkoutException;
+use Maggie\Health\Exception\WorkoutScheduleException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -27,6 +28,9 @@ trait DispatchesWorkoutCommandTrait
             $cause = $e->getPrevious();
             if ($cause instanceof DuplicateWorkoutException) {
                 throw new ValidationException(new ConstraintViolationList([new ConstraintViolation($cause->getMessage(), null, [], null, 'externalId', null)]), previous: $e);
+            }
+            if ($cause instanceof WorkoutScheduleException) {
+                throw $cause;
             }
             if ($cause instanceof \DomainException) {
                 throw new BadRequestHttpException($cause->getMessage(), $e);

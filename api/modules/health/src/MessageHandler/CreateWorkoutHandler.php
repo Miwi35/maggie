@@ -6,9 +6,12 @@ namespace Maggie\Health\MessageHandler;
 
 use Maggie\Core\Repository\UserRepository;
 use Maggie\Health\Entity\Workout;
+use Maggie\Health\Enum\WorkoutSource;
+use Maggie\Health\Enum\WorkoutType;
 use Maggie\Health\Exception\DuplicateWorkoutException;
 use Maggie\Health\Message\CreateWorkoutCommand;
 use Maggie\Health\Repository\WorkoutRepository;
+use Maggie\Health\Service\StrengthScheduleGuard;
 use Maggie\Health\Service\WorkoutRules;
 use Maggie\Health\UseCase\SaveWorkout;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -21,6 +24,7 @@ class CreateWorkoutHandler
         private readonly UserRepository $userRepository,
         private readonly WorkoutRepository $workoutRepository,
         private readonly WorkoutRules $rules,
+        private readonly StrengthScheduleGuard $schedule,
     ) {
     }
 
@@ -37,6 +41,10 @@ class CreateWorkoutHandler
         $variant = $this->rules->variant($command->variant);
         $exercises = $this->rules->exercises($command->exercises ?? [], $source);
         $this->rules->assert($command->title, $command->durationMinutes, $command->distanceMeters, $command->kcal, $command->avgHeartRate, $command->notes, $command->externalId);
+
+        if (WorkoutType::Strength === $type && WorkoutSource::Planned === $source) {
+            $this->schedule->assert($command->userId, null, $startedAt, $exercises);
+        }
 
         if (null !== $command->externalId && null !== $this->workoutRepository->findOneByExternalId($user, $command->externalId)) {
             throw new DuplicateWorkoutException();
