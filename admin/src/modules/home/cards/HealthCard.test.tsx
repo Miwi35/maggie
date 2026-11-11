@@ -71,10 +71,10 @@ describe('HealthCard', () => {
     renderCard()
 
     expect(screen.getByTestId('home-health-loading')).toBeInTheDocument()
-    expect(await screen.findByTestId('home-health-workout')).toHaveTextContent('Course à pied · 19:00 · 45 min')
-    expect(screen.getByTestId('home-health-steps')).toHaveTextContent('Pas · 6 240 · objectif 8 000')
-    expect(screen.getByTestId('home-health-balance')).toHaveTextContent('Bilan du jour · 1 240 mangées · besoin 1 980 kcal')
-    expect(screen.getByTestId('home-health-fast')).toHaveTextContent('Fenêtre ouverte · ferme à 20:00')
+    expect(await screen.findByTestId('home-health-workout')).toHaveTextContent('Course à pied19:00 · 45 min')
+    expect(screen.getByTestId('home-health-steps')).toHaveTextContent('Pas6 240 · objectif 8 000')
+    expect(screen.getByTestId('home-health-balance')).toHaveTextContent('Bilan du jour1 240 mangées · besoin 1 980 kcal')
+    expect(screen.getByTestId('home-health-fast')).toHaveTextContent('Fenêtre ouverteferme à 20:00')
     expect(screen.getByRole('link', { name: 'Santé' })).toHaveAttribute('href', '/health/suivi')
   })
 
@@ -84,7 +84,7 @@ describe('HealthCard', () => {
 
     expect(await screen.findByTestId('home-health-workout')).toBeInTheDocument()
     expect(screen.queryByTestId('home-health-steps')).not.toBeInTheDocument()
-    expect(screen.getByTestId('home-health-fast')).toHaveTextContent('Fenêtre prévue · 12:00 – 20:00')
+    expect(screen.getByTestId('home-health-fast')).toHaveTextContent('Fenêtre prévue12:00 – 20:00')
     expect(screen.getByTestId('home-health-balance')).toHaveTextContent('Calories projetées')
   })
 

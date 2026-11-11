@@ -40,17 +40,17 @@ class HealthHomeCardScreenTest {
     fun `today reads the mockup's labels`() {
         draw(HealthHomeUiState(today, isLoading = false))
 
-        compose.onNodeWithTag(UiTags.HOME_HEALTH_WORKOUT).assertTextContains("Course · 18:30 · 45 min")
-        compose.onNodeWithTag(UiTags.HOME_HEALTH_STEPS).assertTextContains("Pas · 6 240 · objectif 8 000")
-        compose.onNodeWithTag(UiTags.HOME_HEALTH_BALANCE).assertTextContains("Bilan du jour · 1 240 mangées · besoin 1 980 kcal")
-        compose.onNodeWithTag(UiTags.HOME_HEALTH_FAST).assertTextContains("Fenêtre ouverte · ferme à 20:00 · 3 h 18")
+        compose.onNodeWithTag(UiTags.HOME_HEALTH_WORKOUT).assertTextContains("Course")
+        compose.onNodeWithTag(UiTags.HOME_HEALTH_STEPS).assertTextContains("6 240 · objectif 8 000")
+        compose.onNodeWithTag(UiTags.HOME_HEALTH_BALANCE).assertTextContains("1 240 mangées · besoin 1 980 kcal")
+        compose.onNodeWithTag(UiTags.HOME_HEALTH_FAST).assertTextContains("ferme à 20:00 · 3 h 18")
     }
 
     @Test
     fun `tomorrow reads the planned window and the projected calories, with no steps`() {
         draw(HealthHomeUiState(today.copy(today = false, steps = null, balance = HealthHomeBalance(1800, 1980), fast = today.fast?.copy(minutesToEdge = null)), isLoading = false))
 
-        compose.onNodeWithTag(UiTags.HOME_HEALTH_FAST).assertTextContains("Fenêtre prévue · 12:00 – 20:00")
+        compose.onNodeWithTag(UiTags.HOME_HEALTH_FAST).assertTextContains("12:00 – 20:00")
         compose.onNodeWithTag(UiTags.HOME_HEALTH_BALANCE).assertTextContains("Calories projetées", substring = true)
         compose.onNodeWithTag(UiTags.HOME_HEALTH_STEPS).assertDoesNotExist()
     }

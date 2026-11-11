@@ -27,7 +27,7 @@ describe('composeHealthState', () => {
     expect(state.workout).toMatchObject({ id: 'W1', title: 'Course', durationMinutes: 45 })
     expect(state.steps).toEqual({ count: 6240, goal: 8000 })
     expect(state.balance).toEqual({ kcal: 1240, needKcal: 1980 })
-    expect(state.fast).toEqual({ state: 'open', windowStart: '12:00', windowEnd: '20:00', minutesToEdge: 198 })
+    expect(state.fast).toEqual({ state: 'open', windowStart: '12:00', windowEnd: '20:00', minutesToEdge: 198, progress: expect.closeTo(0.588, 2) })
   })
 
   test('tomorrow: no steps, the planned calories, the planned window without a countdown', () => {
@@ -67,5 +67,19 @@ describe('composeHealthState', () => {
     const state = composeHealthState('today', reads({ fasting: { ...fasting, state: 'fasting' } }), at(9, 30))
 
     expect(state.fast?.minutesToEdge).toBe(150)
+  })
+
+  test('fasting inside the window reads open: counts to the window end, never to tomorrow', () => {
+    const state = composeHealthState('today', reads({ fasting: { ...fasting, state: 'fasting' } }), at(12, 2))
+
+    expect(state.fast?.state).toBe('open')
+    expect(state.fast?.minutesToEdge).toBe(478)
+  })
+
+  test('fasting after the window counts to the next opening', () => {
+    const state = composeHealthState('today', reads({ fasting: { ...fasting, state: 'fasting' } }), at(21, 0))
+
+    expect(state.fast?.state).toBe('fasting')
+    expect(state.fast?.minutesToEdge).toBe(15 * 60)
   })
 })

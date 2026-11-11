@@ -31,6 +31,8 @@ export interface HealthFast {
   windowEnd: string
   /** Minutes to the window's next edge, today only; null for another day or a closed window. */
   minutesToEdge: number | null
+  /** Share (0–1) of the current phase gone — the window open, or the fast before it; null with no countdown. */
+  progress: number | null
 }
 
 export interface HealthHomeState {
@@ -58,17 +60,33 @@ const minutesOf = (time: string): number => {
 const hhmm = (instant: Date): string =>
   `${String(instant.getHours()).padStart(2, '0')}:${String(instant.getMinutes()).padStart(2, '0')}`
 
+const DAY = 24 * 60
+
+function windowLength(fasting: FastingDay): number {
+  const length = minutesOf(fasting.windowEnd) - minutesOf(fasting.windowStart)
+
+  return length <= 0 ? length + DAY : length
+}
+
+/** Without a meal the API says fasting, but inside the window the window is open: it closes at its end. */
+function effectiveState(fasting: FastingDay, now: string): FastingDay['state'] {
+  if (fasting.state !== 'fasting') return fasting.state
+  const sinceStart = (minutesOf(now) - minutesOf(fasting.windowStart) + DAY) % DAY
+
+  return sinceStart < windowLength(fasting) ? 'open' : 'fasting'
+}
+
 /** Minutes to the edge the window faces now; null when it is closed. `now` is `14:30`. */
-function minutesToEdge(fasting: FastingDay, now: string): number | null {
-  if (fasting.state === 'closed' || fasting.state === null) return null
+function minutesToEdge(fasting: FastingDay, state: FastingDay['state'], now: string): number | null {
+  if (state === 'closed' || state === null) return null
   const start = minutesOf(fasting.windowStart)
   let end = minutesOf(fasting.windowEnd)
-  if (end <= start) end += 24 * 60
+  if (end <= start) end += DAY
   let at = minutesOf(now)
-  if (at < start && at + 24 * 60 < end) at += 24 * 60
-  const edge = fasting.state === 'open' ? end : start
+  if (at < start && at + DAY < end) at += DAY
+  const edge = state === 'open' ? end : start
 
-  return Math.max(0, (edge < at ? edge + 24 * 60 : edge) - at)
+  return Math.max(0, (edge < at ? edge + DAY : edge) - at)
 }
 
 /**
@@ -83,6 +101,10 @@ export function composeHealthState(day: HomeDay, reads: HealthReads, now: Date =
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))[0]
   const profile = reads.profile
   const fasting = reads.fasting
+  const hasWindow = !!(profile?.fastingProtocol && fasting && fasting.windowStart && fasting.windowEnd && (!today || fasting.state))
+  const state = hasWindow && today ? effectiveState(fasting, hhmm(now)) : null
+  const left = hasWindow && today ? minutesToEdge(fasting, state, hhmm(now)) : null
+  const phase = hasWindow ? (state === 'open' ? windowLength(fasting) : DAY - windowLength(fasting)) : 1
 
   const steps =
     today && profile && profile.stepSource !== 'none' && reads.energy?.steps != null && reads.energy.steps > 0
@@ -99,12 +121,13 @@ export function composeHealthState(day: HomeDay, reads: HealthReads, now: Date =
     steps,
     balance: kcal > 0 ? { kcal, needKcal: profile?.needKcal ?? null } : null,
     fast:
-      profile?.fastingProtocol && fasting && fasting.windowStart && fasting.windowEnd && (!today || fasting.state)
+      hasWindow && fasting
         ? {
-            state: today ? fasting.state : null,
+            state,
             windowStart: fasting.windowStart,
             windowEnd: fasting.windowEnd,
-            minutesToEdge: today ? minutesToEdge(fasting, hhmm(now)) : null,
+            minutesToEdge: left,
+            progress: left === null ? null : Math.min(1, Math.max(0, 1 - left / phase)),
           }
         : null,
   }
