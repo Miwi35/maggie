@@ -21,14 +21,20 @@ data class RunLine(
     /** How the article shows once marked « Manquant » (MAG-764); null when it is not. */
     val missing: RunMissing? = null,
 ) {
-    /** Nothing left to do with it in this store: taken, or missing with nowhere else to go today. */
-    val done: Boolean get() = checked || missing == RunMissing.NoFallback
+    /** Missing in this store, the store it was planned in: the mockup's orange « – » box and tinted line. */
+    val missingHere: Boolean get() = !checked && (missing == RunMissing.NoFallback || missing is RunMissing.GoesTo)
+
+    /** Nothing left to do with it in this store: taken, or missing here. */
+    val done: Boolean get() = checked || missingHere
 }
 
 /** A missing article (MAG-764), as the store it shows in reads it. */
 sealed interface RunMissing {
     /** It moved here, its fallback further in the tour: « manquant chez [store] ». */
     data class MovedFrom(val store: String) : RunMissing
+
+    /** Seen from the store it was missing in, its fallback further in the tour: « manquant · ira à [store] ». */
+    data class GoesTo(val store: String) : RunMissing
 
     /** No fallback further in the tour: it stays in its store, « manquant · pas de repli ». */
     data object NoFallback : RunMissing

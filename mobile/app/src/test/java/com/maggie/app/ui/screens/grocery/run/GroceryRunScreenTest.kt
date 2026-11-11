@@ -13,10 +13,14 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -49,6 +53,9 @@ class GroceryRunScreenTest {
     private val actions = GroceryRunActions(
         check = { log += "check:$it" },
         markMissing = { log += "missing:$it" },
+        askMissing = { log += "ask:$it" },
+        confirmMissing = { log += "confirm" },
+        dismissMissing = { log += "dismiss" },
         setVisited = { id, visited -> log += "visit:$id:$visited" },
         start = { log += "start" },
         retry = { log += "retry" },
@@ -314,12 +321,12 @@ class GroceryRunScreenTest {
     }
 
     @Test
-    fun `Manquant on a line asks to mark it, and a ticked line has none`() {
+    fun `Manquant on a line opens its sheet, and a ticked line has none`() {
         draw(storeState())
 
         compose.onNodeWithTag(UiTags.groceryRunMissing("i-3")).performClick()
 
-        assertEquals(listOf("missing:i-3"), log)
+        assertEquals(listOf("ask:i-3"), log)
         compose.onNodeWithTag(UiTags.groceryRunMissing("i-4")).assertDoesNotExist()
     }
 
@@ -334,6 +341,42 @@ class GroceryRunScreenTest {
         compose.onNodeWithTag(UiTags.groceryRunMissingTag("i-7"), useUnmergedTree = true).assertTextEquals("manquant chez Super U")
         compose.onNodeWithTag(UiTags.groceryRunMissing("i-7")).assertTextEquals("Annuler").performClick()
         assertEquals(listOf("missing:i-7"), log)
+    }
+
+    // Recette refusée (10 nov.): the mockup's sheet « <article> manquant », to confirm or cancel.
+    @Test
+    fun `the Manquant sheet reads as the mockup, Le prendre à the fallback, its place in the tour, and Annuler`() {
+        draw(storeState().copy(missingAsked = "i-3", items = storeItems.map { if (it.id == "i-3") it.copy(product = milk.copy(fallbackStore = "/api/stores/s-b")) else it }, mealTags = mapOf("p-milk" to "ce soir · bœuf bourguignon")))
+
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_MISSING_SHEET).assertIsDisplayed()
+        compose.onNodeWithText("Lait manquant").assertIsDisplayed()
+        // The line's pill, and the sheet's line under its title.
+        compose.onAllNodesWithText("pour : ce soir · bœuf bourguignon").assertCountEquals(2)
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_MISSING_CONFIRM).assertTextEquals("Le prendre à Biocoop", "magasin à défaut · 2ᵉ de la tournée")
+            // The sheet's window takes no touch under Robolectric: its click actions are run instead (the journey taps them).
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_MISSING_DISMISS).assertTextEquals("Annuler").performSemanticsAction(SemanticsActions.OnClick)
+
+        assertEquals(listOf("confirm", "dismiss"), log)
+    }
+
+    @Test
+    fun `without a fallback in the tour the sheet offers to mark it missing`() {
+        draw(storeState().copy(missingAsked = "i-1"))
+
+        compose.onNodeWithText("Pain manquant").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_RUN_MISSING_CONFIRM).assertTextEquals("Le marquer manquant", "pas de magasin à défaut dans la tournée")
+    }
+
+    @Test
+    fun `a missing line has the mockup's orange box with a dash, and Annuler marks it back at once`() {
+        draw(storeState(pendingMissing = mapOf("i-3" to true)).let { it.copy(items = storeItems.map { item -> if (item.id == "i-3") item.copy(product = milk.copy(fallbackStore = "/api/stores/s-b")) else item }) })
+
+        compose.onNodeWithTag(UiTags.groceryRunMissingMark("i-3"), useUnmergedTree = true).assertTextEquals("–")
+        compose.onNodeWithTag(UiTags.groceryRunMissingTag("i-3"), useUnmergedTree = true).assertTextEquals("manquant · ira à Biocoop")
+        compose.onNodeWithTag(UiTags.groceryRunMissingMark("i-2"), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.groceryRunMissing("i-3")).assertTextEquals("Annuler").performClick()
+        assertEquals(listOf("missing:i-3"), log)
     }
 
     @Test
