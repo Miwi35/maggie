@@ -2036,6 +2036,7 @@ object UiTags {
     const val FASTING_STATE = "fasting_state"
     const val FASTING_REMAINING = "fasting_remaining"
     const val FASTING_PROTOCOL = "fasting_protocol"
+    const val FASTING_CHEVRON = "fasting_chevron"
     const val FASTING_SPAN = "fasting_span"
     const val FASTING_NIGHT = "fasting_night"
     const val FASTING_SHEET = "fasting_sheet"

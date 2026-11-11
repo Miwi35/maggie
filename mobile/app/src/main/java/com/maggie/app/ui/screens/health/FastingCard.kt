@@ -6,13 +6,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -85,9 +89,11 @@ fun FastingCard(view: FastingView, onOpenSheet: () -> Unit, modifier: Modifier =
                 }
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // The button is measured first and the title takes what is left: on a 360 dp phone « Fenêtre ouverte »
+                // squeezed the chevron to nothing (recette of 11 Nov.).
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -95,11 +101,21 @@ fun FastingCard(view: FastingView, onOpenSheet: () -> Unit, modifier: Modifier =
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = surface.text,
-                        modifier = Modifier.testTag(UiTags.FASTING_STATE),
+                        modifier = Modifier.weight(1f).testTag(UiTags.FASTING_STATE),
                     )
-                    TextButton(onClick = onOpenSheet, modifier = Modifier.testTag(UiTags.FASTING_PROTOCOL)) {
-                        Text(view.protocol.key, fontSize = 15.sp, color = accent)
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+                    TextButton(
+                        onClick = onOpenSheet,
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        modifier = Modifier.offset(x = 6.dp).height(40.dp).testTag(UiTags.FASTING_PROTOCOL),
+                    ) {
+                        Text(view.protocol.key, fontSize = 15.sp, color = accent, maxLines = 1, softWrap = false)
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(16.dp).testTag(UiTags.FASTING_CHEVRON),
+                        )
                     }
                 }
                 Text(view.span, fontSize = 14.sp, color = surface.textMuted, modifier = Modifier.testTag(UiTags.FASTING_SPAN))
