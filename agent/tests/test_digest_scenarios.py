@@ -164,3 +164,30 @@ class TestTheConsignesOfLastNight:
 
         assert ("get_activity_status", {"activity": "bilan"}, USER) in api.calls
         assert "Tes consignes d'hier soir" in result["response"]
+
+
+# The day's planned session, an event of the « Santé » agenda (MAG-777).
+SESSION = {
+    "id": "ev-sport",
+    "summary": "Séance A",
+    "startAt": "2030-11-14T18:30:00+01:00",
+    "endAt": "2030-11-14T19:00:00+01:00",
+    "activity": "sport",
+}
+
+
+class TestTheDaysSession:
+    async def test_the_digest_reads_the_agenda_and_cites_the_session_with_its_hour_and_length(self, api, vocal):
+        api.agenda["2030-11-14"] = [SESSION]
+
+        result = await run("[Proaction due maintenant] Fais le digest du matin (digest MAG-777).")
+
+        assert ("get_events_by_date", {"date": "2030-11-14"}, USER) in api.calls
+        assert "Séance A à 18 h 30, 30 min" in result["response"]
+        assert vocal.await_args.kwargs["screen"] == "digest"
+
+    def test_the_shipped_skill_says_how_to_cite_it(self):
+        skill = (DEFAULT_FIXTURES_DIR.parent.parent / "app" / "skills" / "digest.md").read_text(encoding="utf-8")
+
+        assert 'activity: "sport"' in skill
+        assert "Séance A à 18 h 30, 30 min" in skill
