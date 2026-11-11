@@ -151,15 +151,23 @@ data class GroceryRunUiState(
     val skipped: List<RunStore> get() = stores.filter { it.id in run.skipped }
 
     /**
-     * The tour screen's rows: a store left out stays at its habitual place, the stores visited fill the other
-     * places in the order of the session.
+     * The tour screen's rows: every store in the order of the session, a store left out keeping the place it had.
+     * Before any gesture sets [GroceryRunState.order]: a store left out at its habitual place, the stores visited
+     * filling the other places.
      */
-    val rows: List<RunRow> get() {
+    val rows: List<RunRow> get() = sessionOrder.mapNotNull(byId::get).map { RunRow(it, it.id !in run.skipped) }
+
+    /** The ids of [rows], in order. */
+    val sessionOrder: List<String> get() {
+        if (run.order.isNotEmpty()) {
+            val known = run.order.filter { it in byId }
+            return stores.map { it.id }.fold(known) { acc, id -> if (id in acc) acc else acc.insertedInHabitualOrder(id, stores.map { it.id }) }
+        }
         val visited = tour.iterator()
         val rows = stores.mapNotNull { store ->
-            if (store.id in run.skipped) RunRow(store, false) else if (visited.hasNext()) RunRow(visited.next(), true) else null
+            if (store.id in run.skipped) store else if (visited.hasNext()) visited.next() else null
         }
-        return rows + visited.asSequence().map { RunRow(it, true) }
+        return (rows + visited.asSequence()).map { it.id }
     }
 
     /** The session order is not the habitual one: « ordre du jour ». */
@@ -319,25 +327,28 @@ class GroceryRunViewModel(
         val state = _uiState.value
         if (state.stores.none { it.id == storeId }) return
         val run = state.run
-        val habitual = state.stores.map { it.id }
         val changed = when {
             visited && storeId !in run.tour ->
-                run.copy(tour = run.tour.insertedInHabitualOrder(storeId, habitual), skipped = run.skipped - storeId)
+                run.copy(tour = run.tour.insertedInHabitualOrder(storeId, state.sessionOrder), skipped = run.skipped - storeId, order = state.sessionOrder)
             !visited && storeId in run.tour ->
-                run.copy(tour = run.tour - storeId, skipped = run.skipped + storeId, current = run.current.takeIf { it != storeId })
+                run.copy(
+                    tour = run.tour - storeId, skipped = run.skipped + storeId,
+                    current = run.current.takeIf { it != storeId }, order = state.sessionOrder,
+                )
             else -> return
         }
         update(changed)
     }
 
-    /** A store dragged to another row of the tour screen: the session's order only; a store left out does not move. */
+    /** A store dragged to another row of the tour screen: the session's order only; a store left out can be passed. */
     fun move(from: Int, to: Int) {
         val state = _uiState.value
         val rows = state.rows
         if (from !in rows.indices || to !in rows.indices || from == to || !rows[from].visited) return
-        val tour = rows.toMutableList().apply { add(to, removeAt(from)) }.filter { it.visited }.map { it.store.id }
-        if (tour == state.run.tour) return
-        update(state.run.copy(tour = tour))
+        val order = rows.map { it.store.id }.toMutableList().apply { add(to, removeAt(from)) }
+        val tour = order.filter { it in state.run.tour }
+        if (tour == state.run.tour && order == state.sessionOrder) return
+        update(state.run.copy(tour = tour, order = order))
     }
 
     /** « C'est parti »: the first store of the tour is opened. */

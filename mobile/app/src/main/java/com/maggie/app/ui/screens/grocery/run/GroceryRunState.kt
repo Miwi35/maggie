@@ -34,6 +34,8 @@ data class GroceryRunState(
     val finished: Boolean = false,
     /** What each finished store gave, for « Courses finies » (MAG-765). */
     val ends: List<StoreEnd> = emptyList(),
+    /** Every store of the tour screen in the order of the session, left-out ones included; empty until a gesture sets it. */
+    val order: List<String> = emptyList(),
 ) {
     fun toJson(): JsonObject = stateJson.encodeToJsonElement(serializer(), this).jsonObject
 
@@ -48,7 +50,9 @@ data class GroceryRunState(
         var merged = kept
         // Once the tour is over, a store that holds articles again waits for the next one.
         if (!finished) habitual.filter { it !in kept && it !in left }.forEach { merged = merged.insertedInHabitualOrder(it, habitual) }
-        return GroceryRunState(merged, current?.takeIf { it in merged }, left, done.filter { it in merged }, finished, ends)
+        var ordered = order.filter { it in known }.distinct()
+        if (order.isNotEmpty()) habitual.filter { it !in ordered }.forEach { ordered = ordered.insertedInHabitualOrder(it, habitual) }
+        return GroceryRunState(merged, current?.takeIf { it in merged }, left, done.filter { it in merged }, finished, ends, ordered)
     }
 
     /** The store opened once [current] is finished: the next one of the tour not finished yet, null after the last. */
