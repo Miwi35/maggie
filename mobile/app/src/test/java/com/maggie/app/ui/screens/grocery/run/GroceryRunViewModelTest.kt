@@ -334,6 +334,15 @@ class GroceryRunViewModelTest {
         assertEquals(GroceryRunLoad.READY, vm.uiState.value.load)
     }
 
+    @Test
+    fun `a first read that fails then succeeds shows the list without the error`() = runTest {
+        coEvery { lists.getGroceryList() } returnsMany listOf(Result.failure(java.io.IOException("token")), Result.success(list()))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(GroceryRunLoad.READY, vm.uiState.value.load)
+    }
+
     private val frais = AisleSummary("a-1", "Frais", 1)
     private val epicerie = AisleSummary("a-2", "Épicerie", 2)
 
