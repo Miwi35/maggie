@@ -62,6 +62,7 @@ import com.maggie.app.data.model.CookingTimer
 import com.maggie.app.data.model.CookingTimerStatus
 import com.maggie.app.data.model.RecipeStep
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.activity.KeepSystemBarsHidden
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -346,6 +347,7 @@ internal fun StepsBanner(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             modifier = Modifier.uiTagRoot(),
         ) {
+            KeepSystemBarsHidden()
             StepsPanel(
                 state = state,
                 onOpen = { recipeIndex, position ->
