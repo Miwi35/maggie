@@ -248,7 +248,7 @@ class TestTheVoiceList:
         edge_voices = [v for v in get_voices() if v["provider"] == "edge"]
 
         assert "fr-FR-DeniseNeural" in {v["id"] for v in edge_voices}
-        assert len(edge_voices) == len(get_voices()) - 1
+        assert len(edge_voices) == len(get_voices()) - 3
         assert VOICE_IDS == {v["id"] for v in get_voices()}
 
 
