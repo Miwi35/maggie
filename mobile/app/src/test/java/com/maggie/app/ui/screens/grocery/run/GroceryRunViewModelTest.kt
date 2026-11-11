@@ -273,7 +273,7 @@ class GroceryRunViewModelTest {
     }
 
     @Test
-    fun `dragging over a store left out reorders the visited ones only`() = runTest {
+    fun `dragging over a store left out moves past it, and the store left out keeps its row`() = runTest {
         val vm = viewModel()
         advanceUntilIdle()
         vm.setVisited("s-b", false)
@@ -281,9 +281,29 @@ class GroceryRunViewModelTest {
         vm.move(2, 0)
 
         assertEquals(listOf("Marché", "Super U"), vm.tour())
-        assertEquals(listOf("Marché", "Biocoop", "Super U"), vm.uiState.value.rows.map { it.store.name })
-        vm.move(1, 0)
+        assertEquals(listOf("Marché", "Super U", "Biocoop"), vm.uiState.value.rows.map { it.store.name })
+        vm.move(0, 1)
+        assertEquals(listOf("Super U", "Marché"), vm.tour())
+        vm.move(0, 2)
         assertEquals(listOf("Marché", "Super U"), vm.tour())
+        assertEquals(listOf("Marché", "Biocoop", "Super U"), vm.uiState.value.rows.map { it.store.name })
+    }
+
+    @Test
+    fun `a store dragged then left out keeps the place the session gave it, and the pill stays`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.move(2, 0)
+        assertEquals(listOf("Marché", "Super U", "Biocoop"), vm.uiState.value.rows.map { it.store.name })
+
+        vm.setVisited("s-u", false)
+
+        assertEquals(listOf("Marché", "Super U", "Biocoop"), vm.uiState.value.rows.map { it.store.name })
+        assertEquals(listOf(true, false, true), vm.uiState.value.rows.map { it.visited })
+        assertTrue(vm.uiState.value.reordered)
+
+        vm.setVisited("s-u", true)
+        assertEquals(listOf("Marché", "Super U", "Biocoop"), vm.tour())
     }
 
     @Test
