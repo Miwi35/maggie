@@ -6,8 +6,11 @@ import android.content.ContextWrapper
 import android.view.Window
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -66,4 +69,21 @@ private object NoImmersion : ActivityImmersion {
     override fun enter() = Unit
 
     override fun exit() = Unit
+}
+
+/** Hides the system bars of [window] and lets a swipe from the edge bring them back for a moment. */
+fun hideSystemBars(window: Window) {
+    val controller = WindowCompat.getInsetsController(window, window.decorView)
+    controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    controller.hide(WindowInsetsCompat.Type.systemBars())
+}
+
+/**
+ * A sheet or a dialog is a window of its own and does not inherit the activity's immersion: the status bar
+ * comes back while it is open. Call this inside its content to keep the bars hidden in that window too.
+ */
+@Composable
+fun KeepSystemBarsHidden(hide: (Window) -> Unit = ::hideSystemBars) {
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window ?: return
+    SideEffect { hide(window) }
 }

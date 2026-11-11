@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.activity.ActivityImmersion
 import com.maggie.app.ui.activity.ActivityScaffold
+import com.maggie.app.ui.activity.KeepSystemBarsHidden
 import com.maggie.app.ui.activity.rememberWindowImmersion
 import com.maggie.app.ui.screens.cookbook.cooking.mainButtonHeight
 import com.maggie.app.ui.theme.MaggieTokens
@@ -182,7 +183,10 @@ fun GroceryRunContent(
             AlertDialog(
                 onDismissRequest = actions.dismissQuit,
                 modifier = Modifier.uiTagRoot().testTag(UiTags.GROCERY_RUN_QUIT_DIALOG),
-                title = { Text("Quitter les courses ?") },
+                title = {
+                    KeepSystemBarsHidden()
+                    Text("Quitter les courses ?")
+                },
                 text = { Text("Ce qui est coché est gardé.") },
                 confirmButton = {
                     TextButton(onClick = onConfirmQuit, modifier = Modifier.testTag(UiTags.GROCERY_RUN_QUIT_CONFIRM)) {
@@ -323,6 +327,7 @@ private fun MissingSheetContent(sheet: MissingSheet, actions: GroceryRunActions)
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
     ) {
+        KeepSystemBarsHidden()
         Column(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 22.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

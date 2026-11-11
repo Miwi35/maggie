@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.activity.HEADER_BUTTON
+import com.maggie.app.ui.activity.KeepSystemBarsHidden
 import com.maggie.app.ui.screens.cookbook.grocery.AisleSection
 import com.maggie.app.ui.screens.cookbook.grocery.quantityHint
 import com.maggie.app.ui.theme.MaggieTokens
@@ -118,6 +119,7 @@ fun CookingGrocerySheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         modifier = Modifier.uiTagRoot(),
     ) {
+        KeepSystemBarsHidden()
         CookingGroceryContent(state, stores, actions, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
     }
 }
