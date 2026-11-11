@@ -87,7 +87,10 @@
     "/api/workouts": {
         "source": "admin and mobile Accueil, the Santé card (the sessions announced, MAG-566)",
         "startedAt[after]": "admin and mobile Accueil, the Santé card (the sessions announced, MAG-566)",
-        "startedAt[before]": "admin and mobile Accueil, the Santé card (the sessions announced, MAG-566)"
+        "startedAt[before]": "admin and mobile Accueil, the Santé card (the sessions announced, MAG-566)",
+        "event": "mobile getWorkoutOfEvent, the session filed as one agenda event (MAG-779)",
+        "exercise": "mobile getWorkoutsWithExercise, the sessions that hold one exercise (MAG-779)",
+        "order[startedAt]": "mobile getWorkoutsWithExercise, newest first (MAG-779)"
     },
     "/api/health/food-intakes": {
         "date[after]": "admin and mobile Santé › Nutrition, the day's journal (MAG-748)",

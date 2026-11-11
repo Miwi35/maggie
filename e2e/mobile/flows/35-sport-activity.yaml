@@ -1,0 +1,81 @@
+appId: com.maggie.app.e2e
+name: 35-sport-activity
+tags:
+  - health
+  - activity
+---
+# L'activité Sport, lancée puis quittée (MAG-779, extends 30-health-sport; modèle 27-cooking-launch).
+#
+# Étant donné une séance prévue aujourd'hui avec ses six exercices (écrite par `scripts/sport-plan-api.js`)
+# Quand je touche « Lancer » dans Santé › Sport
+# Alors l'écran de la séance s'ouvre sur « Tractions négatives » et « 1 / 6 », sans la barre de Maggie
+# Et quand je tape ✕ puis « Quitter », je suis de retour sur Santé › Sport et la carte montre « Reprendre · 1/6 »
+#
+# What is not here: the other launch points — the Accueil's line and card, the Agenda's detail
+# (`ActivityLaunchButtonScreenTest`, `HealthHomeCardScreenTest`, `SportActivityTest`) — and the tablet's
+# columns (`SportActivityScreenTest`). The session is this flow's own user's, so nothing is left to remove.
+
+- runFlow: ../subflows/new-user.yaml
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/35-sport-activity.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/sport-plan-api.js
+    env:
+      EMAIL: ${output.journeyEmail}
+      TODAY: ${TODAY}
+
+# Santé › Sport: the card of the day's session, to launch.
+- openLink: "maggie-e2e://health/sport"
+- extendedWaitUntil:
+    visible:
+      id: "sport_launch_card"
+    timeout: 30000
+- assertVisible: "Lancer"
+- tapOn:
+    id: "sport_launch_button"
+
+# The activity: the first exercise, « 1 / 6 », Maggie's bottom bar nowhere.
+- extendedWaitUntil:
+    visible:
+      id: "sport_activity_exercise"
+    timeout: 20000
+# Android's own « Viewing full screen » notice covers the header until dismissed.
+- tapOn:
+    text: "Got it"
+    optional: true
+- extendedWaitUntil:
+    visible: "Tractions négatives"
+    timeout: 10000
+- assertVisible: "Échelon 4"
+- assertVisible:
+    id: "sport_activity_counter"
+    text: "1 / 6"
+- assertNotVisible:
+    id: "chat_open"
+
+# ✕ asks first; « Quitter » goes back to where the session was launched, the status kept.
+- tapOn:
+    id: "activity_quit"
+- extendedWaitUntil:
+    visible:
+      id: "sport_activity_quit_dialog"
+    timeout: 10000
+- assertVisible: "Quitter la séance ?"
+- tapOn:
+    id: "sport_activity_quit_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "sport_launch_card"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Reprendre · 1/6.*"
+    timeout: 20000

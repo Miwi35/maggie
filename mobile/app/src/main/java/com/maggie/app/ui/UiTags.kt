@@ -1495,6 +1495,26 @@ object UiTags {
     const val ACTIVITY_MAGGIE = "activity_maggie"
     const val ACTIVITY_QUIT = "activity_quit"
 
+    // Activité Sport (MAG-779): loading, error, the exercise on screen, « La dernière fois », « Quitter la séance ? », and the launch points.
+    const val SPORT_ACTIVITY_LOADING = "sport_activity_loading"
+    const val SPORT_ACTIVITY_ERROR = "sport_activity_error"
+    const val SPORT_ACTIVITY_RETRY = "sport_activity_retry"
+    const val SPORT_ACTIVITY_EMPTY = "sport_activity_empty"
+    const val SPORT_ACTIVITY_TITLE = "sport_activity_title"
+    const val SPORT_ACTIVITY_COUNTER = "sport_activity_counter"
+    const val SPORT_ACTIVITY_LIST = "sport_activity_list"
+    const val SPORT_ACTIVITY_EXERCISE = "sport_activity_exercise"
+    const val SPORT_ACTIVITY_STEP = "sport_activity_step"
+    const val SPORT_ACTIVITY_NAME = "sport_activity_name"
+    const val SPORT_ACTIVITY_CUE = "sport_activity_cue"
+    const val SPORT_ACTIVITY_LAST_TIME = "sport_activity_last_time"
+    const val SPORT_ACTIVITY_QUIT_DIALOG = "sport_activity_quit_dialog"
+    const val SPORT_ACTIVITY_QUIT_CONFIRM = "sport_activity_quit_confirm"
+    const val SPORT_ACTIVITY_QUIT_STAY = "sport_activity_quit_stay"
+    const val SPORT_LAUNCH_CARD = "sport_launch_card"
+    const val SPORT_LAUNCH_BUTTON = "sport_launch_button"
+    const val SPORT_LAUNCH_SUBTITLE = "sport_launch_subtitle"
+
     // Activité Courses (MAG-762): the tour, a store's row and its two choices, « C'est parti », the current store, « Quitter les courses ? ».
     const val GROCERY_RUN_OPEN = "grocery_run_open"
     const val GROCERY_RUN_LOADING = "grocery_run_loading"

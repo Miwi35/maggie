@@ -17,6 +17,9 @@ import kotlinx.serialization.encoding.Encoder
  * Timed: [startAt]/[endAt] are instants. All-day: [startDate]/[endDate] are the
  * API's dates, the end exclusive, and the instants are null (MAG-382).
  */
+/** The `activity` of an event that launches a Sport session. */
+const val ACTIVITY_SPORT = "sport"
+
 @Serializable
 data class ExpandedEvent(
     val id: String,
@@ -67,6 +70,13 @@ data class ExpandedEvent(
 
     /** The review appointment launches the activity: its detail offers « Lancer ». */
     val launchesFinanceReview: Boolean get() = activity == ACTIVITY_FINANCE_REVIEW
+
+    /** A Sport event launches its planned session (MAG-779) — today only, so a later one offers no « Lancer ». */
+    fun launchesSportToday(today: LocalDate, zone: ZoneId): Boolean =
+        activity == ACTIVITY_SPORT && firstDay(zone) == today
+
+    /** The events whose fiche offers « Lancer » today. */
+    fun launchesActivityToday(today: LocalDate, zone: ZoneId): Boolean = launchesFinanceReview || launchesSportToday(today, zone)
 
     /**
      * The title the screens show: « Revue d'octobre » for an occurrence of the review appointment,

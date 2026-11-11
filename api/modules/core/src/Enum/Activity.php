@@ -14,6 +14,7 @@ enum Activity: string
     case Comptes = 'comptes';
     case Bilan = 'bilan';
     case Courses = 'courses';
+    case Sport = 'sport';
 
     /**
      * What may launch it: the `origin.kind` of its status.
@@ -27,6 +28,7 @@ enum Activity: string
             self::Comptes => ['review'],
             self::Bilan => ['day'],
             self::Courses => ['list'],
+            self::Sport => ['workout'],
         };
     }
 

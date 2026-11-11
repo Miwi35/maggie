@@ -151,6 +151,9 @@ import com.maggie.app.ui.screens.bilan.rememberTomorrowSlots
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
 import com.maggie.app.ui.screens.grocery.run.GroceryRunScreen
 import com.maggie.app.ui.screens.grocery.run.GroceryRunViewModel
+import com.maggie.app.ui.screens.health.sport.SportActivityScreen
+import com.maggie.app.ui.screens.health.sport.SportActivityViewModel
+import com.maggie.app.ui.screens.health.sport.SportResumeViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingViewModel
@@ -269,6 +272,8 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 import org.koin.compose.koinInject
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 sealed class Screen(val route: String, val label: String) {
     data object Loading : Screen("loading", "Chargement")
@@ -303,6 +308,19 @@ sealed class Screen(val route: String, val label: String) {
     data object HealthSportForm : Screen("health/sport/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Séance") {
         fun of(workoutId: String?): String =
             if (workoutId == null) "health/sport/form" else "health/sport/form?${DeepLinks.ARG_ID}=$workoutId"
+    }
+    /**
+     * Activité Sport (MAG-779): full screen, outside the menus. Opened by the planned session's id, or by the agenda event
+     * it is filed under ([ofEvent]: the path holds [SportActivityViewModel.NO_WORKOUT]).
+     */
+    data object SportActivity : Screen(
+        "health/sport/activity/{${DeepLinks.ARG_WORKOUT}}?${DeepLinks.ARG_EVENT}={${DeepLinks.ARG_EVENT}}",
+        "Séance",
+    ) {
+        fun of(workoutId: String): String = "health/sport/activity/$workoutId"
+
+        fun ofEvent(eventId: String): String =
+            "health/sport/activity/${SportActivityViewModel.NO_WORKOUT}?${DeepLinks.ARG_EVENT}=$eventId"
     }
     data object ProductList : Screen("products", "Produits")
     data object StoreList : Screen("stores", "Magasins")
@@ -739,6 +757,8 @@ private fun HealthSportPage(navController: NavController) {
     SportScreen(
         viewModel = koinViewModel<SportViewModel>(),
         onSelectSection = { selectHealthSection(navController, it) },
+        sportResume = koinViewModel<SportResumeViewModel>().resume.collectAsState().value,
+        onLaunch = { id -> navController.navigate(Screen.SportActivity.of(id)) { launchSingleTop = true } },
         onOpenForm = { id -> navController.navigate(Screen.HealthSportForm.of(id)) { launchSingleTop = true } },
     )
 }
@@ -797,6 +817,16 @@ private fun ReviewActivityPage(navController: NavController, onOpenMaggie: () ->
 private fun GroceryRunPage(navController: NavController, onOpenMaggie: () -> Unit) {
     GroceryRunScreen(
         viewModel = koinViewModel<GroceryRunViewModel>(),
+        onQuit = { navController.popBackStack() },
+        onOpenMaggie = onOpenMaggie,
+    )
+}
+
+// Out of NavGraph's body for the same reason as ReviewActivityPage.
+@Composable
+private fun SportActivityPage(navController: NavController, onOpenMaggie: () -> Unit) {
+    SportActivityScreen(
+        viewModel = koinViewModel<SportActivityViewModel>(),
         onQuit = { navController.popBackStack() },
         onOpenMaggie = onOpenMaggie,
     )
@@ -1114,9 +1144,13 @@ fun NavGraph() {
 
     // « Lancer » on the review appointment (MAG-456): the activity opens full screen, the detail closes behind it.
     fun launchActivity(event: ExpandedEvent) {
-        if (!event.launchesFinanceReview) return
+        val route = when {
+            event.launchesFinanceReview -> Screen.FinanceReviewActivity.route
+            event.launchesSportToday(LocalDate.now(), ZoneId.systemDefault()) -> Screen.SportActivity.ofEvent(event.id)
+            else -> return
+        }
         selectedEvent = null
-        navController.navigate(Screen.FinanceReviewActivity.route) { launchSingleTop = true }
+        navController.navigate(route) { launchSingleTop = true }
     }
 
     fun editTask(task: Task) {
@@ -2294,6 +2328,20 @@ fun NavGraph() {
                         deepLinks = DeepLinks.forRoute(Screen.CookingActivity.route),
                     ) {
                         CookingActivityPage(navController, onOpenMaggie = ::openChat)
+                    }
+                    composable(
+                        Screen.SportActivity.route,
+                        arguments = listOf(
+                            navArgument(DeepLinks.ARG_WORKOUT) { type = NavType.StringType },
+                            navArgument(DeepLinks.ARG_EVENT) {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            },
+                        ),
+                        deepLinks = DeepLinks.forRoute(Screen.SportActivity.route),
+                    ) {
+                        SportActivityPage(navController, onOpenMaggie = ::openChat)
                     }
                     composable(Screen.BilanActivity.route, deepLinks = DeepLinks.forRoute(Screen.BilanActivity.route)) {
                         BilanActivityPage(navController, onAnswerByVoice = ::startVoiceMode)

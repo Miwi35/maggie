@@ -1,12 +1,20 @@
 package com.maggie.app.data.model
 
+import com.maggie.app.ui.screens.health.sport.isLaunchable
 import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import kotlin.math.max
 
 /** The planned session of the day, [time] being its local start (`18:30`). */
-data class HealthHomeWorkout(val id: String, val title: String, val time: String, val durationMinutes: Int)
+data class HealthHomeWorkout(
+    val id: String,
+    val title: String,
+    val time: String,
+    val durationMinutes: Int,
+    /** A strength session with exercises: the card offers « ▶ Lancer » (MAG-779). */
+    val launchable: Boolean = false,
+)
 
 data class HealthHomeSteps(val count: Int, val goal: Int)
 
@@ -59,7 +67,7 @@ data class HealthHomeState(
                 today = today,
                 workout = planned?.let {
                     val start = OffsetDateTime.parse(it.startedAt).atZoneSameInstant(zone).toLocalTime()
-                    HealthHomeWorkout(it.id, it.title, "%02d:%02d".format(start.hour, start.minute), it.durationMinutes)
+                    HealthHomeWorkout(it.id, it.title, "%02d:%02d".format(start.hour, start.minute), it.durationMinutes, it.isLaunchable)
                 },
                 steps = if (today && profile != null && profile.stepSource != HealthProfile.STEP_SOURCE_NONE && steps != null && steps > 0) {
                     HealthHomeSteps(steps, profile.stepGoal)

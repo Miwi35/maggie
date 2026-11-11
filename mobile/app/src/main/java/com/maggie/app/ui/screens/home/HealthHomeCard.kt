@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.home
 
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,9 @@ import com.maggie.app.data.model.HealthHomeState
 import com.maggie.app.data.model.HealthHomeSteps
 import com.maggie.app.data.model.HealthHomeWorkout
 import com.maggie.app.data.model.HomeDay
+import com.maggie.app.ui.screens.health.sport.SportResume
+import com.maggie.app.ui.screens.health.sport.SportResumeViewModel
+import com.maggie.app.ui.screens.health.sport.resumes
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.health.formatCount
@@ -51,11 +55,24 @@ fun HealthHomeCard(
     val ui by viewModel.uiState.collectAsState()
     val open = LocalHomeNavigation.current
     LaunchedEffect(day) { viewModel.selectDay(day) }
-    HealthHomeCardContent(ui = ui, onOpen = { open(Screen.HealthSuivi.route) }, onRetry = viewModel::refresh)
+    val sportResume by koinViewModel<SportResumeViewModel>().resume.collectAsState()
+    HealthHomeCardContent(
+        ui = ui,
+        onOpen = { open(Screen.HealthSuivi.route) },
+        onRetry = viewModel::refresh,
+        sportResume = sportResume,
+        onLaunch = { workoutId -> open(Screen.SportActivity.of(workoutId)) },
+    )
 }
 
 @Composable
-internal fun HealthHomeCardContent(ui: HealthHomeUiState, onOpen: () -> Unit, onRetry: () -> Unit) {
+internal fun HealthHomeCardContent(
+    ui: HealthHomeUiState,
+    onOpen: () -> Unit,
+    onRetry: () -> Unit,
+    sportResume: SportResume? = null,
+    onLaunch: (String) -> Unit = {},
+) {
     ReportHomeCard(HomeModules.HEALTH, ui.status)
     if (ui.status == HomeCardStatus.EMPTY) return
 
@@ -68,7 +85,7 @@ internal fun HealthHomeCardContent(ui: HealthHomeUiState, onOpen: () -> Unit, on
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             when {
-                state != null && !state.isEmpty -> HealthHomeBody(state)
+                state != null && !state.isEmpty -> HealthHomeBody(state, sportResume, onLaunch)
                 ui.failed && !ui.isLoading -> Unit
                 else -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
@@ -78,9 +95,9 @@ internal fun HealthHomeCardContent(ui: HealthHomeUiState, onOpen: () -> Unit, on
 }
 
 @Composable
-private fun HealthHomeBody(state: HealthHomeState) {
+private fun HealthHomeBody(state: HealthHomeState, sportResume: SportResume?, onLaunch: (String) -> Unit) {
     val rows = listOfNotNull<@Composable () -> Unit>(
-        state.workout?.let { { HealthHomeWorkoutRow(it) } },
+        state.workout?.let { { HealthHomeWorkoutRow(it, state.today, sportResume, onLaunch) } },
         state.steps?.let { { HealthHomeStepsRow(it) } },
         state.balance?.let { { HealthHomeBalanceRow(it, state.today) } },
         state.fast?.let { { HealthHomeFastRow(it, state.today) } },
@@ -92,13 +109,27 @@ private fun HealthHomeBody(state: HealthHomeState) {
 }
 
 @Composable
-private fun HealthHomeWorkoutRow(workout: HealthHomeWorkout) {
-    HealthLine(
-        label = workout.title,
-        value = "${workout.time} · ${homeDuration(workout.durationMinutes)}",
-        fraction = null,
-        tag = UiTags.HOME_HEALTH_WORKOUT,
-    )
+private fun HealthHomeWorkoutRow(workout: HealthHomeWorkout, today: Boolean, sportResume: SportResume?, onLaunch: (String) -> Unit) {
+    val line: @Composable (Modifier) -> Unit = {
+        HealthLine(
+            label = workout.title,
+            value = "${workout.time} · ${homeDuration(workout.durationMinutes)}",
+            fraction = null,
+            tag = UiTags.HOME_HEALTH_WORKOUT,
+            modifier = it,
+        )
+    }
+    if (!today || !workout.launchable) return line(Modifier)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        line(Modifier.weight(1f))
+        ActivityLaunchButton(
+            module = HomeModules.HEALTH,
+            activity = workout.title,
+            day = HomeDay.TODAY,
+            onLaunch = { onLaunch(workout.id) },
+            resume = sportResume.resumes(workout.id),
+        )
+    }
 }
 
 @Composable
@@ -136,9 +167,9 @@ private fun HealthHomeFastRow(fast: HealthHomeFast, today: Boolean) {
 
 /** The mockup's line: the label on the left, its grey value on the right, a 6 dp bar under it when there is a share. */
 @Composable
-private fun HealthLine(label: String, value: String, fraction: Float?, tag: String) {
+private fun HealthLine(label: String, value: String, fraction: Float?, tag: String, modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.testTag(tag),
+        modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.testTag(tag),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

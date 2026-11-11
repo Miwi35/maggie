@@ -22,6 +22,8 @@ object DeepLinks {
     /** What the Cuisine activity cooks (MAG-580): a meal, or one recipe. */
     const val ARG_MEAL = "meal"
     const val ARG_RECIPE = "recipe"
+    const val ARG_WORKOUT = "workoutId"
+    const val ARG_EVENT = "event"
 
     const val EVENT_ROUTE = "link/event/{$ARG_ID}"
     const val TASK_ROUTE = "link/task/{$ARG_ID}"
@@ -103,6 +105,7 @@ object DeepLinks {
         Screen.HealthNutrition.route to listOf("$SCHEME://health/nutrition"),
         Screen.HealthJournal.route to listOf("$SCHEME://health/journal"),
         Screen.HealthSport.route to listOf("$SCHEME://health/sport"),
+        Screen.SportActivity.route to listOf("$SCHEME://health/sport/activity/{$ARG_WORKOUT}"),
         Screen.HealthConfiguration.route to listOf("$SCHEME://health/configuration"),
         Screen.Chat.route to listOf("$SCHEME://chat?$ARG_MESSAGE={$ARG_MESSAGE}"),
         // The Digest du matin (MAG-709, MAG-710): what the morning notification opens.
