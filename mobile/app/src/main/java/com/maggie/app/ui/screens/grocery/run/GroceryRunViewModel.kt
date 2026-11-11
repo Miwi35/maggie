@@ -523,8 +523,10 @@ class GroceryRunViewModel(
         val keep = saved?.current
         // A missing article is counted in its own store, not in the fallback the API moved it to: the fallback is
         // only where it is taken when that store is in today's tour (MAG-764).
+        // Nothing left to take anywhere: the stores of the session stay, so the header and the selection are not lost.
+        val sessionStores = if (saved != null && !saved.finished && lines.none { !it.checked }) saved.tour.toSet() + saved.done else emptySet()
         val stores = lines.groupBy { it.homeStore.id }
-            .filter { (id, items) -> id == keep || items.any { !it.checked } }
+            .filter { (id, items) -> id == keep || id in sessionStores || items.any { !it.checked } }
             .values
             .map { items -> items.first().homeStore to items.count { !it.checked } }
             .sortedWith(compareBy({ it.first.visitOrder }, { it.first.name }))
