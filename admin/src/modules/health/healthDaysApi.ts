@@ -33,6 +33,8 @@ export interface HealthDay {
   expendedKcal: number | null
   balanceKcal: number | null
   sportMinutes: number | null
+  /** The night's fast (MAG-770): the day before's last intake to the day's first, in minutes; null when one is missing. */
+  nightFastMinutes?: number | null
   mood: number | null
   fatigue: number | null
   note: string | null

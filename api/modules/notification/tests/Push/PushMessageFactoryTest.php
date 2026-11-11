@@ -268,6 +268,7 @@ final class PushMessageFactoryTest extends TestCase
         yield 'envelope alert' => ['/finance/budgets', 'maggie://finance/budgets', 'Voir les enveloppes'];
         yield 'routines' => ['/tasks', 'maggie://tasks', 'Voir les routines'];
         yield 'finance home' => ['/finance', 'maggie://finance', 'Ouvrir les finances'];
+        yield 'eating window closes' => ['/health/nutrition', 'maggie://health/nutrition', 'Ouvrir Nutrition'];
         yield 'a screen the app does not have' => ['/finance/secrets', null, null];
         yield 'an entity the app cannot open' => ['/api/stores/01JSTORE', null, null];
         yield 'an id the app would refuse' => ['/api/events/../../x', null, null];
@@ -293,6 +294,7 @@ final class PushMessageFactoryTest extends TestCase
         yield 'proaction' => [NotificationType::Proaction, 'chat_v2'];
         yield 'grocery' => [NotificationType::Grocery, 'chat_v2'];
         yield 'cooking timer' => [NotificationType::CookingTimer, 'reminders_v2'];
+        yield 'health' => [NotificationType::Health, 'reminders_v2'];
     }
 
     public function testACookingTimersEndIsTaggedOncePerTimerAndCarriesItsId(): void

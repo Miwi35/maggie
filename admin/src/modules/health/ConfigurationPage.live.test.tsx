@@ -28,6 +28,8 @@ const NONE: HealthProfile = {
   suggestionWindowEnd: '20:00',
   sessionMinutes: 20,
   stepSource: 'none',
+  fastingProtocol: '16:8',
+  fastingWindowStart: '12:00',
 }
 
 /** What the hub publishes: the whole profile, with its IRI. */

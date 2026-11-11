@@ -9,6 +9,7 @@
     "expendedKcal": null,
     "balanceKcal": null,
     "sportMinutes": 32,
+    "nightFastMinutes": null,
     "mood": 7,
     "fatigue": 4,
     "note": "Bonne séance, un peu fatigué le soir.",

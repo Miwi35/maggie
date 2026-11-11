@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -18,7 +19,10 @@ import com.maggie.app.data.api.ApiRefusalException
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.DailyBalance
+import com.maggie.app.data.model.FastingProtocol
+import com.maggie.app.data.model.FastingStatus
 import com.maggie.app.data.model.FoodIntake
+import com.maggie.app.data.model.HealthDay
 import com.maggie.app.data.model.PlannedMeal
 import com.maggie.app.data.repository.NutritionRepository
 import com.maggie.app.screentest.ScreenRule
@@ -42,8 +46,8 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * « Santé › Nutrition » as drawn (MAG-748): the bilan first, the seven days, the macros, then the journal with its
- * planned meal and « Mangé ». Today is Saturday 7 November 2026, 12:30 in Paris.
+ * « Santé › Nutrition » as drawn (MAG-748): the bilan first, the fast (MAG-770), the seven days, the macros, then the
+ * journal with its planned meal and « Mangé ». Today is Saturday 7 November 2026, 12:30 in Paris.
  */
 @RunWith(AndroidJUnit4::class)
 class NutritionScreenTest {
@@ -61,10 +65,24 @@ class NutritionScreenTest {
     )
     private val apple = FoodIntake("apple", "2026-11-07", "2026-11-07T10:00:00+01:00", label = "Pomme", kcal = 78, source = "manual")
 
+    // The window opened at 12:10, 16:8 from noon: it closes at 20:00, 7 h 30 from now.
+    private val open = FastingStatus(
+        "2026-11-07", protocol = "16:8", windowStart = "12:00", windowEnd = "20:00",
+        openedAt = "2026-11-07T12:10:00+01:00", lastIntakeAt = "2026-11-07T12:10:00+01:00", state = FastingStatus.STATE_OPEN,
+        nightFastMinutes = 965,
+    )
+
+    init {
+        coEvery { repository.getFasting(any()) } returns Result.success(open)
+        coEvery { repository.getHealthDays(any(), any()) } returns Result.success(listOf(HealthDay(id = "d-1", date = "2026-11-07", nightFastMinutes = 965)))
+    }
+
     private fun viewModel(
         balance: DailyBalance = planned,
         intakes: List<FoodIntake> = listOf(apple),
+        fasting: FastingStatus = open,
     ): NutritionViewModel {
+        coEvery { repository.getFasting(any()) } returns Result.success(fasting)
         coEvery { repository.getDailyBalance(any()) } returns Result.success(balance)
         coEvery { repository.getFoodIntakes(any()) } returns Result.success(intakes)
         coEvery { repository.getDailyBalances(any(), any()) } returns Result.success(listOf(balance))
@@ -291,5 +309,89 @@ class NutritionScreenTest {
         val journal = compose.onNodeWithTag(UiTags.NUTRITION_JOURNAL).fetchSemanticsNode().boundsInRoot
         assert(bilan.right <= root.center.x + 1f) { "bilan $bilan overflows the left column of $root" }
         assert(journal.left >= root.center.x - 1f) { "journal $journal is not in the right column of $root" }
+    }
+
+    private fun waitForFasting() =
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.FASTING_CARD).fetchSemanticsNodes().isNotEmpty() }
+
+    @Test
+    fun `the fast sits under the bilan, its window open, the protocol, the span and the night`() {
+        compose.setContent { NutritionScreen(viewModel()) }
+        waitForBilan()
+        waitForFasting()
+
+        assertTopToBottom(
+            "bilan" to compose.onNodeWithTag(UiTags.NUTRITION_BALANCE),
+            "fasting" to compose.onNodeWithTag(UiTags.FASTING_CARD),
+            "week" to compose.onNodeWithTag(UiTags.NUTRITION_WEEK),
+        )
+        compose.onNodeWithTag(UiTags.FASTING_STATE).assertTextEquals("Fenêtre ouverte")
+        compose.onNodeWithTag(UiTags.FASTING_REMAINING).assertTextEquals("7 h 30")
+        compose.onNodeWithText("restantes").assertExists()
+        compose.onNodeWithText("16:8").assertExists()
+        compose.onNodeWithTag(UiTags.FASTING_SPAN).assertTextEquals("12 h 10 → 20 h 00")
+        compose.onNodeWithTag(UiTags.FASTING_NIGHT).assertTextEquals("Jeûne de la nuit · 16 h 05")
+    }
+
+    @Test
+    fun `fasting before the window reads Jeûne`() {
+        val fasting = FastingStatus(
+            "2026-11-07", protocol = "16:8", windowStart = "13:00", windowEnd = "21:00",
+            lastIntakeAt = "2026-11-06T20:30:00+01:00", state = FastingStatus.STATE_FASTING,
+        )
+        compose.setContent { NutritionScreen(viewModel(fasting = fasting)) }
+        waitForFasting()
+
+        compose.onNodeWithTag(UiTags.FASTING_STATE).assertTextEquals("Jeûne")
+        compose.onNodeWithTag(UiTags.FASTING_REMAINING).assertTextEquals("0 h 30")
+        compose.onNodeWithTag(UiTags.FASTING_SPAN).assertTextEquals("13 h 00 → 21 h 00")
+    }
+
+    @Test
+    fun `without a protocol there is no fasting card`() {
+        compose.setContent { NutritionScreen(viewModel(fasting = FastingStatus("2026-11-07"))) }
+        waitForBilan()
+        compose.waitForIdle()
+
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.FASTING_CARD).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `the sheet offers the four protocols with their window, the window's start and Enregistrer`() {
+        val saved = mutableListOf<Pair<String, String>>()
+        // The content alone, as for the add form: a window of its own hangs Robolectric's idling.
+        compose.setContent { FastingSheetContent(FastingProtocol.P16_8, "12:00", saving = false, onSave = { p, w -> saved += p to w }) }
+
+        compose.onNodeWithText("Jeûne").assertIsDisplayed()
+        listOf("14:10" to "10 h de fenêtre", "16:8" to "8 h de fenêtre", "18:6" to "6 h de fenêtre", "20:4" to "4 h de fenêtre").forEach { (key, window) ->
+            compose.onNodeWithTag(UiTags.fastingProtocol(key)).assertIsDisplayed()
+            compose.onNodeWithText(window).assertExists()
+        }
+        compose.onNodeWithTag(UiTags.fastingProtocol("16:8")).assertIsSelected()
+        compose.onNodeWithText("Début de la fenêtre").assertExists()
+        compose.onNodeWithTag(UiTags.FASTING_WINDOW_START).assertTextEquals("12:00")
+
+        compose.onNodeWithTag(UiTags.fastingProtocol("18:6")).performClick()
+        compose.onNodeWithTag(UiTags.fastingProtocol("18:6")).assertIsSelected()
+        compose.onNodeWithTag(UiTags.FASTING_SAVE).assertTextEquals("Enregistrer").performClick()
+
+        assertEquals(listOf("18:6" to "12:00"), saved)
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `a tablet shows the fourteen nights' fasts under the fast, in the left column`() {
+        compose.setContent { NutritionScreen(viewModel()) }
+        waitForBilan()
+        waitForFasting()
+
+        val root = compose.onNodeWithTag(UiTags.NUTRITION).fetchSemanticsNode().boundsInRoot
+        val history = compose.onNodeWithTag(UiTags.FASTING_HISTORY).fetchSemanticsNode().boundsInRoot
+        assert(history.right <= root.center.x + 1f) { "history $history overflows the left column of $root" }
+        assertTopToBottom(
+            "fasting" to compose.onNodeWithTag(UiTags.FASTING_CARD),
+            "history" to compose.onNodeWithTag(UiTags.FASTING_HISTORY),
+        )
+        compose.onNodeWithText("Jeûnes · 14 jours").assertExists()
     }
 }

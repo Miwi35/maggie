@@ -166,6 +166,7 @@ import com.maggie.app.data.model.BodyMeasurement
 import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyBalanceRange
 import com.maggie.app.data.model.DailyEnergy
+import com.maggie.app.data.model.FastingStatus
 import com.maggie.app.data.model.FoodIntake
 import com.maggie.app.data.model.HealthDay
 import com.maggie.app.data.model.HealthDayRange
@@ -3040,6 +3041,14 @@ class MaggieApiService(
             url.parameters.append("from", from)
             url.parameters.append("to", to)
         }.orRefusal().body<HealthDayRange>().days
+    }
+
+    // Santé — jeûne intermittent (MAG-770): plain JSON, the protocol, the day's window and where the fast stands
+    suspend fun getFasting(date: String): FastingStatus {
+        return client.get("$baseUrl/api/health/fasting") {
+            accept(ContentType.Application.Json)
+            url.parameters.append("date", date)
+        }.orRefusal().body()
     }
 
     /** A day the journal does not hold answers with its date and everything else null. */

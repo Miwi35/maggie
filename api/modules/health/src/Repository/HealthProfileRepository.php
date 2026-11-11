@@ -21,4 +21,20 @@ class HealthProfileRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['user' => $user]);
     }
+
+    /**
+     * The profiles of the users who fast (MAG-770). A user who never wrote a
+     * profile fasts by default but has no row: nothing to remind them yet.
+     *
+     * @return list<HealthProfile>
+     */
+    public function findFasting(): array
+    {
+        /* @var list<HealthProfile> */
+        return $this->createQueryBuilder('p')
+            ->join('p.user', 'u')->addSelect('u')
+            ->where('p.fastingProtocol IS NOT NULL')
+            ->getQuery()
+            ->getResult();
+    }
 }

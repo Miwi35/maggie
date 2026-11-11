@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNotify } from 'react-admin'
 import { useMercure } from '../../hooks/useMercure'
 
@@ -29,6 +29,10 @@ export const STEP_SOURCES = ['health_connect', 'none'] as const
 export type StepSource = (typeof STEP_SOURCES)[number]
 export type NeedMode = 'computed' | 'entered'
 
+/** Intermittent fasting (MAG-770): « 16:8 » is 16 h of fasting, a window of 8 h. */
+export const FASTING_PROTOCOLS = ['14:10', '16:8', '18:6', '20:4'] as const
+export type FastingProtocol = (typeof FASTING_PROTOCOLS)[number]
+
 export interface HealthProfile {
   id: string | null
   sex: Sex | null
@@ -47,6 +51,10 @@ export interface HealthProfile {
   suggestionWindowEnd: string
   sessionMinutes: number
   stepSource: StepSource
+  /** Null: no fasting. */
+  fastingProtocol: FastingProtocol | null
+  /** `12:00`, when the eating window opens. */
+  fastingWindowStart: string
 }
 
 /** What a PATCH may carry: the fields the API writes, one at a time from this page. */
@@ -65,6 +73,8 @@ export type HealthProfilePatch = Partial<
     | 'suggestionWindowEnd'
     | 'sessionMinutes'
     | 'stepSource'
+    | 'fastingProtocol'
+    | 'fastingWindowStart'
   >
 >
 
@@ -147,12 +157,27 @@ const profileOf = (data: Record<string, unknown>): HealthProfile => {
   return profile as unknown as HealthProfile
 }
 
+/** `/api/health-profile/01…`: what a published profile's `@id` starts with. */
+const PROFILE_ID = /^\/api\/health-profile\//
+
+/**
+ * Other topics a page listens to on the profile's stream: over HTTP/1.1 every
+ * open stream holds one of the six connections for good, and Santé › Nutrition
+ * with a stream per topic left none to send a write (MAG-473, MAG-770). A
+ * constant array: a new one reopens the stream.
+ */
+export interface ProfileStreamOptions {
+  topics: string[]
+  /** Called on every event of the stream, the profile's included. */
+  onEvent: () => void
+}
+
 /**
  * The profile, loaded and kept in step with Mercure; `save` shows a change at
  * once, sends it, and falls back to the server's profile when it is refused.
  * Saves go one after the other, so the last change is the one that stays.
  */
-export function useHealthProfile() {
+export function useHealthProfile(stream?: ProfileStreamOptions) {
   const notify = useNotify()
   const [profile, setProfile] = useState<HealthProfile | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -182,19 +207,33 @@ export function useHealthProfile() {
     }
   }, [notify])
 
-  // A change made elsewhere (the phone, Maggie, a weighing): the payload is the whole profile.
-  const handleMercure = useCallback((data?: string) => {
-    if (!data) return
-    try {
-      const next = profileOf(JSON.parse(data) as Record<string, unknown>)
-      server.current = next
-      if (pending.current === 0) setProfile(next)
-    } catch {
-      // Not a profile: nothing to apply.
-    }
-  }, [])
+  const onEvent = useRef(stream?.onEvent)
+  useEffect(() => {
+    onEvent.current = stream?.onEvent
+  })
+  const extraTopics = stream?.topics
+  const topics = useMemo(() => [...HEALTH_PROFILE_TOPICS, ...(extraTopics ?? [])], [extraTopics])
 
-  useMercure(HEALTH_PROFILE_TOPICS, handleMercure)
+  // A change made elsewhere (the phone, Maggie, a weighing): the payload is the whole profile.
+  const handleMercure = useCallback(
+    (data?: string) => {
+      onEvent.current?.()
+      if (!data) return
+      try {
+        const payload = JSON.parse(data) as Record<string, unknown>
+        // The stream may carry the page's other topics: only a profile replaces the profile.
+        if (extraTopics && !PROFILE_ID.test(String(payload['@id'] ?? ''))) return
+        const next = profileOf(payload)
+        server.current = next
+        if (pending.current === 0) setProfile(next)
+      } catch {
+        // Not a profile: nothing to apply.
+      }
+    },
+    [extraTopics],
+  )
+
+  useMercure(topics, handleMercure)
 
   const save = useCallback(
     (patch: HealthProfilePatch, shown: Partial<HealthProfile> = patch): Promise<boolean> => {

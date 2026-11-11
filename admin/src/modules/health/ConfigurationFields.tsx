@@ -90,10 +90,11 @@ interface SelectFieldProps<T extends string | number> {
   value: T | null
   options: readonly (readonly [T, string])[]
   onChange: (value: T) => void
+  testId?: string
 }
 
 /** A choice among a few, saved as soon as it is picked; « — » until one is. */
-export const SelectField = <T extends string | number>({ label, value, options, onChange }: SelectFieldProps<T>) => {
+export const SelectField = <T extends string | number>({ label, value, options, onChange, testId }: SelectFieldProps<T>) => {
   const id = useId()
 
   return (
@@ -105,7 +106,7 @@ export const SelectField = <T extends string | number>({ label, value, options, 
           const picked = options.find(([candidate]) => String(candidate) === event.target.value)
           if (picked) onChange(picked[0])
         }}
-        input={<InputBase sx={inputSx} />}
+        input={<InputBase sx={inputSx} inputProps={testId ? { 'data-testid': testId } : undefined} />}
       >
         {value === null && (
           <option value="" disabled>
@@ -136,7 +137,19 @@ export const FieldBox = ({ labelledBy, children }: { labelledBy: string; childre
  * `HH:MM`: a browser's time field is valid after each keystroke, so saving on
  * change would send every step (as Réglages › Tâches).
  */
-export const TimeInput = ({ name, value, onSave }: { name: string; value: string; onSave: (time: string) => Promise<boolean> }) => {
+export const TimeInput = ({
+  name,
+  value,
+  onSave,
+  id,
+  testId,
+}: {
+  name: string
+  value: string
+  onSave: (time: string) => Promise<boolean>
+  id?: string
+  testId?: string
+}) => {
   const [draft, setDraft] = useState<string | null>(null)
 
   const commit = () => {
@@ -157,7 +170,8 @@ export const TimeInput = ({ name, value, onSave }: { name: string; value: string
       onKeyDown={(event) => {
         if (event.key === 'Enter') commit()
       }}
-      inputProps={{ 'aria-label': name }}
+      id={id}
+      inputProps={{ 'aria-label': name, ...(testId && { 'data-testid': testId }) }}
       sx={{
         fontSize: 15,
         fontVariantNumeric: 'tabular-nums',
@@ -168,5 +182,18 @@ export const TimeInput = ({ name, value, onSave }: { name: string; value: string
         '& input::-webkit-calendar-picker-indicator': { display: 'none' },
       }}
     />
+  )
+}
+
+/** A time with its label over it, in the field's box (« Début de la fenêtre » of the fast, MAG-770). */
+export const TimeField = ({ label, value, onSave, testId }: { label: string; value: string; onSave: (time: string) => Promise<boolean>; testId?: string }) => {
+  const id = useId()
+
+  return (
+    <Field id={id} label={label}>
+      <Box sx={(theme) => ({ ...inputSx(theme), display: 'flex', alignItems: 'center' })}>
+        <TimeInput id={id} name={label} value={value} onSave={onSave} testId={testId} />
+      </Box>
+    </Field>
   )
 }

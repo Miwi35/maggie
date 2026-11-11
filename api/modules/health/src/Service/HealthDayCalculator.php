@@ -27,7 +27,8 @@ use Maggie\Health\Repository\WorkoutRepository;
  *   its basal metabolism from the profile with the weight known that day (the
  *   latest weighing up to its end) and the age of that day's year — so that a
  *   later weighing never rewrites a past day;
- * - sport minutes: the done sessions that started that day.
+ * - sport minutes: the done sessions that started that day;
+ * - night's fast: the day before's last intake to the day's first ({@see FastingReader::nightFastMinutes()}).
  *
  * A figure without any source is null. The day is local: midnight to
  * midnight, Europe/Paris.
@@ -51,6 +52,8 @@ final class HealthDayCalculator
         $activity = $this->activities->findOneByDate($user, $day);
 
         $intakes = $this->intakes->findInRange($user, $day, $day);
+        $dayBefore = $day->modify('-1 day');
+        $nightFastMinutes = [] === $intakes ? null : FastingReader::nightFastMinutes($this->intakes->findInRange($user, $dayBefore, $dayBefore), $intakes);
         $eatenKcal = [] === $intakes ? null : array_sum(array_map(static fn ($intake): int => (int) $intake->getKcal(), $intakes));
 
         $workouts = $this->workouts->findDoneInRange($user, $day, $end);
@@ -73,6 +76,7 @@ final class HealthDayCalculator
             eatenKcal: $eatenKcal,
             expendedKcal: $energy['expendedKcal'],
             sportMinutes: $sportMinutes,
+            nightFastMinutes: $nightFastMinutes,
             hasSource: null !== $weighing || null !== $activity || [] !== $intakes || [] !== $workouts,
         );
     }

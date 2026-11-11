@@ -1,6 +1,7 @@
 import { SEARCH_INDEX_CONFIG } from '../../modules/search/searchConfig'
 import { isTripIri } from '../../modules/calendar/trips'
 import { stripDeliveryTags } from '../chat/deliveryTags'
+import { HEALTH_NUTRITION_PATH } from '../layout/navigation'
 
 /** Where an interruption comes from — what its action does depends on it. */
 export type InterruptionSource = 'proaction' | 'notification' | 'approval'
@@ -97,6 +98,9 @@ export function notificationLink(iri: string | null | undefined): NotificationLi
 
   // The routines of the day (MAG-512) wait in « Aujourd'hui » of the tasks.
   if (/^\/tasks\/?$/.test(path)) return { path: '/tasks', label: 'Voir les routines' }
+
+  // A fast's notification (MAG-770): Santé › Nutrition and its « Jeûne » card.
+  if (/^\/health\/nutrition\/?$/.test(path)) return { path: HEALTH_NUTRITION_PATH, label: 'Ouvrir Nutrition' }
 
   const finance = /^\/finance(?:\/([a-z-]+))?\/?$/.exec(path)
   if (finance) {

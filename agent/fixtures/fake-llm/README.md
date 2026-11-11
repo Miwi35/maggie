@@ -204,6 +204,8 @@ and no `days`, whatever its date.
 `query` and no dates, then `update` on the id found, to tomorrow's `lunch`.
 `97-health-step-goal.yaml` (MAG-707): « Mon objectif de pas, c'est 10 000 » — `update_health_profile` with `stepGoal: 10000` alone.
 `97-health-food-intake.yaml` (MAG-748): « J'ai mangé une salade César à midi » — `manage_food_intakes` create, today at 12:00, 450 kcal and her macros, estimated.
+`97-health-fasting-protocol.yaml` (MAG-770): « Je passe au 18:6 à partir de 13 h » — `update_health_profile` with `fastingProtocol: 18:6` and `fastingWindowStart: 13:00`.
+`97-health-fasting-stop.yaml` (MAG-770): « Arrête le jeûne » — `update_health_profile` with `fastingProtocol: none`.
 
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change

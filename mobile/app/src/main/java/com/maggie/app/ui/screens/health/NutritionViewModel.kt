@@ -8,7 +8,9 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.DailyBalance
+import com.maggie.app.data.model.FastingStatus
 import com.maggie.app.data.model.FoodIntake
+import com.maggie.app.data.model.HealthDay
 import com.maggie.app.data.repository.NutritionRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -37,6 +39,13 @@ data class NutritionUiState(
     /** The « Ajouter » dialog is open — kept here so a rotation does not close it. */
     val addOpen: Boolean = false,
     val isSaving: Boolean = false,
+    /** Today's fast (MAG-770); `null` until it answered, and its protocol null when the owner does not fast. */
+    val fasting: FastingStatus? = null,
+    /** The journal's days of the last [FASTING_HISTORY_DAYS], for their night fasts (the tablet's chart). */
+    val fastingDays: List<HealthDay> = emptyList(),
+    /** The « Jeûne » sheet is open — kept here so a rotation does not close it. */
+    val fastingSheetOpen: Boolean = false,
+    val fastingSaving: Boolean = false,
     val error: String? = null,
     val message: String? = null,
 )
@@ -44,6 +53,7 @@ data class NutritionUiState(
 /**
  * « Santé › Nutrition » (MAG-748): today's balance, the last seven days, the macros and the journal — « Mangé » on a
  * planned meal, a food added by hand, an entry deleted. Every change reads the day again: the figures are the API's.
+ * Under the bilan, the intermittent fast (MAG-770): read again with the day, and when the profile changes elsewhere.
  * The [clock] says today, in Paris as the API counts the days.
  */
 class NutritionViewModel(
@@ -65,13 +75,21 @@ class NutritionViewModel(
         subscribeToMercure()
     }
 
-    // A dish Maggie records, or one eaten from the admin, reaches the journal without a reload.
+    // A dish Maggie records, or one eaten from the admin, reaches the journal without a reload; a protocol changed
+    // elsewhere (the admin, Maggie) redraws the fast.
     private fun subscribeToMercure() {
         viewModelScope.launch {
             val userId = authRepository.getUserId() ?: return@launch
-            mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.FOOD_INTAKES))
-                .catch { /* MercureService reconnects by itself */ }
-                .collect { load(showLoading = false) }
+            launch {
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.FOOD_INTAKES))
+                    .catch { /* MercureService reconnects by itself */ }
+                    .collect { load(showLoading = false) }
+            }
+            launch {
+                mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.HEALTH_PROFILE))
+                    .catch { /* MercureService reconnects by itself */ }
+                    .collect { loadFasting() }
+            }
         }
     }
 
@@ -86,6 +104,8 @@ class NutritionViewModel(
             val balance = async { repository.getDailyBalance(day.toString()) }
             val intakes = async { repository.getFoodIntakes(day.toString()) }
             val week = async { repository.getDailyBalances(day.minusDays(BALANCE_WEEK_DAYS - 1L).toString(), day.toString()) }
+            // The fast in the same breath: coroutineScope waits for it, so the state read below already holds it.
+            launch { loadFasting() }
             Triple(balance.await(), intakes.await(), week.await())
         }
         var state = _uiState.value.copy(isLoading = false)
@@ -94,6 +114,40 @@ class NutritionViewModel(
         week.onSuccess { state = state.copy(week = it) }
         if (balance.isFailure || intakes.isFailure) state = state.copy(error = MESSAGE_LOAD)
         _uiState.value = state
+    }
+
+    /** Today's fast and the last nights'; a failure keeps what was shown — the card is not the screen. */
+    private suspend fun loadFasting() {
+        val day = today
+        val (fasting, days) = coroutineScope {
+            val fasting = async { repository.getFasting(day.toString()) }
+            val days = async { repository.getHealthDays(day.minusDays(FASTING_HISTORY_DAYS - 1L).toString(), day.toString()) }
+            fasting.await() to days.await()
+        }
+        fasting.onSuccess { _uiState.value = _uiState.value.copy(fasting = it) }
+        days.onSuccess { _uiState.value = _uiState.value.copy(fastingDays = it) }
+    }
+
+    fun openFastingSheet() {
+        _uiState.value = _uiState.value.copy(fastingSheetOpen = true)
+    }
+
+    fun closeFastingSheet() {
+        _uiState.value = _uiState.value.copy(fastingSheetOpen = false)
+    }
+
+    /** « Enregistrer »: the protocol and the window's start go to the profile; the sheet closes once the API took them. */
+    fun saveFasting(protocol: String, windowStart: String) {
+        if (_uiState.value.fastingSaving) return
+        _uiState.value = _uiState.value.copy(fastingSaving = true, error = null)
+        viewModelScope.launch {
+            repository.updateFasting(protocol, windowStart)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(fastingSaving = false, fastingSheetOpen = false, message = MESSAGE_FASTING_SAVED)
+                    loadFasting()
+                }
+                .onFailure { _uiState.value = _uiState.value.copy(fastingSaving = false, error = refusal(it, MESSAGE_FASTING_SAVE)) }
+        }
     }
 
     /** « Mangé »: the meal leaves « Prévu » for the journal once the API recorded it; a refusal says why, in its words. */
@@ -178,5 +232,7 @@ class NutritionViewModel(
         const val MESSAGE_DELETED = "Aliment supprimé"
         const val MESSAGE_ADD = "L'aliment n'a pas été ajouté."
         const val MESSAGE_ADDED = "Aliment ajouté"
+        const val MESSAGE_FASTING_SAVE = "Le jeûne n'a pas été enregistré."
+        const val MESSAGE_FASTING_SAVED = "Jeûne enregistré"
     }
 }

@@ -585,6 +585,38 @@ class TestMatching:
         assert first.content[0].input == {"stepGoal": 10000}
         assert "10 000 pas" in second.content[0].text
 
+    @pytest.mark.parametrize(
+        ("question", "expected", "answer"),
+        [
+            ("Je passe au 18:6 à partir de 13 h", {"fastingProtocol": "18:6", "fastingWindowStart": "13:00"}, "18:6"),
+            ("Arrête le jeûne", {"fastingProtocol": "none"}, "plus de jeûne"),
+        ],
+    )
+    async def test_the_fasting_scenarios_change_the_protocol_of_the_health_profile(self, question, expected, answer):
+        """97-health-fasting-*.yaml (MAG-770): `update_health_profile` with the fasting fields alone, then the answer."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        async def turn(rounds: list[dict]):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie.",
+                tools=[{"name": "update_health_profile"}],
+                messages=[{"role": "user", "content": question}, *rounds],
+            )
+
+        first = await turn([])
+        second = await turn(
+            [
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "update_health_profile", "input": {}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": '{"success": true}'}]},
+            ]
+        )
+
+        assert first.content[0].name == "update_health_profile"
+        assert first.content[0].input == expected
+        assert answer in second.content[0].text
+
     async def test_the_food_intake_scenario_records_the_salad_at_noon_today(self):
         """97-health-food-intake.yaml (MAG-748): `manage_food_intakes` create, today at noon, her figures."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)

@@ -826,6 +826,21 @@
         },
         "description": "Read the exercise reference catalogue (Santé › Coach sportif). Arguments, all optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior or core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall — keeps only the exercises doable with that gear, bodyweight ones included; an empty list keeps bodyweight only), slug (one exercise). Returns {exercises: [...]}, each {slug, name (French), pattern, primaryMuscles, secondaryMuscles, kind (compound or isolation), equipment, nervousCost (low, medium, high), eccentric, cue, unit (reps, seconds or meters), perSide, loadable (a weighted bag can add load), ladders: [{ladder, branch, position}]} — position 1 is the softest step of that progression ladder. An unknown slug, pattern or equipment returns {error}."
     },
+    "get_fasting": {
+        "name": "get_fasting",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "date"
+            ]
+        },
+        "description": "Read the user's intermittent fast of one day (Santé › Nutrition), date YYYY-MM-DD. Nothing is started by hand: the food journal decides. Returns {date, protocol, windowStart, windowEnd, openedAt, lastIntakeAt, state, nightFastMinutes}: protocol is fasting hours:eating window hours (14:10, 16:8, 18:6 or 20:4), null when the user does not fast (change it with update_health_profile); windowStart and windowEnd « HH:MM », the eating window of the profile; openedAt the day's first intake, which opens the window; lastIntakeAt the latest intake so far, the fast in progress counts from it; state fasting (nothing eaten yet today), open (window open, until windowEnd) or closed (window over, fasting until tomorrow's windowStart); nightFastMinutes the fast that ended that day, from the day before's last intake to the day's first. A future day gives its window only. Encourage, never reproach: a window eaten past is not a fault."
+    },
     "get_finance_dashboard": {
         "name": "get_finance_dashboard",
         "inputSchema": {
@@ -4964,10 +4979,31 @@
                         "health_connect",
                         "none"
                     ]
+                },
+                "fastingProtocol": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "14:10",
+                        "16:8",
+                        "18:6",
+                        "20:4",
+                        "none"
+                    ]
+                },
+                "fastingWindowStart": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             }
         },
-        "description": "Change the user's health profile (Santé › Configuration): only the arguments given change, the others keep their value; give at least one. sex: male or female. birthYear: the year of birth (age = current year − birthYear; « j'ai 38 ans » in 2026 is 1988). heightCm: whole centimetres, 100 to 250. weightKg: kilograms, more than 0 and at most 500 — recorded as a manual weighing taken now, listed in Santé › Suivi. activityLevel: sedentary, light, moderate, active or very_active. mode: computed (the day's need is the basal metabolism × the activity factor, rounded to 10 kcal) or entered (the day's need is enteredNeedKcal). enteredNeedKcal: whole kcal, 1000 to 5000, by steps of 50. stepGoal: steps a day, 500 to 50000, by steps of 500 (« mon objectif de pas, c'est 10 000 » is 10000). suggestionWindowStart and suggestionWindowEnd: « HH:MM », the end after the start — when Maggie may suggest a session. sessionMinutes: 15, 20 or 30. stepSource: health_connect or none. Returns {\"success\": true, \"profile\": …} with the profile as get_health_profile reads it, or {\"error\", \"field\"} naming the refused field; nothing is changed then."
+        "description": "Change the user's health profile (Santé › Configuration): only the arguments given change, the others keep their value; give at least one. sex: male or female. birthYear: the year of birth (age = current year − birthYear; « j'ai 38 ans » in 2026 is 1988). heightCm: whole centimetres, 100 to 250. weightKg: kilograms, more than 0 and at most 500 — recorded as a manual weighing taken now, listed in Santé › Suivi. activityLevel: sedentary, light, moderate, active or very_active. mode: computed (the day's need is the basal metabolism × the activity factor, rounded to 10 kcal) or entered (the day's need is enteredNeedKcal). enteredNeedKcal: whole kcal, 1000 to 5000, by steps of 50. stepGoal: steps a day, 500 to 50000, by steps of 500 (« mon objectif de pas, c'est 10 000 » is 10000). suggestionWindowStart and suggestionWindowEnd: « HH:MM », the end after the start — when Maggie may suggest a session. sessionMinutes: 15, 20 or 30. stepSource: health_connect or none. fastingProtocol: the intermittent fasting protocol, fasting hours:eating window hours — 14:10, 16:8, 18:6 or 20:4 (« je passe au 18:6 » is 18:6) — or none to stop fasting (« arrête le jeûne »). fastingWindowStart: « HH:MM », when the eating window opens (« à partir de 13 h » is 13:00); it lasts the protocol's window hours. Returns {\"success\": true, \"profile\": …} with the profile as get_health_profile reads it, or {\"error\", \"field\"} naming the refused field; nothing is changed then."
     },
     "update_recipe": {
         "name": "update_recipe",

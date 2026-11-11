@@ -1,4 +1,4 @@
-import { test, expect, parisDay } from '../fixtures/index.js'
+import { test, expect, e2eNow, parisDay, parisTime } from '../fixtures/index.js'
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection } from '../helpers/api.js'
 import { HealthNutritionPage } from '../pages/HealthNutritionPage.js'
@@ -15,6 +15,13 @@ import { HealthNutritionPage } from '../pages/HealthNutritionPage.js'
  * Nouveau parcours Santé › Nutrition, voisin de Santé › Suivi (MAG-706). The
  * account is this journey's own; the meal and its intake are removed at the end
  * all the same, even on failure.
+ *
+ * Jeûne intermittent — MAG-770 (second test):
+ * Given a 16:8 fast whose window opened at the last full hour, and an apple
+ * eaten a minute ago (so the window is open whatever the hour),
+ * When I change « Protocole » to « 14:10 » on Santé › Nutrition,
+ * Then « Fenêtre du jour » ends 2 h later, on screen as in `GET /api/health/fasting`.
+ * The profile is put back and the apple removed at the end, even on failure.
  */
 
 const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -103,5 +110,77 @@ test('Santé › Nutrition: « Mangé » moves the planned lunch into what was e
     expect(after.proteinG).toBeCloseTo(before.proteinG, 1)
   } finally {
     await removeMeal(api, today, mealId)
+  }
+})
+
+interface Fast {
+  fastingProtocol: string | null
+  fastingWindowStart: string
+}
+
+const json = { 'Content-Type': 'application/json', Accept: 'application/json' }
+
+const PARIS_CLOCK = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+
+/** `14:05:33`, an instant's time in Paris. */
+const parisClock = (instant: Date): string => PARIS_CLOCK.format(instant)
+
+/** « 20 h 00 », as the « Jeûne » card writes a full hour. */
+const hourLabel = (hour: number): string => `${hour % 24} h 00`
+
+async function patchFast(api: APIRequestContext, fast: Partial<Fast>): Promise<Fast> {
+  const response = await api.patch('/api/health/profile', { headers: json, data: fast })
+  expect(response.status(), `PATCH /api/health/profile answered ${response.status()}: ${await response.text()}`).toBe(200)
+
+  return (await response.json()) as Fast
+}
+
+test('Santé › Nutrition: a new fasting protocol moves the end of the day’s window — MAG-770', async ({ page, api }) => {
+  const now = e2eNow()
+  const today = parisDay(now)
+  const start = (Number(parisClock(now).slice(0, 2)) + 23) % 24
+  const { retry } = test.info()
+  const read = await api.get('/api/health/profile', { headers: json })
+  expect(read.status(), `GET /api/health/profile answered ${read.status()}`).toBe(200)
+  const before = (await read.json()) as Fast
+  let intakeIri: string | null = null
+
+  try {
+    // Given a 16:8 fast whose window opened at the last full hour…
+    await patchFast(api, { fastingProtocol: '16:8', fastingWindowStart: `${String(start).padStart(2, '0')}:00` })
+    // …and an apple eaten a minute ago: the window is open.
+    const eaten = new Date(now.getTime() - 60_000)
+    const intake = await api.post('/api/health/food-intakes', {
+      headers: jsonLd,
+      data: { eatenAt: parisTime(parisDay(eaten), parisClock(eaten)), label: retry === 0 ? 'Pomme' : `Pomme essai ${retry}`, kcal: 50 },
+    })
+    expect(intake.status(), `POST /api/health/food-intakes answered ${intake.status()}: ${await intake.text()}`).toBe(201)
+    intakeIri = ((await intake.json()) as { '@id': string })['@id']
+
+    // When I open Santé › Nutrition, the window ends 8 h after its start…
+    const nutrition = new HealthNutritionPage(page)
+    await nutrition.open()
+    await expect(nutrition.fastingProtocol).toHaveValue('16:8')
+    await expect(nutrition.fastingWindow).toContainText(`→ ${hourLabel(start + 8)}`)
+
+    // …and I change « Protocole » to « 14:10 »,
+    await nutrition.pickProtocol('14:10')
+
+    // Then « Fenêtre du jour » ends 2 h later, on screen…
+    await expect(nutrition.fastingWindow).toContainText(`→ ${hourLabel(start + 10)}`)
+    await expect(nutrition.fastingProtocol).toHaveValue('14:10')
+
+    // …and in the API.
+    const stored = (await (await api.get('/api/health/profile', { headers: json })).json()) as Fast
+    expect(stored.fastingProtocol).toBe('14:10')
+    const fasting = await api.get(`/api/health/fasting?date=${today}`, { headers: json })
+    expect(fasting.status(), `GET /api/health/fasting answered ${fasting.status()}`).toBe(200)
+    expect(await fasting.json()).toMatchObject({ protocol: '14:10', windowEnd: `${String((start + 10) % 24).padStart(2, '0')}:00` })
+  } finally {
+    if (intakeIri !== null) {
+      const removed = await api.delete(intakeIri)
+      expect(removed.ok() || removed.status() === 404, `DELETE ${intakeIri} answered ${removed.status()}`).toBeTruthy()
+    }
+    await patchFast(api, { fastingProtocol: before.fastingProtocol, fastingWindowStart: before.fastingWindowStart })
   }
 })

@@ -1,0 +1,86 @@
+# MAG-770's scenario: test_user fasts 16:8 from 12:00 (the defaults). On the
+# 9th the last intake is at 20:05, on the 10th the first at 12:10: the night's
+# fast is 16 h 05 (965 min). no_fast_user stopped fasting; other_user's
+# intakes prove every reading is filtered by user.
+Maggie\Core\Entity\User:
+  test_user:
+    email: fasting-test@example.com
+    googleId: google-fasting-test
+    name: Fasting Test User
+  no_fast_user:
+    email: fasting-none@example.com
+    googleId: google-fasting-none
+    name: No Fasting User
+  other_user:
+    email: fasting-other@example.com
+    googleId: google-fasting-other
+    name: Other Fasting User
+
+Maggie\Health\Entity\HealthProfile:
+  profile:
+    user: '@test_user'
+  no_fast_profile:
+    user: '@no_fast_user'
+    fastingProtocol: null
+
+Maggie\Health\Entity\FoodIntake:
+  breakfast_9:
+    date: '<(new \DateTimeImmutable("2026-11-09"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-11-09T12:30:00+01:00"))>'
+    label: Salade
+    kcal: 400
+    proteinG: 10.0
+    carbsG: 30.0
+    fatG: 20.0
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@test_user'
+  dinner_9:
+    date: '<(new \DateTimeImmutable("2026-11-09"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-11-09T20:05:00+01:00"))>'
+    label: Soupe
+    kcal: 300
+    proteinG: 8.0
+    carbsG: 30.0
+    fatG: 10.0
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@test_user'
+  lunch_10:
+    date: '<(new \DateTimeImmutable("2026-11-10"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-11-10T12:10:00+01:00"))>'
+    label: Bol du midi
+    kcal: 515
+    proteinG: 20.0
+    carbsG: 50.0
+    fatG: 25.0
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@test_user'
+  none_dinner_9:
+    date: '<(new \DateTimeImmutable("2026-11-09"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-11-09T19:00:00+01:00"))>'
+    label: Pâtes
+    kcal: 600
+    proteinG: 20.0
+    carbsG: 90.0
+    fatG: 10.0
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@no_fast_user'
+  none_breakfast_10:
+    date: '<(new \DateTimeImmutable("2026-11-10"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-11-10T08:00:00+01:00"))>'
+    label: Tartines
+    kcal: 300
+    proteinG: 8.0
+    carbsG: 50.0
+    fatG: 8.0
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@no_fast_user'
+  others_snack_10:
+    date: '<(new \DateTimeImmutable("2026-11-10"))>'
+    eatenAt: '<(new \DateTimeImmutable("2026-11-10T07:00:00+01:00"))>'
+    label: Biscuit
+    kcal: 100
+    proteinG: 1.0
+    carbsG: 15.0
+    fatG: 4.0
+    source: '<(Maggie\Health\Enum\FoodIntakeSource::Manual)>'
+    user: '@other_user'

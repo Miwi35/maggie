@@ -50,6 +50,12 @@ class UpdateHealthProfileHandler
         $this->rules->window($windowStart, $windowEnd);
         $sessionMinutes = null === $command->sessionMinutes ? $profile->getSessionMinutes() : $this->rules->sessionMinutes($command->sessionMinutes);
         $stepSource = null === $command->stepSource ? $profile->getStepSource() : $this->rules->stepSource($command->stepSource);
+        $fastingProtocol = match ($command->fastingProtocol) {
+            null => $profile->getFastingProtocol(),
+            UpdateHealthProfileCommand::NO_FASTING => null,
+            default => $this->rules->fastingProtocol($command->fastingProtocol),
+        };
+        $fastingWindowStart = null === $command->fastingWindowStart ? $profile->getFastingWindowStart() : $this->rules->time($command->fastingWindowStart, 'fastingWindowStart');
 
         $profile
             ->setSex($sex)
@@ -62,7 +68,9 @@ class UpdateHealthProfileHandler
             ->setSuggestionWindowStart($windowStart)
             ->setSuggestionWindowEnd($windowEnd)
             ->setSessionMinutes($sessionMinutes)
-            ->setStepSource($stepSource);
+            ->setStepSource($stepSource)
+            ->setFastingProtocol($fastingProtocol)
+            ->setFastingWindowStart($fastingWindowStart);
 
         return $this->updateHealthProfile->execute($profile, $weightKg);
     }

@@ -8,9 +8,14 @@ namespace Maggie\Health\Message;
  * Changes the fields of the user's health profile it is given (MAG-707):
  * null leaves a field as it is. The values are checked by the handler. A
  * weight is not a profile field: it records a manual weighing.
+ *
+ * `fastingProtocol` null leaves it as it is too: {@see self::NO_FASTING} stops
+ * fasting (MAG-770).
  */
 final readonly class UpdateHealthProfileCommand
 {
+    public const NO_FASTING = 'none';
+
     public function __construct(
         public string $userId,
         public mixed $sex = null,
@@ -25,6 +30,8 @@ final readonly class UpdateHealthProfileCommand
         public mixed $suggestionWindowEnd = null,
         public mixed $sessionMinutes = null,
         public mixed $stepSource = null,
+        public mixed $fastingProtocol = null,
+        public mixed $fastingWindowStart = null,
     ) {
     }
 }

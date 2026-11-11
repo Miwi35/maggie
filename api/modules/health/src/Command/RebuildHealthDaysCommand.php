@@ -44,7 +44,7 @@ class RebuildHealthDaysCommand extends Command
             ->setHelp(<<<'HELP'
                 Reads again, day by day, what the health journal (MAG-750) summarises:
                 the first weighing not set aside, the steps, the kcal eaten and spent,
-                the minutes of sport. Each day that has a source or a journal row is
+                the minutes of sport, the night's fast. Each day that has a source or a journal row is
                 refreshed through the same command the domain events use, so the
                 result is the one the events would have given. Mood, fatigue and the
                 note are never touched. Running it twice changes nothing more.
@@ -102,6 +102,8 @@ class RebuildHealthDaysCommand extends Command
         }
         foreach ($this->em->getRepository(FoodIntake::class)->findBy(['user' => $user]) as $intake) {
             $days[(string) $intake->getDate()?->format('Y-m-d')] = true;
+            // The night's fast of the day after starts at this day's last intake (MAG-770).
+            $days[(string) $intake->getDate()?->modify('+1 day')->format('Y-m-d')] = true;
         }
         foreach ([DailyActivity::class, HealthDay::class] as $class) {
             foreach ($this->em->getRepository($class)->findBy(['user' => $user]) as $row) {

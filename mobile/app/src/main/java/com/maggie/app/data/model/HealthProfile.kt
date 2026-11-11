@@ -28,6 +28,10 @@ data class HealthProfile(
     val suggestionWindowEnd: String = "20:00",
     val sessionMinutes: Int = 20,
     val stepSource: String = STEP_SOURCE_NONE,
+    /** Intermittent fasting (MAG-770): `14:10`, `16:8`, `18:6`, `20:4`, or null when the owner does not fast. */
+    val fastingProtocol: String? = FastingProtocol.DEFAULT.key,
+    /** When the eating window opens, `HH:MM`. */
+    val fastingWindowStart: String = FastingProtocol.DEFAULT_WINDOW_START,
 ) {
     val isEntered: Boolean get() = mode == MODE_ENTERED
 

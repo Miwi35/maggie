@@ -32,6 +32,8 @@ const CRITERION: HealthProfile = {
   suggestionWindowEnd: '20:00',
   sessionMinutes: 20,
   stepSource: 'health_connect',
+  fastingProtocol: '16:8',
+  fastingWindowStart: '12:00',
 }
 
 /** What GET answers before the profile is ever written. */
@@ -48,6 +50,8 @@ const NONE: HealthProfile = {
   factor: null,
   sessionMinutes: 20,
   stepSource: 'none',
+  fastingProtocol: '16:8',
+  fastingWindowStart: '12:00',
 }
 
 const json = (body: unknown, status = 200) =>

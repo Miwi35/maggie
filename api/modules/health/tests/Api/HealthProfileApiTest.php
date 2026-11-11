@@ -86,6 +86,8 @@ class HealthProfileApiTest extends WebTestCase
             'suggestionWindowEnd' => '20:00',
             'sessionMinutes' => 20,
             'stepSource' => 'none',
+            'fastingProtocol' => '16:8',
+            'fastingWindowStart' => '12:00',
         ], $this->decoded());
         self::assertNull($this->profileOf('test_user'));
         $this->assertMercureUpdateCount(0);
@@ -167,6 +169,38 @@ class HealthProfileApiTest extends WebTestCase
         self::assertSame(StepSource::HealthConnect, $stored->getStepSource());
     }
 
+    public function testTheFastingProtocolAndWindowAreStoredAndPublished(): void
+    {
+        $data = $this->patch(['fastingProtocol' => '18:6', 'fastingWindowStart' => '13:00']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('18:6', $data['fastingProtocol']);
+        self::assertSame('13:00', $data['fastingWindowStart']);
+        $stored = $this->profileOf('test_user');
+        self::assertNotNull($stored);
+        self::assertSame('18:6', $stored->getFastingProtocol());
+        self::assertSame('13:00', $stored->getFastingWindowStart());
+        $payloads = $this->mercurePayloadsOn('/api/health-profile/'.$stored->getId());
+        self::assertSame('18:6', end($payloads)['fastingProtocol']);
+        self::assertSame('13:00', end($payloads)['fastingWindowStart']);
+    }
+
+    public function testANullProtocolStopsFastingAndKeepsTheWindowStart(): void
+    {
+        $this->patch(['fastingWindowStart' => '11:30']);
+
+        $data = $this->patch(['fastingProtocol' => null]);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($data['fastingProtocol']);
+        self::assertNull($this->profileOf('test_user')?->getFastingProtocol());
+        self::assertSame('11:30', $this->profileOf('test_user')?->getFastingWindowStart());
+
+        // A field not sent leaves it stopped.
+        $data = $this->patch(['stepGoal' => 9000]);
+        self::assertNull($data['fastingProtocol']);
+    }
+
     public function testAWeightRecordsAManualWeighingTakenNowWhichBecomesTheProfilesWeight(): void
     {
         $this->patch(['sex' => 'male', 'birthYear' => 1988, 'heightCm' => 178]);
@@ -215,6 +249,9 @@ class HealthProfileApiTest extends WebTestCase
         yield 'a window that ends before it starts' => ['{"suggestionWindowStart": "20:00", "suggestionWindowEnd": "08:00"}'];
         yield 'a time that is not HH:MM' => ['{"suggestionWindowStart": "8h"}'];
         yield 'an unknown step source' => ['{"stepSource": "fitbit"}'];
+        yield 'an unknown fasting protocol' => ['{"fastingProtocol": "15:9"}'];
+        yield 'a fasting protocol as a number' => ['{"fastingProtocol": 16}'];
+        yield 'a window start that is not HH:MM' => ['{"fastingWindowStart": "12h"}'];
         yield 'a weight of zero' => ['{"weightKg": 0}'];
         yield 'a weight over 500' => ['{"weightKg": 501}'];
         yield 'a valid field with a refused one' => ['{"stepGoal": 10000, "sessionMinutes": 25}'];
@@ -234,6 +271,8 @@ class HealthProfileApiTest extends WebTestCase
         self::assertNotNull($stored);
         self::assertSame(178, $stored->getHeightCm());
         self::assertSame(HealthProfile::DEFAULT_STEP_GOAL, $stored->getStepGoal());
+        self::assertSame(HealthProfile::DEFAULT_FASTING_PROTOCOL, $stored->getFastingProtocol());
+        self::assertSame(HealthProfile::DEFAULT_FASTING_WINDOW_START, $stored->getFastingWindowStart());
         self::assertSame($weighings, $this->em()->getRepository(BodyMeasurement::class)->count([]));
         $this->assertMercureUpdateCount(0);
     }

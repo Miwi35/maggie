@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.maggie.app.data.model.DailyBalance
+import com.maggie.app.data.model.FastingProtocol
 import com.maggie.app.data.model.FoodIntake
 import com.maggie.app.data.model.PlannedMeal
 import com.maggie.app.data.model.foodIntakeSourceLabel
@@ -58,12 +60,14 @@ import com.maggie.app.ui.navigation.HealthSection
 import com.maggie.app.ui.navigation.LocalModuleBar
 import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.uiTagRoot
+import kotlinx.coroutines.delay
 import java.time.ZoneId
 
 /**
- * « Santé › Nutrition » (MAG-748), for today: the « Bilan du jour » first, then the last seven days, the macros, and
- * the journal — what was eaten, and the planned meals not eaten yet with their « Mangé ». « + » adds a food by hand.
- * On a tablet the journal takes the right column.
+ * « Santé › Nutrition » (MAG-748), for today: the « Bilan du jour » first, then the intermittent fast when the owner
+ * keeps one (MAG-770), the last seven days, the macros, and the journal — what was eaten, and the planned meals not
+ * eaten yet with their « Mangé ». « + » adds a food by hand. On a tablet the journal takes the right column, and the
+ * fourteen nights' fasts follow the fast's card.
  */
 @Composable
 fun NutritionScreen(
@@ -105,6 +109,15 @@ private fun NutritionContent(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val week = remember(uiState.week, viewModel.today) { balanceWeek(uiState.week, viewModel.today) }
+    // The ring follows the clock between two reads of the day.
+    val now by produceState(initialValue = viewModel.clock.instant(), uiState.fasting) {
+        while (true) {
+            value = viewModel.clock.instant()
+            delay(FASTING_TICK_MS)
+        }
+    }
+    val fasting = uiState.fasting?.let { fastingView(it, now, viewModel.zone) }
+    val history = remember(uiState.fastingDays, viewModel.today) { fastingHistory(uiState.fastingDays, viewModel.today) }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -141,6 +154,10 @@ private fun NutritionContent(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     BalanceCard(balance, onCompleteProfile = { onSelectSection(HealthSection.CONFIGURATION) })
+                    fasting?.let {
+                        FastingCard(it, onOpenSheet = viewModel::openFastingSheet, large = true)
+                        FastingHistoryChart(history, it.protocol)
+                    }
                     BalanceWeekChart(week)
                     MacrosCard(balance)
                 }
@@ -153,6 +170,7 @@ private fun NutritionContent(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 BalanceCard(balance, onCompleteProfile = { onSelectSection(HealthSection.CONFIGURATION) })
+                fasting?.let { FastingCard(it, onOpenSheet = viewModel::openFastingSheet) }
                 BalanceWeekChart(week)
                 MacrosCard(balance)
                 JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::delete)
@@ -164,7 +182,20 @@ private fun NutritionContent(
     if (uiState.addOpen) {
         AddFoodDialog(saving = uiState.isSaving, onSave = viewModel::add, onDismiss = viewModel::closeAdd)
     }
+    val status = uiState.fasting
+    if (uiState.fastingSheetOpen && status != null) {
+        FastingSheet(
+            protocol = FastingProtocol.byKey(status.protocol) ?: FastingProtocol.DEFAULT,
+            windowStart = status.windowStart ?: FastingProtocol.DEFAULT_WINDOW_START,
+            saving = uiState.fastingSaving,
+            onSave = viewModel::saveFasting,
+            onDismiss = viewModel::closeFastingSheet,
+        )
+    }
 }
+
+/** How often the fast's ring moves on between two reads: its centre counts minutes. */
+private const val FASTING_TICK_MS = 30_000L
 
 /** Protéines · Glucides · Lipides of the day, eaten and planned together as the API counts them. */
 @Composable

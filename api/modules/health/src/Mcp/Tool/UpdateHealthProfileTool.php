@@ -14,7 +14,7 @@ use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'update_health_profile', description: 'Change the user\'s health profile (Santé › Configuration): only the arguments given change, the others keep their value; give at least one. sex: male or female. birthYear: the year of birth (age = current year − birthYear; « j\'ai 38 ans » in 2026 is 1988). heightCm: whole centimetres, 100 to 250. weightKg: kilograms, more than 0 and at most 500 — recorded as a manual weighing taken now, listed in Santé › Suivi. activityLevel: sedentary, light, moderate, active or very_active. mode: computed (the day\'s need is the basal metabolism × the activity factor, rounded to 10 kcal) or entered (the day\'s need is enteredNeedKcal). enteredNeedKcal: whole kcal, 1000 to 5000, by steps of 50. stepGoal: steps a day, 500 to 50000, by steps of 500 (« mon objectif de pas, c\'est 10 000 » is 10000). suggestionWindowStart and suggestionWindowEnd: « HH:MM », the end after the start — when Maggie may suggest a session. sessionMinutes: 15, 20 or 30. stepSource: health_connect or none. Returns {"success": true, "profile": …} with the profile as get_health_profile reads it, or {"error", "field"} naming the refused field; nothing is changed then.')]
+#[McpTool(name: 'update_health_profile', description: 'Change the user\'s health profile (Santé › Configuration): only the arguments given change, the others keep their value; give at least one. sex: male or female. birthYear: the year of birth (age = current year − birthYear; « j\'ai 38 ans » in 2026 is 1988). heightCm: whole centimetres, 100 to 250. weightKg: kilograms, more than 0 and at most 500 — recorded as a manual weighing taken now, listed in Santé › Suivi. activityLevel: sedentary, light, moderate, active or very_active. mode: computed (the day\'s need is the basal metabolism × the activity factor, rounded to 10 kcal) or entered (the day\'s need is enteredNeedKcal). enteredNeedKcal: whole kcal, 1000 to 5000, by steps of 50. stepGoal: steps a day, 500 to 50000, by steps of 500 (« mon objectif de pas, c\'est 10 000 » is 10000). suggestionWindowStart and suggestionWindowEnd: « HH:MM », the end after the start — when Maggie may suggest a session. sessionMinutes: 15, 20 or 30. stepSource: health_connect or none. fastingProtocol: the intermittent fasting protocol, fasting hours:eating window hours — 14:10, 16:8, 18:6 or 20:4 (« je passe au 18:6 » is 18:6) — or none to stop fasting (« arrête le jeûne »). fastingWindowStart: « HH:MM », when the eating window opens (« à partir de 13 h » is 13:00); it lasts the protocol\'s window hours. Returns {"success": true, "profile": …} with the profile as get_health_profile reads it, or {"error", "field"} naming the refused field; nothing is changed then.')]
 final class UpdateHealthProfileTool
 {
     public function __construct(
@@ -42,12 +42,15 @@ final class UpdateHealthProfileTool
         ?int $sessionMinutes = null,
         #[Schema(enum: ['health_connect', 'none'])]
         ?string $stepSource = null,
+        #[Schema(enum: ['14:10', '16:8', '18:6', '20:4', 'none'])]
+        ?string $fastingProtocol = null,
+        ?string $fastingWindowStart = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
 
             $given = array_filter(
-                compact('sex', 'birthYear', 'heightCm', 'weightKg', 'activityLevel', 'mode', 'enteredNeedKcal', 'stepGoal', 'suggestionWindowStart', 'suggestionWindowEnd', 'sessionMinutes', 'stepSource'),
+                compact('sex', 'birthYear', 'heightCm', 'weightKg', 'activityLevel', 'mode', 'enteredNeedKcal', 'stepGoal', 'suggestionWindowStart', 'suggestionWindowEnd', 'sessionMinutes', 'stepSource', 'fastingProtocol', 'fastingWindowStart'),
                 static fn (mixed $value): bool => null !== $value,
             );
             if ([] === $given) {
@@ -68,6 +71,8 @@ final class UpdateHealthProfileTool
                 suggestionWindowEnd: $suggestionWindowEnd,
                 sessionMinutes: $sessionMinutes,
                 stepSource: $stepSource,
+                fastingProtocol: $fastingProtocol,
+                fastingWindowStart: $fastingWindowStart,
             ));
 
             return json_encode(['success' => true, 'profile' => $this->reader->describe($user)], JSON_THROW_ON_ERROR);

@@ -3,20 +3,32 @@ name: 33-health-nutrition
 tags:
   - health
 ---
-# Santé › Nutrition, from the phone (MAG-748, journey « Santé »).
+# Santé › Nutrition, from the phone (MAG-748, MAG-770, journey « Santé »).
 #
-# Étant donné un déjeuner de 515 kcal prévu aujourd'hui, créé par l'API
+# Étant donné un déjeuner de 515 kcal prévu aujourd'hui et une pomme de 50 kcal mangée il y a une
+# minute, créés par l'API
 # Quand j'ouvre Santé › Nutrition et j'appuie sur « Mangé »
-# Alors le bilan affiche Mangé 515 et Prévu 0
+# Alors le bilan affiche Mangé 565 et Prévu 0
+#
+# Étant donné le jeûne 16:8 du profil, sa fenêtre ouverte depuis l'heure d'avant
+# Quand j'ouvre Santé › Nutrition
+# Alors la carte « Jeûne » affiche « Fenêtre ouverte » et « 16:8 »
+# Quand j'appuie sur « 16:8 », je choisis « 18:6 » et j'appuie sur « Enregistrer »
+# Alors le bouton affiche « 18:6 »
 #
 # A new user, so the only meal is the one `scripts/nutrition-api.js` plans: a recipe of one
 # serving with 100 g of an ingredient at 515 kcal per 100 g, for TODAY's lunch (the stack's day).
-# Its profile is empty, so no expenditure is expected; the figures are matched up to « Prévu » either way.
+# The script also sets the profile's fast to 16:8 from the stack's Paris hour minus one and eats an
+# apple of 50 kcal a minute ago, so the window is open whatever the hour the run starts at.
+# The profile has no body figures, so no expenditure is expected; the figures are matched up to
+# « Prévu » either way.
 #
 # What is not here: the balance's sign, the ± 150 kcal band and its colours, the seven days, the
 # macros, a refused « Mangé », delete, the add form and the tablet's layout (`NutritionScreenTest`,
 # `NutritionViewModelTest`, `NutritionBalanceTest`), the bilan atop Suivi (`SuiviScreenTest`), the
-# link (`DeepLinksTest`), and the admin's side of the same API.
+# link (`DeepLinksTest`), and the admin's side of the same API. Of the fast: the ring's figures, the
+# « Jeûne » and closed states, no card without a protocol, a refused « Enregistrer », the fourteen
+# nights on a tablet (`NutritionViewModelTest`, `NutritionScreenTest`, `NutritionFastingTest`).
 
 - runFlow: ../subflows/new-user.yaml
 
@@ -45,7 +57,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "nutrition_balance_figures"
-      text: "Mangé 0 · Prévu 515 .*kcal"
+      text: "Mangé 50 · Prévu 515 .*kcal"
     timeout: 20000
 
 # « Mangé » on the planned lunch, at the foot of the journal.
@@ -66,5 +78,41 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "nutrition_balance_figures"
-      text: "Mangé 515 · Prévu 0 .*kcal"
+      text: "Mangé 565 · Prévu 0 .*kcal"
+    timeout: 10000
+
+# The fast, under the bilan: the window the apple opened, 16:8.
+- extendedWaitUntil:
+    visible:
+      id: "fasting_state"
+      text: "Fenêtre ouverte"
+    timeout: 10000
+# The label is a child of the button, not its text.
+- assertVisible:
+    text: "16:8"
+    childOf:
+      id: "fasting_protocol"
+
+# « 16:8 » opens the sheet: 18:6, « Enregistrer ».
+- tapOn:
+    id: "fasting_protocol"
+- extendedWaitUntil:
+    visible:
+      id: "fasting_sheet"
+    timeout: 10000
+- tapOn:
+    id: "fasting_protocol_18:6"
+- tapOn:
+    id: "fasting_save"
+
+# The profile took it: the sheet closed, the fast is read again.
+- extendedWaitUntil:
+    notVisible:
+      id: "fasting_sheet"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "18:6"
+      childOf:
+        id: "fasting_protocol"
     timeout: 10000
