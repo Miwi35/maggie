@@ -136,7 +136,9 @@ data class GroceryRunUiState(
 
     /** The articles of the whole tour taken out of its articles, « 7 / 14 » at the right of the header. */
     val tourProgress: RunProgress get() = items.mapNotNull { item -> place(item)?.takeIf { it.storeId in run.tour }?.let { item to it } }.let { placed ->
-        RunProgress(placed.count { (item, place) -> isChecked(item) || place.missing == RunMissing.NoFallback }, placed.size)
+        // The articles taken in a finished store are archived and leave the list: the tour keeps them, so it never goes back.
+        val gone = run.ends.filter { it.storeId in run.tour }.sumOf { it.taken }
+        RunProgress(gone + placed.count { (item, place) -> isChecked(item) || place.missing == RunMissing.NoFallback }, gone + placed.size)
     }
 
     /** « Magasin k sur N »: the place of the store being done in the tour. */

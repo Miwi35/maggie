@@ -796,6 +796,19 @@ class GroceryRunViewModelTest {
     }
 
     @Test
+    fun `the tour's progress never goes back once a store is finished and its taken articles leave the list`() = runTest {
+        val vm = finishing()
+        assertEquals(RunProgress(2, 4), vm.uiState.value.tourProgress)
+        coEvery { lists.getGroceryList() } returns Result.success(markedList())
+
+        vm.openRecap()
+        vm.finishStore()
+        advanceUntilIdle()
+
+        assertEquals(RunProgress(2, 4), vm.uiState.value.tourProgress)
+    }
+
+    @Test
     fun `Valider ends the store's errand with the amount in cents, then opens the next store`() = runTest {
         val vm = finishing()
         vm.openRecap()
