@@ -37,9 +37,10 @@ class HealthHomeStateTest {
 
     @Test
     fun `tomorrow shows the planned calories and the window without countdown, and no steps`() {
-        val state = state(today = false)
+        val state = state(today = false, reads = reads(fasting = fasting.copy(state = null)))
 
         assertNull(state.steps)
+        assertEquals("12:00", state.fast?.windowStart)
         assertEquals(HealthHomeBalance(1800, 1980), state.balance)
         assertNull(state.fast?.minutesToEdge)
     }

@@ -31,9 +31,10 @@ describe('composeHealthState', () => {
   })
 
   test('tomorrow: no steps, the planned calories, the planned window without a countdown', () => {
-    const state = composeHealthState('tomorrow', reads(), at(16, 42))
+    const state = composeHealthState('tomorrow', reads({ fasting: { ...fasting, state: null } }), at(16, 42))
 
     expect(state.steps).toBeNull()
+    expect(state.fast).toMatchObject({ windowStart: '12:00', windowEnd: '20:00' })
     expect(state.balance).toEqual({ kcal: 1800, needKcal: 1980 })
     expect(state.fast?.minutesToEdge).toBeNull()
   })

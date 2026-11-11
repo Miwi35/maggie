@@ -25,7 +25,8 @@ export interface HealthBalance {
 }
 
 export interface HealthFast {
-  state: 'fasting' | 'open' | 'closed'
+  /** Null for tomorrow: the API reads no state for a day to come. */
+  state: 'fasting' | 'open' | 'closed' | null
   windowStart: string
   windowEnd: string
   /** Minutes to the window's next edge, today only; null for another day or a closed window. */
@@ -98,9 +99,9 @@ export function composeHealthState(day: HomeDay, reads: HealthReads, now: Date =
     steps,
     balance: kcal > 0 ? { kcal, needKcal: profile?.needKcal ?? null } : null,
     fast:
-      profile?.fastingProtocol && fasting?.state
+      profile?.fastingProtocol && fasting && fasting.windowStart && fasting.windowEnd && (!today || fasting.state)
         ? {
-            state: fasting.state,
+            state: today ? fasting.state : null,
             windowStart: fasting.windowStart,
             windowEnd: fasting.windowEnd,
             minutesToEdge: today ? minutesToEdge(fasting, hhmm(now)) : null,

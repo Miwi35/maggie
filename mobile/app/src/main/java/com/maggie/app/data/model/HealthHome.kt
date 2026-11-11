@@ -14,7 +14,7 @@ data class HealthHomeSteps(val count: Int, val goal: Int)
 data class HealthHomeBalance(val kcal: Int, val needKcal: Int?)
 
 /** The eating window; [minutesToEdge] is the time to its next edge, today only. */
-data class HealthHomeFast(val state: String, val windowStart: String, val windowEnd: String, val minutesToEdge: Int?)
+data class HealthHomeFast(val state: String?, val windowStart: String, val windowEnd: String, val minutesToEdge: Int?)
 
 /** What the reads give [HealthHomeState.from]; a part whose module answered 404 is null. */
 data class HealthHomeReads(
@@ -62,8 +62,8 @@ data class HealthHomeState(
                     null
                 },
                 balance = if (kcal > 0) HealthHomeBalance(kcal, profile?.needKcal) else null,
-                fast = if (profile?.fastingProtocol != null && fasting != null && state != null && fasting.windowStart != null && fasting.windowEnd != null) {
-                    HealthHomeFast(state, fasting.windowStart, fasting.windowEnd, if (today) minutesToEdge(state, fasting.windowStart, fasting.windowEnd, now) else null)
+                fast = if (profile?.fastingProtocol != null && fasting != null && (!today || state != null) && fasting.windowStart != null && fasting.windowEnd != null) {
+                    HealthHomeFast(if (today) state else null, fasting.windowStart, fasting.windowEnd, if (today && state != null) minutesToEdge(state, fasting.windowStart, fasting.windowEnd, now) else null)
                 } else {
                     null
                 },
