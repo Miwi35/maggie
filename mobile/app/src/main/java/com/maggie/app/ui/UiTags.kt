@@ -89,6 +89,12 @@ object UiTags {
     const val HOME_CUISINE_EMPTY = "home_cuisine_empty"
     const val HOME_CUISINE_ERROR = "home_cuisine_error"
     const val HOME_CUISINE_RETRY = "home_cuisine_retry"
+    const val HOME_HEALTH_WORKOUT = "home_health_workout"
+    const val HOME_HEALTH_STEPS = "home_health_steps"
+    const val HOME_HEALTH_BALANCE = "home_health_balance"
+    const val HOME_HEALTH_FAST = "home_health_fast"
+    const val HOME_HEALTH_ERROR = "home_health_error"
+    const val HOME_HEALTH_RETRY = "home_health_retry"
     /** Accueil · Agenda (MAG-562): a row of the day (suffixed by the event id), the « maintenant » line, « Voir la journée ». */
     const val HOME_AGENDA_ROW_PREFIX = "home_agenda_row_"
     const val HOME_AGENDA_NOW_LINE = "home_agenda_now_line"

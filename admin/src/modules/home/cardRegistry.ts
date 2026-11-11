@@ -3,6 +3,7 @@ import { FinanceHomeCard } from '../finance/FinanceHomeCard'
 import { GroceryHomeCard } from '../grocery/GroceryHomeCard'
 import { TasksCard } from './cards/TasksCard'
 import { CuisineHomeCard } from '../cookbook/CuisineHomeCard'
+import { HealthCard } from './cards/HealthCard'
 import { AgendaCard } from './cards/AgendaCard'
 import type { HomeDay } from './homeDay'
 
@@ -14,5 +15,6 @@ export const cardRegistry: CardRegistry = {
   agenda: AgendaCard,
   grocery: GroceryHomeCard,
   cuisine: CuisineHomeCard,
+  health: HealthCard,
   finance: FinanceHomeCard,
 }

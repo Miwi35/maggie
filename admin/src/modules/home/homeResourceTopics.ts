@@ -33,6 +33,15 @@ const FINANCE_TOPICS = [
   PLACEMENT_TOPIC,
 ]
 
+/** What the Santé card is made of: sessions, what was eaten, steps, the profile (need, goal, protocol) and the day's journal entry. */
+const HEALTH_TOPICS = [
+  '/api/workouts/{id}',
+  '/api/health/food-intakes/{id}',
+  '/api/daily-activities/{id}',
+  '/api/health-profile/{id}',
+  '/api/health/days/{date}',
+]
+
 export const HOME_RESOURCE_TOPICS = [
   '/api/tasks/{id}',
   ...ROUTINE_TOPICS,
@@ -40,4 +49,5 @@ export const HOME_RESOURCE_TOPICS = [
   '/api/agendas/{id}',
   ...GROCERY_TOPICS,
   ...FINANCE_TOPICS,
+  ...HEALTH_TOPICS,
 ]

@@ -215,12 +215,14 @@ test('a review due puts a ▶ Lancer on the Finance card, today only', async ({ 
 test.describe('an empty card is not drawn', () => {
   test.use({ journeyAccount: 'empty' })
 
-  const MODULES = ['tasks', 'agenda', 'grocery', 'cuisine', 'finance'] as const
+  const MODULES = ['tasks', 'agenda', 'grocery', 'cuisine', 'finance', 'health'] as const
 
   test('a user with nothing sees no card but one calm sentence, and a task brings only its card @responsive', async ({ page, api }) => {
     const home = new HomePage(page)
 
-    // Given a user with no meal, no shopping line and nothing planned, when I open the Accueil…
+    // Given a user with no meal, no shopping line, no fasting protocol and nothing planned (a new profile fasts 16:8 by default), when I open the Accueil…
+    const stopped = await api.patch('/api/health/profile', { data: { fastingProtocol: null } })
+    expect(stopped.ok(), `PATCH /api/health/profile answered ${stopped.status()}`).toBe(true)
     await home.open()
 
     // …no card is drawn, and the page says one sentence for the day.
