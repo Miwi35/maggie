@@ -913,3 +913,47 @@ describe('CalendarView — the review appointment', { timeout: 30_000 }, () => {
     expect(screen.getByRole('link', { name: 'Lancer' })).toHaveAttribute('href', '#/finance/review/activity')
   })
 })
+
+/** A planned session is drawn in the « Santé » module agenda, which the agenda list leaves out (MAG-777). */
+describe('CalendarView — a planned session', { timeout: 30_000 }, () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('EventSource', MockEventSource)
+  })
+
+  test('shows « Séance A » in the Santé agenda, with no « Lancer » yet', async () => {
+    const evening = new Date()
+    evening.setDate(15)
+    evening.setHours(18, 30, 0, 0)
+    mockGetList.mockImplementation((resource: string) => {
+      if (resource === 'agendas') {
+        return Promise.resolve({ data: [{ id: AGENDA, name: 'Perso', color: '#1976d2', default: true }], total: 1 })
+      }
+      if (resource === 'events') {
+        return Promise.resolve({
+          data: [
+            {
+              id: '/api/events/sp1',
+              summary: 'Séance A',
+              startAt: evening.toISOString(),
+              endAt: new Date(evening.getTime() + 30 * 60_000).toISOString(),
+              allDay: false,
+              agenda: '/api/agendas/health',
+              activity: 'sport',
+            },
+          ],
+          total: 1,
+        })
+      }
+
+      return Promise.resolve({ data: [], total: 0 })
+    })
+
+    render(<CalendarView />)
+    await userEvent.click(await screen.findByText('Séance A'))
+
+    expect(await screen.findByRole('heading', { name: 'Séance A' })).toBeInTheDocument()
+    expect(screen.getByText('Santé')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Lancer' })).not.toBeInTheDocument()
+  })
+})

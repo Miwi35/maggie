@@ -122,12 +122,17 @@ export const MODULE_CALENDARS: Record<string, ModuleCalendar> = {
   cookbook: { label: 'Repas', color: MEAL_COLOR },
 }
 
+/** A planned training session, filed in the « Santé » module agenda (MAG-777). */
+export const SPORT_ACTIVITY = 'sport'
+
 /**
  * The agendas the API keeps out of the list but whose events it serves: the review's
- * appointment sits in the « Finance » module agenda (MAG-456), drawn in the accounts' mint.
+ * appointment sits in the « Finance » module agenda (MAG-456), drawn in the accounts' mint;
+ * a planned session in the « Santé » one (MAG-777), in the sport hue.
  */
 const ACTIVITY_AGENDAS: Record<string, { name: string; color: string }> = {
   [REVIEW_ACTIVITY]: { name: 'Finance', color: TOKENS.module.comptes.dark },
+  [SPORT_ACTIVITY]: { name: 'Santé', color: TOKENS.module.sport.dark },
 }
 
 const activityAgenda = (activity: string | null | undefined) => (activity ? ACTIVITY_AGENDAS[activity] : undefined)
