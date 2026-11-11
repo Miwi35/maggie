@@ -29,7 +29,6 @@ async function read(day: HomeDay): Promise<HealthHomeState> {
     source: 'planned',
     'startedAt[after]': localMidnightIso(date),
     'startedAt[before]': localMidnightIso(addDays(date, 1)),
-    'order[startedAt]': 'asc',
     pagination: 'false',
   })
 

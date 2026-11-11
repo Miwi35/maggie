@@ -2922,8 +2922,7 @@ class MaggieApiService(
             url.parameters.append("source", "planned")
             url.parameters.append("startedAt[after]", after)
             url.parameters.append("startedAt[before]", before)
-            url.parameters.append("order[startedAt]", "asc")
-        }.orRefusal().body<ApiCollection<Workout>>().member
+        }.orRefusal().body<ApiCollection<Workout>>().member.sortedBy { it.startedAt }
     }
 
     suspend fun createWorkout(request: WorkoutWriteRequest): Workout {

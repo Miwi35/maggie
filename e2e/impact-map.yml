@@ -599,6 +599,8 @@ web:
   e2e/web/tests/home-cuisine.spec.ts:
     areas: [cookbook, dashboard]
     paths: [api/fixtures/e2e/65-cuisine-home.yaml]
+  e2e/web/tests/home-health.spec.ts:
+    areas: [health, dashboard]
   e2e/web/tests/cooking-activity.spec.ts:
     areas: [cookbook, dashboard, grocery, realtime]
     paths: [api/fixtures/e2e/65-cuisine-home.yaml]
