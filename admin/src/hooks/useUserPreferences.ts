@@ -10,6 +10,10 @@ export interface UserPreference {
   defaultCity?: string | null
   enabledAgendaIds: string[]
   notificationsEnabled: boolean
+  morningDigestEnabled: boolean
+  morningDigestTime: string
+  eveningReviewEnabled: boolean
+  eveningReviewTime: string
 }
 
 function apiFetch(path: string, options: RequestInit = {}) {

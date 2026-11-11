@@ -1,0 +1,91 @@
+import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { AgentRendezvousCards } from './AgentRendezvousCards'
+
+const notify = vi.fn()
+
+vi.mock('react-admin', () => ({ useNotify: () => notify }))
+vi.mock('../../hooks/useMercure', () => ({ useMercure: () => {} }))
+
+const PREFERENCES = {
+  id: 'p1',
+  theme: 'system',
+  locale: 'fr',
+  timezone: 'Europe/Paris',
+  defaultCalendarView: 'month',
+  enabledAgendaIds: [],
+  notificationsEnabled: true,
+  morningDigestEnabled: true,
+  morningDigestTime: '07:00',
+  eveningReviewEnabled: true,
+  eveningReviewTime: '21:30',
+}
+
+function stubApi(initial: Record<string, unknown> = {}, patchStatus = 200) {
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === 'PATCH') {
+      if (patchStatus !== 200) return new Response('{}', { status: patchStatus })
+      return new Response(JSON.stringify({ ...PREFERENCES, ...initial, ...JSON.parse(String(init.body)) }))
+    }
+    return new Response(JSON.stringify({ ...PREFERENCES, ...initial }))
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+const patches = (fetchMock: ReturnType<typeof stubApi>) =>
+  fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH').map(([, init]) => JSON.parse(String(init?.body)))
+
+describe('AgentRendezvousCards', () => {
+  beforeEach(() => notify.mockClear())
+
+  test('shows the saved state and hours', async () => {
+    stubApi({ eveningReviewEnabled: false, eveningReviewTime: '22:15' })
+    render(<AgentRendezvousCards />)
+
+    expect(await screen.findByLabelText('Digest du matin')).toBeChecked()
+    expect(screen.getByLabelText('Heure — Digest du matin')).toHaveValue('07:00')
+    expect(screen.getByLabelText('Bilan du soir')).not.toBeChecked()
+    expect(screen.getByLabelText('Heure — Bilan du soir')).toHaveValue('22:15')
+  })
+
+  test('the switch sends the change and says it is saved', async () => {
+    const fetchMock = stubApi()
+    render(<AgentRendezvousCards />)
+
+    await userEvent.click(await screen.findByLabelText('Digest du matin'))
+
+    await waitFor(() => expect(patches(fetchMock)).toEqual([{ morningDigestEnabled: false }]))
+    expect(await screen.findByText('Enregistré')).toBeInTheDocument()
+    expect(screen.getByLabelText('Heure — Digest du matin')).toBeDisabled()
+  })
+
+  test('the hour is greyed while the rendezvous is off', async () => {
+    stubApi({ morningDigestEnabled: false })
+    render(<AgentRendezvousCards />)
+
+    expect(await screen.findByLabelText('Heure — Digest du matin')).toBeDisabled()
+    expect(screen.getByLabelText('Heure — Bilan du soir')).toBeEnabled()
+  })
+
+  test('a changed hour is sent', async () => {
+    const fetchMock = stubApi()
+    render(<AgentRendezvousCards />)
+
+    fireEvent.change(await screen.findByLabelText('Heure — Bilan du soir'), { target: { value: '22:15' } })
+
+    await waitFor(() => expect(patches(fetchMock)).toEqual([{ eveningReviewTime: '22:15' }]))
+  })
+
+  test('a refusal shows an error and restores the saved hour', async () => {
+    stubApi({}, 400)
+    render(<AgentRendezvousCards />)
+
+    fireEvent.change(await screen.findByLabelText('Heure — Bilan du soir'), { target: { value: '22:15' } })
+
+    await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
+    await waitFor(() => expect(screen.getByLabelText('Heure — Bilan du soir')).toHaveValue('21:30'))
+    expect(screen.queryByText('Enregistré')).not.toBeInTheDocument()
+  })
+})

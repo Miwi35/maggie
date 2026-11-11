@@ -5,6 +5,7 @@ import { mercureUrl } from '../../hooks/mercureUrl'
 import { announceAgentName } from '../../hooks/useAgentName'
 import { agentFetch } from './agentFetch'
 import { StyleProposals } from './StyleProposals'
+import { AgentRendezvousCards } from './AgentRendezvousCards'
 import { ProactionJournal } from './ProactionJournal'
 import { MemorySettings, type MemoryNotice } from './MemorySettings'
 import { useMercure } from '../../hooks/useMercure'
@@ -465,6 +466,7 @@ export const AgentSettings = () => {
 
   return (
     <Box maxWidth={tab === 4 ? 1400 : 900} mx="auto" mt={2}>
+      <AgentRendezvousCards />
       <Card>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tab label="Personnalité" />
