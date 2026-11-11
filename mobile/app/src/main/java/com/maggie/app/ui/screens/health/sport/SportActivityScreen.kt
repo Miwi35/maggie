@@ -38,12 +38,13 @@ import com.maggie.app.ui.activity.ActivityScaffold
 import com.maggie.app.ui.activity.rememberWindowImmersion
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
+import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.ModuleHue
 import com.maggie.app.ui.uiTagRoot
 
-private val Coral = Color(0xFFFF8A80)
-private val CueColor = Color(0xFFE4E0EC)
-private val MutedColor = Color(0xFF8E899C)
+private val Coral = MaggieTokens.Module.sport.second
+private val CueColor = MaggieTokens.Signal.label
+private val MutedColor = MaggieTokens.Signal.neutral
 
 /** « Échelon 4 », « Échelon 4 » only when the exercise has a step. */
 internal fun stepLabel(exercise: WorkoutExercise): String? = exercise.step.takeIf { it > 0 }?.let { "Échelon $it" }
@@ -214,7 +215,7 @@ private fun QuitDialog(expanded: Boolean, onConfirm: () -> Unit, onDismiss: () -
         onDismissRequest = onDismiss,
         modifier = Modifier.uiTagRoot().testTag(UiTags.SPORT_ACTIVITY_QUIT_DIALOG),
         shape = RoundedCornerShape(28.dp),
-        containerColor = Color(0xFF1A1824),
+        containerColor = MaggieTokens.Night.raised,
         title = { Text("Quitter la séance ?", fontSize = if (expanded) 24.sp else 22.sp) },
         text = { Text("Les séries faites sont gardées.", fontSize = 16.sp, color = CueColor) },
         confirmButton = {
