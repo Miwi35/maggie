@@ -3957,8 +3957,8 @@
                 },
                 "exercises": {
                     "type": [
-                        "null",
-                        "object"
+                        "array",
+                        "null"
                     ],
                     "description": "the list as the agent sent it, checked by the handler",
                     "default": null,
