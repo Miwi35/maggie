@@ -785,6 +785,47 @@
         },
         "description": "Get all events for a specific date (YYYY-MM-DD format). Returns events from all of the user agendas, including expanded recurring events. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate EXCLUDED as in Google's API (the day after its last day) and lastDay: tell the user « le 1er janvier » or « du 26 au 28 » from startDate to lastDay, never « jusqu'au » endDate. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one): say the weekday from those fields or from the date_time tool (weekday action), never work it out yourself. Pass agendas (a list of agenda names as the user says them — case, accents and approximations do not matter — or ids) whenever the user asked to be told only about some agendas (« ne me parle que de Défaut et Garde Ael », a rule to apply to every listing read from then on, never to a search by query for an event the user names: leave agendas out of that one unless they limited the agendas in this very message): only their events come back, and a name matching no agenda returns an error listing the user's agendas and no events at all. Omit it to read every agenda. Each event carries the name of its agenda (agenda) and its times in its own time zone (timeZone): announce those. To find an event by its name on that day, pass query, the distinctive word(s) of its title or of its place. When the day is not known, use get_upcoming_events with query instead, never guess a date. To read a stretch of days at once, past ones included, pass endDate (YYYY-MM-DD, the last day, at most 31 days after date): the events of every day from date to endDate come back in one answer."
     },
+    "get_exercises": {
+        "name": "get_exercises",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pattern": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "vertical_pull",
+                        "horizontal_pull",
+                        "vertical_push",
+                        "horizontal_push",
+                        "squat",
+                        "hinge",
+                        "lunge",
+                        "core_anterior",
+                        "core_lateral"
+                    ]
+                },
+                "equipment": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "slug": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Read the exercise reference catalogue (Santé › Coach sportif). Arguments, all optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior or core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall — keeps only the exercises doable with that gear, bodyweight ones included; an empty list keeps bodyweight only), slug (one exercise). Returns {exercises: [...]}, each {slug, name (French), pattern, primaryMuscles, secondaryMuscles, kind (compound or isolation), equipment, nervousCost (low, medium, high), eccentric, cue, unit (reps, seconds or meters), perSide, loadable (a weighted bag can add load), ladders: [{ladder, branch, position}]} — position 1 is the softest step of that progression ladder. An unknown slug, pattern or equipment returns {error}."
+    },
     "get_finance_dashboard": {
         "name": "get_finance_dashboard",
         "inputSchema": {
