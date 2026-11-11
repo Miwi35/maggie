@@ -468,6 +468,22 @@ class GroceryRunViewModelTest {
         assertEquals(RunProgress(1, 1), vm.uiState.value.progress)
     }
 
+    // Recette du 11 nov. (MAG-783): reopening a tour whose stores have nothing left to take lost its header and selection.
+    @Test
+    fun `a tour reopened with nothing left to take keeps its stores and its selection`() = runTest {
+        coEvery { lists.getGroceryList() } returns Result.success(
+            GroceryList("list-1", listOf(GroceryItem(id = "i-1", label = "Pain", store = superU, checked = true), GroceryItem(id = "i-2", label = "Lait", store = biocoop, checked = true))),
+        )
+        coEvery { status.get("courses") } returns Result.success(saved(GroceryRunState(tour = listOf("s-u", "s-b")).toJson()))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(GroceryRunLoad.READY, vm.uiState.value.load)
+        assertEquals(listOf("Super U", "Biocoop"), vm.tour())
+        assertEquals(listOf("s-u", "s-b"), vm.uiState.value.run.tour)
+        assertTrue(vm.uiState.value.skipped.isEmpty())
+    }
+
     // « Manquant » (MAG-764): Lait's product falls back to Biocoop, Pain's has no fallback.
     private fun missingList(vararg extra: GroceryItem) = GroceryList(
         "list-1",
