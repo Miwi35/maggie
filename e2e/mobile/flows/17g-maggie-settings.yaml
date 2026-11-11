@@ -1,0 +1,121 @@
+appId: com.maggie.app.e2e
+name: 17g-maggie-settings
+tags:
+  - settings
+---
+# Réglages › Maggie (MAG-787): the morning digest and the evening review, on or off and at what hour.
+# Every change is saved as it is made.
+#
+# Both start on, at 07:00 and 21:30 (`scripts/rendezvous-api.js` reset). The user opens Réglages ›
+# Maggie, switches the digest off and sets the review to 22:15 on the 24 h clock; « Enregistré »
+# shows, the server holds them, and the app, started again, reads them back.
+#
+# That the agent lays the proactions down from these settings is the agent's business
+# (`agent/tests/test_rendezvous.py`); a refused save and each state are the JVM's (`SettingsViewModelTest`).
+
+- runScript:
+    file: ../scripts/rendezvous-api.js
+    env:
+      ACTION: reset
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/17g-maggie-settings.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: settings
+- scrollUntilVisible:
+    element:
+      id: "settings_agent"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "settings_agent"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings_digest_switch"
+      checked: true
+    timeout: 30000
+- tapOn:
+    id: "settings_digest_switch"
+- extendedWaitUntil:
+    visible:
+      id: "settings_rendezvous_saved"
+    timeout: 20000
+
+# A dial hour is labelled « 22 heures » with a no-break space, which `\W` matches; picking the
+# hour moves the clock to the minutes, labelled the same way.
+- tapOn:
+    id: "settings_review_time"
+- extendedWaitUntil:
+    visible:
+      id: "picker_confirm"
+    timeout: 20000
+- tapOn:
+    text: "22\\Wheures"
+- tapOn:
+    text: "15\\Wminutes"
+- tapOn:
+    id: "picker_confirm"
+- extendedWaitUntil:
+    visible:
+      text: "22:15"
+      childOf:
+        id: "settings_review_time"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "settings_rendezvous_saved"
+    timeout: 20000
+
+- runScript:
+    file: ../scripts/rendezvous-api.js
+    env:
+      ACTION: expect
+      DIGEST_ENABLED: "false"
+      REVIEW_TIME: "22:15"
+
+# Read back from the server, not from the screen that changed it: the app starts again,
+# still signed in, and opens Réglages › Maggie fresh.
+- stopApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/17g-maggie-settings.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 40000
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: settings
+- scrollUntilVisible:
+    element:
+      id: "settings_agent"
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "settings_agent"
+- extendedWaitUntil:
+    visible:
+      id: "settings_digest_switch"
+      checked: false
+    timeout: 30000
+- assertVisible:
+    text: "22:15"
+    childOf:
+      id: "settings_review_time"
+
+# Back to the defaults: the agent journeys plan on them.
+- runScript:
+    file: ../scripts/rendezvous-api.js
+    env:
+      ACTION: reset
