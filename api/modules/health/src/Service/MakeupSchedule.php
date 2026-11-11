@@ -9,8 +9,9 @@ use Maggie\Health\Enum\MakeupOption;
 
 /**
  * When a make-up takes place (MAG-771), in the owner's zone: softer and
- * shorter tonight at the next quarter hour, only if they can end by
- * {@see self::LAST_END}; tomorrow at the missed session's hour.
+ * shorter tonight at the next quarter hour, only the day of the miss and if
+ * they can end by {@see self::LAST_END}; tomorrow at the missed session's
+ * hour, the day after the miss or the next one still ahead.
  */
 final class MakeupSchedule
 {
@@ -20,7 +21,13 @@ final class MakeupSchedule
     {
         $zone = new \DateTimeZone(DailyEnergyReader::TIME_ZONE);
         if (MakeupOption::Tomorrow === $option) {
-            return $makeup->getMissed()->getStartedAt()->setTimezone($zone)->modify('+1 day');
+            // The day after the miss; chosen later than that, the next one still ahead.
+            $start = $makeup->getMissed()->getStartedAt()->setTimezone($zone)->modify('+1 day');
+            while ($start <= $now) {
+                $start = $start->modify('+1 day');
+            }
+
+            return $start;
         }
 
         $local = $now->setTimezone($zone);
@@ -37,9 +44,10 @@ final class MakeupSchedule
         $lastEnd = $local->setTime((int) $hour, (int) $minute);
 
         $options = [];
+        $sameDay = $makeup->getMissed()->getStartedAt()->setTimezone($local->getTimezone())->format('Y-m-d') === $local->format('Y-m-d');
         foreach ([MakeupOption::Softer, MakeupOption::Shorter] as $option) {
             $end = $this->start($makeup, $option, $now)->modify(\sprintf('+%d minutes', $makeup->minutesFor($option)));
-            if ($end <= $lastEnd) {
+            if ($sameDay && $end <= $lastEnd) {
                 $options[] = $option;
             }
         }

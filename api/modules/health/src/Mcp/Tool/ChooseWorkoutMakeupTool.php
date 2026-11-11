@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'choose_workout_makeup', description: 'Answer a « Séance manquée » proposal (a workout_makeup notification, whose relatedEntityIri is the proposal): plan the make-up the user chose. makeup_id is the proposal\'s id or IRI; option is softer (the same session tonight at the next quarter hour), shorter (a shorter one tonight) or tomorrow (the same session tomorrow at the same hour). Creates a planned workout and returns {success, makeup, workout}. A proposal answers once: already chosen, or obsolete because a session done kept the missed one → {error, status}. Never reproach a missed session.')]
+#[McpTool(name: 'choose_workout_makeup', description: 'Answer a « Séance manquée » proposal (a workout_makeup notification, whose relatedEntityIri is the proposal): plan the make-up the user chose. makeup_id is the proposal\'s id or IRI; option is softer (the same session tonight at the next quarter hour), shorter (a shorter one tonight) or tomorrow (the same session tomorrow at the same hour). Creates a planned workout and returns {success, makeup, workout}. softer and shorter only while the notification offers them (the day of the miss, ending by 23:00): later, only tomorrow. A proposal answers once: already chosen, obsolete because a session done kept the missed one, or softer/shorter too late → {error, status}. Never reproach a missed session.')]
 final class ChooseWorkoutMakeupTool
 {
     public function __construct(

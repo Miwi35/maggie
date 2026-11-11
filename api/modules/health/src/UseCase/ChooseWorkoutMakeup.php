@@ -30,7 +30,7 @@ class ChooseWorkoutMakeup
     ) {
     }
 
-    /** @throws WorkoutMakeupConflictException already chosen, or obsolete */
+    /** @throws WorkoutMakeupConflictException already chosen, obsolete, or too late tonight for softer or shorter */
     public function execute(WorkoutMakeup $makeup, MakeupOption $option): WorkoutMakeup
     {
         if (!$makeup->isProposed()) {
@@ -38,6 +38,9 @@ class ChooseWorkoutMakeup
         }
 
         $now = $this->clock->now();
+        if (!\in_array($option, $this->schedule->options($makeup, $now), true)) {
+            throw new WorkoutMakeupConflictException(\sprintf('%s is no longer possible tonight: choose tomorrow.', $option->value));
+        }
         $missed = $makeup->getMissed();
         $workout = (new Workout())
             ->setUser($makeup->getUser())

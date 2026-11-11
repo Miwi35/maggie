@@ -38,6 +38,8 @@ final class MakeupScheduleTest extends TestCase
         self::assertSame([MakeupOption::Softer, MakeupOption::Shorter, MakeupOption::Tomorrow], $schedule->options($this->makeup(), new \DateTimeImmutable('2026-11-10T22:15:00+01:00')));
         self::assertSame([MakeupOption::Shorter, MakeupOption::Tomorrow], $schedule->options($this->makeup(), new \DateTimeImmutable('2026-11-10T22:30:00+01:00')));
         self::assertSame([MakeupOption::Tomorrow], $schedule->options($this->makeup(), new \DateTimeImmutable('2026-11-10T22:45:00+01:00')));
+        // The next morning: tonight is no longer the evening of the miss.
+        self::assertSame([MakeupOption::Tomorrow], $schedule->options($this->makeup(), new \DateTimeImmutable('2026-11-11T08:00:00+01:00')));
     }
 
     private function makeup(): WorkoutMakeup

@@ -239,6 +239,18 @@ final class WorkoutMakeupApiTest extends WebTestCase
         $this->assertMercureUpdateCount(0);
     }
 
+    public function testShorterTooLateTonightIsAConflict(): void
+    {
+        $this->remind('2026-11-10 21:45:00 UTC');
+        $this->resetMercure();
+
+        $this->choose((string) $this->makeupOf('tuesday')?->getId(), ['option' => 'shorter']);
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertSame(WorkoutMakeupStatus::Proposed, $this->makeupOf('tuesday')?->getStatus());
+        $this->assertMercureUpdateCount(0);
+    }
+
     public function testAnUnknownOptionIsRefused(): void
     {
         $this->remind(self::MISSED_AT);

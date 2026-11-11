@@ -79,6 +79,53 @@ final class PlannedWorkoutKeptListenerTest extends KernelTestCase
         self::assertSame('Course', $this->reload($done)->getTitle());
     }
 
+    public function testChangesOfAFlushThatFailedAreNotSentWithTheNextFlush(): void
+    {
+        $sent = new \ArrayObject();
+        $spy = new PlannedWorkoutKeptListener(new class($sent) implements MessageBusInterface {
+            /** @param \ArrayObject<int, object> $sent */
+            public function __construct(private readonly \ArrayObject $sent)
+            {
+            }
+
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                $this->sent->append($message);
+
+                return new Envelope($message);
+            }
+        }, $this->repository(), new NullLogger());
+        $boom = new class {
+            public function onFlush(): void
+            {
+                throw new \RuntimeException('flush failed');
+            }
+        };
+        $events = $this->em()->getEventManager();
+        $events->addEventListener([Events::preFlush, Events::onFlush, Events::postFlush], $spy);
+        $events->addEventListener([Events::onFlush], $boom);
+
+        $user = $this->em()->find(User::class, $this->getFixture('test_user')->getId());
+        \assert($user instanceof User);
+        $this->em()->persist((new Workout())->setUser($user)->setType(WorkoutType::Run)->setTitle('Course')
+            ->setStartedAt(new \DateTimeImmutable('2026-11-12T07:00:00+01:00'))->setDurationMinutes(30)->setSource(WorkoutSource::Manual));
+        try {
+            $this->em()->flush();
+            self::fail('The flush should have failed.');
+        } catch (\RuntimeException) {
+        }
+        $events->removeEventListener([Events::onFlush], $boom);
+        $this->em()->clear();
+
+        $thursday = $this->em()->find(Workout::class, $this->getFixture('thursday')->getId());
+        \assert($thursday instanceof Workout);
+        $thursday->setNotes('Au parc');
+        $this->em()->flush();
+
+        self::assertCount(0, $sent);
+        self::assertNull($this->repository()->findKeeperOf($thursday));
+    }
+
     private function done(string $startedAt): Workout
     {
         return $this->save($startedAt, WorkoutSource::Manual);
