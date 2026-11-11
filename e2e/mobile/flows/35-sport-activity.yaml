@@ -4,11 +4,12 @@ tags:
   - health
   - activity
 ---
-# L'activité Sport, lancée puis quittée (MAG-779, extends 30-health-sport; modèle 27-cooking-launch).
+# L'activité Sport, lancée, déroulée d'une série puis quittée (MAG-779, MAG-780, extends 30-health-sport; modèle 27-cooking-launch).
 #
 # Étant donné une séance prévue aujourd'hui avec ses six exercices (écrite par `scripts/sport-plan-api.js`)
 # Quand je touche « Lancer » dans Santé › Sport
 # Alors l'écran de la séance s'ouvre sur « Tractions négatives » et « 1 / 6 », sans la barre de Maggie
+# Et quand je touche « − » puis « Série faite », la pastille 1 montre « 4 » et « Repos » s'affiche ; « Passer le repos » ouvre la série 2
 # Et quand je tape ✕ puis « Quitter », je suis de retour sur Santé › Sport et la carte montre « Reprendre · 1/6 »
 #
 # What is not here: the other launch points — the Accueil's line and card, the Agenda's detail
@@ -61,6 +62,22 @@ tags:
     text: "1 / 6"
 - assertNotVisible:
     id: "chat_open"
+
+# The unrolling (MAG-780): « − » then « Série faite » writes 4 on the first pastille and starts the rest;
+# « Passer le repos » opens the second set.
+- tapOn:
+    id: "sport_activity_reps_minus"
+- tapOn:
+    id: "sport_activity_primary"
+- extendedWaitUntil:
+    visible: "Repos"
+    timeout: 10000
+- assertVisible: "4"
+- tapOn: "Passer le repos"
+- extendedWaitUntil:
+    visible: "Série faite"
+    timeout: 10000
+- assertVisible: ".*série 3.*"
 
 # ✕ asks first; « Quitter » goes back to where the session was launched, the status kept.
 - tapOn:

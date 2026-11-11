@@ -151,6 +151,7 @@ import com.maggie.app.ui.screens.bilan.rememberTomorrowSlots
 import com.maggie.app.ui.screens.cookbook.cooking.CookingActivityScreen
 import com.maggie.app.ui.screens.grocery.run.GroceryRunScreen
 import com.maggie.app.ui.screens.grocery.run.GroceryRunViewModel
+import com.maggie.app.ui.screens.health.sport.SportActivityEndScreen
 import com.maggie.app.ui.screens.health.sport.SportActivityScreen
 import com.maggie.app.ui.screens.health.sport.SportActivityViewModel
 import com.maggie.app.ui.screens.health.sport.SportResumeViewModel
@@ -322,6 +323,8 @@ sealed class Screen(val route: String, val label: String) {
         fun ofEvent(eventId: String): String =
             "health/sport/activity/${SportActivityViewModel.NO_WORKOUT}?${DeepLinks.ARG_EVENT}=$eventId"
     }
+    /** The end of the Sport activity (MAG-780 lands here after the last set; Fin de séance fills it). */
+    data object SportActivityEnd : Screen("health/sport/activity-end", "Fin de séance")
     data object ProductList : Screen("products", "Produits")
     data object StoreList : Screen("stores", "Magasins")
     data object PastErrands : Screen("past_errands", "Courses passées")
@@ -829,7 +832,19 @@ private fun SportActivityPage(navController: NavController, onOpenMaggie: () -> 
         viewModel = koinViewModel<SportActivityViewModel>(),
         onQuit = { navController.popBackStack() },
         onOpenMaggie = onOpenMaggie,
+        onFinished = {
+            navController.navigate(Screen.SportActivityEnd.route) {
+                popUpTo(Screen.SportActivity.route) { inclusive = true }
+                launchSingleTop = true
+            }
+        },
     )
+}
+
+// Out of NavGraph's body for the same reason as ReviewActivityPage.
+@Composable
+private fun SportActivityEndPage(navController: NavController, onOpenMaggie: () -> Unit) {
+    SportActivityEndScreen(onQuit = { navController.popBackStack() }, onOpenMaggie = onOpenMaggie)
 }
 
 // Out of NavGraph's body for the same reason as ReviewActivityPage.
@@ -2342,6 +2357,9 @@ fun NavGraph() {
                         deepLinks = DeepLinks.forRoute(Screen.SportActivity.route),
                     ) {
                         SportActivityPage(navController, onOpenMaggie = ::openChat)
+                    }
+                    composable(Screen.SportActivityEnd.route) {
+                        SportActivityEndPage(navController, onOpenMaggie = ::openChat)
                     }
                     composable(Screen.BilanActivity.route, deepLinks = DeepLinks.forRoute(Screen.BilanActivity.route)) {
                         BilanActivityPage(navController, onAnswerByVoice = ::startVoiceMode)
