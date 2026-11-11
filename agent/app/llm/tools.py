@@ -410,7 +410,8 @@ A2A_ALLOWED_TOOLS = frozenset(
 # The API's tools for the proaction executor (MAG-326): claiming the due proactions and
 # recording their results is the executor's job, never a conversation's — offered to the
 # model, a claim would leave the user's proactions running forever.
-EXECUTOR_ONLY_MCP_TOOLS = frozenset({"claim_due_proactions", "record_proaction_result"})
+# The daily rendezvous' settings of every user are the planner's, laid down by code (MAG-787).
+EXECUTOR_ONLY_MCP_TOOLS = frozenset({"claim_due_proactions", "record_proaction_result", "list_daily_rendezvous"})
 
 
 def _native_tools() -> list[dict]:

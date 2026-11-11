@@ -1,7 +1,7 @@
 """The API's proaction tools, simulated in memory (MAG-327) — and the agenda the planning reads.
 
 Stands in for the MCP server behind `mcp_client`: `schedule_proaction`, `list_proactions`,
-`cancel_proaction`, `claim_due_proactions` and `record_proaction_result` behave as the
+`cancel_proaction`, `claim_due_proactions`, `record_proaction_result` and `list_daily_rendezvous` behave as the
 API's do (`api/modules/calendar/src/Service/Proactions.php`) — user-scoped, a claim taken
 once, a result only for a running one, the same pending proaction never scheduled twice.
 `down = True` answers like an API that cannot be reached.
@@ -28,6 +28,8 @@ class FakeProactionApi:
         # The trips kept with `set_trip` (MAG-657), by event id; `estimate_trip` answers departAt from `depart_at`.
         self.trips: dict[str, dict] = {}
         self.depart_at = {"drive": "13:34", "walk": "13:20"}
+        # `list_daily_rendezvous`'s answer (MAG-787): one entry per user, as the API describes them.
+        self.rendezvous: list[dict] = []
         self._ids = (f"01JPROACTION{n:014d}" for n in itertools.count(1))
 
     # What `McpClient` offers the code under test.
@@ -115,6 +117,9 @@ class FakeProactionApi:
             and (not arguments.get("status") or p["status"] == arguments["status"])
         ]
         return {"proactions": listed, "count": len(listed)}
+
+    def _list_daily_rendezvous(self, arguments: dict, user_id: str | None) -> dict:
+        return {"users": [u for u in self.rendezvous if user_id is None or u["userId"] == user_id]}
 
     def _get_events_by_date(self, arguments: dict, user_id: str | None) -> dict:
         events = self.agenda.get(str(arguments.get("date")), [])

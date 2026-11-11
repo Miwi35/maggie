@@ -62,6 +62,19 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
     #[ORM\Column(length: 5, nullable: true)]
     private ?string $quietHoursEnd = null;
 
+    /** The two daily rendezvous (MAG-787), laid down by the agent's code: "HH:MM" in the user's timezone. */
+    #[ORM\Column(options: ['default' => true])]
+    private bool $morningDigestEnabled = true;
+
+    #[ORM\Column(length: 5, options: ['default' => '07:00'])]
+    private string $morningDigestTime = '07:00';
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $eveningReviewEnabled = true;
+
+    #[ORM\Column(length: 5, options: ['default' => '21:30'])]
+    private string $eveningReviewTime = '21:30';
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -202,6 +215,54 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getMorningDigestEnabled(): bool
+    {
+        return $this->morningDigestEnabled;
+    }
+
+    public function setMorningDigestEnabled(bool $morningDigestEnabled): static
+    {
+        $this->morningDigestEnabled = $morningDigestEnabled;
+
+        return $this;
+    }
+
+    public function getMorningDigestTime(): string
+    {
+        return $this->morningDigestTime;
+    }
+
+    public function setMorningDigestTime(string $morningDigestTime): static
+    {
+        $this->morningDigestTime = $morningDigestTime;
+
+        return $this;
+    }
+
+    public function getEveningReviewEnabled(): bool
+    {
+        return $this->eveningReviewEnabled;
+    }
+
+    public function setEveningReviewEnabled(bool $eveningReviewEnabled): static
+    {
+        $this->eveningReviewEnabled = $eveningReviewEnabled;
+
+        return $this;
+    }
+
+    public function getEveningReviewTime(): string
+    {
+        return $this->eveningReviewTime;
+    }
+
+    public function setEveningReviewTime(string $eveningReviewTime): static
+    {
+        $this->eveningReviewTime = $eveningReviewTime;
+
+        return $this;
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -232,6 +293,10 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
             'notificationsEnabled' => $this->notificationsEnabled,
             'quietHoursStart' => $this->quietHoursStart,
             'quietHoursEnd' => $this->quietHoursEnd,
+            'morningDigestEnabled' => $this->morningDigestEnabled,
+            'morningDigestTime' => $this->morningDigestTime,
+            'eveningReviewEnabled' => $this->eveningReviewEnabled,
+            'eveningReviewTime' => $this->eveningReviewTime,
         ], $changedProperties);
     }
 }

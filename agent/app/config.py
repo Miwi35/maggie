@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     # in each user's own timezone (MAG-165). This one is the fallback when it is unknown or invalid.
     planning_timezone: str = "Europe/Paris"
     daily_planning_hour: int = 5
+    # The morning digest and the evening review laid down by the planning cycle (MAG-787). Off on the e2e stack,
+    # whose seeded accounts would get them in every journey: a journey lays them down with POST /e2e/rendezvous.
+    daily_rendezvous_enabled: bool = True
     # The journal of the plannings and proaction runs (MAG-688) keeps this many days, then is purged.
     proaction_journal_retention_days: int = 30
 

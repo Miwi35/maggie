@@ -1237,6 +1237,16 @@ object UiTags {
     const val SETTINGS_AGENT = "settings_agent"
 
     /**
+     * Réglages › Maggie (MAG-787): the switch and the hour of « Digest du matin » and « Bilan du soir », and the
+     * « Enregistré » that follows every save.
+     */
+    const val SETTINGS_DIGEST_SWITCH = "settings_digest_switch"
+    const val SETTINGS_DIGEST_TIME = "settings_digest_time"
+    const val SETTINGS_REVIEW_SWITCH = "settings_review_switch"
+    const val SETTINGS_REVIEW_TIME = "settings_review_time"
+    const val SETTINGS_RENDEZVOUS_SAVED = "settings_rendezvous_saved"
+
+    /**
      * Settings > Tâches > Rappels (MAG-407, MAG-718): the row of the list, « Réglages › Tâches » over the title,
      * « Heure du soir », an urgency's card ([settingsTasksUrgency]), its days before the due day
      * ([settingsTasksChip]), « Pas faite » ([settingsTasksOverdue]) and its choices ([settingsTasksOverdueOption]),

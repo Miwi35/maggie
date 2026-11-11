@@ -61,11 +61,17 @@ final class UpdateUserPreferenceController
             );
         }
 
-        if (\array_key_exists('notificationsEnabled', $body) && !\is_bool($body['notificationsEnabled'])) {
-            return new JsonResponse(
-                ['error' => 'notificationsEnabled must be a boolean'],
-                Response::HTTP_BAD_REQUEST,
-            );
+        foreach (['notificationsEnabled', 'morningDigestEnabled', 'eveningReviewEnabled'] as $name) {
+            if (\array_key_exists($name, $body) && !\is_bool($body[$name])) {
+                return new JsonResponse(['error' => "{$name} must be a boolean"], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        // The daily rendezvous' hours (MAG-787): "HH:MM", never null.
+        foreach (['morningDigestTime', 'eveningReviewTime'] as $name) {
+            if (\array_key_exists($name, $body) && !self::isHourMinute($body[$name])) {
+                return new JsonResponse(['error' => "{$name} must be HH:MM"], Response::HTTP_BAD_REQUEST);
+            }
         }
 
         // Quiet hours (MAG-687): both "HH:MM", or both null to clear. Sent together, never half.
@@ -74,8 +80,7 @@ final class UpdateUserPreferenceController
         if ($hasStart || $hasEnd) {
             $start = $body['quietHoursStart'] ?? null;
             $end = $body['quietHoursEnd'] ?? null;
-            $valid = static fn (mixed $v): bool => \is_string($v) && 1 === preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v);
-            if (!$hasStart || !$hasEnd || !(($valid($start) && $valid($end)) || (null === $start && null === $end))) {
+            if (!$hasStart || !$hasEnd || !((self::isHourMinute($start) && self::isHourMinute($end)) || (null === $start && null === $end))) {
                 return new JsonResponse(
                     ['error' => 'quietHoursStart and quietHoursEnd must be sent together, both as HH:MM or both null'],
                     Response::HTTP_BAD_REQUEST,
@@ -107,6 +112,10 @@ final class UpdateUserPreferenceController
                 defaultCity: $body['defaultCity'] ?? null,
                 quietHoursStart: $hasStart ? ($body['quietHoursStart'] ?? '') : null,
                 quietHoursEnd: $hasEnd ? ($body['quietHoursEnd'] ?? '') : null,
+                morningDigestEnabled: $body['morningDigestEnabled'] ?? null,
+                morningDigestTime: $body['morningDigestTime'] ?? null,
+                eveningReviewEnabled: $body['eveningReviewEnabled'] ?? null,
+                eveningReviewTime: $body['eveningReviewTime'] ?? null,
             ));
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
@@ -124,6 +133,10 @@ final class UpdateUserPreferenceController
             'defaultCalendarView' => $preference->getDefaultCalendarView(),
             'enabledAgendaIds' => $preference->getEnabledAgendaIds(),
             'notificationsEnabled' => $preference->isNotificationsEnabled(),
+            'morningDigestEnabled' => $preference->getMorningDigestEnabled(),
+            'morningDigestTime' => $preference->getMorningDigestTime(),
+            'eveningReviewEnabled' => $preference->getEveningReviewEnabled(),
+            'eveningReviewTime' => $preference->getEveningReviewTime(),
         ];
         // Like the GET, which API Platform serialises without its null fields:
         // the two answers must carry the same keys.
@@ -137,6 +150,11 @@ final class UpdateUserPreferenceController
         }
 
         return new JsonResponse($response);
+    }
+
+    private static function isHourMinute(mixed $value): bool
+    {
+        return \is_string($value) && 1 === preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value);
     }
 
     private function createFor(User $user): UserPreference
