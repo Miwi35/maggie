@@ -16,6 +16,7 @@ import com.maggie.app.ui.screens.cookbook.grocery.isDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
@@ -474,7 +475,7 @@ class GroceryRunViewModel(
     private fun load() {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            val list = listRepository.getGroceryList().getOrElse {
+            val list = readList().getOrElse {
                 _uiState.update { state -> state.copy(load = GroceryRunLoad.ERROR) }
                 return@launch
             }
@@ -483,6 +484,17 @@ class GroceryRunViewModel(
             endIfAnswered()
             loadTags()
         }
+    }
+
+    // The first read of a resumed tour can fail on a request still in flight or a token being refreshed: read again before the error.
+    private suspend fun readList(): Result<GroceryList?> {
+        var read = listRepository.getGroceryList()
+        repeat(LOAD_RETRIES) {
+            if (read.isSuccess) return read
+            delay(LOAD_RETRY_DELAY_MS)
+            read = listRepository.getGroceryList()
+        }
+        return read
     }
 
     private fun followList() {
@@ -559,5 +571,7 @@ class GroceryRunViewModel(
 
     private companion object {
         const val TAG_DAYS = 7L
+        const val LOAD_RETRIES = 2
+        const val LOAD_RETRY_DELAY_MS = 500L
     }
 }
