@@ -35,7 +35,7 @@ final class ManageWorkoutsTool
     ) {
     }
 
-    /** @param list<mixed>|null $exercises the list as the agent sent it, checked by the handler */
+    /** @param list<array<string, mixed>>|null $exercises the list as the agent sent it, checked by the handler */
     public function __invoke(
         #[Schema(enum: ['list', 'create', 'update', 'delete'])]
         string $action,

@@ -124,6 +124,28 @@ final class McpToolsContractTest extends KernelTestCase
         self::assertSame([], self::unknownReferences('Use agenda_id (from manage_agendas).', $tools));
     }
 
+    /**
+     * An argument that describes its items is a list, and the SDK validates
+     * every call against the schema before the handler: typed `object`, a JSON
+     * array is refused with -32602 and the agent can never send the list
+     * (manage_workouts.exercises, MAG-775 recette).
+     */
+    public function testEveryArgumentWithItemsIsTypedAsAnArray(): void
+    {
+        foreach ($this->tools() as $name => $tool) {
+            foreach ($tool['inputSchema']['properties'] ?? [] as $argument => $property) {
+                if (!isset($property['items'])) {
+                    continue;
+                }
+                self::assertContains('array', (array) ($property['type'] ?? []), sprintf(
+                    'The argument "%s" of "%s" describes items but is not typed as an array: tools/call refuses a list for it. Declare #[Schema(type: \'array\', …)] or a typed list<…> in the @param.',
+                    $argument,
+                    $name,
+                ));
+            }
+        }
+    }
+
     public function testManageCategoriesDocumentsTheIncomeFlag(): void
     {
         self::assertStringContainsString('income', (string) $this->tools()['manage_categories']['description']);
