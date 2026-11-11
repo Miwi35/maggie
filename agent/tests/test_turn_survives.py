@@ -96,7 +96,6 @@ class TestASilentTool:
         assert chunks.index(": keep-alive\n\n") > 1  # after the tool call started, while it runs
 
 
-NOW = datetime.now(UTC)
 
 
 class RecordingGateway:
@@ -120,12 +119,13 @@ class RecordingGateway:
 
 async def orphan(chat_db, *, content: str, age: timedelta, user_id: str = "user-1"):
     """A message whose turn was lost with its process: running, its lease long lapsed, `age` old."""
+    now = datetime.now(UTC)
     message = await message_repo.create(
-        user_id=user_id, role="user", content=content, turn_lease_until=NOW - age + timedelta(seconds=30)
+        user_id=user_id, role="user", content=content, turn_lease_until=now - age + timedelta(seconds=30)
     )
     async with chat_db.session() as session:
         stored = (await session.execute(select(Message).where(Message.id == message.id))).scalar_one()
-        stored.created_at = NOW - age
+        stored.created_at = now - age
         await session.commit()
     return message
 
@@ -155,8 +155,8 @@ class TestAnAgentThatRestarts:
     async def test_two_processes_never_take_the_same_message(self, chat_db):
         await orphan(chat_db, content="et du pain", age=timedelta(minutes=1))
 
-        first = await message_repo.claim_resumable_turns(NOW - timedelta(minutes=5), lease_deadline())
-        second = await message_repo.claim_resumable_turns(NOW - timedelta(minutes=5), lease_deadline())
+        first = await message_repo.claim_resumable_turns(datetime.now(UTC) - timedelta(minutes=5), lease_deadline())
+        second = await message_repo.claim_resumable_turns(datetime.now(UTC) - timedelta(minutes=5), lease_deadline())
 
         assert [len(first), len(second)] == [1, 0]
 
