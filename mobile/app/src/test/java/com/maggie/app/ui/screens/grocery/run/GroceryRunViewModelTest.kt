@@ -476,15 +476,96 @@ class GroceryRunViewModelTest {
         .let { it.copy(run = it.run.copy(current = storeId)) }
         .currentAisles.flatMap { it.lines }.firstOrNull { it.id == id }
 
+    // Recette refusée (10 nov.): « Manquant » marked the article at once, with no sheet to confirm or cancel.
     @Test
-    fun `a missing article whose fallback comes later in the tour moves there, missing from its store`() = runTest {
+    fun `Manquant opens the sheet with the fallback further in the tour, and marks nothing until it is confirmed`() = runTest {
+        val vm = inSuperU()
+
+        vm.askMissing("i-3")
+
+        assertEquals(MissingSheet("i-3", "Lait", null, null, "Biocoop", 2), vm.uiState.value.missingSheet)
+        assertNull(vm.line("i-3")?.missing)
+        vm.confirmMissing()
+        assertNull(vm.uiState.value.missingSheet)
+        assertEquals(RunMissing.GoesTo("Biocoop"), vm.line("i-3")?.missing)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { lists.markMissing("i-3", true) }
+    }
+
+    // Cold review: once the API moves it, the article carries its fallback's aisle; its « ira à » line keeps its own.
+    @Test
+    fun `a line marked ira à stays under its own aisle once the API has moved it`() = runTest {
+        val bazar = AisleSummary("a-9", "Bazar", 9)
+        val vm = inSuperU(GroceryList("list-1", missingList().items.map { if (it.id == "i-3") it.copy(aisle = frais) else it }))
+        vm.askMissing("i-3")
+        vm.confirmMissing()
+        advanceUntilIdle()
+
+        val moved = missingList().items.map {
+            if (it.id == "i-3") it.copy(store = biocoop, missingFromStore = superU, missingAt = "2026-11-08T10:00:00+00:00", aisle = bazar) else it
+        }
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", moved))
+        stream.emit(MercureEvent(id = "1", data = "{}"))
+        advanceUntilIdle()
+
+        val aisle = vm.uiState.value.currentAisles.single { aisle -> aisle.lines.any { it.id == "i-3" } }
+        assertEquals("Frais", aisle.name)
+        assertEquals(RunMissing.GoesTo("Biocoop"), vm.line("i-3")?.missing)
+        assertEquals("Bazar", vm.uiState.value.let { it.copy(run = it.run.copy(current = "s-b")) }.currentAisles.single { a -> a.lines.any { it.id == "i-3" } }.name)
+
+        // « Annuler » before any read says it: back to take, still under its own aisle.
+        coEvery { lists.markMissing("i-3", false) } returns Result.failure(java.io.IOException("offline"))
+        vm.markMissing("i-3")
+        assertNull(vm.line("i-3")?.missing)
+        assertEquals("Frais", vm.uiState.value.currentAisles.single { a -> a.lines.any { it.id == "i-3" } }.name)
+    }
+
+    @Test
+    fun `the sheet of an article ticked elsewhere closes and does not come back`() = runTest {
+        val vm = inSuperU()
+        vm.askMissing("i-1")
+
+        coEvery { lists.getGroceryList() } returns Result.success(GroceryList("list-1", missingList().items.map { if (it.id == "i-1") it.copy(checked = true) else it }))
+        stream.emit(MercureEvent(id = "1", data = "{}"))
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.missingAsked)
+    }
+
+    @Test
+    fun `the sheet's Annuler leaves the article to take`() = runTest {
+        val vm = inSuperU()
+
+        vm.askMissing("i-1")
+        assertEquals(MissingSheet("i-1", "Pain", null, null, null, null), vm.uiState.value.missingSheet)
+        vm.dismissMissing()
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.missingSheet)
+        assertNull(vm.line("i-1")?.missing)
+        coVerify(exactly = 0) { lists.markMissing(any(), any()) }
+    }
+
+    @Test
+    fun `a ticked or already missing article opens no sheet`() = runTest {
+        val vm = inSuperU()
+        vm.check("i-1")
+        vm.markMissing("i-3")
+
+        vm.askMissing("i-1")
+        vm.askMissing("i-3")
+
+        assertNull(vm.uiState.value.missingSheet)
+    }
+
+    @Test
+    fun `a missing article whose fallback comes later in the tour goes there, and stays here marked ira à`() = runTest {
         val vm = inSuperU()
         // Offline: the mark stays on the device, so the tour below reads it as it was asked.
         coEvery { lists.markMissing("i-3", true) } returns Result.failure(java.io.IOException("offline"))
 
         vm.markMissing("i-3")
-        assertNull(vm.line("i-3"))
-        assertEquals(RunProgress(0, 1), vm.uiState.value.progress)
+        assertEquals(RunMissing.GoesTo("Biocoop"), vm.line("i-3")?.missing)
+        assertEquals(RunProgress(1, 2), vm.uiState.value.progress)
         assertEquals(RunMissing.MovedFrom("Super U"), vm.lineIn("s-b", "i-3")?.missing)
         advanceUntilIdle()
         coVerify(exactly = 1) { lists.markMissing("i-3", true) }
@@ -532,9 +613,9 @@ class GroceryRunViewModelTest {
 
         assertTrue(queue.pendingMissing.value.isEmpty())
         assertEquals(RunMissing.NoFallback, vm.line("i-1")?.missing)
-        assertNull(vm.line("i-3"))
+        assertEquals(RunMissing.GoesTo("Biocoop"), vm.line("i-3")?.missing)
         assertEquals(RunMissing.MovedFrom("Super U"), vm.lineIn("s-b", "i-3")?.missing)
-        assertEquals(RunProgress(1, 1), vm.uiState.value.progress)
+        assertEquals(RunProgress(2, 2), vm.uiState.value.progress)
 
         // A read the API answered before it had the mark does not take it back.
         stream.emit(MercureEvent(id = "1", data = "{}"))

@@ -13,8 +13,9 @@ tags:
 # Et quand je fais glisser « Épicerie du coin » au-dessus de « Halles du voisin », l'ordre change
 # Et quand je lance la tournée, le premier magasin montre son article, que je coche : la progression passe à 1 / 1
 # (« Le magasin en cours », MAG-763)
-# Et quand je le décoche puis le marque « Manquant », il quitte l'Épicerie du coin : son repli, les Halles du voisin,
-#   vient plus loin dans la tournée (« Manquant », MAG-764)
+# Et quand je le décoche puis touche « Manquant », la feuille propose « Le prendre à Halles du voisin » : son repli
+#   vient plus loin dans la tournée ; je le choisis, et l'article reste à l'Épicerie, « manquant · ira à … »
+#   (« Manquant », MAG-764, retour de recette)
 # Et quand je termine l'Épicerie avec 42,80 €, les Halles s'ouvrent avec les Timbres, « manquant chez … », que je
 #   prends ; le Poireau, lui, manque et son repli est déjà passé : quand je termine les Halles, l'étape « Pas trouvés »
 #   le montre ; je choisis « Prochaine fois », puis « Finir les courses » : « Courses finies » récapitule les deux
@@ -93,7 +94,8 @@ tags:
       text: "1 / 1 ici"
     timeout: 10000
 
-# « Manquant » (MAG-764): untick, then mark it missing; its fallback comes later in the tour, so it leaves this shop.
+# « Manquant » (MAG-764): untick, then « Manquant » opens the sheet; its fallback comes later in the tour, so the sheet
+# offers it, and the article stays here, marked as going there.
 - tapOn:
     text: "Timbres du voisin"
 - extendedWaitUntil:
@@ -104,9 +106,20 @@ tags:
 - tapOn:
     text: "Manquant"
 - extendedWaitUntil:
-    notVisible:
-      text: "Timbres du voisin"
+    visible:
+      id: "grocery_run_missing_sheet"
     timeout: 10000
+- assertVisible:
+    text: "magasin à défaut · 2ᵉ de la tournée"
+- tapOn:
+    text: "Le prendre à Halles du voisin"
+- extendedWaitUntil:
+    visible:
+      text: "manquant · ira à Halles du voisin"
+    timeout: 10000
+- assertVisible:
+    id: "grocery_run_store_progress"
+    text: "1 / 1 ici"
 
 # « Terminer le magasin » (MAG-765): the summary, then « Montant payé », then the next store of the tour.
 - tapOn:
@@ -139,6 +152,8 @@ tags:
     text: "Timbres du voisin"
 - tapOn:
     text: "Manquant"
+- tapOn:
+    text: "Le marquer manquant"
 - extendedWaitUntil:
     visible:
       text: ".*pas de repli.*"

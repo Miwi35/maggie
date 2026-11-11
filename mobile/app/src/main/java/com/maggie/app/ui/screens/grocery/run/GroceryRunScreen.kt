@@ -33,18 +33,22 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -75,10 +79,16 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 private val RunMuted = MaggieTokens.surfaceDark.caption
 private val RunMutedText = MaggieTokens.surfaceDark.textMuted
 
+/** The mockup's orange for an article missing (MAG-764): its box, its line, its pill and the sheet's arrow. */
+private val RunMissingColor = MaggieTokens.Signal.warning
+
 /** What the screen can ask of the activity; the ViewModel's actions, apart from it so a test can watch them. */
 class GroceryRunActions(
     val check: (String) -> Unit = {},
     val markMissing: (String) -> Unit = {},
+    val askMissing: (String) -> Unit = {},
+    val confirmMissing: () -> Unit = {},
+    val dismissMissing: () -> Unit = {},
     val setVisited: (String, Boolean) -> Unit = { _, _ -> },
     val move: (Int, Int) -> Unit = { _, _ -> },
     val start: () -> Unit = {},
@@ -95,6 +105,9 @@ class GroceryRunActions(
         fun of(viewModel: GroceryRunViewModel) = GroceryRunActions(
             check = viewModel::check,
             markMissing = viewModel::markMissing,
+            askMissing = viewModel::askMissing,
+            confirmMissing = viewModel::confirmMissing,
+            dismissMissing = viewModel::dismissMissing,
             setVisited = viewModel::setVisited,
             move = viewModel::move,
             start = viewModel::start,
@@ -258,7 +271,9 @@ private fun GroceryRunCurrentStore(state: GroceryRunUiState, store: RunStore, ac
                             modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp),
                         )
                     }
-                    items(aisle.lines, key = { it.id }) { line -> RunLineRow(line, actions.check, actions.markMissing) }
+                    items(aisle.lines, key = { it.id }) { line ->
+                        RunLineRow(line, actions.check, if (line.missing == null) actions.askMissing else actions.markMissing)
+                    }
                 }
             }
             MainButton(
@@ -269,6 +284,62 @@ private fun GroceryRunCurrentStore(state: GroceryRunUiState, store: RunStore, ac
             )
         }
         if (landscape) SideTour(state)
+    }
+    state.missingSheet?.let { MissingSheetContent(it, actions) }
+}
+
+/**
+ * « <article> manquant » (MAG-764), as the mockup draws it: what is taken and for which meal, then « Le prendre à
+ * <repli> · magasin à défaut · 2ᵉ de la tournée » — or, without a fallback further in the tour, « Le marquer
+ * manquant » — and « Annuler ».
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MissingSheetContent(sheet: MissingSheet, actions: GroceryRunActions) {
+    ModalBottomSheet(
+        onDismissRequest = actions.dismissMissing,
+        modifier = Modifier.uiTagRoot().testTag(UiTags.GROCERY_RUN_MISSING_SHEET),
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("${sheet.label} manquant", fontSize = 22.sp, fontWeight = FontWeight.Medium)
+            listOfNotNull(sheet.quantity, sheet.forMeal?.let { "pour : $it" }).takeIf { it.isNotEmpty() }?.let {
+                Text(it.joinToString(" · "), fontSize = 15.sp, color = RunMutedText)
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 64.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(RunMissingColor.copy(alpha = 0.12f))
+                    .clickable(role = Role.Button, onClick = actions.confirmMissing)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .testTag(UiTags.GROCERY_RUN_MISSING_CONFIRM),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = RunMissingColor, modifier = Modifier.size(22.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(if (sheet.fallback != null) "Le prendre à ${sheet.fallback}" else "Le marquer manquant", fontSize = 17.sp)
+                    Text(
+                        text = if (sheet.fallback != null) "magasin à défaut · ${sheet.fallbackRank}ᵉ de la tournée" else "pas de magasin à défaut dans la tournée",
+                        fontSize = 14.sp,
+                        color = RunMutedText,
+                    )
+                }
+            }
+            TextButton(
+                onClick = actions.dismissMissing,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.GROCERY_RUN_MISSING_DISMISS),
+            ) {
+                Text("Annuler", fontSize = 17.sp, color = RunMutedText)
+            }
+        }
     }
 }
 
@@ -303,7 +374,11 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (Str
             .fillMaxWidth()
             .heightIn(min = 76.dp)
             .background(
-                if (line.checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceContainer,
+                when {
+                    line.checked -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                    line.missingHere -> RunMissingColor.copy(alpha = 0.06f)
+                    else -> MaterialTheme.colorScheme.surfaceContainer
+                },
                 RoundedCornerShape(20.dp),
             )
             .toggleable(value = line.checked, role = Role.Checkbox, onValueChange = { onCheck(line.id) })
@@ -319,10 +394,19 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (Str
                         if (line.checked) MaterialTheme.colorScheme.primary else Color.Transparent,
                         RoundedCornerShape(10.dp),
                     )
-                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp)),
+                    .border(2.dp, if (line.missingHere) RunMissingColor else MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 if (line.checked) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                if (line.missingHere) {
+                    Text(
+                        "–",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = RunMissingColor,
+                        modifier = Modifier.testTag(UiTags.groceryRunMissingMark(line.id)),
+                    )
+                }
             }
         }
         Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
@@ -335,7 +419,8 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (Str
             line.quantity?.let {
                 Text(text = it, style = MaterialTheme.typography.bodyMedium, color = muted)
             }
-            line.forMeal?.let {
+            // The mockup drops « pour : … » once the article is missing here: its pill says what happens to it.
+            line.forMeal?.takeUnless { line.missingHere }?.let {
                 Text(
                     text = "pour : $it",
                     style = MaterialTheme.typography.labelMedium,
@@ -351,13 +436,14 @@ private fun RunLineRow(line: RunLine, onCheck: (String) -> Unit, onMissing: (Str
                 Text(
                     text = when (missing) {
                         is RunMissing.MovedFrom -> "manquant chez ${missing.store}"
+                        is RunMissing.GoesTo -> "manquant · ira à ${missing.store}"
                         RunMissing.NoFallback -> "manquant · pas de repli"
                     },
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    color = RunMissingColor,
                     modifier = Modifier
                         .padding(top = 4.dp)
-                        .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(8.dp))
+                        .background(RunMissingColor.copy(alpha = 0.14f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                         .testTag(UiTags.groceryRunMissingTag(line.id)),
                 )

@@ -6,6 +6,7 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
+import com.maggie.app.data.model.AisleSummary
 import com.maggie.app.data.model.GroceryItem
 import com.maggie.app.data.model.GroceryList
 import com.maggie.app.data.repository.ActivityStatusRepository
@@ -82,6 +83,13 @@ data class GroceryRunUiState(
     val ended: Boolean = false,
     /** Articles the owner ticked in this session and has not unticked: leaving asks while there is one. */
     val ticked: Set<String> = emptySet(),
+    /** The article whose « Manquant » sheet is open (MAG-764), not marked until the sheet says so. */
+    val missingAsked: String? = null,
+    /**
+     * Each article's aisle as last read in its own store: the API gives a moved article its fallback's aisle, and its
+     * « ira à » line stays under its own aisle (MAG-764).
+     */
+    val homeAisles: Map<String, AisleSummary?> = emptyMap(),
 ) {
     fun isChecked(item: GroceryItem): Boolean = pending[item.id] ?: item.checked
 
@@ -89,15 +97,42 @@ data class GroceryRunUiState(
 
     private fun place(item: GroceryItem): RunPlace? = item.runPlace(isMissing(item), run.tour)
 
+    /** The articles taken in the store being done: a missing one moves with [place]. */
     private val currentItems: List<GroceryItem> get() = items.filter { place(it)?.storeId == run.current }
 
-    /** The articles of the store being done, by aisle in the order of the store; a missing one moves with [place]. */
-    val currentAisles: List<RunAisle> get() = runAisles(currentItems, ::isChecked, mealTags) { place(it)?.missing }
+    /** [currentItems], and the missing ones of this store gone to a fallback further in the tour (the mockup's « ira à »). */
+    private val shownItems: List<GroceryItem> get() = items
+        .filter { place(it)?.storeId == run.current || goesFromCurrent(it) }
+        // Moved by the API, shown in its own store (« ira à », or given back by « Annuler »): its own aisle, not the fallback's.
+        .map { item -> if (item.movedFrom(run.current)) item.copy(aisle = homeAisles[item.id]) else item }
 
-    val progress: RunProgress get() = RunProgress(
-        currentItems.count { isChecked(it) || place(it)?.missing == RunMissing.NoFallback },
-        currentItems.size,
-    )
+    private fun GroceryItem.movedFrom(storeId: String?): Boolean =
+        missingFromStore?.id.let { it != null && it == storeId && it != store?.id }
+
+    private fun goesFromCurrent(item: GroceryItem): Boolean =
+        item.origin?.id == run.current && isMissing(item) && place(item)?.storeId.let { it != null && it != run.current }
+
+    /** How a missing article reads in the store being done: « ira à » its fallback from its own store, else as [place] says. */
+    private fun missingHere(item: GroceryItem): RunMissing? =
+        if (goesFromCurrent(item)) RunMissing.GoesTo(place(item).name().orEmpty()) else place(item)?.missing
+
+    /** The articles of the store being done, by aisle in the order of the store. */
+    val currentAisles: List<RunAisle> get() = runAisles(shownItems, ::isChecked, mealTags, ::missingHere)
+
+    val progress: RunProgress get() = currentAisles.flatMap { it.lines }.let { lines -> RunProgress(lines.count { it.done }, lines.size) }
+
+    /** The sheet « <article> manquant » (MAG-764): the article asked about, and where it would be taken instead. */
+    val missingSheet: MissingSheet? get() = missingAsked?.let { id -> items.firstOrNull { it.id == id } }?.let { item ->
+        val to = item.runPlace(true, run.tour)?.storeId?.takeIf { it != item.origin?.id }
+        MissingSheet(
+            id = item.id.orEmpty(),
+            label = item.label,
+            quantity = item.runQuantity(),
+            forMeal = item.product?.id?.let(mealTags::get),
+            fallback = to?.let(byId::get)?.name,
+            fallbackRank = to?.let { run.tour.indexOf(it) + 1 },
+        )
+    }
 
     /** The articles of the whole tour taken out of its articles, « 7 / 14 » at the right of the header. */
     val tourProgress: RunProgress get() = items.mapNotNull { item -> place(item)?.takeIf { it.storeId in run.tour }?.let { item to it } }.let { placed ->
@@ -161,6 +196,19 @@ data class GroceryRunUiState(
     /** The store the summary's button opens next; null after the last one, where it reads « Finir les courses ». */
     val nextStore: RunStore? get() = run.current?.let(run::nextAfter)?.let(byId::get)
 }
+
+/**
+ * The sheet « <article> manquant »: the article, what is taken and for which meal, and its fallback with its place
+ * in the tour (« 2ᵉ de la tournée ») when that one comes later in it; both null when it has none.
+ */
+data class MissingSheet(
+    val id: String,
+    val label: String,
+    val quantity: String?,
+    val forMeal: String?,
+    val fallback: String?,
+    val fallbackRank: Int?,
+)
 
 /** An article as the end of a store or of the tour lists it; [store] is where it goes, or comes from. */
 data class RecapLine(val id: String, val label: String, val quantity: String?, val store: String? = null)
@@ -228,10 +276,28 @@ class GroceryRunViewModel(
         onPending(tickQueue.pending.value)
     }
 
+    /** « Manquant » on an article to take (MAG-764): opens its sheet, nothing is marked yet. A ticked article is not missing. */
+    fun askMissing(itemId: String) {
+        val state = _uiState.value
+        val item = state.items.firstOrNull { it.id == itemId } ?: return
+        if (state.isChecked(item) || state.isMissing(item)) return
+        _uiState.update { it.copy(missingAsked = itemId) }
+    }
+
+    /** The sheet's option: the article is marked missing. */
+    fun confirmMissing() {
+        val itemId = _uiState.value.missingAsked ?: return
+        _uiState.update { it.copy(missingAsked = null) }
+        markMissing(itemId)
+    }
+
+    /** The sheet's « Annuler », or a tap beside it: the article stays as it was. */
+    fun dismissMissing() = _uiState.update { it.copy(missingAsked = null) }
+
     /**
-     * « Manquant » on an article of the store being done, or « Annuler » on a missing one (MAG-764): shown at once —
-     * in its fallback store when that one comes later in the tour — and sent when the network allows. A ticked
-     * article is not missing.
+     * The sheet's option, or « Annuler » on a missing article (MAG-764): shown at once — « ira à » its fallback when
+     * that one comes later in the tour, and in that store — and sent when the network allows. A ticked article is not
+     * missing.
      */
     fun markMissing(itemId: String) {
         val state = _uiState.value
@@ -461,6 +527,9 @@ class GroceryRunViewModel(
         _uiState.update {
             it.copy(
                 receivedMissing = it.receivedMissing.filter { (id, missing) -> read[id]?.let { item -> (item.missingAt != null) != missing } ?: false },
+                // The sheet of an article gone from the list, or ticked elsewhere, does not come back with it.
+                missingAsked = it.missingAsked?.takeIf { id -> read[id]?.checked == false },
+                homeAisles = it.homeAisles + lines.filter { item -> item.missingFromStore == null }.mapNotNull { item -> item.id?.let { id -> id to item.aisle } },
                 load = if (stores.isEmpty()) GroceryRunLoad.EMPTY else GroceryRunLoad.READY,
                 stores = stores,
                 items = lines,
