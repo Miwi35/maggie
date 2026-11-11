@@ -19,8 +19,10 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Calendar\Entity\Event;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
+use Maggie\Core\Doctrine\Filter\UlidRelationFilter;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Health\Dto\WorkoutExerciseInput;
@@ -57,6 +59,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 #[ORM\UniqueConstraint(name: 'uniq_workout_keeps', columns: ['keeps_id'])]
 #[UniqueEntity(fields: ['user', 'externalId'], message: 'This externalId is already used by another workout.', ignoreNull: 'externalId')]
 #[ApiFilter(SearchFilter::class, properties: ['type' => 'exact', 'source' => 'exact'])]
+#[ApiFilter(UlidRelationFilter::class, properties: ['event'])]
 #[ApiFilter(DateFilter::class, properties: ['startedAt'])]
 #[ApiFilter(WorkoutExerciseFilter::class, properties: ['exercise'])]
 #[ApiFilter(OrderFilter::class, properties: ['startedAt'])]
@@ -195,6 +198,13 @@ class Workout implements MercurePublishable, OwnedByUserInterface
      * @var list<mixed>|null
      */
     private ?array $requestedExercises = null;
+
+    // The planned session's event in the « Santé » module agenda (MAG-777), filed by
+    // {@see \Maggie\Health\UseCase\FilePlannedWorkoutInAgenda}: never written by a client.
+    #[ORM\OneToOne(targetEntity: Event::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(writable: false, description: 'The event of a planned session in the « Santé » agenda (IRI); null for a session done.')]
+    private ?Event $event = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -528,6 +538,18 @@ class Workout implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getEvent(): ?Event
+    {
+        return $this->event;
+    }
+
+    public function setEvent(?Event $event): static
+    {
+        $this->event = $event;
+
+        return $this;
+    }
+
     public function getUser(): User
     {
         return $this->user;
@@ -563,6 +585,7 @@ class Workout implements MercurePublishable, OwnedByUserInterface
             'makeupOf' => null === $this->makeupOf ? null : self::iri($this->makeupOf),
             'makeupOption' => $this->makeupOption?->value,
             'exercises' => $this->getExercises(),
+            'event' => null === $this->event ? null : '/api/events/'.$this->event->getId(),
         ], $changedProperties, self::PAYLOAD_KEYS);
     }
 }

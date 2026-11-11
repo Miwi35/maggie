@@ -207,6 +207,14 @@ if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:cookbook:
   warn "Filing meals failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:cookbook:file-meals-in-module-agenda"
 fi
 
+# Planned sessions stored before the « Santé » module agenda existed get their
+# event (MAG-777). Needs the migration's `workout.event_id`; a no-op once every
+# planned session is filed.
+log "Phase 5b3: Filing planned workouts in the module agenda..."
+if ! $KUBECTL exec "deployment/php" -n "$NAMESPACE" -- bin/console app:health:file-planned-workouts --no-interaction; then
+  warn "Filing planned workouts failed (non-blocking). Run manually: kubectl exec deployment/php -n $NAMESPACE -- bin/console app:health:file-planned-workouts"
+fi
+
 # No cache:clear here (MAG-146): the image ships a warmed cache, and deleting
 # var/cache/prod under a pod that is serving requests fails at random.
 

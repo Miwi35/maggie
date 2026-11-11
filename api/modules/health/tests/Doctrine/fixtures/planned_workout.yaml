@@ -1,0 +1,21 @@
+# MAG-777's scenario: the user's planned « Séance A » goes in the « Santé »
+# module agenda, created at first need; a session done stays out. Another user
+# proves the isolation.
+Maggie\Core\Entity\User:
+  test_user:
+    email: health-agenda-test@example.com
+    googleId: google-health-agenda-test
+    name: Health Agenda Test User
+  other_user:
+    email: health-agenda-other@example.com
+    googleId: google-health-agenda-other
+    name: Other Health Agenda User
+
+Maggie\Health\Entity\Workout:
+  done:
+    type: '<(Maggie\Health\Enum\WorkoutType::Run)>'
+    title: Course
+    startedAt: '<(new \DateTimeImmutable("2026-11-10T07:10:00+01:00"))>'
+    durationMinutes: 32
+    source: '<(Maggie\Health\Enum\WorkoutSource::Watch)>'
+    user: '@test_user'

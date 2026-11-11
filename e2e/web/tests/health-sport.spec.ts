@@ -1,4 +1,5 @@
-import { test, expect, e2eNow, parisDay } from '../fixtures/index.js'
+import { test, expect, e2eNow, parisDay, parisTime } from '../fixtures/index.js'
+import { CalendarPage } from '../pages/CalendarPage.js'
 import { HealthSportPage } from '../pages/HealthSportPage.js'
 
 /**
@@ -12,10 +13,16 @@ import { HealthSportPage } from '../pages/HealthSportPage.js'
  * MAG-775 extends it: Given la séance prévue « Séance A » et ses 6 exercices (seed
  * `70-health.yaml`), When j'ouvre sa fiche, Then le bloc « Exercices » montre
  * « Squat gobelet au sac » et « 3 × 10 · 10 kg ».
+ *
+ * MAG-777 extends it: Given une séance prévue aujourd'hui à 18:30, When j'ouvre l'Agenda, Then
+ * « Séance A » est à 18:30 dans l'agenda « Santé » ; When je la déplace à 19:00, Then Santé › Sport
+ * la montre à 19:00.
  */
 
 interface WorkoutRow {
   id: string
+  startedAt: string
+  event?: string | null
   type: string
   durationMinutes: number
   distanceMeters: number | null
@@ -84,5 +91,74 @@ test.describe('The sheet of a detailed session — MAG-775', () => {
     const squat = exercises.getByTestId('workout-exercise').filter({ hasText: 'Squat gobelet au sac' })
     await expect(squat).toContainText('3 × 10 · 10 kg')
     await expect(exercises).toContainText('Tractions négatives')
+  })
+})
+
+test.describe('A planned session in the « Santé » agenda — MAG-777', () => {
+  // An empty account, made fresh for the test: today's 18:30 is this journey's alone, and
+  // no seeded strength session sits within the 24 h the week's guard rails ask (MAG-776).
+  test.use({ journeyAccount: 'empty' })
+
+  test('« Séance A » is at 18:30 in the Santé agenda, and moved to 19:00 there it starts at 19:00 in Santé › Sport', async ({ page, api }) => {
+    const day = parisDay(e2eNow())
+    const ld = { Accept: 'application/ld+json' }
+
+    // The empty account owns no agenda of its own, and module agendas stay out of the
+    // sidebar: a « Perso » gives the Agenda page the line it waits for.
+    const perso = await api.post('/api/agendas', {
+      headers: { ...ld, 'Content-Type': 'application/ld+json' },
+      data: { name: 'Perso', color: '#4285f4', timeZone: 'Europe/Paris' },
+    })
+    expect(perso.status(), `POST /api/agendas answered ${perso.status()}`).toBe(201)
+
+    // Given a session planned today at 18:30 (written over HTTP: the seed's are history, filed nowhere).
+    const created = await api.post('/api/workouts', {
+      headers: { ...ld, 'Content-Type': 'application/ld+json' },
+      data: { type: 'strength', title: 'Séance A', startedAt: parisTime(day, '18:30:00'), durationMinutes: 30, source: 'planned' },
+    })
+    expect(created.status(), `POST /api/workouts answered ${created.status()}`).toBe(201)
+    const workout = (await created.json()) as WorkoutRow
+    const id = workout.id.split('/').pop() ?? workout.id
+    expect(workout.event, 'the session has its event in the agenda').toBeTruthy()
+    const eventIri = String(workout.event)
+
+    // The event is served from the search index: wait for it there.
+    let event: { activity?: string; agenda?: string } = {}
+    await expect
+      .poll(async () => {
+        const response = await api.get(eventIri, { headers: ld })
+        if (!response.ok()) return response.status()
+        event = (await response.json()) as typeof event
+
+        return 200
+      })
+      .toBe(200)
+    expect(event.activity).toBe('sport')
+    const agenda = await api.get(String(event.agenda), { headers: ld })
+    expect(((await agenda.json()) as { name: string }).name).toBe('Santé')
+
+    // When I open the Agenda, Then « Séance A » is at 18:30 in « Santé »…
+    const calendar = new CalendarPage(page)
+    await calendar.openEvent(eventIri, 'Séance A')
+    await expect(calendar.popover).toContainText('18:30')
+    await expect(calendar.popover).toContainText('Santé')
+
+    // …When I move it to 19:00…
+    await calendar.editFromPopover()
+    await calendar.submitEventEdit({ start: `${day}T19:00`, end: `${day}T19:30` })
+
+    // …Then the session starts at 19:00, as Santé › Sport reads it.
+    await expect
+      .poll(async () => {
+        const response = await api.get(`/api/workouts/${id}`, { headers: ld })
+        const stored = (await response.json()) as WorkoutRow
+
+        return new Date(stored.startedAt).getTime()
+      })
+      .toBe(new Date(parisTime(day, '19:00:00')).getTime())
+
+    const sport = new HealthSportPage(page)
+    await sport.open()
+    await expect(sport.row(id)).toContainText('Séance A')
   })
 })

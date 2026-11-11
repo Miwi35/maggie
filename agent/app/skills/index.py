@@ -29,7 +29,12 @@ SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
             "f0ca77921f11b4b33e37dcfc281cb02bd3a83266144c9865f4506ec072f36d6a",
         }
     ),
-    "digest": frozenset({"bc2f376bbaadcda64d1549e0eef3873c3116258d1c6be567301617de4a344cbd"}),
+    "digest": frozenset(
+        {
+            "bc2f376bbaadcda64d1549e0eef3873c3116258d1c6be567301617de4a344cbd",
+            "e811cba94733145c73397a1d6bff2d2a7ecd8b833d3f52598bb91e061afb3609",
+        }
+    ),
 }
 
 # When a skill applies, as its tags say (MAG-345): `moment:chat`, `moment:proaction`, `moment:planification`.

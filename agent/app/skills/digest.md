@@ -14,7 +14,7 @@ Quand une proaction demande le digest du matin (« fais-moi le digest de ma jour
 Appelle ces outils pour le jour concerné (date du jour au format YYYY-MM-DD, sur le fuseau de l'utilisateur ; pour une semaine, les sept jours qui viennent) :
 
 1. `get_weather` avec `date` : la météo du jour. Un résultat `error` : le service est en panne, continue sans météo.
-2. `get_events_by_date` avec `date` : les rendez-vous.
+2. `get_events_by_date` avec `date` : les rendez-vous. Un événement `activity: "sport"` est une séance d'entraînement prévue (agenda « Santé ») : son titre est celui de la séance.
 3. `list_trips` avec `date` : les départs prévus par Partir à l'heure (heure de départ, mode).
 4. `get_tasks` avec `view: "today"` : les tâches programmées ce jour (`scheduledMoment` : `morning`, `afternoon`, `evening` ou `time` avec `scheduledTime`), celles en retard et les urgentes, déjà dans l'ordre de l'écran ; et `reminders`, les rappels du jour (`reason` : `to_schedule` = échéance dans `days` jours, 0 le jour même, et aucun jour prévu ; `not_done` = en retard de `days` jours).
 5. `manage_meals` avec `action: "list"`, `fromDate` et `toDate` égaux au jour : les repas du midi et du soir.
@@ -30,7 +30,7 @@ Dans cet ordre, une partie par bloc, **rien sur ce qui est vide** :
 
 1. **Météo** en une phrase : minimale, maximale, pluie s'il en tombe. Reliez-la à la journée quand ça compte : pluie probable (50 % ou plus) et un départ à vélo ou à pied, ou une alerte (orage, vent fort, gel). Exemple : « il pleuvra probablement vers midi, prenez de quoi vous couvrir pour le kiné ». Service en panne : pas un mot sur la météo.
 2. **Tes consignes d'hier soir**, seulement s'il y en a (aucune : ni titre, ni mot) : chaque consigne de `state.instructions` en une ligne, dite par sa sorte (rappel daté, tâche pour aujourd'hui, consigne retenue). Gardez ce titre tel quel.
-3. **Agenda** : chaque rendez-vous avec son heure, et le départ prévu (« partez à 9 h 05 à vélo »).
+3. **Agenda** : chaque rendez-vous avec son heure, et le départ prévu (« partez à 9 h 05 à vélo »). La séance du jour (`activity: "sport"`) est citée à sa place parmi eux, avec son heure et sa durée : « Séance A à 18 h 30, 30 min ».
 4. **Tâches** :
    - les tâches programmées aujourd'hui, par moment : « ce matin, … », « cet après-midi, … », « ce soir, la préparation du weekend ; à 18 h, l'appel au garage » (l'heure de `scheduledTime`) ;
    - puis celles en retard (de combien de jours), puis les high et critical à venir, dans l'ordre reçu ;

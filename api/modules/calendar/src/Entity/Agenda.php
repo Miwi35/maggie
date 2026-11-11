@@ -70,6 +70,8 @@ class Agenda implements MercurePublishable, OwnedByUserInterface, IndexableInter
     public const MODULE_AGENT = 'agent';
     /** The agenda where the finance module files the monthly review's appointment (MAG-456). */
     public const MODULE_FINANCE = 'finance';
+    /** The agenda where the health module files the planned sessions (MAG-777). */
+    public const MODULE_HEALTH = 'health';
 
     // The admin sends the record back with its IRI as `id`: never denormalized.
     #[ORM\Id]

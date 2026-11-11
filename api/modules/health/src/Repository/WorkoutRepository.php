@@ -6,6 +6,7 @@ namespace Maggie\Health\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Core\Entity\User;
 use Maggie\Health\Entity\Workout;
@@ -235,5 +236,49 @@ class WorkoutRepository extends ServiceEntityRepository
         }
 
         return $ids;
+    }
+
+    /**
+     * The id of the session filed under this event, read without loading it:
+     * the event's deletion asks during the flush (MAG-777).
+     */
+    public function findIdByEvent(Ulid $eventId): ?string
+    {
+        $id = $this->createQueryBuilder('w')
+            ->select('w.id')
+            ->andWhere('IDENTITY(w.event) = :event')->setParameter('event', $eventId, 'ulid')
+            ->getQuery()
+            ->getOneOrNullResult(AbstractQuery::HYDRATE_SCALAR_COLUMN);
+
+        // Scalar hydration may hand the column over as the database spells it (RFC 4122): back to a ULID.
+        return null === $id ? null : (string) Ulid::fromString((string) $id);
+    }
+
+    public function findOneByEvent(User|string $user, Ulid $eventId): ?Workout
+    {
+        return $this->findOneBy(['user' => $user, 'event' => $eventId]);
+    }
+
+    /**
+     * The planned sessions not filed in the agenda yet, oldest first: what
+     * `app:health:file-planned-workouts` has left to do (MAG-777).
+     *
+     * @return list<array{string, string}> [workout id, user id] of each
+     */
+    public function findPlannedWithoutEvent(): array
+    {
+        /** @var list<array{id: mixed, userId: mixed}> $rows */
+        $rows = $this->createQueryBuilder('w')
+            ->select('w.id', 'IDENTITY(w.user) AS userId')
+            ->andWhere('w.source = :planned')->setParameter('planned', WorkoutSource::Planned)
+            ->andWhere('w.event IS NULL')
+            ->orderBy('w.startedAt', 'ASC')
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_map(static fn (array $row): array => [
+            (string) Ulid::fromString((string) $row['id']),
+            (string) Ulid::fromString((string) $row['userId']),
+        ], $rows);
     }
 }

@@ -66,6 +66,9 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     /** The monthly review of the finances, launched from its appointment (MAG-456). */
     public const ACTIVITY_FINANCE_REVIEW = 'finance-review';
 
+    /** A planned training session, the reflection of its workout in the « Santé » agenda (MAG-777). */
+    public const ACTIVITY_SPORT = 'sport';
+
     /** The column's default, and what a time zone nobody can resolve falls back on. */
     public const FALLBACK_TIME_ZONE = 'Europe/Paris';
 
@@ -233,7 +236,7 @@ class Event implements MercurePublishable, OwnedThroughInterface, IndexableInter
     #[ORM\Column(length: 40, nullable: true)]
     #[IndexedField(type: 'keyword')]
     #[ApiProperty(
-        description: 'The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.',
+        description: 'The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.',
         writable: false,
     )]
     protected ?string $activity = null;

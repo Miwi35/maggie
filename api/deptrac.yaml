@@ -59,7 +59,7 @@ deptrac:
     Notification: [Core]
     Calendar: [Core, Notification]
     Finance: [Core, Calendar, Notification]
-    Health: [Core, Notification, HealthPort]
+    Health: [Core, Calendar, Notification, HealthPort]
     HealthPort: [Core]
     Grocery: [Core, GroceryCatalogue]
     GroceryCatalogue: [Core, Grocery]

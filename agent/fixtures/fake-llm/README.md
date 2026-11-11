@@ -261,6 +261,8 @@ A proaction run has 20 rounds (`PROACTION_MAX_ITERATIONS`), not the chat's 5.
 MAG-709 »: it schedules « Digest du matin » two minutes from now (`${in_2_minutes}`), for the executor to claim. `98-proaction-digest-due.yaml` runs it: `get_skill`
 digest, the day's reads (`get_weather`, `get_events_by_date`, `list_trips`, `get_tasks`, `manage_meals`), the vocal with
 `screen: "digest"`, then the written digest — stored on the digest screen, its notification links `/digest?message=`.
+`98-proaction-digest-sport.yaml` (MAG-777) is the digest of a day with a planned session, tagged « digest MAG-777 »: it
+reads the agenda and cites « Séance A à 18 h 30, 30 min » among the appointments.
 
 ## Adding a scenario
 

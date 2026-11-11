@@ -186,6 +186,11 @@ framework:
             'Maggie\Health\Event\PlannedWorkoutMissed': sync
             'Maggie\Health\Message\ProposeWorkoutMakeupCommand': sync
             'Maggie\Health\Message\ChooseWorkoutMakeupCommand': sync
+            'Maggie\Health\Event\PlannedWorkoutChanged': sync
+            'Maggie\Health\Event\PlannedWorkoutRemoved': sync
+            'Maggie\Health\Message\FilePlannedWorkoutCommand': sync
+            'Maggie\Health\Event\SportEventChanged': sync
+            'Maggie\Health\Message\ApplySportEventChangeCommand': sync
             'Maggie\Finance\Message\ChangeScenarioCommand': sync
             'Maggie\Finance\Message\CreateOperationCommand': sync
             'Maggie\Finance\Message\UpdateOperationCommand': sync

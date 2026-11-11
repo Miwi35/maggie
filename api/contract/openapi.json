@@ -13837,6 +13837,19 @@
                         "explode": true
                     },
                     {
+                        "name": "event",
+                        "in": "query",
+                        "description": "Restrict to one event, given as its IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false,
+                        "example": "/api/events/01ARZ3NDEKTSV4RRFFQ69G5FAV"
+                    },
+                    {
                         "name": "startedAt[before]",
                         "in": "query",
                         "description": "",
@@ -18159,7 +18172,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -18334,7 +18347,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -18509,7 +18522,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -18686,7 +18699,7 @@
                             },
                             "activity": {
                                 "readOnly": true,
-                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                                 "type": [
                                     "string",
                                     "null"
@@ -21785,7 +21798,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -22000,7 +22013,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -22211,7 +22224,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -22431,7 +22444,7 @@
                             },
                             "activity": {
                                 "readOnly": true,
-                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                                 "type": [
                                     "string",
                                     "null"
@@ -24552,7 +24565,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -24747,7 +24760,7 @@
                     },
                     "activity": {
                         "readOnly": true,
-                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                        "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                         "type": [
                             "string",
                             "null"
@@ -24947,7 +24960,7 @@
                             },
                             "activity": {
                                 "readOnly": true,
-                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances). Null on an ordinary event.",
+                                "description": "The activity a module launches from this event (finance-review: the monthly review of the finances; sport: a planned training session). Null on an ordinary event.",
                                 "type": [
                                     "string",
                                     "null"
@@ -32490,6 +32503,16 @@
                             ]
                         }
                     },
+                    "event": {
+                        "readOnly": true,
+                        "description": "The event of a planned session in the « Santé » agenda (IRI); null for a session done.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -32800,6 +32823,16 @@
                                 "null"
                             ]
                         }
+                    },
+                    "event": {
+                        "readOnly": true,
+                        "description": "The event of a planned session in the « Santé » agenda (IRI); null for a session done.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "user": {
                         "type": "string",
@@ -33112,6 +33145,16 @@
                             ]
                         }
                     },
+                    "event": {
+                        "readOnly": true,
+                        "description": "The event of a planned session in the « Santé » agenda (IRI); null for a session done.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "user": {
                         "type": "string",
                         "format": "iri-reference",
@@ -33421,6 +33464,16 @@
                                         "null"
                                     ]
                                 }
+                            },
+                            "event": {
+                                "readOnly": true,
+                                "description": "The event of a planned session in the « Santé » agenda (IRI); null for a session done.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
                             },
                             "user": {
                                 "type": "string",

@@ -709,7 +709,7 @@ final class E2eSeedCommandTest extends KernelTestCase
             $this->entityManager(),
             $container->get(E2eDateProvider::class),
             $loader,
-            new \Maggie\Core\E2e\Fixture\FixtureEffects([$container->get(\Maggie\Finance\Doctrine\TransactionListener::class), $container->get(\Maggie\Calendar\Doctrine\TodayEventListener::class)]),
+            new \Maggie\Core\E2e\Fixture\FixtureEffects([$container->get(\Maggie\Finance\Doctrine\TransactionListener::class), $container->get(\Maggie\Calendar\Doctrine\TodayEventListener::class), $container->get(\Maggie\Health\Doctrine\PlannedWorkoutListener::class), $container->get(\Maggie\Health\Doctrine\SportEventListener::class)]),
             $container->get(\Elastic\Elasticsearch\Client::class),
             new \Maggie\Core\E2e\Fixture\E2eFixtureCatalog($container->getParameter('kernel.project_dir')),
             $container->getParameter('kernel.project_dir'),
