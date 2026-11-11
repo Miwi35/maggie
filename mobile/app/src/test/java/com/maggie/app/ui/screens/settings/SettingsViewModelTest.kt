@@ -180,6 +180,114 @@ class SettingsViewModelTest {
         coVerify(exactly = 0) { userPreferenceRepository.update(any()) }
     }
 
+    /** Réglages › Maggie (MAG-787): the server holds the defaults until the user changes them. */
+    private fun withPreferences(preference: UserPreference = UserPreference(id = "p1")) {
+        coEvery { userPreferenceRepository.refresh() } returns Result.success(preference)
+    }
+
+    private fun capturedBodies(): MutableList<JsonObject> {
+        val bodies = mutableListOf<JsonObject>()
+        coEvery { userPreferenceRepository.update(capture(bodies)) } coAnswers {
+            val body = bodies.last()
+            var saved = UserPreference(id = "p1")
+            body["morningDigestEnabled"]?.let { saved = saved.copy(morningDigestEnabled = it.toString().toBoolean()) }
+            body["morningDigestTime"]?.let { saved = saved.copy(morningDigestTime = it.toString().trim('"')) }
+            body["eveningReviewEnabled"]?.let { saved = saved.copy(eveningReviewEnabled = it.toString().toBoolean()) }
+            body["eveningReviewTime"]?.let { saved = saved.copy(eveningReviewTime = it.toString().trim('"')) }
+            Result.success(saved)
+        }
+        return bodies
+    }
+
+    @Test
+    fun `the rendezvous are read with the preferences`() = runTest {
+        withPreferences(UserPreference(id = "p1", morningDigestEnabled = false, eveningReviewTime = "22:15"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val preferences = viewModel.uiState.value.preferences!!
+        assertFalse(preferences.morningDigestEnabled)
+        assertEquals("22:15", preferences.eveningReviewTime)
+        assertFalse(viewModel.uiState.value.rendezvousSaved)
+    }
+
+    @Test
+    fun `turning the digest off shows it at once, sends that field alone, then says Enregistre`() = runTest {
+        withPreferences()
+        val bodies = capturedBodies()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setMorningDigestEnabled(false)
+
+        assertFalse(viewModel.uiState.value.preferences!!.morningDigestEnabled)
+        assertFalse(viewModel.uiState.value.rendezvousSaved)
+        advanceUntilIdle()
+        assertEquals(listOf("{\"morningDigestEnabled\":false}"), bodies.map { it.toString() })
+        assertTrue(viewModel.uiState.value.rendezvousSaved)
+        assertFalse(viewModel.uiState.value.preferences!!.morningDigestEnabled)
+    }
+
+    @Test
+    fun `the review set to 22 15 is sent as HH MM`() = runTest {
+        withPreferences()
+        val bodies = capturedBodies()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setEveningReviewTime(22, 15)
+        advanceUntilIdle()
+
+        assertEquals(listOf("{\"eveningReviewTime\":\"22:15\"}"), bodies.map { it.toString() })
+        assertEquals("22:15", viewModel.uiState.value.preferences!!.eveningReviewTime)
+        assertTrue(viewModel.uiState.value.rendezvousSaved)
+    }
+
+    @Test
+    fun `the digest hour and the review switch are sent too`() = runTest {
+        withPreferences()
+        val bodies = capturedBodies()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setMorningDigestTime(6, 30)
+        viewModel.setEveningReviewEnabled(false)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("{\"morningDigestTime\":\"06:30\"}", "{\"eveningReviewEnabled\":false}"),
+            bodies.map { it.toString() },
+        )
+    }
+
+    @Test
+    fun `a failed save goes back to the saved value and says so`() = runTest {
+        withPreferences()
+        coEvery { userPreferenceRepository.update(any()) } returns Result.failure(IllegalStateException("down"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setEveningReviewEnabled(false)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.preferences!!.eveningReviewEnabled)
+        assertFalse(viewModel.uiState.value.rendezvousSaved)
+        assertNotNull(viewModel.uiState.value.rendezvousError)
+    }
+
+    @Test
+    fun `the value already shown sends nothing`() = runTest {
+        withPreferences()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setMorningDigestTime(7, 0)
+        viewModel.setEveningReviewEnabled(true)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { userPreferenceRepository.update(any()) }
+    }
+
     @Test
     fun `the agent settings carry the name the user gave Maggie`() = runTest {
         coEvery { apiService.getAgentName() } returns "Alfred"

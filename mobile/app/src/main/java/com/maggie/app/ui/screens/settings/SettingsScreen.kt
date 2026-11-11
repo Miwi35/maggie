@@ -72,6 +72,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import android.Manifest
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -871,7 +873,17 @@ private fun AgentSection(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(uiState.agentName) },
+                // « Réglages › Maggie » (MAG-787): the breadcrumb over the title, as the Tâches screens have it.
+                title = {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "RÉGLAGES ›",
+                            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.14.em),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(uiState.agentName, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp))
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -886,6 +898,16 @@ private fun AgentSection(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
+            uiState.preferences?.let { preferences ->
+                AgentRendezvousCards(
+                    preferences = preferences,
+                    saved = uiState.rendezvousSaved,
+                    error = uiState.rendezvousError,
+                    viewModel = viewModel,
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+
             if (uiState.ttsVoices.isNotEmpty()) {
                 Text(
                     "Voix de synthèse",

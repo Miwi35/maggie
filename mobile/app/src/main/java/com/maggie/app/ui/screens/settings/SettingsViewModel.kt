@@ -53,6 +53,7 @@ const val DEFAULT_AGENT_NAME = "Maggie"
 private const val TASK_SETTINGS_UNREADABLE = "Impossible de lire les réglages des tâches."
 private const val TASK_SETTINGS_UNSAVED = "Impossible d'enregistrer les réglages des tâches"
 private const val MEAL_SETTINGS_UNREADABLE = "Impossible de lire les réglages des repas."
+private const val RENDEZVOUS_UNSAVED = "Le réglage n'a pas été enregistré."
 private const val MEAL_SETTINGS_UNSAVED = "Les réglages des repas n'ont pas été enregistrés."
 
 /** « Partir à l'heure » on this phone (MAG-651). */
@@ -77,6 +78,10 @@ data class SettingsUiState(
     /** Réglages › Repas (MAG-483), loaded when the page opens and failing on its own. */
     val meals: MealSettingsUiState = MealSettingsUiState(),
     val departure: DepartureUiState = DepartureUiState(),
+    /** Réglages › Maggie (MAG-787): the last change of a rendezvous went through — « Enregistré ». */
+    val rendezvousSaved: Boolean = false,
+    /** Why the last change of a rendezvous did not go through; the screen is back to the saved values. */
+    val rendezvousError: String? = null,
 )
 
 class SettingsViewModel(
@@ -476,6 +481,44 @@ class SettingsViewModel(
             })
                 .onSuccess { _uiState.value = _uiState.value.copy(preferences = it) }
                 .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+        }
+    }
+
+    /** « Digest du matin » (MAG-787) on or off. */
+    fun setMorningDigestEnabled(on: Boolean) =
+        saveRendezvous(buildJsonObject { put("morningDigestEnabled", on) }) { it.copy(morningDigestEnabled = on) }
+
+    fun setMorningDigestTime(hour: Int, minute: Int) {
+        val time = hhmm(hour, minute)
+        saveRendezvous(buildJsonObject { put("morningDigestTime", time) }) { it.copy(morningDigestTime = time) }
+    }
+
+    /** « Bilan du soir » (MAG-787) on or off. */
+    fun setEveningReviewEnabled(on: Boolean) =
+        saveRendezvous(buildJsonObject { put("eveningReviewEnabled", on) }) { it.copy(eveningReviewEnabled = on) }
+
+    fun setEveningReviewTime(hour: Int, minute: Int) {
+        val time = hhmm(hour, minute)
+        saveRendezvous(buildJsonObject { put("eveningReviewTime", time) }) { it.copy(eveningReviewTime = time) }
+    }
+
+    /**
+     * Shows the change at once and sends [changes]; the server's answer replaces it. A failure says so and
+     * goes back to what was shown before. A change to what is already shown sends nothing.
+     */
+    private fun saveRendezvous(changes: JsonObject, change: (UserPreference) -> UserPreference) {
+        val before = _uiState.value.preferences ?: return
+        val shown = change(before)
+        if (shown == before) return
+        _uiState.update { it.copy(preferences = shown, rendezvousSaved = false, rendezvousError = null) }
+        viewModelScope.launch {
+            userPreferenceRepository.update(changes)
+                .onSuccess { saved -> _uiState.update { it.copy(preferences = saved, rendezvousSaved = true) } }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(preferences = before, rendezvousSaved = false, rendezvousError = RENDEZVOUS_UNSAVED)
+                    }
+                }
         }
     }
 
