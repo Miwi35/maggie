@@ -152,13 +152,13 @@ describe('CalendarView — readable text on coloured bars', { timeout: 60_000 },
     expect(textColorOf('Séminaire')).toBe(LIGHT_TEXT)
   })
 
-  test('tasks, done tasks and meals are readable on their own colour', async () => {
+  test('tasks and meals are readable on their own colour', async () => {
     const task = (id: string, title: string, criticality: string, done = false) => ({
       id,
       title,
       priority: 'low',
       criticality,
-      dueDate: localDay(noon),
+      scheduledDate: localDay(noon),
       completedAt: done ? noon.toISOString() : null,
     })
     serve({
@@ -174,8 +174,9 @@ describe('CalendarView — readable text on coloured bars', { timeout: 60_000 },
     await waitFor(() => expect(screen.getAllByText(/Tâche faible/).length).toBeGreaterThan(0))
 
     expect(textColorOf('Tâche faible')).toBe(DARK_TEXT)
-    expect(textColorOf('Tâche critique')).toBe(LIGHT_TEXT)
-    expect(textColorOf('✓ Tâche finie')).toBe(DARK_TEXT)
+    // A task takes its agenda's colour whatever its criticality (MAG-820).
+    expect(textColorOf('Tâche critique')).toBe(DARK_TEXT)
+    expect(screen.queryByText(/Tâche finie/)).toBeNull()
     expect(textColorOf('Déj: Pâtes')).toBe(DARK_TEXT)
   })
 })

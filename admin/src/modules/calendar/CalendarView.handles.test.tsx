@@ -74,8 +74,8 @@ const TASK = {
   title: 'Sortir les poubelles',
   priority: 'low',
   criticality: 'low',
-  dueDate: localDay(noon),
-  completedAt: new Date(noon.getTime() + 900_000).toISOString(),
+  scheduledDate: localDay(noon),
+  completedAt: null,
 }
 
 // FullCalendar redraws the whole grid on every interaction, which is slow in jsdom.
@@ -247,12 +247,10 @@ describe('CalendarView — the handles the agenda journeys use', { timeout: 60_0
     expect(within(confirm).getByRole('button', { name: 'OK' })).toBeInTheDocument()
   })
 
-  test('a done task is drawn with a tick, and its pencil opens the task form', async () => {
+  test('a scheduled task is drawn without a tick, and its pencil opens the task form', async () => {
     await open()
 
-    // `✓ ` is prepended by the view, so the journey that reopens a task looks for the
-    // title with the tick on it.
-    await userEvent.click(await screen.findByText(`✓ ${TASK.title}`, { exact: true }))
+    await userEvent.click(await screen.findByText(TASK.title, { exact: true }))
     await userEvent.click(await screen.findByRole('button', { name: 'Modifier' }))
 
     const dialog = await screen.findByRole('dialog', { name: 'Modifier la tâche' })

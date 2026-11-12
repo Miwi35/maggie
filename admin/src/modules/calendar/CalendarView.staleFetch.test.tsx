@@ -53,8 +53,8 @@ const TASK = {
   title: 'Sortir les poubelles',
   priority: 'low',
   criticality: 'low',
-  dueDate: localDay(noon),
-  completedAt: new Date(noon.getTime() + 900_000).toISOString(),
+  scheduledDate: localDay(noon),
+  completedAt: null,
 }
 
 describe('CalendarView — a late answer for an older range', { timeout: 60_000 }, () => {
@@ -96,13 +96,13 @@ describe('CalendarView — a late answer for an older range', { timeout: 60_000 
     // A live update refetches the range while the first fetch is still in flight.
     await waitFor(() => expect(MockEventSource.instances.length).toBeGreaterThan(0))
     MockEventSource.instances[0].onmessage?.({ data: '{}' } as MessageEvent)
-    expect(await screen.findByText(`✓ ${TASK.title}`)).toBeInTheDocument()
+    expect(await screen.findByText(TASK.title)).toBeInTheDocument()
 
     // The first answer comes last, from before the task was indexed.
     answerFirstFetch([])
     // Not `act`: FullCalendar keeps React busy, and an async `act` never settles around it.
     await new Promise((resolve) => setTimeout(resolve, 200))
 
-    expect(screen.getByText(`✓ ${TASK.title}`)).toBeInTheDocument()
+    expect(screen.getByText(TASK.title)).toBeInTheDocument()
   })
 })
