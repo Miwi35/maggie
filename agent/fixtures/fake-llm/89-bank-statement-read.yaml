@@ -1,0 +1,14 @@
+# « Montre-moi les virements de N26 en septembre » (MAG-802): the statement is read from the bank
+# with tight filters, nothing imported. The journey says the account id (the fake cannot look it up);
+# the period and the search are what the bank stub (`e2e-account-statement`) only answers for.
+name: bank-statement-read
+description: Read a month of a bank account through MCP, filtered on N26, without importing.
+
+match:
+  user_matches: "virements de N26 en septembre.*compte ([0-9A-HJKMNP-TV-Z]{26})"
+
+turns:
+  - tools:
+      - name: read_bank_statement
+        input: {accountId: '\1', from: '2026-09-01', to: '2026-09-30', search: 'N26'}
+  - text: "J'ai trouvé deux virements de N26 en septembre : 50,00 € le 2 septembre et 30,00 € le 9 septembre. Je n'ai rien importé : veux-tu que je les ajoute à Maggie ?"
