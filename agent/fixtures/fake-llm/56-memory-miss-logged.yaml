@@ -13,4 +13,4 @@ turns:
         input:
           demande: "Un bouquet pour la fête des mères"
           chemin: "Famille/Françoise n'aime pas les roses.md"
-  - text: "C'est noté : je n'ai pas repensé à Françoise et ses roses. Cette nuit, je cherche pourquoi et je corrige."
+  - text: "Vous avez raison, pardon. Françoise et ses roses, je le retiens."

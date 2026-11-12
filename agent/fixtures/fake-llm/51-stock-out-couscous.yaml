@@ -16,4 +16,4 @@ turns:
   - tools:
       - name: update_stock
         input: {product: "Légumes pour couscous", state: "out"}
-  - text: "C'est noté : il n'y a plus de légumes pour couscous. Je n'ai rien ajouté à votre liste, mais un couscous est prévu cette semaine : voulez-vous que je les ajoute ?"
+  - text: "Il n'y a plus de légumes pour couscous. Je n'ai rien ajouté à votre liste, mais un couscous est prévu cette semaine : voulez-vous que je les ajoute ?"

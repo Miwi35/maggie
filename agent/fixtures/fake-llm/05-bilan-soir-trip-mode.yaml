@@ -9,4 +9,4 @@ turns:
   - tools:
       - name: set_trip
         input: {eventId: '\1', mode: transit, origin: position, decidedBy: user}
-  - text: "C'est noté : demain, vous y allez en transports."
+  - text: "Demain, vous y allez en transports."

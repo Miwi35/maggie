@@ -21,4 +21,4 @@ turns:
           frequency: monthly
           annualRate: 500
           years: 10
-  - text: "C'est noté : Livret, 100 € par mois à 5 % sur 10 ans. En simulation, il atteindrait environ 15 436 €, dont 3 436 € d'intérêts composés — de quoi tirer à peu près 51 € par mois à 4 % par an."
+  - text: "Livret, 100 € par mois à 5 % sur 10 ans. En simulation, il atteindrait environ 15 436 €, dont 3 436 € d'intérêts composés — de quoi tirer à peu près 51 € par mois à 4 % par an."

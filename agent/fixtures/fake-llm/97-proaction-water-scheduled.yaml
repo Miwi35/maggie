@@ -17,4 +17,4 @@ turns:
           prompt: "Rappelle à l'utilisateur de boire un verre d'eau."
           scheduled_at: '\1'
           summary: "Verre d'eau"
-  - text: "C'est programmé : je te rappellerai de boire un verre d'eau dans 2 minutes."
+  - text: "C'est programmé : je vous rappellerai de boire un verre d'eau dans 2 minutes."

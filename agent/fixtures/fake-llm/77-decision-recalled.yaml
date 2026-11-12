@@ -12,4 +12,4 @@ match:
   history_contains: "Réponse de l'utilisateur à ta demande : Autoriser"
 
 turns:
-  - text: "Tu as autorisé la suppression : je m'en suis occupée."
+  - text: "Vous avez autorisé la suppression : je m'en suis occupée."

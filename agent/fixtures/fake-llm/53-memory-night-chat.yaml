@@ -8,4 +8,4 @@ match:
   user_contains: "J'ai emménagé à Rennes"
 
 turns:
-  - text: "D'accord, tu habites donc à Rennes."
+  - text: "D'accord, vous habitez donc à Rennes."

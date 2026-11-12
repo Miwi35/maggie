@@ -88,7 +88,7 @@ test('« j\'ai bu mon grand verre d\'eau » ticks the routine and the Routines t
     expect.objectContaining({ toolName: 'list_routines', status: 'success' }),
     expect.objectContaining({ toolName: 'check_routine', status: 'success' }),
   ])
-  expect(assistantText(events)).toContain("C'est noté")
+  expect(assistantText(events)).toContain('est coché')
 
   // Then the tick is stored, once…
   await expect

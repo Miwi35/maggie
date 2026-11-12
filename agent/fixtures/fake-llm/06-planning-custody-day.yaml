@@ -33,4 +33,4 @@ turns:
           prompt: "Préviens l'utilisateur qu'il dépose Ael à l'école dans 15 minutes."
           scheduled_at: '\1T08:15:00'
           summary: "Dépose Ael"
-  - text: "Proaction posée : dépose d'Ael, rappel à 8 h 15."
+  - text: "C'est programmé : dépose d'Ael, rappel à 8 h 15."

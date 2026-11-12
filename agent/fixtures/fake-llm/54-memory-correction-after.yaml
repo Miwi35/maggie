@@ -11,4 +11,4 @@ match:
     - "Françoise adore les roses"
 
 turns:
-  - text: "Des roses pour Françoise : elle les adore, comme tu me l'as corrigé."
+  - text: "Des roses pour Françoise : elle les adore, comme vous me l'avez corrigé."

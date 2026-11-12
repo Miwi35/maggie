@@ -12,4 +12,4 @@ turns:
       - name: memory_open
         input:
           chemin: "Sorties/Les concerts commencent à 19 heures à l'UBU.md"
-  - text: "Les concerts commencent à 19 heures et la salle s'appelle l'UBU : tu me l'as dit."
+  - text: "Les concerts commencent à 19 heures et la salle s'appelle l'UBU : vous me l'avez dit."

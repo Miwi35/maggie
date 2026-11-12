@@ -20,4 +20,4 @@ turns:
   - tools:
       - name: move_to_fallback
         input: {storeId: '\1'}
-  - text: "C'est fait : ce qui pouvait s'acheter ailleurs a changé de magasin."
+  - text: "Ce qui pouvait s'acheter ailleurs a changé de magasin."

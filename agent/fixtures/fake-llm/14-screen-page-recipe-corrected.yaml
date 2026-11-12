@@ -7,7 +7,7 @@ description: Remake the Marmiton proposal for 12 people, creating nothing.
 
 match:
   user_matches: 'plutôt pour 12 personnes'
-  history_contains: "ton livre de recettes ?"
+  history_contains: "votre livre de recettes ?"
 
 turns:
   - text: |-

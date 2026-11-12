@@ -10,4 +10,4 @@ match:
   user_contains: "Bonjour Maggie"
 
 turns:
-  - text: "Bonjour ! Je suis là, dis-moi ce qu'il te faut."
+  - text: "Bonjour monsieur. Je suis là, dites-moi ce qu'il vous faut."

@@ -15,4 +15,4 @@ turns:
         input:
           action: reorder
           ids: ["\\2", "\\1"]
-  - text: "C'est fait : le Canapé passe en premier, le Déménagement en second."
+  - text: "Le Canapé passe en premier, le Déménagement en second."

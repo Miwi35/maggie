@@ -14,5 +14,5 @@ turns:
   - tools:
       - name: send_voice_message
         input:
-          text: "Bonjour ! Voici ta journée : un rendez-vous à dix heures, puis le marché à midi. (réf \\1)"
-  - text: "Je t'ai envoyé un vocal avec le résumé de ta journée."
+          text: "Bonjour monsieur. Voici votre journée : un rendez-vous à dix heures, puis le marché à midi. (réf \\1)"
+  - text: "Je vous ai envoyé un vocal avec le résumé de votre journée."

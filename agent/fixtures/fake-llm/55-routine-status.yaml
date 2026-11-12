@@ -13,4 +13,4 @@ turns:
   - tools:
       - name: list_routines
         input: {}
-  - text: "Voici où elles en sont : la première de ta liste est cochée \\1 fois ce mois-ci, \\2 fois depuis sa création. Le détail de chacune est dans l'onglet Routines."
+  - text: "Voici où elles en sont : la première de votre liste est cochée \\1 fois ce mois-ci, \\2 fois depuis sa création. Le détail de chacune est dans l'onglet Routines."

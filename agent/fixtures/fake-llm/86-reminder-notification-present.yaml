@@ -15,10 +15,10 @@ turns:
   - tools:
       - name: date_time
         input: {action: add, minutes: 4}
-  - text: "Je te notifie à 16h04 pour sortir le linge."
+  - text: "Je vous notifie à 16h04 pour sortir le linge."
   - tools:
       - name: schedule_proaction
         input:
           prompt: "Rappelle à l'utilisateur de sortir le linge."
           scheduled_at: "2099-10-07T16:04:00+02:00"
-  - text: "C'est programmé : je te notifie à 16h04 pour sortir le linge."
+  - text: "C'est programmé : je vous notifie à 16h04 pour sortir le linge."

@@ -10,4 +10,4 @@ turns:
   - tools:
       - name: get_tasks
         input: {view: today}
-  - text: "De quoi s'agit-il ? Je regarde tes tâches du jour : dis-moi laquelle est faite."
+  - text: "De quoi s'agit-il ? Je regarde vos tâches du jour : dites-moi laquelle est faite."

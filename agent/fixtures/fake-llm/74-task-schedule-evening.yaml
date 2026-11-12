@@ -19,4 +19,4 @@ turns:
   - tools:
       - name: update_task
         input: {id: '\1', scheduledDate: '${friday}', scheduledMoment: evening}
-  - text: "C'est fait : la préparation du weekend est programmée vendredi soir."
+  - text: "La préparation du weekend est programmée vendredi soir."

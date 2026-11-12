@@ -25,4 +25,4 @@ match:
     - "includeDeferred"
 
 turns:
-  - text: "Le dernier article de ta liste, ce sont les piles LR03."
+  - text: "Le dernier article de votre liste, ce sont les piles LR03."

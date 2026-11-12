@@ -11,4 +11,4 @@ match:
   user_matches: 'Bonjour Maggie \(réf (\w+)\)'
 
 turns:
-  - text: "Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf \\1)"
+  - text: "Bonjour monsieur. Je suis là, dites-moi ce qu'il vous faut. (réf \\1)"

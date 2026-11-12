@@ -15,4 +15,4 @@ turns:
   - tools:
       - name: update_task
         input: {id: "\\1", dueDate: "${tomorrow}"}
-  - text: "C'est fait : Ranger le garage est planifiée pour demain."
+  - text: "Ranger le garage est planifiée pour demain."

@@ -302,14 +302,14 @@ class TestTheToolLoop:
 
         assert [call["name"] for call in result["tool_calls"]] == ["date_time", SCHEDULE_TOOL]
         proactions.create.assert_awaited_once()
-        assert result["response"] == "C'est programmé : je t'enverrai une notification à 16h05 pour appeler ta mère."
+        assert result["response"] == "C'est programmé : je vous enverrai une notification à 16h05 pour appeler votre mère."
 
     async def test_a_notification_promised_in_the_present_is_relaunched(self, fake_client, proactions):
         result, _ = await self._run(fake_client, LAUNDRY)
 
         assert [call["name"] for call in result["tool_calls"]] == ["date_time", SCHEDULE_TOOL]
         proactions.create.assert_awaited_once()
-        assert result["response"] == "C'est programmé : je te notifie à 16h04 pour sortir le linge."
+        assert result["response"] == "C'est programmé : je vous notifie à 16h04 pour sortir le linge."
 
     async def test_two_forgotten_reminders_end_on_the_truth(self, fake_client, proactions):
         result, _ = await self._run(fake_client, PLANTS)

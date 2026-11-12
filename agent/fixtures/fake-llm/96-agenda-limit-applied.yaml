@@ -14,4 +14,4 @@ turns:
   - tools:
       - name: get_upcoming_events
         input: {days: 2, agendas: ["Défaut", "Garde Ael"]}
-  - text: "Voici demain dans Défaut et Garde Ael, les seuls agendas que tu m'as demandé de lire."
+  - text: "Voici demain dans Défaut et Garde Ael, les seuls agendas que vous m'avez demandé de lire."

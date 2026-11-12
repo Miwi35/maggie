@@ -14,8 +14,8 @@ match:
   user_contains: "planification du trimestre"
 
 turns:
-  - text: "J'inscris le budget de ton escapade au plan du trimestre."
+  - text: "J'inscris le budget de votre escapade au plan du trimestre."
     tools:
       - name: manage_period_plan
         input: {action: set_one_off_envelope, period: "2033-Q2", name: "Escapade MAG-462", amountCents: 45000}
-  - text: "C'est noté : 450,00 € pour ton escapade au deuxième trimestre."
+  - text: "450,00 € sont prévus pour votre escapade au deuxième trimestre."

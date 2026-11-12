@@ -17,4 +17,4 @@ match:
   system_contains: "dernière conversation : "
 
 turns:
-  - text: "Rebonjour ! On a parlé il y a quelques instants, je te laisse reprendre le fil."
+  - text: "Nous avons parlé il y a quelques instants, je vous laisse reprendre le fil."

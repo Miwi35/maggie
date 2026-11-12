@@ -31,7 +31,7 @@ test('an unreachable agent leaves a mention under the message, and « Réessayer
   const { page } = otherUser
   const ref = randomUUID().slice(0, 8)
   const QUESTION = `Bonjour Maggie (réf ${ref})`
-  const ANSWER = `Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf ${ref})`
+  const ANSWER = `Bonjour monsieur. Je suis là, dites-moi ce qu'il vous faut. (réf ${ref})`
 
   await withChatLock(async () => {
     await new HomePage(page).open()

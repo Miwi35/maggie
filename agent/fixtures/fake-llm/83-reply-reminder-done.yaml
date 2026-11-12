@@ -13,4 +13,4 @@ turns:
         input:
           reminderId: "\\1"
           action: done
-  - text: "C'est noté : la tâche est faite."
+  - text: "La tâche est cochée."
