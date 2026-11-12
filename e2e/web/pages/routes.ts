@@ -19,6 +19,8 @@ export const ROUTES = {
   home: '/',
   login: '/login',
   calendar: '/calendar',
+  // Agenda › Périodes (MAG-816).
+  periods: '/periods',
   tasks: '/tasks',
   tasksUpcoming: '/tasks/upcoming',
   tasksSomeday: '/tasks/someday',
