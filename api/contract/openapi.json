@@ -31537,6 +31537,13 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "advanceSourceAccountId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -31829,6 +31836,13 @@
                     "qualifiedBy": {
                         "readOnly": true,
                         "description": "Who set the qualification: `manual`, `series` (`qualifiedBySeries`\nnames it), `rule` (`qualifiedByRule`), or null when nobody did.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "advanceSourceAccountId": {
+                        "readOnly": true,
                         "type": [
                             "string",
                             "null"
@@ -32129,6 +32143,13 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "advanceSourceAccountId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -32414,6 +32435,13 @@
                             "qualifiedBy": {
                                 "readOnly": true,
                                 "description": "Who set the qualification: `manual`, `series` (`qualifiedBySeries`\nnames it), `rule` (`qualifiedByRule`), or null when nobody did.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "advanceSourceAccountId": {
+                                "readOnly": true,
                                 "type": [
                                     "string",
                                     "null"
