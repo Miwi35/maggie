@@ -14,6 +14,8 @@ tags:
 # link (`maggie-e2e://task/<id>`, the sheet over the Agenda). The clock opens on 18:00 when no time
 # is set, so it is only confirmed: a dial is no target a flow can aim at (`12-event-date-picker`).
 #
+# MAG-820: the day item is the task of the « Tâches » module agenda, drawn on its scheduled day.
+#
 # What is not here: the moments' menu, « Soir » hiding the reminders, the merge-patch the form sends,
 # « Après-demain », the read lines of the sheet and the day items of the agenda (`TaskFormScreenTest`,
 # `TaskScheduleTest`, `DateTimeFieldsScreenTest`, `TaskDetailScreenTest`, `ScheduledTaskEventTest`,

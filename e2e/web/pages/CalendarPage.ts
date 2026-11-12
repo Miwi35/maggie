@@ -33,6 +33,8 @@ export interface NewTask {
   title: string
   /** `YYYY-MM-DD`. Omit for a task with no due date. */
   dueDate?: string
+  /** `YYYY-MM-DD`, the day the agenda draws the task on (« Programmée »). */
+  scheduledDate?: string
   /** A label of the "Criticité" select — "Basse", "Moyenne", "Haute", "Critique". */
   criticality?: string
 }
@@ -397,6 +399,10 @@ export class CalendarPage extends AdminShell {
       await dialog.getByLabel('Échéance').fill(task.dueDate)
     }
 
+    if (task.scheduledDate) {
+      await dialog.getByLabel('Programmée').fill(task.scheduledDate)
+    }
+
     await dialog.getByRole('button', { name: 'Créer' }).click()
     await expect(dialog, 'the task dialog stayed open — the POST was refused').toBeHidden()
   }
@@ -517,6 +523,13 @@ export class CalendarPage extends AdminShell {
   /** The « Maggie » line of the sidebar: the internal agenda her proactions sit in (MAG-328). */
   maggieAgendaRow(): Locator {
     return this.content.getByTestId('maggie-agenda-row')
+  }
+
+  /** A module's line of the sidebar (« Tâches », « Repas », « Santé »…), under « Autres agendas ». */
+  moduleAgendaRow(name: string): Locator {
+    return this.content.locator('[data-testid="module-agenda-row"], [data-testid="maggie-agenda-row"]').filter({
+      has: this.page.getByText(exactly(name)),
+    })
   }
 
   /** The sidebar checkbox that shows or hides one agenda. */

@@ -93,15 +93,15 @@ test('a task created from the agenda lands in the database and on the grid', asy
   const calendar = new CalendarPage(page)
   await calendar.open()
 
-  await calendar.createTask({ title, dueDate: DAY, criticality: 'Haute' })
+  await calendar.createTask({ title, dueDate: DAY, scheduledDate: DAY, criticality: 'Haute' })
 
   const stored = await waitForIndexed<StoredTask>(api, '/api/tasks?itemsPerPage=100', (task) => task.title === title, {
     what: `The task "${title}"`,
   })
   expect(stored.completedAt ?? null).toBeNull()
 
-  // Tasks are drawn as all-day chips. The day view, where the all-day row holds
-  // only what is due that day — month view folds a busy day behind "+N autres".
+  // Tasks are drawn as all-day chips, on the day they are scheduled (MAG-820). The day
+  // view, where the all-day row holds only what is placed that day — month view folds a busy day behind "+N autres".
   await calendar.chooseView('Jour')
   await expect(calendar.chip(title)).toHaveCount(1)
 })
@@ -817,48 +817,25 @@ test('a tick adds a star to the month: the bravo draws five, the evening goes ba
 })
 
 /**
- * A finished task can be reopened — `MAG-112`, and the reason the seed ships one.
+ * A finished task leaves the agenda — MAG-820.
  *
- * From the calendar rather than from the dashboard, and that is not a detour: the
- * digest only ever reads undone tasks, so a completed one has no checkbox there to
- * untick. The agenda draws it with a ✓ and its pencil opens the form that holds the
- * "Terminée" switch, which is the only way back.
+ * The agenda draws the tasks still to do, on the day they are scheduled, and
+ * nothing else: no ✓ chip, no checkbox. The seed's finished task
+ * (« Sortir les poubelles ») is put back to done first, so a retry reads the same state.
  */
-test('a finished task can be reopened from the agenda', async ({ page, api }) => {
+test('a finished task is not drawn on the agenda', async ({ page, api }) => {
   const title = 'Sortir les poubelles'
   const taskId = seedId('e2e_task_done')
 
-  // Put the seeded task back to "done" before anything else. It is the one test
-  // here that changes a fixture rather than its own row, so a retry would
-  // otherwise start on the state the first attempt left — with nothing to reopen
-  // and no ✓ on the grid. Done unconditionally, which is what keeps it free of the
-  // branch an "if it is already done" check would need.
   await completeTask(api, taskId)
 
   const calendar = new CalendarPage(page)
   await calendar.open()
-
-  // Due the day before the anchor, so one step back in the day view always lands
-  // on it — where month view would have it in the previous month half the time.
   await calendar.chooseView('Jour')
   await calendar.goBack()
 
-  await calendar.chip(`✓ ${title}`).click()
-  await expect(calendar.popover).toBeVisible()
-  await calendar.editFromPopover()
-
-  const dialog = calendar.editTaskDialog
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole('switch', { name: 'Terminée' }).uncheck()
-  await dialog.getByRole('button', { name: 'Enregistrer' }).click()
-  await expect(dialog).toBeHidden()
-
-  await expect
-    .poll(async () => (await tasks(api)).find((task) => task.id === taskId)?.completedAt == null, {
-      timeout: 30_000,
-      message: 'the reopened task should have no completion date left',
-    })
-    .toBe(true)
+  await expect(calendar.chip(title)).toHaveCount(0)
+  await expect(calendar.chip(`✓ ${title}`)).toHaveCount(0)
 })
 
 /**
