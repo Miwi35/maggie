@@ -7906,6 +7906,555 @@
                 ]
             }
         },
+        "/api/periods": {
+            "get": {
+                "operationId": "api_periods_get_collection",
+                "tags": [
+                    "Period"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Period collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "Period.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/Period.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Period"
+                                    }
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Period.html"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "Retrieves the collection of Period resources.",
+                "description": "Retrieves the collection of Period resources.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pagination",
+                        "in": "query",
+                        "description": "Enable or disable pagination",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "expand",
+                        "in": "query",
+                        "description": "true unfolds the recurring series into their occurrences within the period; endAt[after] and startAt[before] are then required, and the answer is the whole period, never paginated.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startAt[before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startAt[strictly_before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startAt[after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "startAt[strictly_after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no startAt, is compared by its startDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[strictly_before]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "endAt[strictly_after]",
+                        "in": "query",
+                        "description": "An all-day event, which has no endAt, is compared by its endDate.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "exists[rrule]",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "api_periods_post",
+                "tags": [
+                    "Period"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Period resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Period resource.",
+                "description": "Creates a Period resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new Period resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Period"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Period"
+                            }
+                        },
+                        "text/html": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Period"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/periods/{id}": {
+            "get": {
+                "operationId": "api_periods_id_get",
+                "tags": [
+                    "Period"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Period resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period.html"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Period resource.",
+                "description": "Retrieves a Period resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Period identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "api_periods_id_delete",
+                "tags": [
+                    "Period"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Period resource deleted"
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the Period resource.",
+                "description": "Removes the Period resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Period identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "api_periods_id_patch",
+                "tags": [
+                    "Period"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Period resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period.jsonld"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period"
+                                }
+                            },
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Period.html"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the Period resource.",
+                "description": "Updates the Period resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Period identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated Period resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Period.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/finance/placements": {
             "get": {
                 "operationId": "api_financeplacements_get_collection",
@@ -24166,6 +24715,373 @@
                     }
                 }
             },
+            "Period": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "agenda": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "allDay": {
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "startAt": {
+                        "description": "When a timed period starts. Null on an all-day period, which has startDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "description": "When a timed period ends. Null on an all-day period, which has endDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startDate": {
+                        "description": "The first day of an all-day period, YYYY-MM-DD. Null on a timed period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "endDate": {
+                        "description": "The day after the last day of an all-day period, YYYY-MM-DD, excluded — as an event's: a period on 2037-01-01 alone has endDate 2037-01-02. Null on a timed period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-02"
+                    },
+                    "timeZone": {
+                        "default": "Europe/Paris",
+                        "type": "string"
+                    },
+                    "rrule": {
+                        "description": "RFC 5545 RRULE (e.g. \"FREQ=WEEKLY;INTERVAL=2\")",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "holiday": {
+                        "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "france",
+                            "geneve",
+                            "both",
+                            null
+                        ]
+                    },
+                    "ownerRelation": {
+                        "readOnly": true
+                    },
+                    "recurring": {
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "name",
+                    "agenda"
+                ]
+            },
+            "Period.html": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "agenda": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "allDay": {
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "startAt": {
+                        "description": "When a timed period starts. Null on an all-day period, which has startDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "description": "When a timed period ends. Null on an all-day period, which has endDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startDate": {
+                        "description": "The first day of an all-day period, YYYY-MM-DD. Null on a timed period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "endDate": {
+                        "description": "The day after the last day of an all-day period, YYYY-MM-DD, excluded — as an event's: a period on 2037-01-01 alone has endDate 2037-01-02. Null on a timed period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-02"
+                    },
+                    "timeZone": {
+                        "default": "Europe/Paris",
+                        "type": "string"
+                    },
+                    "rrule": {
+                        "description": "RFC 5545 RRULE (e.g. \"FREQ=WEEKLY;INTERVAL=2\")",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "holiday": {
+                        "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "france",
+                            "geneve",
+                            "both",
+                            null
+                        ]
+                    },
+                    "ownerRelation": {
+                        "readOnly": true
+                    },
+                    "recurring": {
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "name",
+                    "agenda"
+                ]
+            },
+            "Period.jsonMergePatch": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "readOnly": true,
+                        "type": "string",
+                        "format": "ulid"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "agenda": {
+                        "type": "string",
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
+                    "allDay": {
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "startAt": {
+                        "description": "When a timed period starts. Null on an all-day period, which has startDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endAt": {
+                        "description": "When a timed period ends. Null on an all-day period, which has endDate instead.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "startDate": {
+                        "description": "The first day of an all-day period, YYYY-MM-DD. Null on a timed period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
+                    "endDate": {
+                        "description": "The day after the last day of an all-day period, YYYY-MM-DD, excluded — as an event's: a period on 2037-01-01 alone has endDate 2037-01-02. Null on a timed period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-02"
+                    },
+                    "timeZone": {
+                        "default": "Europe/Paris",
+                        "type": "string"
+                    },
+                    "rrule": {
+                        "description": "RFC 5545 RRULE (e.g. \"FREQ=WEEKLY;INTERVAL=2\")",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "holiday": {
+                        "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "france",
+                            "geneve",
+                            "both",
+                            null
+                        ]
+                    },
+                    "ownerRelation": {
+                        "readOnly": true
+                    },
+                    "recurring": {
+                        "readOnly": true
+                    }
+                }
+            },
+            "Period.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "type": "string",
+                                "format": "ulid"
+                            },
+                            "name": {
+                                "maxLength": 255,
+                                "type": "string"
+                            },
+                            "agenda": {
+                                "type": "string",
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
+                            },
+                            "allDay": {
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "startAt": {
+                                "description": "When a timed period starts. Null on an all-day period, which has startDate instead.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "endAt": {
+                                "description": "When a timed period ends. Null on an all-day period, which has endDate instead.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "startDate": {
+                                "description": "The first day of an all-day period, YYYY-MM-DD. Null on a timed period.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date",
+                                "example": "2037-01-01"
+                            },
+                            "endDate": {
+                                "description": "The day after the last day of an all-day period, YYYY-MM-DD, excluded — as an event's: a period on 2037-01-01 alone has endDate 2037-01-02. Null on a timed period.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date",
+                                "example": "2037-01-02"
+                            },
+                            "timeZone": {
+                                "default": "Europe/Paris",
+                                "type": "string"
+                            },
+                            "rrule": {
+                                "description": "RFC 5545 RRULE (e.g. \"FREQ=WEEKLY;INTERVAL=2\")",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "holiday": {
+                                "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "france",
+                                    "geneve",
+                                    "both",
+                                    null
+                                ]
+                            },
+                            "ownerRelation": {
+                                "readOnly": true
+                            },
+                            "recurring": {
+                                "readOnly": true
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "agenda"
+                        ]
+                    }
+                ]
+            },
             "Placement": {
                 "type": "object",
                 "properties": {
@@ -33958,6 +34874,10 @@
         {
             "name": "Event",
             "description": "Resource 'Event' operations."
+        },
+        {
+            "name": "Period",
+            "description": "Resource 'Period' operations."
         },
         {
             "name": "Proaction",

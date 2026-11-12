@@ -26,6 +26,7 @@
     "MealSettings": "/users/{userId}/api/meal_settings/{id}",
     "Notification": "/users/{userId}/api/notifications/{id}",
     "PeerDebt": "/users/{userId}/api/peer_debts/{id}",
+    "Period": "/users/{userId}/api/periods/{id}",
     "Place": "/users/{userId}/api/places/{id}",
     "Placement": "/users/{userId}/api/finance/placements/{id}",
     "Proaction": "/users/{userId}/api/proactions/{id}",

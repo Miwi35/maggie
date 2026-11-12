@@ -1,0 +1,18 @@
+# The periods (MAG-809), on the owner's account: the custody under way, every
+# other week from Friday 18:00 to the next Friday 18:00, and holidays to come.
+# What P3's day context and the P5/P6 screens read; the journey of this ticket
+# creates its own on the empty account.
+
+Maggie\Calendar\Entity\Period:
+  e2e_period_garde:
+    name: Garde de Léo
+    agenda: '@e2e_agenda_shared'
+    startAt: '<e2eDate("-2 days 18:00")>'
+    endAt: '<e2eDate("+5 days 18:00")>'
+    rrule: 'FREQ=WEEKLY;INTERVAL=2'
+  e2e_period_vacances:
+    name: Vacances à la mer
+    agenda: '@e2e_agenda_personal'
+    allDay: true
+    startDate: '<e2eDate("+20 days")>'
+    endDate: '<e2eDate("+29 days")>'
