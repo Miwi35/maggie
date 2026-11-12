@@ -179,13 +179,10 @@ AGENDA_NUDGE = (
     "8 octobre »). Si l'agenda ne contient rien, dis-le."
 )
 
-# Fixed, and written without « tu » or « vous »: the user's register is a preference this
-# module cannot read, and a neutral sentence is right under both.
-NOT_SCHEDULED_MESSAGE = "Le rappel n'a pas été programmé : rien n'est prévu pour l'instant. Il faudra me le redemander."
-NOT_LEARNED_MESSAGE = "Je ne l'ai pas encore enregistré : rien n'est retenu pour l'instant. Il faudra me le redemander."
-NOT_READ_MESSAGE = (
-    "Je n'ai pas réussi à consulter l'agenda : je préfère ne pas donner une date de mémoire. Il faudra me redemander."
-)
+# Fixed, in Maggie's register (« vous »), without the technical cause.
+NOT_SCHEDULED_MESSAGE = "Pardon, je ne l'ai pas encore posé. Je le fais tout de suite."
+NOT_LEARNED_MESSAGE = "Je ne l'ai pas encore retenu, vous me le redites ?"
+NOT_READ_MESSAGE = "Je n'ai pas pu regarder l'agenda, je vous redonne la date dans un instant."
 
 
 @dataclass(frozen=True)

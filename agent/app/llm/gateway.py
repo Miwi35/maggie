@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 # What the user reads when the model could not be reached. French, and free of the API's
 # own wording: since MAG-13 the answer is stored in the thread, so it is read back as part
 # of the conversation — the same sentence the streamed path has always stored.
-API_ERROR_MESSAGE = "Désolé, une erreur est survenue. Réessaie."
-UNREACHABLE_MESSAGE = "Je n'arrive pas à joindre le service d'IA pour l'instant. Réessaie dans un moment."
+API_ERROR_MESSAGE = "Pardon, je n'y arrive pas pour l'instant. Je réessaie dans un instant."
+UNREACHABLE_MESSAGE = "Je n'arrive pas à joindre mes outils pour l'instant. Je réessaie dans quelques minutes."
 
 # The morning card plans one trip per event with a place — read, estimate, keep, two checks each: five rounds
 # (the chat's limit) would cut a busy day short (MAG-657).

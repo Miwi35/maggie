@@ -53,7 +53,7 @@ SEND_VOICE_MESSAGE_TOOL = {
 
 # What the model reads back when the vocal cannot be made. French: it relays them to the user.
 STORAGE_OFF = "Les messages vocaux sont indisponibles : le stockage de la mémoire n'est pas configuré."
-STORAGE_DOWN = "Le vocal n'a pas pu être enregistré : le stockage ne répond pas. Réessaie plus tard."
+STORAGE_DOWN = "Je n'ai pas pu garder le vocal. Je vous l'écris à la place."
 SPEECH_DOWN = "Le vocal n'a pas pu être enregistré : la synthèse vocale est indisponible."
 NOTHING_TO_SAY = "Le texte du vocal est vide : il n'y a rien à dire."
 
