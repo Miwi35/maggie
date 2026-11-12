@@ -124,8 +124,6 @@ import com.maggie.app.data.model.TreasurySettingsResult
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayPlanUpdateRequest
 import com.maggie.app.data.model.DayProposal
-import com.maggie.app.data.model.DayReview
-import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.FinanceDashboard
 import com.maggie.app.data.model.FinanceTimeline
@@ -1433,22 +1431,6 @@ class MaggieApiService(
             accept(ContentType.Application.Json)
             setBody(buildJsonObject { put("option", option) })
         }.orRefusal()
-    }
-
-    /** The evening's review of [date] (MAG-500), created empty on its first read. */
-    suspend fun getDayReview(date: String): DayReview {
-        return client.get("$baseUrl/api/day-reviews/$date") {
-            accept(ContentType.Application.Json)
-        }.orRefusal().body()
-    }
-
-    /** « Bonne nuit »: what helped, the whole list; the review is closed. */
-    suspend fun updateDayReview(date: String, request: DayReviewUpdateRequest): DayReview {
-        return client.put("$baseUrl/api/day-reviews/$date") {
-            contentType(ContentType.Application.Json)
-            accept(ContentType.Application.Json)
-            setBody(request)
-        }.orRefusal().body()
     }
 
     // Routines (MAG-511): plain JSON; a refusal (400) carries its reason in `error`.

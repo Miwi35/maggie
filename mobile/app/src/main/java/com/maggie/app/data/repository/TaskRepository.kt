@@ -8,8 +8,6 @@ import com.maggie.app.data.local.entity.TaskEntity
 import com.maggie.app.data.model.DayPlan
 import com.maggie.app.data.model.DayPlanUpdateRequest
 import com.maggie.app.data.model.DayProposal
-import com.maggie.app.data.model.DayReview
-import com.maggie.app.data.model.DayReviewUpdateRequest
 import com.maggie.app.data.model.DaySlotRequest
 import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Stars
@@ -132,11 +130,6 @@ class TaskRepository(
         apiService.getTaskSettings().morningTime
     }.rethrowCancellation()
 
-    /** The user's evening time, `HH:MM` (« Réglages › Tâches », MAG-500). */
-    suspend fun getEveningTime(): Result<String> = runCatching {
-        apiService.getTaskSettings().eveningTime
-    }.rethrowCancellation()
-
     /** The user's task settings, for how a task done is rewarded (MAG-508). */
     suspend fun getTaskSettings(): Result<TaskSettings> = runCatching {
         apiService.getTaskSettings()
@@ -147,19 +140,9 @@ class TaskRepository(
         apiService.getReward(Reward.SUBJECT_TASK, taskId)
     }.rethrowCancellation()
 
-    /** The evening's review of [date] (MAG-500), created empty on its first read. */
-    suspend fun getDayReview(date: LocalDate): Result<DayReview> = runCatching {
-        apiService.getDayReview(date.toString())
-    }.rethrowCancellation()
-
-    /** « Bonne nuit »: records [helped], the whole list, and closes the review of [date]. */
-    suspend fun saveDayReview(date: LocalDate, helped: List<String>): Result<DayReview> = runCatching {
-        apiService.updateDayReview(date.toString(), DayReviewUpdateRequest(helped))
-    }.rethrowCancellation()
-
     /**
      * Replaces the day's slots by [taskIds], in order, five at most: what is left out goes back to the reserve.
-     * [confirm] `false` writes without settling the day (the evening's « Demain »).
+     * [confirm] `false` writes without settling the day.
      */
     suspend fun setDaySlots(date: LocalDate, taskIds: List<String>, confirm: Boolean = true): Result<DayPlan> = runCatching {
         apiService.updateDayPlan(
@@ -168,7 +151,7 @@ class TaskRepository(
         )
     }.rethrowCancellation()
 
-    /** Sets or clears [taskId]'s due day, `YYYY-MM-DD` — « Mettre de côté » clears it (MAG-500). */
+    /** Sets or clears [taskId]'s due day, `YYYY-MM-DD` — « Mettre de côté » of the evening's review clears it. */
     suspend fun setDueDate(taskId: String, dueDate: String?): Result<Task> =
         updateTask(taskId, buildJsonObject { put("dueDate", dueDate) })
 

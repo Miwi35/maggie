@@ -90,7 +90,6 @@ class TasksDayScreenTest {
         coEvery { repository.getCompletedBetween(any(), any(), any()) } answers {
             open.filter { it.id in ticked }.map { it.copy(completedAt = "2026-10-15T08:00:00Z") } + done
         }
-        coEvery { repository.getEveningTime() } returns Result.failure(IllegalStateException("offline"))
         coEvery { repository.toggleDone(any(), any()) } answers {
             val id = firstArg<String>()
             if (secondArg<Boolean>()) ticked += id else ticked -= id
