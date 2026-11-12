@@ -1,52 +1,50 @@
 ---
 name: digest
-description: "Digest de la journée (ou résumé de la semaine) demandé par une consigne : quoi lire, dans quel ordre, puis un message écrit et un vocal."
+description: "Digest du matin : un seul message, lu ou écouté, qui déroule la journée dans l'ordre (météo, chronologie, tâches sans heure, décision éventuelle)."
 tags:
 - digest
-- vocal
 - météo
 ---
 
-Quand une proaction demande le digest du matin (« fais-moi le digest de ma journée, par écrit et en vocal ») ou un résumé du même genre (« le résumé de ma semaine en vocal »).
+Quand une proaction demande le digest du matin (« Fais le digest du matin »). Le digest est **un seul message**, qui se lit ou s'écoute : sa réponse est son texte. Le code en fait le vocal et l'enregistre. N'appelle jamais `send_voice_message`, ne pose aucune question.
 
 ## 1. Lire
 
-Appelle ces outils pour le jour concerné (date du jour au format YYYY-MM-DD, sur le fuseau de l'utilisateur ; pour une semaine, les sept jours qui viennent) :
+Pour le jour concerné (date du jour au format YYYY-MM-DD, sur le fuseau de l'utilisateur) :
 
-1. `get_weather` avec `date` : la météo du jour. Un résultat `error` : le service est en panne, continue sans météo.
-2. `get_events_by_date` avec `date` : les rendez-vous. Un événement `activity: "sport"` est une séance d'entraînement prévue (agenda « Santé ») : son titre est celui de la séance.
-3. `list_trips` avec `date` : les départs prévus par Partir à l'heure (heure de départ, mode).
-4. `get_tasks` avec `view: "today"` : les tâches programmées ce jour (`scheduledMoment` : `morning`, `afternoon`, `evening` ou `time` avec `scheduledTime`), celles en retard et les urgentes, déjà dans l'ordre de l'écran ; et `reminders`, les rappels du jour (`reason` : `to_schedule` = échéance dans `days` jours, 0 le jour même, et aucun jour prévu ; `not_done` = en retard de `days` jours).
-5. `manage_meals` avec `action: "list"`, `fromDate` et `toDate` égaux au jour : les repas du midi et du soir.
-6. `get_grocery_list` : la liste de courses, seulement si des articles attendent.
-7. `get_finance_scores` avec `date` : où en est la semaine.
-8. `get_activity_status` avec `activity: "bilan"` : les consignes dictées au bilan du soir. Elles comptent seulement si `origin.id` est la veille du digest et si `state.instructions` n'est pas vide ; sinon, ou si le résultat est `null`, il n'y en a pas.
+1. `get_weather` avec `date`. Un résultat `error` : le service est en panne, continue sans météo.
+2. `get_events_by_date` avec `date` : les rendez-vous. Un événement `activity: "sport"` est la séance prévue (agenda « Santé ») : son titre est celui de la séance.
+3. `get_tasks` avec `view: "today"` : les tâches programmées aujourd'hui (`scheduledMoment` : `morning`, `afternoon`, `evening` ou `time` avec `scheduledTime`) et celles sans heure.
+4. `manage_meals` avec `action: "list"`, `fromDate` et `toDate` égaux au jour : les repas du midi et du soir.
+5. `get_grocery_list` : seulement pour savoir si la liste attend. Elle est du contexte, jamais récitée.
 
-Un outil en erreur ne bloque jamais le digest : la partie manque, le reste part.
+Un outil en erreur ne bloque jamais le digest : la partie manque, le reste part. Ne lis ni les départs, ni la finance, ni les consignes d'hier soir.
 
-## 2. Écrire le message (la réponse de la proaction)
+## 2. Avant d'écrire
 
-Dans cet ordre, une partie par bloc, **rien sur ce qui est vide** :
+Déroule la journée dans ta tête, de l'heure du digest jusqu'au soir, et établis la liste des faits à dire. Un fait oublié sera ajouté par le code, en une phrase sèche : mieux vaut le dire toi-même, bien tourné.
 
-1. **Météo** en une phrase : minimale, maximale, pluie s'il en tombe. Reliez-la à la journée quand ça compte : pluie probable (50 % ou plus) et un départ à vélo ou à pied, ou une alerte (orage, vent fort, gel). Exemple : « il pleuvra probablement vers midi, prenez de quoi vous couvrir pour le kiné ». Service en panne : pas un mot sur la météo.
-2. **Tes consignes d'hier soir**, seulement s'il y en a (aucune : ni titre, ni mot) : chaque consigne de `state.instructions` en une ligne, dite par sa sorte (rappel daté, tâche pour aujourd'hui, consigne retenue). Gardez ce titre tel quel.
-3. **Agenda** : chaque rendez-vous avec son heure, et le départ prévu (« partez à 9 h 05 à vélo »). La séance du jour (`activity: "sport"`) est citée à sa place parmi eux, avec son heure et sa durée : « Séance A à 18 h 30, 30 min ».
-4. **Tâches** :
-   - les tâches programmées aujourd'hui, par moment : « ce matin, … », « cet après-midi, … », « ce soir, la préparation du weekend ; à 18 h, l'appel au garage » (l'heure de `scheduledTime`) ;
-   - puis celles en retard (de combien de jours), puis les high et critical à venir, dans l'ordre reçu ;
-   - puis les `reminders` : « à programmer » (échéance dans `days` jours, aucun jour prévu : proposez de lui donner un jour), « pas faite » (en retard de `days` jours). Une tâche déjà citée plus haut ne revient pas.
-5. **Repas** du midi et du soir.
-6. **Courses**, si une liste attend.
-7. **Finance** : la semaine en une phrase, sans jugement sur le rythme des dépenses.
+- **Jour férié** (déduis-le de la date et de ce que tu sais des fériés français) : dis-le avec sa conséquence (« Aujourd'hui est férié, les administrations sont fermées. »).
+- **Jour férié et liste de courses qui attend** : fais le lien, sans réciter la liste (« Votre liste de courses attend, mais les magasins sont fermés aujourd'hui. »).
+- **Jour férié et sortie vers un commerce** (bar, restaurant…) : conseille de vérifier que le lieu est ouvert.
 
-Maggie **vouvoie** l'utilisateur dans le digest. L'écrit peut être détaillé (heures, lieux, listes courtes).
+## 3. Écrire
 
-## 3. Envoyer le vocal
+Dans cet ordre, **sans Markdown** :
 
-Appelle `send_voice_message` avec `screen: "digest"` et un texte **écrit pour l'oral** : court (moins d'une minute), des phrases simples, pas de liste ni de Markdown, les heures dites comme on les dit (« neuf heures cinq »). Il reprend l'essentiel : la météo si elle compte, le premier départ, les tâches programmées à une heure précise (« à dix-huit heures, l'appel au garage »), ce qui est en retard. Toujours au vouvoiement.
+1. **Météo** : une information, jamais un conseil, en une phrase (« 9 degrés au matin, 18 l'après-midi, de la pluie vers midi »).
+2. **Déroulé chronologique** : les rendez-vous avec leur heure (jamais l'heure de départ) ; les tâches programmées à une heure, avec leur heure ; les repas, toujours (midi et soir, par le nom des recettes, sans dire ce qui manque) ; la séance et son type (« Séance A à 18 h 30, 30 min »).
+3. **Tâches du jour sans heure**, par moment (« ce matin… », « ce soir… »).
+4. **Décision éventuelle** de Maggie, seulement s'il y en a une à prendre ou à proposer, dite comme une affirmation.
 
-Le vocal en erreur n'empêche pas le message écrit.
+Exclus : la finance, les départs, rien sur ce qui est vide (pas de « Aucun… », « Rien n'est… »), rien sur demain, rien de ce que le propriétaire sait déjà (une garde, une routine). Aucune question.
 
-## 4. Après
+Style : tu simules la journée, **une idée par phrase**, des phrases courtes qui s'écoutent (heures dites « 9 h 15 »), « monsieur » **une seule fois**, une pointe d'humour permise. Vouvoiement.
 
-La réponse de la proaction est le message écrit de l'étape 2 (il ne répète pas qu'un vocal est parti).
+Exemples :
+
+- Mardi ordinaire : « Bonjour monsieur. Il fera 9 degrés ce matin, 18 cet après-midi, avec de la pluie vers midi. Vous voyez Kiné à 9 h 15. Au déjeuner, une soupe de potiron. Ce soir, séance A à 18 h 30, 30 minutes, puis le dîner : des pâtes au pesto. Dans la journée, il reste à renvoyer le dossier de la mutuelle. »
+- Annecy : « Bonjour monsieur. Ciel dégagé à Annecy, 14 degrés. Le rendez-vous avec Julie est à 10 h. À midi, une salade de lentilles. Ce soir, appel au garage à 18 h. »
+- Jour de garde : « Bonjour monsieur. Il pleuvra toute la journée, 11 degrés. Dîner ce soir : un gratin. Ce matin, il reste le courrier à poster. »
+- Malade : « Bonjour monsieur. 8 degrés, du brouillard. Pas d'effort aujourd'hui : la séance de 18 h 30 mérite d'être reportée. Une soupe au déjeuner, une tisane le soir. »
+- Jour férié : « Bonjour monsieur. Aujourd'hui est férié. Votre liste de courses attend, mais les magasins sont fermés aujourd'hui. Il fera 12 degrés, sans pluie. Au déjeuner, un risotto. »
