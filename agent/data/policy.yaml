@@ -41,6 +41,16 @@ rules:
     sources: ["subagent:advisor"]
     mode: deny
 
+  # The coach (MAG-778) reads the workouts and proposes the week; Maggie writes the sessions.
+  # `list` only, then every other `manage_*` call is refused.
+  - tools: ["manage_workouts"]
+    sources: ["subagent:coach"]
+    when: { action: ["list"] }
+    mode: allow
+  - tools: ["manage_*"]
+    sources: ["subagent:coach"]
+    mode: deny
+
   # Everything else named « delete » destroys something the user made: an
   # event, a recipe, a task, a skill. Those are proposed, never done.
   - tools: ["delete_*"]

@@ -247,6 +247,13 @@ question to the `advisor` sub-agent through `delegate`; `90-advisor-loan-early.y
 of the Crédit voiture, files one draft with `manage_scenarios` suggest (`${month}` is the current month) and says the
 figures as a field of the possible. `results_matches` captures the three project ids and the loan's.
 
+**Coach** (MAG-778). `89-coach-week-chat.yaml` answers « Prépare ma semaine de sport » by handing the week to the `coach`
+sub-agent through `delegate`, then writes three planned strength sessions with `manage_workouts` create (next Monday,
+Wednesday and Friday at 18:30, `${next_monday}`…`${next_sunday}` being the week after the current one); the first is the
+`calibration` session. `89-coach-week-sunday.yaml` is the same chain at the evening review of the last day of the week
+(« Bilan du soir, étape demain : on est dimanche »). `89-coach-run-calibration.yaml` is the coach's own run
+(`system_contains: coach sportif de Maggie`): status, week agenda, the method's calibration section, one prescription per exercise.
+
 **Investments** (MAG-557). `91-investments-set.yaml` makes the « Box » an investment (5 000 € down payment, a 20-year loan
 at 3,9 %, 160 € rent, resale in 2036-06) through `manage_investments` set: one round lists the projects,
 `results_matches` captures the Box's id from it. The figures said are the scenario's own: the fake does not read the result.

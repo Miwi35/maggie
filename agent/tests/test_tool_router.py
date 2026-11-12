@@ -23,6 +23,7 @@ NUM_SKILL_TOOLS = len(SKILL_TOOLS)
 NUM_DATE_TIME_TOOLS = len(DATE_TIME_TOOLS)
 NUM_ANSWER_TOOLS = 2  # answer_approval (MAG-683), ask_owner (MAG-717)
 NUM_VOICE_TOOLS = len(VOICE_TOOLS)
+NUM_COACH_TOOLS = 1  # get_coach_method (MAG-778)
 # Every native tool; the proaction tools are the API's since MAG-327, served over MCP
 NUM_DEFAULT_TOOLS = (
     NUM_MEMORY_TOOLS
@@ -31,6 +32,7 @@ NUM_DEFAULT_TOOLS = (
     + NUM_DATE_TIME_TOOLS
     + NUM_ANSWER_TOOLS
     + NUM_VOICE_TOOLS
+    + NUM_COACH_TOOLS
 )
 
 

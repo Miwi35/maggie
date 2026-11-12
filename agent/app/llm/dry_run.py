@@ -7,6 +7,7 @@ from app.llm.tools import A2A_ALLOWED_TOOLS, ToolRouter
 # `get_grocery_list` is left out: it creates the user's list when there is none (a fresh Recette account).
 READ_ONLY_TOOLS = (A2A_ALLOWED_TOOLS - {"get_grocery_list"}) | {
     "date_time",
+    "get_coach_method",
     "get_user_timezone",
     "get_weather",
     "list_instructions",

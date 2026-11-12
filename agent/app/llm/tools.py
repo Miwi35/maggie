@@ -3,6 +3,7 @@ import logging
 
 from app.agents.registry import subagent_registry
 from app.bilan_consigne import BILAN_CONSIGNE_TOOL, handle_add_bilan_consigne
+from app.coach_method import GET_COACH_METHOD_TOOL, handle_get_coach_method
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.pending_action_repository import pending_action_repo
@@ -371,6 +372,7 @@ _NATIVE_HANDLERS = {
     "delete_skill": _handle_delete_skill,
     "date_time": handle_date_time,
     "delegate": _handle_delegate,
+    "get_coach_method": handle_get_coach_method,
     "answer_approval": handle_answer_approval,
     **MEMORY_HANDLERS,
 }
@@ -421,6 +423,7 @@ def _native_tools() -> list[dict]:
         BILAN_CONSIGNE_TOOL,
         *SKILL_TOOLS,
         *DATE_TIME_TOOLS,
+        GET_COACH_METHOD_TOOL,
         ANSWER_APPROVAL_TOOL,
         ASK_OWNER_TOOL,
         *VOICE_TOOLS,
