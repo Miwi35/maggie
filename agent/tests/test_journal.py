@@ -74,6 +74,9 @@ async def _execute(result: dict | Exception, proaction_id: str = SCHEDULED["id"]
         patch("app.queue.proaction_consumer.proactions_api") as proactions,
         patch("app.queue.proaction_consumer.publisher") as publisher,
         patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
+        patch("app.queue.proaction_consumer.notify_message", AsyncMock()),
+        patch("app.digest.send_voice_message", AsyncMock(return_value=MagicMock(id="m1", audio=None))),
+        patch("app.digest.resolve_user_timezone", AsyncMock(return_value=UTC)),
     ):
         messages.create = AsyncMock()
         proactions.record = AsyncMock(return_value=proaction)
