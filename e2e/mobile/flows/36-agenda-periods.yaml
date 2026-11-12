@@ -1,0 +1,117 @@
+appId: com.maggie.app.e2e
+name: 36-agenda-periods
+tags:
+  - calendar
+  - periods
+---
+# Agenda › Périodes: the chip in the Day and Week views, the list, a creation and a deletion (MAG-815, extends 11-calendar-all-day-series).
+#
+# Étant donné une période « Garde MAG-815 » de cinq jours à partir d'aujourd'hui (écrite par `scripts/period-api.js`)
+# Quand j'ouvre l'agenda en semaine
+# Alors une pastille « Garde MAG-815 » est sous les dates, et la toucher ouvre le formulaire « Période »
+# Et quand je passe par le fil d'Ariane à « Périodes », la liste montre la période
+# Et quand j'ajoute « Vacances MAG-815 » et que j'enregistre, la liste la montre
+# Et quand je supprime « Garde MAG-815 » et que je confirme, elle n'est plus ni dans la liste ni dans l'API
+#
+# What is not here: the dates of a row, the groups, the recurrence and the tablet's two columns
+# (`PeriodPresentationTest`, `PeriodListScreenTest`, `PeriodViewModelTest`); the chips of the Day view
+# (`PeriodChipsScreenTest`).
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/36-agenda-periods.yaml
+
+- runFlow: ../subflows/sign-in.yaml
+
+- runScript:
+    file: ../scripts/period-api.js
+    env:
+      ACTION: create
+      NAME: "Garde MAG-815"
+      TODAY: ${TODAY}
+      DAYS: "5"
+
+- runFlow: ../subflows/open-calendar.yaml
+
+# The chip, under the dates; a tap opens the form on this period.
+- extendedWaitUntil:
+    visible:
+      id: "period_chip_${output.periodId}"
+    timeout: 30000
+- assertVisible:
+    text: "Garde MAG-815"
+    childOf:
+      id: "period_chip_${output.periodId}"
+- tapOn:
+    id: "period_chip_${output.periodId}"
+- extendedWaitUntil:
+    visible:
+      id: "period_form"
+    timeout: 20000
+- assertVisible: "Période"
+- tapOn:
+    id: "period_close"
+
+# The list, by the breadcrumb Agenda › Périodes.
+- extendedWaitUntil:
+    visible:
+      id: "calendar_day_${TODAY}"
+    timeout: 20000
+- tapOn:
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_periods"
+- extendedWaitUntil:
+    visible:
+      id: "period_row_${output.periodId}"
+    timeout: 30000
+- assertVisible: "À venir"
+- assertVisible: "Passées"
+
+# A creation: a name, the default agenda, the day of today.
+- tapOn:
+    id: "period_add"
+- extendedWaitUntil:
+    visible:
+      id: "period_form"
+    timeout: 20000
+- tapOn:
+    id: "period_name"
+- inputText: "Vacances MAG-815"
+- runFlow: ../subflows/hide-keyboard.yaml
+- tapOn:
+    id: "period_save"
+- extendedWaitUntil:
+    visible: ".*Vacances MAG-815.*"
+    timeout: 30000
+- runScript:
+    file: ../scripts/period-api.js
+    env:
+      ACTION: expect
+      NAME: "Vacances MAG-815"
+      STATE: present
+
+# A deletion asks first.
+- tapOn:
+    id: "period_row_${output.periodId}"
+- extendedWaitUntil:
+    visible:
+      id: "period_delete"
+    timeout: 20000
+- tapOn:
+    id: "period_delete"
+- tapOn:
+    id: "period_delete_confirm"
+- extendedWaitUntil:
+    notVisible:
+      id: "period_row_${output.periodId}"
+    timeout: 30000
+- runScript:
+    file: ../scripts/period-api.js
+    env:
+      ACTION: expect
+      NAME: "Garde MAG-815"
+      STATE: absent
