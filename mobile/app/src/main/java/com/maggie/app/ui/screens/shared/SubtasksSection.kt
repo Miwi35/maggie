@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Link
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -38,6 +40,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskLink
+import com.maggie.app.ui.UiTags
 
 /** What the subtasks section can ask for; the same gestures in the sheet, the pane and the edit screen. */
 data class SubtaskActions(
@@ -45,6 +48,7 @@ data class SubtaskActions(
     val onAdd: (title: String) -> Unit = {},
     val onMoveUp: (subtaskId: String) -> Unit = {},
     val onMoveDown: (subtaskId: String) -> Unit = {},
+    val onDelete: (subtask: Task) -> Unit = {},
 ) {
     companion object {
         fun of(viewModel: SubtasksViewModel) = SubtaskActions(
@@ -52,6 +56,7 @@ data class SubtaskActions(
             onAdd = viewModel::add,
             onMoveUp = viewModel::moveUp,
             onMoveDown = viewModel::moveDown,
+            onDelete = viewModel::delete,
         )
     }
 }
@@ -106,6 +111,18 @@ fun SubtasksSection(state: SubtasksUiState, actions: SubtaskActions, modifier: M
 
 @Composable
 private fun SubtaskRow(subtask: Task, canMoveUp: Boolean, canMoveDown: Boolean, actions: SubtaskActions) {
+    var deleting by rememberSaveable(subtask.id) { mutableStateOf(false) }
+    if (deleting) {
+        TaskDeleteDialog(
+            title = subtask.title,
+            subtaskCount = 0,
+            onConfirm = {
+                deleting = false
+                actions.onDelete(subtask)
+            },
+            onDismiss = { deleting = false },
+        )
+    }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Checkbox(
             checked = subtask.isDone,
@@ -125,6 +142,9 @@ private fun SubtaskRow(subtask: Task, canMoveUp: Boolean, canMoveDown: Boolean, 
         }
         IconButton(onClick = { actions.onMoveDown(subtask.id) }, enabled = canMoveDown) {
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Descendre « ${subtask.title} »")
+        }
+        IconButton(onClick = { deleting = true }, modifier = Modifier.testTag(UiTags.SUBTASK_DELETE)) {
+            Icon(Icons.Default.Close, contentDescription = "Supprimer la sous-tâche")
         }
     }
 }

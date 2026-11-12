@@ -72,6 +72,18 @@ class SubtasksViewModel(
         }
     }
 
+    fun delete(subtask: Task) {
+        viewModelScope.launch {
+            taskRepository.deleteTask(subtask.id)
+                .onSuccess {
+                    _uiState.update { state ->
+                        state.copy(subtasks = state.subtasks.filter { it.id != subtask.id }, error = null)
+                    }
+                }
+                .onFailure(::fail)
+        }
+    }
+
     fun moveUp(subtaskId: String) = move(subtaskId, -1)
 
     fun moveDown(subtaskId: String) = move(subtaskId, +1)
