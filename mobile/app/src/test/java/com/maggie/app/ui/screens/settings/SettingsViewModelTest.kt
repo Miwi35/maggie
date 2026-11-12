@@ -40,6 +40,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -194,6 +195,9 @@ class SettingsViewModelTest {
             body["morningDigestTime"]?.let { saved = saved.copy(morningDigestTime = it.toString().trim('"')) }
             body["eveningReviewEnabled"]?.let { saved = saved.copy(eveningReviewEnabled = it.toString().toBoolean()) }
             body["eveningReviewTime"]?.let { saved = saved.copy(eveningReviewTime = it.toString().trim('"')) }
+            body["workStartTime"]?.let { saved = saved.copy(workStartTime = it.toString().trim('"')) }
+            body["workEndTime"]?.let { saved = saved.copy(workEndTime = it.toString().trim('"')) }
+            body["workDays"]?.let { days -> saved = saved.copy(workDays = days.jsonArray.map { it.toString().toInt() }) }
             Result.success(saved)
         }
         return bodies
@@ -286,6 +290,98 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { userPreferenceRepository.update(any()) }
+    }
+
+    @Test
+    fun `the working hours are read with the preferences`() = runTest {
+        withPreferences(UserPreference(id = "p1", workEndTime = "17:00", workDays = listOf(1, 2, 3, 4)))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val preferences = viewModel.uiState.value.preferences!!
+        assertEquals("09:00", preferences.workStartTime)
+        assertEquals("17:00", preferences.workEndTime)
+        assertEquals(listOf(1, 2, 3, 4), preferences.workDays)
+    }
+
+    @Test
+    fun `the work end set to 17 00 is sent alone, then says Enregistre`() = runTest {
+        withPreferences()
+        val bodies = capturedBodies()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setWorkEndTime(17, 0)
+
+        assertEquals("17:00", viewModel.uiState.value.preferences!!.workEndTime)
+        assertFalse(viewModel.uiState.value.rendezvousSaved)
+        advanceUntilIdle()
+        assertEquals(listOf("{\"workEndTime\":\"17:00\"}"), bodies.map { it.toString() })
+        assertTrue(viewModel.uiState.value.rendezvousSaved)
+    }
+
+    @Test
+    fun `the work start is sent as HH MM`() = runTest {
+        withPreferences()
+        val bodies = capturedBodies()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setWorkStartTime(8, 30)
+        advanceUntilIdle()
+
+        assertEquals(listOf("{\"workStartTime\":\"08:30\"}"), bodies.map { it.toString() })
+        assertEquals("08:30", viewModel.uiState.value.preferences!!.workStartTime)
+    }
+
+    @Test
+    fun `a day's pill takes the day off, then puts it back in order`() = runTest {
+        withPreferences()
+        val bodies = capturedBodies()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleWorkDay(5)
+        advanceUntilIdle()
+        assertEquals(listOf(1, 2, 3, 4), viewModel.uiState.value.preferences!!.workDays)
+
+        viewModel.toggleWorkDay(5)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("{\"workDays\":[1,2,3,4]}", "{\"workDays\":[1,2,3,4,5]}"),
+            bodies.map { it.toString() },
+        )
+    }
+
+    @Test
+    fun `an end before the start is refused on the phone and sends nothing`() = runTest {
+        withPreferences()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setWorkEndTime(8, 0)
+        viewModel.setWorkStartTime(18, 0)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { userPreferenceRepository.update(any()) }
+        assertEquals("18:00", viewModel.uiState.value.preferences!!.workEndTime)
+        assertEquals(WORK_END_BEFORE_START, viewModel.uiState.value.rendezvousError)
+        assertFalse(viewModel.uiState.value.rendezvousSaved)
+    }
+
+    @Test
+    fun `a failed working hours save goes back to the saved value and says so`() = runTest {
+        withPreferences()
+        coEvery { userPreferenceRepository.update(any()) } returns Result.failure(IllegalStateException("down"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleWorkDay(1)
+        advanceUntilIdle()
+
+        assertEquals(listOf(1, 2, 3, 4, 5), viewModel.uiState.value.preferences!!.workDays)
+        assertNotNull(viewModel.uiState.value.rendezvousError)
     }
 
     @Test

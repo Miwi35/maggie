@@ -54,6 +54,7 @@ private const val TASK_SETTINGS_UNREADABLE = "Impossible de lire les réglages d
 private const val TASK_SETTINGS_UNSAVED = "Impossible d'enregistrer les réglages des tâches"
 private const val MEAL_SETTINGS_UNREADABLE = "Impossible de lire les réglages des repas."
 private const val RENDEZVOUS_UNSAVED = "Le réglage n'a pas été enregistré."
+internal const val WORK_END_BEFORE_START = "La fin doit suivre le début."
 private const val MEAL_SETTINGS_UNSAVED = "Les réglages des repas n'ont pas été enregistrés."
 
 /** « Partir à l'heure » on this phone (MAG-651). */
@@ -501,6 +502,31 @@ class SettingsViewModel(
         val time = hhmm(hour, minute)
         saveRendezvous(buildJsonObject { put("eveningReviewTime", time) }) { it.copy(eveningReviewTime = time) }
     }
+
+    /** « Horaires de travail » (MAG-790): the start, refused on the phone unless it stays before the end. */
+    fun setWorkStartTime(hour: Int, minute: Int) {
+        val time = hhmm(hour, minute)
+        val end = _uiState.value.preferences?.workEndTime ?: return
+        if (end <= time) return refuseWorkHours()
+        saveRendezvous(buildJsonObject { put("workStartTime", time) }) { it.copy(workStartTime = time) }
+    }
+
+    fun setWorkEndTime(hour: Int, minute: Int) {
+        val time = hhmm(hour, minute)
+        val start = _uiState.value.preferences?.workStartTime ?: return
+        if (time <= start) return refuseWorkHours()
+        saveRendezvous(buildJsonObject { put("workEndTime", time) }) { it.copy(workEndTime = time) }
+    }
+
+    /** A working day's pill, ISO 1 = lundi … 7 = dimanche: on if it was off, off if it was on. */
+    fun toggleWorkDay(day: Int) {
+        val days = _uiState.value.preferences?.workDays ?: return
+        val next = (if (day in days) days - day else days + day).sorted()
+        saveRendezvous(buildJsonObject { put("workDays", JsonArray(next.map(::JsonPrimitive))) }) { it.copy(workDays = next) }
+    }
+
+    private fun refuseWorkHours() =
+        _uiState.update { it.copy(rendezvousSaved = false, rendezvousError = WORK_END_BEFORE_START) }
 
     /**
      * Shows the change at once and sends [changes]; the server's answer replaces it. A failure says so and

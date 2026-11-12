@@ -1246,6 +1246,11 @@ object UiTags {
     const val SETTINGS_REVIEW_TIME = "settings_review_time"
     const val SETTINGS_RENDEZVOUS_SAVED = "settings_rendezvous_saved"
 
+    /** Réglages › Maggie (MAG-790): « Horaires de travail », its start, its end and a day's pill (ISO 1 = lundi … 7). */
+    const val SETTINGS_WORK_START = "settings_work_start"
+    const val SETTINGS_WORK_END = "settings_work_end"
+    fun settingsWorkDay(day: Int) = "settings_work_day_$day"
+
     /**
      * Settings > Tâches > Rappels (MAG-407, MAG-718): the row of the list, « Réglages › Tâches » over the title,
      * « Heure du soir », an urgency's card ([settingsTasksUrgency]), its days before the due day

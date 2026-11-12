@@ -2,11 +2,15 @@ package com.maggie.app.ui.screens.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.screentest.ScreenRule
@@ -95,5 +99,34 @@ class AgentSettingsScreenTest {
         compose.onNodeWithTag(UiTags.SETTINGS_REVIEW_TIME).performClick()
 
         compose.onNodeWithTag(UiTags.PICKER_CONFIRM).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the working hours card shows the saved hours and days`() {
+        openAgent(SettingsUiState(preferences = UserPreference(workEndTime = "17:00", workDays = listOf(1, 2, 3, 4))))
+
+        compose.onNodeWithTag(UiTags.SETTINGS_WORK_START).performScrollTo().assertTextContains("09:00", substring = true)
+        compose.onNodeWithTag(UiTags.SETTINGS_WORK_END).assertTextContains("17:00", substring = true)
+        compose.onNodeWithTag(UiTags.settingsWorkDay(4)).performScrollTo().assertIsSelected()
+        compose.onNodeWithTag(UiTags.settingsWorkDay(5)).assertIsNotSelected()
+    }
+
+    @Test
+    fun `a day's pill and the end hour reach the view model`() {
+        val viewModel = openAgent(SettingsUiState(preferences = UserPreference()))
+
+        compose.onNodeWithTag(UiTags.settingsWorkDay(5)).performScrollTo().performClick()
+        verify { viewModel.toggleWorkDay(5) }
+
+        compose.onNodeWithTag(UiTags.SETTINGS_WORK_END).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PICKER_CONFIRM).performClick()
+        verify { viewModel.setWorkEndTime(18, 0) }
+    }
+
+    @Test
+    fun `an end before the start says so`() {
+        openAgent(SettingsUiState(preferences = UserPreference(), rendezvousError = WORK_END_BEFORE_START))
+
+        compose.onNodeWithText(WORK_END_BEFORE_START).performScrollTo().assertIsDisplayed()
     }
 }
