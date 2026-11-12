@@ -103,7 +103,11 @@ class DigestViewModel(
         }
     }
 
-    /** The written digest and its vocal: the linked message, and the neighbour of the other kind (the vocal is sent first). */
+    /**
+     * The written digest and its vocal. Since MAG-807 a digest is one message that carries both: a linked message with
+     * audio and no written neighbour is its own text and its own vocal. The older digests, two messages (the vocal sent
+     * first), are still read: the linked message and the neighbour of the other kind.
+     */
     private suspend fun readMessage(): Pair<ChatMessage?, ChatMessage?>? {
         val id = messageId ?: return null
         val context = runCatching { chat.loadMessageContext(id) }.rethrowCancellation().getOrNull() ?: return null
@@ -111,7 +115,7 @@ class DigestViewModel(
         val linked = context[index]
         val neighbours = listOfNotNull(context.getOrNull(index - 1), context.getOrNull(index + 1)).filter { it.role == linked.role }
         return if (linked.audio != null) {
-            neighbours.firstOrNull { it.audio == null } to linked
+            (neighbours.firstOrNull { it.audio == null } ?: linked) to linked
         } else {
             linked to neighbours.firstOrNull { it.audio != null }
         }
