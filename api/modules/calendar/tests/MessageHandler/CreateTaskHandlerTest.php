@@ -52,6 +52,8 @@ class CreateTaskHandlerTest extends KernelTestCase
         self::assertSame('#E8A9D9', $agendas[0]->getColor());
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         self::assertCount(1, $em->getRepository(Task::class)->findAll());
+        $this->assertMercureUpdatePublished('/agendas/'.$agendas[0]->getId());
+        $this->assertElasticsearchIndexDispatchedFor(Agenda::class, (string) $agendas[0]->getId());
     }
 
     public function testSecondTaskReusesIt(): void
