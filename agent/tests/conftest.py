@@ -74,11 +74,15 @@ def paris_user_timezone():
     paris = AsyncMock(return_value=ZoneInfo("Europe/Paris"))
     # The working hours come with it (MAG-790): none read, so the defaults.
     no_work_hours = AsyncMock(return_value={})
+    # So is the day context (MAG-811): no period read, no line.
+    no_day_context = AsyncMock(return_value="")
     with (
         patch("app.llm.streaming.resolve_user_timezone", paris),
         patch("app.llm.gateway.resolve_user_timezone", paris),
         patch("app.llm.streaming.resolve_work_hours", no_work_hours),
         patch("app.llm.gateway.resolve_work_hours", no_work_hours),
+        patch("app.llm.streaming.resolve_day_context", no_day_context),
+        patch("app.llm.gateway.resolve_day_context", no_day_context),
     ):
         yield
 
