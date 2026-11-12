@@ -65,6 +65,7 @@ import com.maggie.app.data.model.Routine
 import com.maggie.app.data.model.RoutineDayView
 import com.maggie.app.data.model.Stars
 import com.maggie.app.data.model.ShortageAlertAnswer
+import com.maggie.app.data.model.WorkoutMakeup
 import com.maggie.app.data.model.TaskReminderAnswer
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.data.model.Account
@@ -1394,6 +1395,22 @@ class MaggieApiService(
             accept(ContentType.Application.Json)
             setBody(buildJsonObject { put("action", action) })
         }.orRefusal().body()
+    }
+
+    /** The make-up Maggie proposed for a missed session (MAG-772). */
+    suspend fun getWorkoutMakeup(id: String): WorkoutMakeup {
+        return client.get("$baseUrl/api/workout-makeups/$id") {
+            accept(ContentType.Application.Json)
+        }.orRefusal().body()
+    }
+
+    /** Chooses [option] (`softer`, `shorter`, `tomorrow`) for a make-up; a refusal (409 already chosen or overtaken, 404 gone) is an [ApiRefusalException]. */
+    suspend fun chooseWorkoutMakeup(id: String, option: String) {
+        client.post("$baseUrl/api/workout-makeups/$id/choose") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            setBody(buildJsonObject { put("option", option) })
+        }.orRefusal()
     }
 
     /** The evening's review of [date] (MAG-500), created empty on its first read. */

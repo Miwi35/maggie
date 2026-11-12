@@ -212,6 +212,9 @@ export const HOME_TASKS_USER_EMAIL = 'e2e-home-tasks@maggie.local'
  */
 export const SHORTAGE_USER_EMAIL = 'e2e-shortage@maggie.local'
 
+/** A seeded account for the make-up of a missed session (MAG-772): answering settles it and plans a session. */
+export const MAKEUP_USER_EMAIL = 'e2e-makeup@maggie.local'
+
 /**
  * The twenty-eighth seeded account, for the Cuisine card of the Accueil
  * (MAG-564): a dinner tonight, a lunch tomorrow, and nothing else planned, which

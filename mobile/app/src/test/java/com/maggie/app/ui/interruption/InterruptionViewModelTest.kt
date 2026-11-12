@@ -484,4 +484,37 @@ class InterruptionViewModelTest {
 
         assertEquals(listOf("n-t"), postponed.map { it.notificationId })
     }
+
+    private fun makeup(id: String) = message(id, type = "workout_makeup").copy(makeupId = "01K0MAKEUP", reminderActions = listOf("softer", "tomorrow"))
+
+    @Test
+    fun `a make-up choice closes it once the handler answered (MAG-772)`() = runTest {
+        coEvery { handler.handle(PushActionKind.MAKEUP_TOMORROW, any(), any(), any()) } returns PushOutcome.Closed
+        center.offer(makeup("a"))
+
+        viewModel.answer(PushActionKind.MAKEUP_TOMORROW)
+
+        assertNull(shown())
+    }
+
+    @Test
+    fun `a make-up settled elsewhere is closed (MAG-772)`() {
+        coEvery { handler.handle(PushActionKind.MAKEUP_SOFTER, any(), any(), any()) } returns PushOutcome.Settled("Déjà réglé.")
+        center.offer(makeup("a"))
+
+        viewModel.answer(PushActionKind.MAKEUP_SOFTER)
+
+        assertNull(shown())
+    }
+
+    @Test
+    fun `a make-up choice that fails stays with the reason (MAG-772)`() {
+        coEvery { handler.handle(PushActionKind.MAKEUP_SOFTER, any(), any(), any()) } returns PushOutcome.Retry("Maggie est injoignable.")
+        center.offer(makeup("a"))
+
+        viewModel.answer(PushActionKind.MAKEUP_SOFTER)
+
+        assertEquals("a", shown())
+        assertEquals("Maggie est injoignable.", viewModel.uiState.value.note)
+    }
 }

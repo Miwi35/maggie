@@ -13,6 +13,13 @@ tags:
 # `scripts/workouts-api.js`), Quand je touche la séance, Alors la fiche montre « Exercices » et
 # « Tractions négatives ».
 #
+# MAG-772 (make-up of a missed session) is not walked here: the toaster only opens on a Mercure
+# update of the notification, which a flow cannot publish (no hub key on the phone side) and
+# which no HTTP route of the API raises. Its three stacked choices, their minutes read from the
+# proposal, and each answer are `MaggieToasterScreenTest`, `InterruptionViewModelTest`,
+# `PushActionHandlerTest` and `PushNotifierTest` (JVM); the live chain is the web journey
+# `health-sport.spec.ts`, on the seed `71-workout-makeup.yaml` (which also holds the phone's account).
+#
 # A new user, so the list starts empty and the only session is the one this flow writes. The
 # title carries a random number all the same, so the row is this run's and no other.
 #

@@ -18,18 +18,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +57,7 @@ import com.maggie.app.data.fcm.PushPayload
 import com.maggie.app.data.interruption.isAnswerableChoice
 import com.maggie.app.data.interruption.key
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.WorkoutMakeup
 import com.maggie.app.ui.components.ChoiceBoxes
 import com.maggie.app.ui.components.TaskBlockCard
 import com.maggie.app.ui.UiTags
@@ -88,6 +92,7 @@ fun MaggieToaster(
     onToggle: (String) -> Unit = {},
     onSubmit: () -> Unit = {},
     loadTask: suspend (String) -> Task? = { null },
+    loadMakeup: suspend (String) -> WorkoutMakeup? = { null },
 ) {
     val dark = isMaggieDark()
     val surface = if (dark) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
@@ -106,6 +111,13 @@ fun MaggieToaster(
             )
         }
     }
+
+    // A make-up's buttons carry its minutes: the push brings them, the app's own message reads them.
+    val makeup by produceState<WorkoutMakeup?>(null, payload.makeupId) {
+        value = payload.makeupId?.takeIf { payload.softerMinutes == null }?.let { loadMakeup(it) }
+    }
+    val worded = makeup?.takeIf { payload.makeupId != null }
+        ?.let { payload.copy(softerMinutes = it.softerMinutes, shorterMinutes = it.shorterMinutes) } ?: payload
 
     val primary = payload.actions().filter { it != PushActionKind.LATER }.take(2)
         .ifEmpty { listOf(PushActionKind.REPLY) }
@@ -168,9 +180,26 @@ fun MaggieToaster(
                     TaskBlockCard(id, loadTask, onOpen = { onAction(PushActionKind.GO) })
                 }
 
+                if (payload.makeupId != null) {
+                    // A make-up's choices are stacked, full width, one press answers (MAG-772).
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        payload.actions().filter { it != PushActionKind.LATER }.forEachIndexed { index, kind ->
+                            Button(
+                                onClick = { onAction(kind) },
+                                enabled = !busy,
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = surface.text),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag(if (index == 0) UiTags.INTERRUPTION_ACTION else UiTags.INTERRUPTION_SECOND),
+                            ) { Text(worded.labelOf(kind), modifier = Modifier.fillMaxWidth()) }
+                        }
+                    }
+                }
                 // The answers sit together on one line, the refusal before the primary action; « Plus tard » is
                 // the way out underneath, so nothing dangles alone at the end of a wrapped row.
-                Row(
+                if (payload.makeupId == null) Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

@@ -197,4 +197,36 @@ class MaggieToasterScreenTest {
         compose.onNodeWithText("Maggie a une idée").assertIsDisplayed()
         assertTrue(answers.isEmpty())
     }
+
+    private fun makeup(vararg extra: Pair<String, String>) = PushPayload.from(
+        mapOf(
+            "notificationId" to "n-1", "type" to "workout_makeup", "title" to "Séance manquée",
+            "makeupId" to "01K0MAKEUP", "actions" to "softer,shorter,tomorrow",
+        ) + extra,
+    )!!
+
+    @Test
+    fun `a make-up stacks its three choices with the push's minutes, then Plus tard (MAG-772)`() {
+        show(makeup("softerMinutes" to "30", "shorterMinutes" to "20"))
+
+        compose.onNodeWithText("30 min, plus doux").assertIsDisplayed()
+        compose.onNodeWithText("20 min, même intensité").performClick()
+        compose.onNodeWithText("Demain").performClick()
+        compose.onNodeWithTag(UiTags.INTERRUPTION_LATER).assertIsDisplayed()
+
+        assertEquals(listOf(PushActionKind.MAKEUP_SHORTER, PushActionKind.MAKEUP_TOMORROW), answers)
+    }
+
+    @Test
+    fun `a make-up without minutes reads them from the proposal (MAG-772)`() {
+        compose.setContent {
+            MaggieToaster(
+                makeup(), false, null, false, onAction = { answers += it },
+                loadMakeup = { com.maggie.app.data.model.WorkoutMakeup(softerMinutes = 25, shorterMinutes = 15) },
+            )
+        }
+
+        compose.onNodeWithText("25 min, plus doux").assertIsDisplayed()
+        compose.onNodeWithText("15 min, même intensité").assertIsDisplayed()
+    }
 }

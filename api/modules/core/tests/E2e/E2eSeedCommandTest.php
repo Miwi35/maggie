@@ -135,8 +135,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // (MAG-573): its « Riz basmati » would match the stock journey's « Riz ». The thirty-first and
         // thirty-second are the cushion share's (MAG-669), web and mobile: both journeys write the share
         // the planning reads. The thirty-third to thirty-fifth are the trip estimate's, the replan's and the dictation's (MAG-745): each
-        // sets a state a neighbour in its Playwright lot read. A thirty-sixth would mean somebody added an account without saying why.
-        self::assertSame(35, $this->rowsOf(User::class));
+        // sets a state a neighbour in its Playwright lot read. The thirty-sixth and thirty-seventh are the make-up's (MAG-772), web and mobile: answering settles the proposal and plans a session. A thirty-eighth would mean somebody added an account without saying why.
+        self::assertSame(37, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -231,7 +231,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(14, $this->rowsOf(Envelope::class));
         // Three since MAG-510: the nudge the reminders journey answers. Four since
         // MAG-570: the « Il manque : Parmesan » the shortage journey answers.
-        self::assertSame(4, $this->rowsOf(Notification::class));
+        // Six since MAG-772: the make-up notification of each make-up account.
+        self::assertSame(6, $this->rowsOf(Notification::class));
         // MAG-652: the owner's « Maison » and « Dentiste », read by the trips, and the neighbour's « Maison ».
         self::assertSame(7, $this->rowsOf(Place::class));
 
@@ -239,7 +240,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Four since MAG-775: « Séance A », planned, with its six exercises.
         $owner = $this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']);
         self::assertSame(4, $this->rowsOf(Workout::class, ['user' => $owner]));
-        self::assertSame(4, $this->rowsOf(Workout::class));
+        // Six since MAG-772: each make-up account's missed session.
+        self::assertSame(6, $this->rowsOf(Workout::class));
         self::assertSame(6, $this->rowsOf(WorkoutExercise::class));
         // MAG-706: the ten weighings of the Santé › Suivi journey, one excluded, none today.
         self::assertSame(10, $this->rowsOf(BodyMeasurement::class, ['user' => $owner]));
@@ -549,11 +551,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(36, $this->rowsOf(User::class));
+        self::assertSame(38, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(35, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(37, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

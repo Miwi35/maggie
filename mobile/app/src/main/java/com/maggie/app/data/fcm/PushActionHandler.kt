@@ -66,6 +66,7 @@ class PushActionHandler(
         PushActionKind.START, PushActionKind.OPEN, PushActionKind.IN_TEN, PushActionKind.TONIGHT, PushActionKind.TOMORROW ->
             answerReminder(kind, payload) { PushOutcome.Closed }
         PushActionKind.ADD_TO_LIST -> addToList(payload)
+        PushActionKind.MAKEUP_SOFTER, PushActionKind.MAKEUP_SHORTER, PushActionKind.MAKEUP_TOMORROW -> chooseMakeup(kind, payload)
         PushActionKind.TICK -> answerReminder(kind, payload) { answer ->
             PushOutcome.Rewarded(answer.reward?.message ?: answer.notification?.title ?: TICKED)
         }
@@ -130,6 +131,24 @@ class PushActionHandler(
             if (e.status in FINAL_STATUSES) PushOutcome.Settled(SHORTAGE_SETTLED) else PushOutcome.Retry(UNREACHABLE)
         } catch (e: Exception) {
             Log.w(TAG, "Shortage answer failed: ${e.message}")
+            PushOutcome.Retry(UNREACHABLE)
+        }
+    }
+
+    // The make-up is chosen once: a refusal (404, 409) means it was already settled or overtaken. The server
+    // reads the notification and takes it off the phones itself.
+    private suspend fun chooseMakeup(kind: PushActionKind, payload: PushPayload): PushOutcome {
+        val makeupId = payload.makeupId ?: return PushOutcome.Settled(MAKEUP_SETTLED)
+        val option = kind.makeupOption ?: return PushOutcome.Settled(MAKEUP_SETTLED)
+        return try {
+            apiService.chooseWorkoutMakeup(makeupId, option)
+            PushOutcome.Closed
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiRefusalException) {
+            if (e.status in FINAL_STATUSES) PushOutcome.Settled(MAKEUP_SETTLED) else PushOutcome.Retry(UNREACHABLE)
+        } catch (e: Exception) {
+            Log.w(TAG, "Make-up choice failed: ${e.message}")
             PushOutcome.Retry(UNREACHABLE)
         }
     }
@@ -211,6 +230,7 @@ class PushActionHandler(
         private const val UNREACHABLE = "Maggie est injoignable. Réessayez."
         private const val REMINDER_SETTLED = "Ce rappel n'est plus en attente."
         private const val SHORTAGE_SETTLED = "Ce manquant n'est plus à signaler."
+        private const val MAKEUP_SETTLED = "Déjà réglé."
         private const val QUESTION_SETTLED = "Cette question n'est plus en attente."
         private const val TICKED = "C'est fait."
 

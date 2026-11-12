@@ -10,6 +10,7 @@ import com.maggie.app.data.interruption.InterruptionCenter
 import com.maggie.app.data.interruption.isAnswerableChoice
 import com.maggie.app.data.interruption.key
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.WorkoutMakeup
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +54,7 @@ class InterruptionViewModel(
     /** Takes down the system notification a push left in the tray before the app was opened. */
     private val dismiss: (PushPayload) -> Unit = {},
     private val loadTask: suspend (String) -> Task? = { null },
+    private val loadMakeup: suspend (String) -> WorkoutMakeup? = { null },
     private val postpone: (PushPayload) -> Unit,
 ) : ViewModel() {
 
@@ -76,6 +78,8 @@ class InterruptionViewModel(
     fun announce(key: String): Boolean = center.announce(key)
 
     suspend fun loadTask(id: String): Task? = loadTask.invoke(id)
+
+    suspend fun loadMakeup(id: String): WorkoutMakeup? = loadMakeup.invoke(id)
 
     /** Ticks or unticks [option]; a question that takes one choice keeps the last tick. */
     fun toggle(option: String) {

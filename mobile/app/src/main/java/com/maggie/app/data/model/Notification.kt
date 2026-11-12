@@ -14,6 +14,8 @@ data class Notification(
     val createdAt: String? = null,
     /** The question a `question` notification puts (MAG-717); null on every other. */
     val interaction: NotificationInteraction? = null,
+    /** The buttons the notification offers, as keys (a make-up's `softer`, `shorter`, `tomorrow`). */
+    val actions: List<String> = emptyList(),
 ) {
     val isRead: Boolean get() = readAt != null
 }

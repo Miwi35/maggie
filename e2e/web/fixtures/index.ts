@@ -14,6 +14,7 @@ import {
   ENVELOPE_ALERT_USER_EMAIL,
   HOME_USER_EMAIL,
   SHORTAGE_USER_EMAIL,
+  MAKEUP_USER_EMAIL,
   SCORES_USER_EMAIL,
   BALANCE_USER_EMAIL,
   BRAVO_USER_EMAIL,
@@ -76,6 +77,7 @@ export {
   HOME_USER_EMAIL,
   HOME_TASKS_USER_EMAIL,
   SHORTAGE_USER_EMAIL,
+  MAKEUP_USER_EMAIL,
   CUISINE_USER_EMAIL,
   CUSHION_SHARE_USER_EMAIL,
   TRIP_ESTIMATE_USER_EMAIL,
@@ -249,6 +251,8 @@ export interface MaggieFixtures {
   homeTasksUser: OtherUser
   /** The twenty-seventh seeded account, for « Il manque » (MAG-570): a parmesan missing for tonight's dinner. */
   shortageUser: OtherUser
+  /** A seeded account for the make-up of a missed session (MAG-772). */
+  makeupUser: OtherUser
   /** The twenty-eighth seeded account, for the Cuisine card of the Accueil (MAG-564). */
   cuisineUser: OtherUser
   /** The twenty-ninth seeded account, for the cushion's share of the capacity (MAG-669). */
@@ -563,6 +567,10 @@ export const test = base.extend<MaggieFixtures>({
 
   shortageUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(SHORTAGE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  makeupUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(MAKEUP_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   cuisineUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {

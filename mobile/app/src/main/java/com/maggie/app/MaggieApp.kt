@@ -537,10 +537,12 @@ class MaggieApp : Application() {
             }
             viewModel {
                 val tasks = get<TaskRepository>()
+                val api = get<MaggieApiService>()
                 InterruptionViewModel(
                     get(),
                     get(),
                     loadTask = { tasks.findTask(it) },
+                    loadMakeup = { runCatching { api.getWorkoutMakeup(it) }.getOrNull() },
                     postpone = { PushNotifier(androidContext()).postpone(it) },
                     dismiss = { PushNotifier(androidContext()).close(it.systemTag) },
                 )

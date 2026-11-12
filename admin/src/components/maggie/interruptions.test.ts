@@ -218,3 +218,27 @@ describe('a departure alert (MAG-659)', () => {
     expect(event).not.toHaveProperty('interruption.departureTrip')
   })
 })
+
+describe('readFeedMessage — a make-up (MAG-772)', () => {
+  const payload = (extra: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      '@id': '/api/notifications/n1',
+      type: 'workout_makeup',
+      title: 'Séance de 18 h manquée, monsieur.',
+      relatedEntityIri: '/api/workout-makeups/01K0MAKEUP',
+      actions: ['tomorrow', 'softer', 'nonsense'],
+      readAt: null,
+      ...extra,
+    })
+
+  test('carries the proposal and its known options in display order', () => {
+    const event = readFeedMessage(payload())
+    expect(event).toMatchObject({ kind: 'interrupt', interruption: { makeup: { id: '01K0MAKEUP', options: ['softer', 'tomorrow'] } } })
+  })
+
+  test('is a plain notification without options', () => {
+    const event = readFeedMessage(payload({ actions: [] }))
+    expect(event).toMatchObject({ kind: 'interrupt' })
+    expect(event && event.kind === 'interrupt' && 'makeup' in event.interruption).toBe(false)
+  })
+})
