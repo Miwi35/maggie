@@ -186,7 +186,7 @@ describe('ChatWidget approvals (MAG-6)', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Autoriser' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Impossible d'envoyer ta réponse")
+    expect(await screen.findByRole('alert')).toHaveTextContent("Votre réponse n'a pas pu partir")
     expect(screen.getByRole('button', { name: 'Autoriser' })).toBeEnabled()
   })
 

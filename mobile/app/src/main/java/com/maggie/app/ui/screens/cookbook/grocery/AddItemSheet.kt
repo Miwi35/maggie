@@ -38,6 +38,7 @@ import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.RecipeNeedResponse
 import com.maggie.app.data.model.Store
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.grocery.label
 import com.maggie.app.ui.uiTagRoot
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,7 +134,7 @@ fun AddItemSheet(
                 onExpandedChange = { categoryExpanded = it },
             ) {
                 OutlinedTextField(
-                    value = selectedCategory?.name?.lowercase() ?: "",
+                    value = selectedCategory?.label() ?: "",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Cat\u00e9gorie") },
@@ -156,7 +157,7 @@ fun AddItemSheet(
                     )
                     ProductCategory.entries.forEach { cat ->
                         DropdownMenuItem(
-                            text = { Text(cat.name.lowercase()) },
+                            text = { Text(cat.label()) },
                             onClick = {
                                 selectedCategory = cat
                                 categoryExpanded = false

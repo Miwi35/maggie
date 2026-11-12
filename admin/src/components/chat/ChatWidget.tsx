@@ -1566,7 +1566,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                     }}
                     onKeyDown={handleKeyDown}
                     inputRef={inputRef}
-                    placeholder="Demande à Maggie..."
+                    placeholder="Demander à Maggie…"
                     size="small"
                     fullWidth
                     slotProps={{ htmlInput: { sx: { fontSize: 14 } }, input: { sx: pillFieldSx } }}

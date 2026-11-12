@@ -39,6 +39,7 @@ import kotlinx.coroutines.delay
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Product
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.grocery.label
 import com.maggie.app.ui.uiTagRoot
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,7 +157,7 @@ fun ProductPickerDialog(
                                     style = MaterialTheme.typography.bodyLarge,
                                 )
                                 Text(
-                                    text = product.category.name.lowercase(),
+                                    text = product.category.label(),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

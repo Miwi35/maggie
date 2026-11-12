@@ -53,7 +53,7 @@ export class ChatPanel {
   constructor(private readonly page: Page) {
     this.panel = page.getByTestId('chat-panel')
     this.portrait = page.getByTestId('maggie-portrait')
-    this.input = this.panel.getByPlaceholder('Demande à Maggie...')
+    this.input = this.panel.getByPlaceholder('Demander à Maggie…')
     this.chatTab = this.panel.getByRole('tab', { name: 'Chat' })
     this.mindTab = this.panel.getByRole('tab', { name: 'Mind' })
     this.stopButton = this.panel.getByTestId('chat-stop')

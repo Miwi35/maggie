@@ -287,12 +287,12 @@ describe('MaggieInterruption', () => {
     })
 
     test('waits for the answer on its way, and says when it did not go', () => {
-      setupQuestion({ busy: true, error: "Ta réponse n'est pas partie." })
+      setupQuestion({ busy: true, error: "Votre réponse n'est pas partie." })
 
       expect(screen.getByRole('button', { name: 'Autoriser' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Refuser' })).toBeDisabled()
       expect(screen.getByRole('button', { name: 'Plus tard' })).toBeDisabled()
-      expect(screen.getByRole('alert')).toHaveTextContent("Ta réponse n'est pas partie.")
+      expect(screen.getByRole('alert')).toHaveTextContent("Votre réponse n'est pas partie.")
     })
   })
   describe('a notification with a link', () => {

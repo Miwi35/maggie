@@ -570,22 +570,6 @@ internal fun CiqualSearchScreen(
 
 private fun unitOptions(): List<Pair<CookbookUnit, String>> = CookbookUnit.entries.map { it to it.frenchName }
 
-internal fun ProductCategory.label(): String = when (this) {
-    ProductCategory.PRODUCE -> "Fruits et légumes"
-    ProductCategory.DAIRY -> "Produits laitiers"
-    ProductCategory.MEAT -> "Viande"
-    ProductCategory.FISH -> "Poisson"
-    ProductCategory.GRAIN -> "Féculents"
-    ProductCategory.SPICE -> "Épices"
-    ProductCategory.CONDIMENT -> "Condiments"
-    ProductCategory.FROZEN -> "Surgelés"
-    ProductCategory.BEVERAGE -> "Boissons"
-    ProductCategory.HOUSEHOLD -> "Maison"
-    ProductCategory.HYGIENE -> "Hygiène"
-    ProductCategory.CLEANING -> "Entretien"
-    ProductCategory.OTHER -> "Autre"
-}
-
 internal fun ProductStockState.label(): String = when (this) {
     ProductStockState.IN_STOCK -> "En stock"
     ProductStockState.LOW -> "Stock faible"

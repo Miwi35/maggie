@@ -55,7 +55,7 @@ const props = {
   onToolCallsChange: vi.fn(),
 }
 
-const input = () => screen.queryByPlaceholderText('Demande à Maggie...')
+const input = () => screen.queryByPlaceholderText('Demander à Maggie…')
 
 describe('ChatWidget across widths', () => {
   beforeEach(() => {

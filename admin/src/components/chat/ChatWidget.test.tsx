@@ -98,7 +98,7 @@ describe('ChatWidget', () => {
 
     expect(screen.getByRole('tab', { name: /Chat/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Mind/i })).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Demande à Maggie...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Demander à Maggie…')).toBeInTheDocument()
   })
 
   // Both carry an icon and a tooltip, and a tooltip is not an accessible name —
@@ -437,7 +437,7 @@ describe('ChatWidget', () => {
       renderWithTheme(<ChatWidget {...defaultProps} />)
       const user = userEvent.setup()
 
-      await user.type(screen.getByPlaceholderText('Demande à Maggie...'), 'Bonjour Maggie')
+      await user.type(screen.getByPlaceholderText('Demander à Maggie…'), 'Bonjour Maggie')
       await user.click(screen.getByRole('button', { name: 'Envoyer' }))
       publish({ id: 'u-1', role: 'user', content: 'Bonjour Maggie', createdAt: '2026-10-05T10:00:00Z' })
       publish({ id: 'u-1', role: 'user', content: 'Bonjour Maggie', createdAt: '2026-10-05T10:00:00Z' })
@@ -589,7 +589,7 @@ describe('ChatWidget', () => {
     const user = userEvent.setup()
     renderWithTheme(<ChatWidget {...defaultProps} />)
 
-    const input = screen.getByPlaceholderText('Demande à Maggie...')
+    const input = screen.getByPlaceholderText('Demander à Maggie…')
     await user.type(input, 'Hello Maggie')
 
     const sendButton = screen.getByTestId('SendIcon').closest('button')!
@@ -671,7 +671,7 @@ describe('ChatWidget', () => {
       vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
       const user = userEvent.setup()
       renderWithTheme(<ChatWidget {...defaultProps} />)
-      await user.type(screen.getByPlaceholderText('Demande à Maggie...'), 'Hello Maggie')
+      await user.type(screen.getByPlaceholderText('Demander à Maggie…'), 'Hello Maggie')
       await user.click(screen.getByTestId('SendIcon').closest('button')!)
       await waitFor(() => expect(mockSend).toHaveBeenCalledTimes(1))
       return user

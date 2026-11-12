@@ -63,7 +63,7 @@ private val ACTIVITY_LABELS = mapOf(
 fun toolActivityLabel(toolName: String): String {
     ACTIVITY_LABELS[toolName]?.let { return it }
     return when (toolName.substringBefore('_')) {
-        "get", "list", "check", "search" -> "Consultation de tes données"
+        "get", "list", "check", "search" -> "Consultation de vos données"
         "create", "add" -> "Création d'un élément"
         "update", "manage", "move", "reorder", "assign" -> "Modification d'un élément"
         "delete", "remove" -> "Suppression d'un élément"

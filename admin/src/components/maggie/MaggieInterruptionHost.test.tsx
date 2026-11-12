@@ -252,7 +252,7 @@ describe('MaggieInterruptionHost', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Autoriser' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Ta réponse n'est pas partie")
+    expect(await screen.findByRole('alert')).toHaveTextContent("Votre réponse n'est pas partie")
     expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Autoriser' })).toBeEnabled()
   })
@@ -353,7 +353,7 @@ describe('MaggieInterruptionHost', () => {
 
       await userEvent.click(await screen.findByRole('button', { name: 'Ajouter à la liste' }))
 
-      expect(await screen.findByRole('alert')).toHaveTextContent("Ta réponse n'est pas partie")
+      expect(await screen.findByRole('alert')).toHaveTextContent("Votre réponse n'est pas partie")
       expect(screen.getByRole('alertdialog')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Ajouter à la liste' })).toBeEnabled()
     })

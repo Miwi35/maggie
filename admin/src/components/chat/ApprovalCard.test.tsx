@@ -118,9 +118,9 @@ describe('ApprovalCard', () => {
   })
 
   test('shows the error of a failed answer and keeps the buttons usable', () => {
-    renderCard(approval({ error: "Impossible d'envoyer ta réponse. Réessaie." }))
+    renderCard(approval({ error: "Votre réponse n'a pas pu partir. Réessayez." }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent("Impossible d'envoyer ta réponse")
+    expect(screen.getByRole('alert')).toHaveTextContent("Votre réponse n'a pas pu partir")
     expect(screen.getByRole('button', { name: 'Autoriser' })).toBeEnabled()
   })
 })
