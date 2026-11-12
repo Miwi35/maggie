@@ -145,6 +145,13 @@ tags:
     id: "recipe_utensil_create"
 
 # Back on the form, the new utensil is among the recipe's; saved, it is on the sheet.
+# A swipe that starts on an ingredient field opens its search dialog over the form (foldable, 12 Nov. night):
+# closed if it is there, so the scroll to « Enregistrer » runs on the form.
+- runFlow:
+    when:
+      visible: "Rechercher un ingrédient"
+    commands:
+      - tapOn: "Annuler"
 - scrollUntilVisible:
     element: "Mixeur MAG-492"
 # No centering: « Enregistrer » ends the form, so on a tall screen (foldable) the scroll
