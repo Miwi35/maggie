@@ -8,6 +8,7 @@ use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\Repository\TransactionRepository;
@@ -183,6 +184,97 @@ class BankAuthorizationTest extends KernelTestCase
         $em->clear();
         $refreshed = $em->find(Account::class, $existing->getId());
         self::assertSame('remote-1', $refreshed->getExternalAccountId());
+    }
+
+    /** @param array<int, array<string, mixed>> $remoteAccounts */
+    private function completeFor(string $bankName, array $remoteAccounts): array
+    {
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), $bankName)['connection'];
+
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode([
+            'session_id' => 'session-type',
+            'accounts' => $remoteAccounts,
+        ])));
+
+        $result = $this->completer($completeHttp)->execute($connection->getState(), 'code');
+
+        return $result;
+    }
+
+    private function accountOf(string $externalId): Account
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(Account::class)->findOneBy(['externalAccountId' => $externalId]);
+    }
+
+    public function testASavingsAccountFromTheBankIsCreatedAsSavings(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $this->completeFor('Boursorama', [
+            ['uid' => 'livret-1', 'name' => 'Livret A', 'currency' => 'EUR', 'cash_account_type' => 'SVGS'],
+        ]);
+
+        self::assertSame(AccountType::Savings, $this->accountOf('livret-1')->getType());
+    }
+
+    public function testAnUnknownOrMissingCashAccountTypeFallsBackToChecking(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $this->completeFor('Boursorama', [
+            ['uid' => 'a-1', 'name' => 'Courant', 'currency' => 'EUR', 'cash_account_type' => 'CACC'],
+            ['uid' => 'a-2', 'name' => 'Sans type', 'currency' => 'EUR'],
+            ['uid' => 'a-3', 'name' => 'Inconnu', 'currency' => 'EUR', 'cash_account_type' => 'ZZZZ'],
+        ]);
+
+        foreach (['a-1', 'a-2', 'a-3'] as $uid) {
+            self::assertSame(AccountType::Checking, $this->accountOf($uid)->getType(), $uid);
+        }
+    }
+
+    public function testAnAccountAlreadyLinkedKeepsTheTypeTheOwnerGaveIt(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->completeFor('Boursorama', [
+            ['uid' => 'livret-1', 'name' => 'Livret A', 'currency' => 'EUR', 'cash_account_type' => 'SVGS'],
+        ]);
+
+        $result = $this->completeFor('Boursorama', [
+            ['uid' => 'livret-1', 'name' => 'Livret A', 'currency' => 'EUR', 'cash_account_type' => 'CACC'],
+        ]);
+
+        self::assertSame(1, $result['linked']);
+        self::assertSame(AccountType::Savings, $this->accountOf('livret-1')->getType());
+    }
+
+    public function testAHandTypedAccountOfAnotherTypeIsNotAdoptedOnTheBankNameAlone(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        // The fixture's hand-typed account is a checking one at Crédit Agricole.
+        $result = $this->completeFor('Crédit Agricole', [
+            ['uid' => 'livret-1', 'name' => 'Livret A', 'currency' => 'EUR', 'cash_account_type' => 'SVGS'],
+        ]);
+
+        self::assertSame(0, $result['linked']);
+        self::assertSame(1, $result['created']);
+        self::assertSame(AccountType::Savings, $this->accountOf('livret-1')->getType());
+    }
+
+    public function testAHandTypedAccountOfTheSameNameIsAdoptedWhateverItsType(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $result = $this->completeFor('Crédit Agricole', [
+            ['uid' => 'remote-1', 'name' => 'Compte courant', 'currency' => 'EUR', 'cash_account_type' => 'SVGS'],
+        ]);
+
+        self::assertSame(1, $result['linked']);
+        self::assertSame(AccountType::Checking, $this->accountOf('remote-1')->getType());
     }
 
     public function testAnAnswerWhoseStateMatchesNothingIsRefused(): void

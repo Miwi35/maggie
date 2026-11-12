@@ -29,6 +29,10 @@ use Symfony\Component\Messenger\MessageBusInterface;
  */
 class CompleteBankAuthorization
 {
+    /** ISO 20022 cash account types that are savings; the rest of the codes are day-to-day money. */
+    private const SAVINGS_CODES = ['SVGS', 'MOMA', 'ONDP', 'LLSV', 'MGLD'];
+    private const CHECKING_CODES = ['CACC', 'TRAN', 'CARD', 'LOAN'];
+
     public function __construct(
         private readonly EnableBankingClient $client,
         private readonly BankConnectionRepository $connectionRepository,
@@ -80,7 +84,7 @@ class CompleteBankAuthorization
                 $account->setUser($connection->getUser());
                 $account->setName($this->readName($remote, $connection->getBankName()));
                 $account->setBank($connection->getBankName());
-                $account->setType(AccountType::Checking);
+                $account->setType($this->readType($remote));
                 $account->setCurrency($this->settleCurrency($remote, $externalId, null));
                 $this->em->persist($account);
                 ++$created;
@@ -185,8 +189,13 @@ class CompleteBankAuthorization
             if (null !== $account->getExternalAccountId()) {
                 continue;
             }
-            if (mb_strtolower($account->getName()) === $name
-                || mb_strtolower((string) $account->getBank()) === mb_strtolower($connection->getBankName())
+            if (mb_strtolower($account->getName()) === $name) {
+                return $account;
+            }
+            // The bank name alone says nothing of the nature: a savings book
+            // must not adopt a hand-typed current account of the same bank.
+            if (mb_strtolower((string) $account->getBank()) === mb_strtolower($connection->getBankName())
+                && $account->getType() === $this->readType($remote)
             ) {
                 return $account;
             }
@@ -251,6 +260,24 @@ class CompleteBankAuthorization
         }
 
         return $fallback;
+    }
+
+    /** @param array<string, mixed> $remote */
+    private function readType(array $remote): AccountType
+    {
+        $code = $remote['cash_account_type'] ?? null;
+
+        if (\is_string($code) && \in_array($code, self::SAVINGS_CODES, true)) {
+            return AccountType::Savings;
+        }
+
+        if (null !== $code && !(\is_string($code) && \in_array($code, self::CHECKING_CODES, true))) {
+            $this->logger->warning('The bank gave an unknown cash account type: checking is used instead.', [
+                'cashAccountType' => $code,
+            ]);
+        }
+
+        return AccountType::Checking;
     }
 
     /** @param array<string, mixed> $remote */
