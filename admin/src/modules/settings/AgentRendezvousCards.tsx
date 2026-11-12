@@ -100,13 +100,11 @@ const WorkHoursCard = ({
   end,
   days,
   onSave,
-  onRefuse,
 }: {
   start: string
   end: string
   days: number[]
   onSave: (patch: RendezvousPatch) => Promise<boolean>
-  onRefuse: () => void
 }) => {
   const [startDraft, setStartDraft] = useState(start)
   useEffect(() => setStartDraft(start), [start])
@@ -115,23 +113,25 @@ const WorkHoursCard = ({
   const [dayDraft, setDayDraft] = useState(days)
   useEffect(() => setDayDraft(days), [days])
 
+  // A time field sends a change per segment typed (« 1 » then « 17 »): a value out of order is kept as typed and
+  // only not saved, so the next keystroke can still reach a valid hour.
+  const [outOfOrder, setOutOfOrder] = useState(false)
+
   const handleStart = async (value: string) => {
     setStartDraft(value)
-    if (!value || value === start) return
-    if (end <= value) {
-      setStartDraft(start)
-      return onRefuse()
-    }
+    if (!value) return
+    const refused = endDraft <= value
+    setOutOfOrder(refused)
+    if (refused || value === start) return
     if (!(await onSave({ workStartTime: value }))) setStartDraft(start)
   }
 
   const handleEnd = async (value: string) => {
     setEndDraft(value)
-    if (!value || value === end) return
-    if (value <= start) {
-      setEndDraft(end)
-      return onRefuse()
-    }
+    if (!value) return
+    const refused = value <= startDraft
+    setOutOfOrder(refused)
+    if (refused || value === end) return
     if (!(await onSave({ workEndTime: value }))) setEndDraft(end)
   }
 
@@ -164,6 +164,8 @@ const WorkHoursCard = ({
               label="Fin du travail"
               value={endDraft}
               onChange={(e) => handleEnd(e.target.value)}
+              error={outOfOrder}
+              helperText={outOfOrder ? 'La fin doit suivre le début' : undefined}
               size="small"
               sx={{ maxWidth: 160 }}
               slotProps={{ inputLabel: { shrink: true } }}
@@ -237,7 +239,6 @@ export const AgentRendezvousCards = ({
         end={preferences.workEndTime}
         days={preferences.workDays}
         onSave={save}
-        onRefuse={() => notify('La fin doit suivre le début', { type: 'error' })}
       />
     </>
   )

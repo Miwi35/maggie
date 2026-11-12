@@ -121,15 +121,27 @@ describe('AgentRendezvousCards', () => {
       expect(notify).toHaveBeenCalledWith('Enregistré', { type: 'success' })
     })
 
-    test('an end before the start is refused without a request', async () => {
+    test('an end before the start is said and not sent', async () => {
       const fetchMock = stubApi()
       render(<Harness />)
 
       fireEvent.change(await screen.findByLabelText('Fin du travail'), { target: { value: '08:00' } })
 
-      expect(notify).toHaveBeenCalledWith('La fin doit suivre le début', { type: 'error' })
+      expect(screen.getByText('La fin doit suivre le début')).toBeInTheDocument()
       expect(patches(fetchMock)).toEqual([])
-      expect(screen.getByLabelText('Fin du travail')).toHaveValue('18:00')
+    })
+
+    test('an end typed a segment at a time reaches 17:00 and only that is sent', async () => {
+      const fetchMock = stubApi()
+      render(<Harness />)
+      const end = await screen.findByLabelText('Fin du travail')
+
+      fireEvent.change(end, { target: { value: '01:00' } })
+      expect(end).toHaveValue('01:00')
+      fireEvent.change(end, { target: { value: '17:00' } })
+
+      await waitFor(() => expect(patches(fetchMock)).toEqual([{ workEndTime: '17:00' }]))
+      expect(screen.queryByText('La fin doit suivre le début')).not.toBeInTheDocument()
     })
 
     test('a refused day restores the saved days', async () => {

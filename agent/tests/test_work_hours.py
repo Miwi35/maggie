@@ -72,3 +72,33 @@ class TestTheTimezone:
         assert in_work_hours(DEFAULTS, paris_16.astimezone(NEW_YORK))
         paris_9 = datetime(2026, 11, 10, 9, 30, tzinfo=PARIS)
         assert not in_work_hours(DEFAULTS, paris_9.astimezone(NEW_YORK))
+
+
+class TestTheStreamedChatSaysIt:
+    """The app's chat (AG-UI) builds its own prompt: the line is in its volatile part too, not in the prefix."""
+
+    async def test_the_line_is_next_to_the_date(self):
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from app.llm.streaming import StreamingGateway
+        from app.memory.agent_memory import MemoryBlocks
+
+        gateway = StreamingGateway()
+        gateway.personality = MagicMock()
+        gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+        gateway.agent_memory = MagicMock()
+        gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        clock = MagicMock(wraps=datetime)
+        clock.now = MagicMock(return_value=datetime(2026, 11, 14, 10, 0, tzinfo=PARIS))
+        with (
+            patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
+            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.llm.streaming.datetime", clock),
+        ):
+            skills.get_skills_index.return_value = ""
+            skills.skills_for_moment.return_value = ""
+            skills.refresh = AsyncMock()
+            blocks = await gateway._build_system_prompt("user-1")
+
+        assert OUT_OF_WORK_HOURS_LINE in blocks[-1]["text"]
+        assert "Horaires de travail" not in blocks[0]["text"]

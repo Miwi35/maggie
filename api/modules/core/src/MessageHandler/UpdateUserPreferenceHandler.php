@@ -73,7 +73,9 @@ class UpdateUserPreferenceHandler
             $pref->setEveningReviewTime($command->eveningReviewTime);
         }
 
-        $pref->setWorkStartTime($workStart)->setWorkEndTime($workEnd);
+        if (null !== $command->workStartTime || null !== $command->workEndTime) {
+            $pref->setWorkStartTime($workStart)->setWorkEndTime($workEnd);
+        }
         if (null !== $command->workDays) {
             $pref->setWorkDays($command->workDays);
         }
