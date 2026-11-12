@@ -1403,6 +1403,7 @@ fun NavGraph() {
                         onClosePanel = { chatPanelOpen = false },
                         onOpenTask = { navController.navigate(DeepLinks.taskRoute(it)) },
                         onOpenDigest = { navController.navigate(DeepLinks.digestRoute(it)) },
+                        onOpenBilan = { navController.navigate(Screen.BilanActivity.route) },
                     )
                 }
             } else {
@@ -1604,6 +1605,7 @@ fun NavGraph() {
                             messageId = DeepLinks.chatMessageId(linked),
                             onOpenTask = { navController.navigate(DeepLinks.taskRoute(it)) },
                             onOpenDigest = { navController.navigate(DeepLinks.digestRoute(it)) },
+                            onOpenBilan = { navController.navigate(Screen.BilanActivity.route) },
                         )
                     }
                     composable(
@@ -2604,6 +2606,10 @@ fun NavGraph() {
             onOpenDigest = {
                 showChatSheet = false
                 navController.navigate(DeepLinks.digestRoute(it))
+            },
+            onOpenBilan = {
+                showChatSheet = false
+                navController.navigate(Screen.BilanActivity.route)
             },
         )
     }

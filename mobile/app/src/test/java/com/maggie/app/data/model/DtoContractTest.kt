@@ -116,6 +116,19 @@ class DtoContractTest {
         assertEquals(listOf(digest), message.shownBlocks)
     }
 
+    // The block is the shape agent/app/bilan.py `bilan_block` writes (MAG-826).
+    @Test
+    fun `a message reads its bilan block (MAG-826)`() {
+        val body = """{"id":"m4","role":"assistant","content":"On fait le point ?","blocks":[
+            {"type":"bilan","day":"2026-11-12","route":"maggie://activity/bilan"}]}"""
+        val message = Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessage>(body)
+
+        val block = message.blocks.single() as BilanBlock
+        assertEquals("2026-11-12", block.day)
+        assertEquals("maggie://activity/bilan", block.route)
+        assertEquals(listOf(block), message.shownBlocks)
+    }
+
     @Test
     fun `a notification reads its choice interaction (MAG-717)`() {
         val body = """{"id":"n1","type":"question","title":"Quels jours ?","interaction":{"kind":"choice","options":["Lundi","Mardi"],"multiple":true,"questionId":"q1"}}"""

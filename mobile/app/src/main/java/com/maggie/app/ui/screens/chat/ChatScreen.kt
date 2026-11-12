@@ -48,6 +48,7 @@ fun ChatScreen(
     messageId: String? = null,
     onOpenTask: (String) -> Unit = {},
     onOpenDigest: (String) -> Unit = {},
+    onOpenBilan: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
@@ -128,6 +129,7 @@ fun ChatScreen(
                     loadTask = viewModel::loadTask,
                     onOpenTask = onOpenTask,
                     onOpenDigest = onOpenDigest,
+                    onOpenBilan = onOpenBilan,
                 )
                 ChatTab.MIND -> MindContent(
                     agentState = uiState.agentState,

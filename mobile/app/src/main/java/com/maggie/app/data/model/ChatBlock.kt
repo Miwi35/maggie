@@ -40,6 +40,14 @@ data class DigestBlock(
     val openedAt: String? = null,
 ) : ChatBlock
 
+/** The evening review a message announces (MAG-826): the [day] it is for and the [route] that opens its activity. */
+@Serializable
+data class BilanBlock(
+    val type: String = "bilan",
+    val day: String = "",
+    val route: String = "",
+) : ChatBlock
+
 /** A block this version does not know: kept so the list decodes, drawn as nothing. */
 @Serializable
 data class UnknownBlock(val type: String = "") : ChatBlock
@@ -50,6 +58,7 @@ object ChatBlockSerializer : JsonContentPolymorphicSerializer<ChatBlock>(ChatBlo
             "question" -> QuestionBlock.serializer()
             "task" -> TaskBlock.serializer()
             "digest" -> DigestBlock.serializer()
+            "bilan" -> BilanBlock.serializer()
             else -> UnknownBlock.serializer()
         }
 }

@@ -110,7 +110,7 @@ internal fun startNavGraphApp() {
         every { resume } returns MutableStateFlow(null)
     }
     val bilanResume = mockk<com.maggie.app.ui.screens.bilan.BilanResumeViewModel>(relaxed = true) {
-        every { resume } returns MutableStateFlow(null)
+        every { tile } returns MutableStateFlow(null)
     }
     val digestTile = mockk<com.maggie.app.ui.screens.home.DigestTileViewModel>(relaxed = true) {
         every { digest } returns MutableStateFlow(null)
