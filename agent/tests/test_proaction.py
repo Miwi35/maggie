@@ -370,6 +370,32 @@ class TestProactionConsumer:
             screen=None,
         )
 
+    async def test_the_digest_rendezvous_goes_through_run_digest_and_notifies_its_one_message(self):
+        """MAG-807: the digest is one message stored by `run_digest`; the consumer stores nothing more."""
+        stored = MagicMock(id="msg-1", audio={"durationMs": 900})
+        run = AsyncMock(return_value=({"response": "Bonjour monsieur.", "tool_calls": []}, stored))
+        notify = AsyncMock()
+
+        with (
+            patch("app.queue.proaction_consumer.run_digest", run),
+            patch("app.queue.proaction_consumer.notify_message", notify),
+        ):
+            consumed = await _consume({"response": "unused", "tool_calls": []}, summary="Digest du matin")
+
+        run.assert_awaited_once()
+        consumed.gateway.proaction.assert_not_called()
+        consumed.messages.create.assert_not_called()
+        notify.assert_awaited_once_with("user-1", "msg-1", "Bonjour monsieur.", has_audio=True, screen="digest")
+
+    async def test_another_proaction_keeps_the_generic_path(self):
+        run = AsyncMock()
+
+        with patch("app.queue.proaction_consumer.run_digest", run):
+            consumed = await _consume({"response": "C'est l'heure.", "tool_calls": []}, summary="Rappel")
+
+        run.assert_not_called()
+        consumed.messages.create.assert_called_once()
+
     async def test_a_retired_trip_check_completes_without_waking_the_model(self):
         """MAG-730: a « Check départ » programmed before the API's cron took over runs, and does nothing."""
         claimed = API_PROACTION | {"id": "pro-9", "status": "running", "summary": "Check départ · Dentiste"}

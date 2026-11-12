@@ -25,6 +25,7 @@ COMPONENT = "agent"
 
 # The signals of a behaviour that went wrong without raising (level `warning`).
 CLAIM_GUARD_RETRY = "claim_guard_retry"
+DIGEST_FACTS_MISSING = "digest_facts_missing"
 MCP_TOOL_ERROR = "mcp_tool_error"
 PROACTION_FAILED = "proaction_failed"
 UNANSWERED_MESSAGE = "unanswered_message"

@@ -224,12 +224,15 @@ class TestShippedSkills:
         await index.rebuild()
 
         digest = await index.get("digest") or ""
-        for tool in ("get_weather", "get_events_by_date", "list_trips", "get_tasks", "manage_meals"):
+        for tool in ("get_weather", "get_events_by_date", "get_tasks", "manage_meals", "get_grocery_list"):
             assert tool in digest
-        assert 'screen: "digest"' in digest
-        assert digest.index("**Météo**") < digest.index("**Agenda**") < digest.index("**Finance**")
-        assert digest.index("**Météo**") < digest.index("**Tes consignes d'hier soir**") < digest.index("**Agenda**")
-        assert 'activity: "bilan"' in digest
+        for forbidden in ("list_trips", "get_finance_scores", "get_activity_status", "Tes consignes d'hier soir"):
+            assert forbidden not in digest
+        assert "N'appelle jamais `send_voice_message`" in digest
+        assert "Aucune question" in digest
+        assert "jamais récitée" in digest
+        order = ["**Météo**", "**Déroulé chronologique**", "**Tâches du jour sans heure**", "**Décision éventuelle**"]
+        assert [digest.index(part) for part in order] == sorted(digest.index(part) for part in order)
         assert index.store.load("digest") is not None
 
     async def test_the_bilan_soir_skill_names_its_five_steps_in_order_and_its_tools(self, agent_db):
@@ -287,6 +290,9 @@ class TestSupersededShippedSkills:
     )
     def test_the_versions_deployed_by_mag_753_are_listed(self, deployed):
         assert deployed in SUPERSEDED_BUILTIN_BODIES["bilan-soir"]
+
+    def test_the_digest_replaced_by_mag_807_is_listed(self):
+        assert "edad938cdc10aad3cb738726f77f93eb11c214f7e843c2c99890b92e775bc6b1" in SUPERSEDED_BUILTIN_BODIES["digest"]
 
     async def test_an_edited_copy_is_kept(self, agent_db):
         index = _index()

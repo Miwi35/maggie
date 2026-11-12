@@ -167,6 +167,19 @@ class DigestViewModelTest {
     }
 
     @Test
+    fun `a single digest message is both the text and the vocal`() = runTest(dispatcher) {
+        val single = ChatMessage(id = "m1", role = "assistant", content = "Bonjour monsieur.", audio = AudioAttachment(durationMs = 9_000))
+        val other = ChatMessage(id = "m0", role = "user", content = "Merci")
+        coEvery { chat.loadMessageContext("m1") } returns listOf(other, single)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(single, viewModel.uiState.value.message)
+        assertEquals(single, viewModel.uiState.value.voice)
+    }
+
+    @Test
     fun `without a link there is no message`() = runTest(dispatcher) {
         val viewModel = viewModel(id = null)
 

@@ -452,9 +452,10 @@ web:
     paths:
       - 'agent/app/queue/**'
       - 'agent/app/skills/**'
+      - 'agent/app/digest*.py'
       - 'agent/app/tts/voice_message.py'
       - 'agent/fixtures/fake-llm/06-planning-digest.yaml'
-      - 'agent/fixtures/fake-llm/98-proaction-digest-due.yaml'
+      - 'agent/fixtures/fake-llm/98-proaction-digest-*'
       - 'api/modules/notification/src/Push/**'
   e2e/web/tests/task-settings.spec.ts:
     areas: [settings, calendar]
@@ -954,6 +955,8 @@ mobile:
     areas: [dashboard, chat, calendar]
     paths:
       - e2e/mobile/scripts/digest-api.js
+      - 'agent/app/digest*.py'
+      - 'agent/fixtures/fake-llm/98-proaction-digest-*'
       - 'api/modules/core/src/Weather/**'
       - mobile/app/src/main/java/com/maggie/app/ui/screens/digest/**
       - mobile/app/src/main/java/com/maggie/app/data/model/Weather.kt
