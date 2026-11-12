@@ -64,7 +64,11 @@ async def run_digest(gateway, proaction) -> tuple[dict, Message | None]:
     facts = required_facts(result.get("tool_calls") or [], day)
     missing = missing_facts(text, facts)
     if missing:
-        rewritten = await _rewrite(gateway, user_id, result.get("model"), text, missing)
+        try:
+            rewritten = await _rewrite(gateway, user_id, result.get("model"), text, missing)
+        except Exception as e:
+            logger.warning(f"Digest of {user_id} not rewritten, falling back to sentences: {e}")
+            rewritten = ""
         text = rewritten or text
         missing = missing_facts(text, facts)
     if missing:

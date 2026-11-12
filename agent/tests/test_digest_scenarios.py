@@ -206,6 +206,19 @@ class TestRunDigest:
         assert result["response"].count("Vous avez aussi") == 1
         assert "RELECTURE DU DIGEST" not in result["response"]
 
+    async def test_a_rewrite_in_error_keeps_the_text_and_appends_the_missing_sentence(self, api, storage, monkeypatch):
+        api.agenda["2030-11-14"] = [KINE]
+
+        async def down(*args, **kwargs):
+            raise RuntimeError("529")
+
+        monkeypatch.setattr("app.digest.run_tool_loop", down)
+
+        result, stored = await run_digest(_Gateway(), DIGEST)
+
+        assert result["response"].endswith("Vous avez aussi Kiné à 9 h 15.")
+        assert stored is storage.voice.return_value
+
     async def test_an_appointment_the_text_already_names_is_neither_rewritten_nor_appended(self, api, storage):
         api.agenda["2030-11-14"] = [SESSION]
         api._get_tasks = lambda arguments, user_id: {"tasks": [], "reminders": []}
