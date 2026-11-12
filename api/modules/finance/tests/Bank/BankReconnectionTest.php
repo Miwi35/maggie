@@ -17,6 +17,7 @@ use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\UseCase\CompleteBankAuthorization;
 use Maggie\Finance\UseCase\ImportStatement;
 use Maggie\Finance\UseCase\MergeDuplicateAccounts;
+use Maggie\Finance\UseCase\ReadBankStatement;
 use Maggie\Finance\UseCase\StartBankAuthorization;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Psr\Log\NullLogger;
@@ -151,8 +152,11 @@ class BankReconnectionTest extends KernelTestCase
     {
         $container = self::getContainer();
 
+        $client = $this->client($http);
+
         (new SyncBankAccounts(
-            $this->client($http),
+            $client,
+            new ReadBankStatement($client, $container->get(AccountRepository::class), $container->get('logger')),
             $container->get(BankConnectionRepository::class),
             $container->get(AccountRepository::class),
             $container->get(ImportStatement::class),

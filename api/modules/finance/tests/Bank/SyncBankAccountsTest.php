@@ -16,6 +16,7 @@ use Maggie\Finance\Repository\AccountRepository;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\ImportStatement;
 use Maggie\Finance\UseCase\MergeDuplicateAccounts;
+use Maggie\Finance\UseCase\ReadBankStatement;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -56,8 +57,11 @@ class SyncBankAccountsTest extends KernelTestCase
     {
         $container = self::getContainer();
 
+        $client = new EnableBankingClient($http, 'app-id', $this->keyPath, 'https://api.example.test');
+
         return new SyncBankAccounts(
-            new EnableBankingClient($http, 'app-id', $this->keyPath, 'https://api.example.test'),
+            $client,
+            new ReadBankStatement($client, $container->get(AccountRepository::class), $container->get('logger')),
             $container->get(BankConnectionRepository::class),
             $container->get(AccountRepository::class),
             $container->get(ImportStatement::class),

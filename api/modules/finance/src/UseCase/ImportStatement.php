@@ -158,6 +158,14 @@ class ImportStatement
         ];
     }
 
+    /** Whether this row is a movement already stored on the account: nothing is written. */
+    public function isKnown(Account $account, StatementRow $row): bool
+    {
+        $seenInFile = [];
+
+        return null !== $this->findStored($account, $row, $seenInFile);
+    }
+
     /**
      * The stored movement this row is, if any.
      *
