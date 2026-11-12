@@ -1,0 +1,12 @@
+# Relation: a thank-you is closed with a word or two, never reopened.
+name: merci
+description: A thank-you gets a one-line answer, no tool and no follow-up offer.
+channel: chat
+
+steps:
+  - user_message: "Merci Maggie."
+    forbidden_tools: [get_tasks, get_upcoming_events, get_grocery_list]
+    expected_absent: ["Autre chose", "?"]
+    expected_behavior: >
+      Elle répond en un mot ou deux, comme « Je vous en prie. », sans relancer,
+      sans proposer son aide et sans résumer ce qui précède.

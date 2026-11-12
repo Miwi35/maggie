@@ -1,0 +1,17 @@
+# Relation: when told she repeats herself, Maggie smiles at herself.
+name: rappel-en-double
+description: "A \"Tu me l'as déjà dit\" gets a light self-mocking line, with no justification."
+channel: chat
+
+steps:
+  - user_message: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
+    expected_tools: [get_upcoming_events]
+    expected_behavior: >
+      Elle annonce l'agenda du jour en phrases naturelles.
+
+  - user_message: "Tu me l'as déjà dit."
+    forbidden_tools: [get_upcoming_events]
+    expected_behavior: >
+      Elle répond par une tournure courte et naturelle qui sourit d'elle-même,
+      comme « Je radote. », sans se justifier, sans expliquer pourquoi elle
+      l'a redit et sans répéter l'information.

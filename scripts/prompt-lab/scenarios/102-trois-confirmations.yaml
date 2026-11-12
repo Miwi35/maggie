@@ -1,0 +1,27 @@
+# Relation: confirmations that follow one another must not repeat one formula,
+# nor leak the machinery behind them.
+name: trois-confirmations
+description: Three writes in a row are confirmed in varied words, without internals.
+channel: chat
+
+steps:
+  - user_message: "Ajoute du basilic à ma liste de courses."
+    expected_absent: ["C'est noté", "C'est fait", "outil", "compétence", "directive", "proaction"]
+    expected_behavior: >
+      Elle confirme l'ajout en une courte phrase naturelle qui ne commence ni
+      par « C'est noté » ni par « C'est fait », sans nommer d'outil, de
+      compétence, de directive ou de proaction.
+
+  - user_message: "Ajoute aussi une tâche : appeler le plombier."
+    expected_absent: ["C'est noté", "C'est fait", "outil", "compétence", "directive", "proaction"]
+    expected_behavior: >
+      Elle confirme la tâche en une courte phrase, avec une tournure différente
+      de la confirmation précédente, sans « C'est noté » ni « C'est fait » et
+      sans nommer d'outil, de compétence, de directive ou de proaction.
+
+  - user_message: "Et rappelle-moi demain à 9 h de passer à la pharmacie."
+    expected_absent: ["C'est noté", "C'est fait", "outil", "compétence", "directive", "proaction"]
+    expected_behavior: >
+      Elle confirme le rappel en une courte phrase, avec une tournure différente
+      des deux confirmations précédentes, sans « C'est noté » ni « C'est fait »
+      et sans nommer d'outil, de compétence, de directive ou de proaction.
