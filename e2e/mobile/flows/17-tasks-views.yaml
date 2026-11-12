@@ -155,10 +155,16 @@ tags:
     timeout: 20000
 - tapOn:
     id: "task_delete_cancel"
-- assertVisible:
-    id: "task_detail_delete"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail_delete"
+    timeout: 20000
 - tapOn:
     id: "task_detail_delete"
+- extendedWaitUntil:
+    visible:
+      id: "task_delete_confirm"
+    timeout: 20000
 - tapOn:
     id: "task_delete_confirm"
 - extendedWaitUntil:
