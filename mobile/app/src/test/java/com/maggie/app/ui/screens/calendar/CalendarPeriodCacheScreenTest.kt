@@ -63,6 +63,7 @@ class CalendarPeriodCacheScreenTest {
             .allowMainThreadQueries()
             .build()
         coEvery { api.getAgendas() } returns listOf(work)
+        coEvery { api.getModuleAgendas() } returns emptyList()
         coEvery { api.getRecurringEventsBefore(any()) } returns emptyList()
     }
 

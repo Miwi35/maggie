@@ -10,6 +10,9 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.mercure.coalescedAndRechecked
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.MODULE_AGENT
+import com.maggie.app.data.model.MODULE_COOKBOOK
+import com.maggie.app.data.model.MODULE_TASKS
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.GoogleCalendar
@@ -58,6 +61,8 @@ data class FullCalendarUiState(
     val expandedEvents: List<ExpandedEvent> = emptyList(),
     val tasks: List<Task> = emptyList(),
     val agendas: List<Agenda> = emptyList(),
+    // The agendas the modules keep (Repas, Maggie, Santé, Finance, Tâches…), a line each in the filters (MAG-820).
+    val moduleAgendas: List<Agenda> = emptyList(),
     val enabledAgendas: Set<String> = emptySet(),
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -72,11 +77,11 @@ data class FullCalendarUiState(
     val trips: List<Trip> = emptyList(),
 )
 
-/** The id of the one « Repas » line, and of the meals' [ExpandedEvent.agendaIri]. */
+/** Before the module's agenda exists: the id the meals carry, and the colour they take. */
 const val MEALS_FILTER_ID = "__meals__"
 const val MEALS_COLOR = "#FF6B35"
 
-/** The id of the one « Maggie » line, and of the proactions' [ExpandedEvent.agendaIri]. */
+/** Same for the proactions. */
 const val PROACTIONS_FILTER_ID = "__proactions__"
 const val PROACTIONS_COLOR = "#7C4DFF"
 
@@ -102,7 +107,9 @@ class FullCalendarViewModel(
     private var allEvents: List<Event> = emptyList()
     private var meals: List<Meal> = emptyList()
     private var proactions: List<Proaction> = emptyList()
-    private var agendaMap: Map<String, Agenda> = emptyMap()
+    private var userAgendaMap: Map<String, Agenda> = emptyMap()
+    private var moduleAgendaMap: Map<String, Agenda> = emptyMap()
+    private val agendaMap: Map<String, Agenda> get() = userAgendaMap + moduleAgendaMap
     private val loader = SingleFlight(viewModelScope) { load() }
     private var forceNext = false
     private var periodJob: Job? = null
@@ -129,6 +136,11 @@ class FullCalendarViewModel(
                         fetchPreferenceIfMissing()
                     }
                 }
+        }
+        if (module == null) {
+            viewModelScope.launch {
+                agendaRepository.moduleAgendas.collect { applyModuleAgendas(it) }
+            }
         }
         viewModelScope.launch {
             applyPreference(userPreferenceRepository.preference.filterNotNull().first())
@@ -177,8 +189,32 @@ class FullCalendarViewModel(
         val matching = agendaIds.filter { it.substringAfterLast('/') in wanted }
         // Empty = never customised; no match = stale ids: both keep every agenda visible.
         if (matching.isEmpty()) return
-        _uiState.value = _uiState.value.copy(enabledAgendas = matching.toSet())
+        _uiState.value = _uiState.value.copy(enabledAgendas = matching.toSet() + moduleAgendaMap.keys)
     }
+
+    // The modules' agendas come on, as the user's do, the first time the screen sees them; a rename or a new colour reaches the line and the layer.
+    private fun applyModuleAgendas(agendas: List<Agenda>) {
+        val known = moduleAgendaMap.keys
+        moduleAgendaMap = agendas.associateBy { it.id }
+        val enabled = _uiState.value.enabledAgendas.filter { it in userAgendaMap || it in moduleAgendaMap }.toSet() +
+            (moduleAgendaMap.keys - known)
+        _uiState.value = _uiState.value.copy(moduleAgendas = agendas, enabledAgendas = enabled)
+        expandForCurrentRange()
+    }
+
+    private fun moduleAgenda(module: String): Agenda? = moduleAgendaMap.values.firstOrNull { it.module == module }
+
+    /** The module whose layer [agendaIri] is: tasks, cookbook (meals) or agent (proactions); null for an event's agenda. */
+    fun layerOf(agendaIri: String?): String? = when (agendaIri) {
+        null -> null
+        TASKS_FILTER_ID -> MODULE_TASKS
+        MEALS_FILTER_ID -> MODULE_COOKBOOK
+        PROACTIONS_FILTER_ID -> MODULE_AGENT
+        else -> moduleAgendaMap[agendaIri]?.module?.takeIf { it in LAYERS }
+    }
+
+    private fun layerShown(agenda: Agenda?, fallback: Boolean): Boolean =
+        if (agenda != null) agenda.id in _uiState.value.enabledAgendas else fallback
 
     private fun viewTypeOf(value: String) = when (value) {
         "week" -> CalendarViewType.WEEK
@@ -262,6 +298,8 @@ class FullCalendarViewModel(
             val agendas = agendaRepository.loadAgendas(force).getOrThrow()
             agendasFetched = true
             applyAgendas(agendas)
+            // Best effort: without them the layers keep their own colour and no line.
+            agendaRepository.loadModuleAgendas()
 
             // The events reach the screen through the cache (observeEvents), once the period is in it.
             eventRepository.loadPeriod(visiblePeriod(), force).getOrThrow()
@@ -289,8 +327,8 @@ class FullCalendarViewModel(
     // The cache holds the agendas; a list that is empty before the first read says nothing about the account.
     private fun applyAgendas(agendas: List<Agenda>) {
         if (module != null || (agendas.isEmpty() && !agendasFetched)) return
-        val known = agendaMap.keys
-        agendaMap = agendas.associateBy { it.id }
+        val known = userAgendaMap.keys
+        userAgendaMap = agendas.associateBy { it.id }
 
         // Auto-enable new agendas: the ones the screen has not seen yet, not the ones the user or the preference left out.
         val previousEnabled = _uiState.value.enabledAgendas
@@ -427,7 +465,8 @@ class FullCalendarViewModel(
      * is past and done or failed. The id stays the proaction's, which is also its event id.
      */
     private fun proactionEvents(): List<ExpandedEvent> {
-        if (module != null || !_uiState.value.proactionsEnabled) return emptyList()
+        val layer = moduleAgenda(MODULE_AGENT)
+        if (module != null || !layerShown(layer, _uiState.value.proactionsEnabled)) return emptyList()
         val now = clock.instant()
         val range = getVisibleRange()
         return proactions.mapNotNull { proaction ->
@@ -447,9 +486,9 @@ class FullCalendarViewModel(
                 startAt = start.toString(),
                 endAt = end.toString(),
                 timeZone = proaction.timeZone ?: DateRanges.zone.id,
-                agendaIri = PROACTIONS_FILTER_ID,
-                agendaColor = PROACTIONS_COLOR,
-                agendaName = "Maggie",
+                agendaIri = layer?.id ?: PROACTIONS_FILTER_ID,
+                agendaColor = layer?.color ?: PROACTIONS_COLOR,
+                agendaName = layer?.name ?: "Maggie",
             )
         }.sortedBy { it.sortKey }
     }
@@ -483,7 +522,8 @@ class FullCalendarViewModel(
     }
 
     private fun mealEvents(): List<ExpandedEvent> {
-        if (module == null && !_uiState.value.mealsEnabled) return emptyList()
+        val layer = moduleAgenda(MODULE_COOKBOOK)
+        if (module == null && !layerShown(layer, _uiState.value.mealsEnabled)) return emptyList()
         val days = visibleDays()
         return meals
             .filter { LocalDate.parse(it.date) in days }
@@ -496,21 +536,22 @@ class FullCalendarViewModel(
                     allDay = true,
                     startDate = day,
                     endDate = endDateAfter(day),
-                    agendaIri = MEALS_FILTER_ID,
-                    agendaColor = MEALS_COLOR,
-                    agendaName = "Repas",
+                    agendaIri = layer?.id ?: MEALS_FILTER_ID,
+                    agendaColor = layer?.color ?: MEALS_COLOR,
+                    agendaName = layer?.name ?: "Repas",
                 )
             }
     }
 
     /** The undone tasks with a scheduled day in the range, on that day (MAG-718); none in a module's own view. */
     private fun taskEvents(): List<ExpandedEvent> {
-        if (module != null) return emptyList()
+        val layer = moduleAgenda(MODULE_TASKS)
+        if (module != null || !layerShown(layer, true)) return emptyList()
         val range = getVisibleRange()
         val days = visibleDays()
         return _uiState.value.tasks
             .filter { !it.isDone }
-            .mapNotNull { scheduledTaskEvent(it, DateRanges.zone) }
+            .mapNotNull { scheduledTaskEvent(it, DateRanges.zone, layer?.id ?: TASKS_FILTER_ID, layer?.color ?: TASKS_FALLBACK_COLOR, layer?.name ?: "Tâches") }
             .filter { event ->
                 val start = event.startAt?.let(Instant::parse)
                 if (start != null) start >= range.start && start < range.end else event.startDate?.let { it in days } == true
@@ -630,6 +671,7 @@ class FullCalendarViewModel(
     }
 
     private companion object {
+        val LAYERS = setOf(MODULE_TASKS, MODULE_COOKBOOK, MODULE_AGENT)
         val PROACTION_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
         // The API may answer with an offset (`+02:00`) where the timeline parses instants.

@@ -9,6 +9,9 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.GoogleCalendar
 import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -23,6 +26,14 @@ class AgendaRepository(
 ) {
     @Volatile
     private var lastReadAt: Long? = null
+
+    // The modules' agendas stay out of the table: the choices of agenda and the settings list the user's own.
+    private val _moduleAgendas = MutableStateFlow<List<Agenda>>(emptyList())
+    val moduleAgendas: StateFlow<List<Agenda>> = _moduleAgendas
+
+    suspend fun loadModuleAgendas(): Result<List<Agenda>> = runCatching {
+        apiService.getModuleAgendas().also { _moduleAgendas.value = it }
+    }
 
     fun observeAgendas(): Flow<List<Agenda>> =
         agendaDao.observeAll().map { entities ->
@@ -61,11 +72,16 @@ class AgendaRepository(
         val deleted = mutableListOf<String>()
         for ((id, gone) in pushes) {
             if (gone) {
+                _moduleAgendas.update { list -> list.filterNot { it.id == id } }
                 agendaDao.deleteById(id)
                 deleted += id
                 continue
             }
             val agenda = runCatching { apiService.getAgenda(id) }.rethrowCancellation().getOrNull() ?: continue
+            if (agenda.module != null) {
+                _moduleAgendas.update { list -> list.filterNot { it.id == agenda.id } + agenda }
+                continue
+            }
             agendaDao.upsertAll(listOf(AgendaEntity.fromModel(agenda)))
         }
         return deleted

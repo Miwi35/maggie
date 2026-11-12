@@ -382,6 +382,8 @@ class FakeCalendar(private val events: List<Event>) {
         coEvery { taskRepository.getUndoneTasks(any()) } returns emptyList()
         coEvery { agendaRepository.loadAgendas(any()) } returns Result.success(emptyList())
         every { agendaRepository.observeAgendas() } returns MutableStateFlow(emptyList())
+        every { agendaRepository.moduleAgendas } returns MutableStateFlow(emptyList())
+        coEvery { agendaRepository.loadModuleAgendas() } returns Result.success(emptyList())
         val userPreferenceRepository = mockk<UserPreferenceRepository>()
         every { userPreferenceRepository.preference } returns MutableStateFlow(null)
         coEvery { userPreferenceRepository.refresh() } returns Result.failure(IllegalStateException("no preference"))

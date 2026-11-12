@@ -69,6 +69,7 @@ class CalendarViewModelTest {
     // The cache the screen observes: what a read, a push or an edit puts in the tables.
     private val cachedEvents = MutableStateFlow<List<Event>>(emptyList())
     private val cachedAgendas = MutableStateFlow<List<Agenda>>(emptyList())
+    private val cachedModuleAgendas = MutableStateFlow<List<Agenda>>(emptyList())
 
     @Before
     fun setup() {
@@ -84,6 +85,8 @@ class CalendarViewModelTest {
         coEvery { tripRepository.getTrips(any()) } returns Result.success(emptyList())
         every { eventRepository.observeEvents() } returns cachedEvents
         every { agendaRepository.observeAgendas() } returns cachedAgendas
+        every { agendaRepository.moduleAgendas } returns cachedModuleAgendas
+        coEvery { agendaRepository.loadModuleAgendas() } returns Result.success(emptyList())
         mercureService = mockk()
         authRepository = mockk(relaxed = true)
         every { authRepository.token } returns flowOf("test-jwt")
@@ -575,6 +578,80 @@ class CalendarViewModelTest {
         assertEquals(java.time.LocalDate.of(2026, 6, 15), shown.getValue("01EVE").startDate)
         assertEquals("Soir : Préparer le weekend", shown.getValue("01EVE").summary)
         assertEquals(setOf("__tasks__"), shown.values.mapNotNull { it.agendaIri }.toSet())
+    }
+
+    /** MAG-820: the modules' agendas are lines of the filter and give their layers their colour and name. */
+    @Test
+    fun `module agendas are listed and enabled`() = runTest {
+        stubRepositories()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        cachedModuleAgendas.value = listOf(
+            Agenda(id = "T", name = "Tâches", color = "#E8A9D9", module = "tasks"),
+            Agenda(id = "S", name = "Santé", color = "#FF8A80", module = "health"),
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("Tâches", "Santé"), viewModel.uiState.value.moduleAgendas.map { it.name })
+        assertTrue(viewModel.uiState.value.enabledAgendas.containsAll(listOf("T", "S")))
+        assertTrue(viewModel.uiState.value.agendas.isEmpty())
+    }
+
+    @Test
+    fun `tasks layer takes the tasks agenda colour and name`() = runTest {
+        val task = Task(id = "01T", title = "Appeler", scheduledDate = "2026-06-15", scheduledMoment = "evening")
+        stubRepositories(tasks = listOf(task))
+        cachedModuleAgendas.value = listOf(Agenda(id = "T", name = "À faire", color = "#123456", module = "tasks"))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.setViewType(CalendarViewType.DAY)
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+
+        val shown = viewModel.uiState.value.expandedEvents.single()
+        assertEquals("T", shown.agendaIri)
+        assertEquals("#123456", shown.agendaColor)
+        assertEquals("À faire", shown.agendaName)
+        assertEquals("tasks", viewModel.layerOf(shown.agendaIri))
+    }
+
+    @Test
+    fun `unticking tasks agenda hides scheduled tasks`() = runTest {
+        val task = Task(id = "01T", title = "Appeler", scheduledDate = "2026-06-15", scheduledMoment = "evening")
+        stubRepositories(tasks = listOf(task))
+        cachedModuleAgendas.value = listOf(Agenda(id = "T", name = "Tâches", color = "#E8A9D9", module = "tasks"))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.setViewType(CalendarViewType.DAY)
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.expandedEvents.size)
+
+        viewModel.toggleAgenda("T")
+        assertTrue(viewModel.uiState.value.expandedEvents.isEmpty())
+        viewModel.toggleAgenda("T")
+        assertEquals(1, viewModel.uiState.value.expandedEvents.size)
+    }
+
+    @Test
+    fun `health events show once its agenda is known`() = runTest {
+        val session = Event(id = "H1", summary = "Séance", startAt = "2026-06-15T10:00:00Z", endAt = "2026-06-15T11:00:00Z", agenda = "/api/agendas/H")
+        stubRepositories(events = listOf(session))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.setViewType(CalendarViewType.DAY)
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 6, 15))
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.expandedEvents.isEmpty())
+
+        cachedModuleAgendas.value = listOf(Agenda(id = "H", name = "Santé", color = "#FF8A80", module = "health"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("Séance"), viewModel.uiState.value.expandedEvents.map { it.summary })
     }
 
     /** MAG-382: a day is its dates. The 14th's event, which midnight UTC used to drag into the 15th, stays on the 14th. */
