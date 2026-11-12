@@ -4,7 +4,7 @@ import com.maggie.app.data.api.BodyMeasurementWriteRequest
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.model.BodyMeasurement
 
-/** The owner's body measurements (MAG-706): those since a date, newest first, a new one, and « Écarter ». */
+/** The owner's body measurements (MAG-706): those since a date, newest first, a new one, « Écarter » and delete. */
 class BodyMeasurementRepository(
     private val apiService: MaggieApiService,
 ) {
@@ -14,6 +14,9 @@ class BodyMeasurementRepository(
 
     suspend fun createBodyMeasurement(request: BodyMeasurementWriteRequest): Result<BodyMeasurement> =
         runCatching { apiService.createBodyMeasurement(request) }
+
+    suspend fun deleteBodyMeasurement(id: String): Result<Unit> =
+        runCatching { apiService.deleteBodyMeasurement(id) }
 
     suspend fun setExcluded(id: String, excluded: Boolean): Result<BodyMeasurement> =
         runCatching { apiService.setBodyMeasurementExcluded(id, excluded) }

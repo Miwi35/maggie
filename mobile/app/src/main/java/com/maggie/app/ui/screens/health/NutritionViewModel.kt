@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.health
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.api.FoodIntakeUpdateRequest
 import com.maggie.app.data.api.FoodIntakeWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -38,6 +40,8 @@ data class NutritionUiState(
     val eating: Set<String> = emptySet(),
     /** The « Ajouter » dialog is open — kept here so a rotation does not close it. */
     val addOpen: Boolean = false,
+    /** The entry whose form is open (MAG-800) — kept here so a rotation does not close it. */
+    val editing: FoodIntake? = null,
     val isSaving: Boolean = false,
     /** Today's fast (MAG-770); `null` until it answered, and its protocol null when the owner does not fast. */
     val fasting: FastingStatus? = null,
@@ -212,6 +216,53 @@ class NutritionViewModel(
         }
     }
 
+    fun openEdit(intake: FoodIntake) {
+        _uiState.value = _uiState.value.copy(editing = intake)
+    }
+
+    fun closeEdit() {
+        _uiState.value = _uiState.value.copy(editing = null)
+    }
+
+    /**
+     * The entry edited (MAG-800): the day it was eaten keeps its date, [time] moves it within that day. The form closes
+     * once the API took it, and the day is read again so the line and the totals are the API's.
+     */
+    fun update(
+        intake: FoodIntake,
+        label: String,
+        quantityGrams: Double?,
+        kcal: Int,
+        proteinG: Double?,
+        carbsG: Double?,
+        fatG: Double?,
+        time: LocalTime,
+    ) {
+        if (_uiState.value.isSaving || label.isBlank()) return
+        _uiState.value = _uiState.value.copy(isSaving = true, error = null)
+        val eatenAt = runCatching {
+            val local = OffsetDateTime.parse(intake.eatenAt).atZoneSameInstant(zone).toLocalDate().atTime(time.truncatedTo(ChronoUnit.MINUTES))
+            isoWithOffset(local.atZone(zone).toOffsetDateTime())
+        }.getOrDefault(intake.eatenAt)
+        val request = FoodIntakeUpdateRequest(
+            eatenAt = eatenAt,
+            label = label.trim(),
+            quantityGrams = quantityGrams,
+            kcal = kcal,
+            proteinG = proteinG ?: 0.0,
+            carbsG = carbsG ?: 0.0,
+            fatG = fatG ?: 0.0,
+        )
+        viewModelScope.launch {
+            repository.updateFoodIntake(intake.id, request)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isSaving = false, editing = null, message = MESSAGE_UPDATED)
+                    load(showLoading = false)
+                }
+                .onFailure { _uiState.value = _uiState.value.copy(isSaving = false, error = refusal(it, MESSAGE_UPDATE)) }
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
@@ -232,6 +283,8 @@ class NutritionViewModel(
         const val MESSAGE_DELETED = "Aliment supprimé"
         const val MESSAGE_ADD = "L'aliment n'a pas été ajouté."
         const val MESSAGE_ADDED = "Aliment ajouté"
+        const val MESSAGE_UPDATE = "L'aliment n'a pas été modifié."
+        const val MESSAGE_UPDATED = "Aliment modifié"
         const val MESSAGE_FASTING_SAVE = "Le jeûne n'a pas été enregistré."
         const val MESSAGE_FASTING_SAVED = "Jeûne enregistré"
     }

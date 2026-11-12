@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -232,6 +233,35 @@ class NutritionScreenTest {
         compose.onNodeWithTag(UiTags.NUTRITION_ADD_SAVE).assertIsEnabled().performClick()
 
         assertEquals(listOf(listOf<Any?>("Yaourt", 90, 4.5, null, null)), saved)
+    }
+
+    @Test
+    fun `the edit form starts from the entry and hands over what was changed`() {
+        val saved = mutableListOf<List<Any?>>()
+        compose.setContent {
+            EditFoodForm(
+                apple, ZoneId.of("Europe/Paris"), saving = false,
+                onSave = { _, l, q, k, p, c, f, t -> saved += listOf(l, q, k, p, c, f, t.toString()) },
+                onDismiss = {},
+            )
+        }
+
+        compose.onNodeWithTag(UiTags.NUTRITION_EDIT_LABEL).assertTextEquals("Aliment", "Pomme")
+        compose.onNodeWithTag(UiTags.NUTRITION_EDIT_TIME).assertTextEquals("Heure (HH:mm)", "10:00")
+        compose.onNodeWithTag(UiTags.NUTRITION_EDIT_QUANTITY).performTextReplacement("150")
+        compose.onNodeWithTag(UiTags.NUTRITION_EDIT_KCAL).performTextReplacement("120")
+        compose.onNodeWithTag(UiTags.NUTRITION_EDIT_SAVE).assertIsEnabled().performClick()
+
+        assertEquals(listOf(listOf<Any?>("Pomme", 150.0, 120, 0.0, 0.0, 0.0, "10:00")), saved)
+    }
+
+    @Test
+    fun `the edit form refuses a time that is not one`() {
+        compose.setContent { EditFoodForm(apple, ZoneId.of("Europe/Paris"), saving = false, onSave = { _, _, _, _, _, _, _, _ -> }, onDismiss = {}) }
+
+        compose.onNodeWithTag(UiTags.NUTRITION_EDIT_TIME).performTextReplacement("25:61")
+
+        compose.onNodeWithTag(UiTags.NUTRITION_EDIT_SAVE).assertIsNotEnabled()
     }
 
     @Test

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -61,6 +62,7 @@ import com.maggie.app.ui.navigation.LocalModuleBar
 import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.delay
+import java.time.LocalTime
 import java.time.ZoneId
 
 /**
@@ -162,7 +164,7 @@ private fun NutritionContent(
                     MacrosCard(balance)
                 }
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-                    JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::delete)
+                    JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::delete, viewModel::openEdit)
                 }
             }
             else -> Column(
@@ -173,12 +175,15 @@ private fun NutritionContent(
                 fasting?.let { FastingCard(it, onOpenSheet = viewModel::openFastingSheet) }
                 BalanceWeekChart(week)
                 MacrosCard(balance)
-                JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::delete)
+                JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::delete, viewModel::openEdit)
             }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 
+    uiState.editing?.let { intake ->
+        EditFoodDialog(intake, viewModel.zone, uiState.isSaving, onSave = viewModel::update, onDismiss = viewModel::closeEdit)
+    }
     if (uiState.addOpen) {
         AddFoodDialog(saving = uiState.isSaving, onSave = viewModel::add, onDismiss = viewModel::closeAdd)
     }
@@ -231,6 +236,7 @@ private fun JournalCard(
     zone: ZoneId,
     onEat: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onEdit: (FoodIntake) -> Unit,
 ) {
     val surface = maggieSurface()
     MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Journal" }.testTag(UiTags.NUTRITION_JOURNAL)) {
@@ -246,7 +252,7 @@ private fun JournalCard(
             }
             intakes.forEach { intake ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().testTag(UiTags.nutritionIntake(intake.id)),
+                    modifier = Modifier.fillMaxWidth().clickable { onEdit(intake) }.testTag(UiTags.nutritionIntake(intake.id)),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
@@ -358,6 +364,92 @@ internal fun AddFoodForm(
     }
 }
 
+/** « Modifier l'aliment », in its own window; the form is [EditFoodForm]. */
+@Composable
+private fun EditFoodDialog(
+    intake: FoodIntake,
+    zone: ZoneId,
+    saving: Boolean,
+    onSave: (FoodIntake, String, Double?, Int, Double?, Double?, Double?, LocalTime) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = AlertDialogDefaults.shape,
+            color = AlertDialogDefaults.containerColor,
+            tonalElevation = AlertDialogDefaults.TonalElevation,
+            modifier = Modifier.uiTagRoot(),
+        ) {
+            EditFoodForm(intake, zone, saving, onSave, onDismiss)
+        }
+    }
+}
+
+/** The add form's fields, filled from the entry, plus its quantity and its time of day; « Enregistrer » sends a PATCH. */
+@Composable
+internal fun EditFoodForm(
+    intake: FoodIntake,
+    zone: ZoneId,
+    saving: Boolean,
+    onSave: (FoodIntake, String, Double?, Int, Double?, Double?, Double?, LocalTime) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var label by rememberSaveable(intake.id) { mutableStateOf(intake.label) }
+    var quantity by rememberSaveable(intake.id) { mutableStateOf(intake.quantityGrams?.let(::gramsText).orEmpty()) }
+    var kcal by rememberSaveable(intake.id) { mutableStateOf(intake.kcal.toString()) }
+    var protein by rememberSaveable(intake.id) { mutableStateOf(gramsText(intake.proteinG)) }
+    var carbs by rememberSaveable(intake.id) { mutableStateOf(gramsText(intake.carbsG)) }
+    var fat by rememberSaveable(intake.id) { mutableStateOf(gramsText(intake.fatG)) }
+    var time by rememberSaveable(intake.id) { mutableStateOf(intakeTime(intake.eatenAt, zone)) }
+    val kcalValue = parseKcal(kcal)
+    val timeValue = parseClockTime(time)
+    val valid = label.isNotBlank() && kcalValue != null && timeValue != null &&
+        listOf(quantity, protein, carbs, fat).all { it.isBlank() || parseGrams(it) != null }
+
+    Column(
+        modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState()).testTag(UiTags.NUTRITION_EDIT_DIALOG),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Modifier l’aliment", fontSize = 20.sp, modifier = Modifier.padding(bottom = 8.dp))
+        OutlinedTextField(
+            value = label,
+            onValueChange = { label = it },
+            label = { Text("Aliment") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().testTag(UiTags.NUTRITION_EDIT_LABEL),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumberField(quantity, { quantity = it }, "Quantité g", UiTags.NUTRITION_EDIT_QUANTITY, Modifier.weight(1f))
+            OutlinedTextField(
+                value = time,
+                onValueChange = { time = it },
+                label = { Text("Heure (HH:mm)") },
+                singleLine = true,
+                isError = timeValue == null,
+                modifier = Modifier.weight(1f).testTag(UiTags.NUTRITION_EDIT_TIME),
+            )
+        }
+        NumberField(kcal, { kcal = it }, "kcal", UiTags.NUTRITION_EDIT_KCAL, decimal = false)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NumberField(protein, { protein = it }, "Protéines g", UiTags.NUTRITION_EDIT_PROTEIN, Modifier.weight(1f))
+            NumberField(carbs, { carbs = it }, "Glucides g", UiTags.NUTRITION_EDIT_CARBS, Modifier.weight(1f))
+            NumberField(fat, { fat = it }, "Lipides g", UiTags.NUTRITION_EDIT_FAT, Modifier.weight(1f))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+            TextButton(
+                onClick = {
+                    onSave(intake, label, parseGrams(quantity), kcalValue!!, parseGrams(protein), parseGrams(carbs), parseGrams(fat), timeValue!!)
+                },
+                enabled = valid && !saving,
+                modifier = Modifier.testTag(UiTags.NUTRITION_EDIT_SAVE),
+            ) {
+                Text("Enregistrer")
+            }
+        }
+    }
+}
+
 @Composable
 private fun NumberField(
     value: String,
@@ -376,6 +468,15 @@ private fun NumberField(
         modifier = modifier.testTag(tag),
     )
 }
+
+/** `12:30` or `7:05`, a time of day; anything else is not a time yet. */
+internal fun parseClockTime(text: String): LocalTime? =
+    Regex("""(\d{1,2}):(\d{2})""").matchEntire(text.trim())?.destructured?.let { (h, m) ->
+        runCatching { LocalTime.of(h.toInt(), m.toInt()) }.getOrNull()
+    }
+
+/** `120` for 120.0, `4,5` for 4.5: what the field shows, as the owner types it. */
+internal fun gramsText(value: Double): String = value.toString().removeSuffix(".0").replace('.', ',')
 
 /** Whole kcal from 0 to 10 000, as the API takes them; anything else is not a value yet. */
 internal fun parseKcal(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it in 0..10_000 }

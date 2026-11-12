@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.health
 
 import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.api.FoodIntakeUpdateRequest
 import com.maggie.app.data.api.FoodIntakeWriteRequest
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
@@ -17,6 +18,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,6 +39,7 @@ import org.junit.Before
 import org.junit.Test
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalTime
 import java.time.ZoneId
 
 /**
@@ -200,6 +203,44 @@ class NutritionViewModelTest {
         coVerify { repository.deleteFoodIntake("apple") }
         assertTrue(viewModel.uiState.value.intakes.isEmpty())
         assertEquals(NutritionViewModel.MESSAGE_DELETED, viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `updateChangesTheIntakeAndTheDayTotal`() = runTest {
+        val request = slot<FoodIntakeUpdateRequest>()
+        coEvery { repository.updateFoodIntake("apple", capture(request)) } returns Result.success(apple.copy(kcal = 156))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openEdit(apple)
+        viewModel.update(apple, " Pomme ", 300.0, 156, null, 40.0, null, LocalTime.of(10, 15))
+        coEvery { repository.getFoodIntakes(any()) } returns Result.success(listOf(apple.copy(kcal = 156)))
+        coEvery { repository.getDailyBalance(any()) } returns Result.success(planned.copy(eatenKcal = 156))
+        advanceUntilIdle()
+
+        assertEquals(
+            FoodIntakeUpdateRequest("2026-11-07T10:15:00+01:00", "Pomme", 300.0, 156, 0.0, 40.0, 0.0),
+            request.captured,
+        )
+        assertEquals(156, viewModel.uiState.value.intakes.single().kcal)
+        assertEquals(156, viewModel.uiState.value.balance?.eatenKcal)
+        assertNull(viewModel.uiState.value.editing)
+        assertEquals(NutritionViewModel.MESSAGE_UPDATED, viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `a refused update keeps the form open and says why`() = runTest {
+        coEvery { repository.updateFoodIntake("apple", any()) } returns Result.failure(ApiRefusalException(400, "kcal: too much."))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.openEdit(apple)
+        viewModel.update(apple, "Pomme", null, 99, null, null, null, LocalTime.of(10, 0))
+        advanceUntilIdle()
+
+        assertEquals(apple, viewModel.uiState.value.editing)
+        assertEquals("kcal: too much.", viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.isSaving)
     }
 
     @Test

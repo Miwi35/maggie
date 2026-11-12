@@ -847,6 +847,21 @@ data class FoodIntakeWriteRequest(
 )
 
 /**
+ * An entry edited by hand (MAG-800), the merge-patch `PATCH /api/health/food-intakes/{id}`. No field has a default, so
+ * every one is sent: [quantityGrams] null clears the quantity, a macro left out is 0 as in [FoodIntakeWriteRequest].
+ */
+@Serializable
+data class FoodIntakeUpdateRequest(
+    val eatenAt: String,
+    val label: String,
+    val quantityGrams: Double?,
+    val kcal: Int,
+    val proteinG: Double,
+    val carbsG: Double,
+    val fatG: Double,
+)
+
+/**
  * `POST /api/finance/projects/preview` (MAG-553): a project as at creation, but its dependencies are plain ids,
  * not IRIs. [scenarioId] null previews in the current scenario. Nothing is created.
  */
@@ -3119,6 +3134,10 @@ class MaggieApiService(
         }.orRefusal().body()
     }
 
+    suspend fun deleteBodyMeasurement(id: String) {
+        client.delete("$baseUrl/api/body-measurements/$id").orRefusal()
+    }
+
     suspend fun setBodyMeasurementExcluded(id: String, excluded: Boolean): BodyMeasurement {
         return client.patch("$baseUrl/api/body-measurements/$id") {
             contentType(MERGE_PATCH)
@@ -3175,6 +3194,14 @@ class MaggieApiService(
     suspend fun createFoodIntake(request: FoodIntakeWriteRequest): FoodIntake {
         return client.post("$baseUrl/api/health/food-intakes") {
             contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(request)
+        }.orRefusal().body()
+    }
+
+    suspend fun updateFoodIntake(id: String, request: FoodIntakeUpdateRequest): FoodIntake {
+        return client.patch("$baseUrl/api/health/food-intakes/$id") {
+            contentType(MERGE_PATCH)
             accept(ContentType("application", "ld+json"))
             setBody(request)
         }.orRefusal().body()

@@ -1,5 +1,6 @@
 package com.maggie.app.data.repository
 
+import com.maggie.app.data.api.FoodIntakeUpdateRequest
 import com.maggie.app.data.api.FoodIntakeWriteRequest
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.model.DailyBalance
@@ -32,6 +33,9 @@ class NutritionRepository(
 
     suspend fun createFoodIntake(request: FoodIntakeWriteRequest): Result<FoodIntake> =
         runCatching { apiService.createFoodIntake(request) }
+
+    suspend fun updateFoodIntake(id: String, request: FoodIntakeUpdateRequest): Result<FoodIntake> =
+        runCatching { apiService.updateFoodIntake(id, request) }
 
     suspend fun deleteFoodIntake(id: String): Result<Unit> =
         runCatching { apiService.deleteFoodIntake(id) }

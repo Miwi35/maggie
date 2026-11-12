@@ -2095,6 +2095,7 @@ object UiTags {
     const val WEIGHT_VALUE = "weight_value"
     const val WEIGHT_COLUMN_PREFIX = "weight_column_"
     const val WEIGHT_EXCLUDE = "weight_exclude"
+    const val WEIGHT_DELETE = "weight_delete"
 
     /**
      * « Santé › Nutrition » (MAG-748): the screen and its empty state; the « Bilan du jour » card (also at the top of
@@ -2124,6 +2125,15 @@ object UiTags {
     const val NUTRITION_ADD_CARBS = "nutrition_add_carbs"
     const val NUTRITION_ADD_FAT = "nutrition_add_fat"
     const val NUTRITION_ADD_SAVE = "nutrition_add_save"
+    const val NUTRITION_EDIT_DIALOG = "nutrition_edit_dialog"
+    const val NUTRITION_EDIT_LABEL = "nutrition_edit_label"
+    const val NUTRITION_EDIT_QUANTITY = "nutrition_edit_quantity"
+    const val NUTRITION_EDIT_KCAL = "nutrition_edit_kcal"
+    const val NUTRITION_EDIT_PROTEIN = "nutrition_edit_protein"
+    const val NUTRITION_EDIT_CARBS = "nutrition_edit_carbs"
+    const val NUTRITION_EDIT_FAT = "nutrition_edit_fat"
+    const val NUTRITION_EDIT_TIME = "nutrition_edit_time"
+    const val NUTRITION_EDIT_SAVE = "nutrition_edit_save"
 
     /** The intermittent fast of Santé › Nutrition (MAG-770): its card, its sheet, the tablet's 14 nights. */
     const val FASTING_CARD = "fasting_card"
