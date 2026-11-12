@@ -34,6 +34,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 
 /** The Bilan de la journée's transitions (MAG-751): opening, next step, quit, resume, network error, and the other devices. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -46,6 +47,7 @@ class BilanActivityViewModelTest {
     private val mercure = mockk<MercureService> { every { subscribe(any()) } returns events }
     private val auth = mockk<AuthRepository> { coEvery { getUserId() } returns "u-1" }
     private val repository = mockk<ActivityStatusRepository>()
+    private val doneStore = FakeBilanDoneStore()
     private var stored: ActivityStatus? = null
     private var failing = false
     private val puts = mutableListOf<Pair<ActivityOrigin, JsonObject>>()
@@ -82,7 +84,7 @@ class BilanActivityViewModelTest {
         updatedAt = "2026-11-08T18:00:00+00:00",
     )
 
-    private fun viewModel() = BilanActivityViewModel(repository, mercure, auth) { now }
+    private fun viewModel() = BilanActivityViewModel(repository, mercure, auth, doneStore) { now }
 
     @Test
     fun `opening with nothing in progress starts at Journée and writes it`() = runTest(testDispatcher) {
@@ -166,10 +168,12 @@ class BilanActivityViewModelTest {
         advanceUntilIdle()
 
         vm.next()
+        advanceUntilIdle()
 
         assertTrue(vm.uiState.value.finished)
         assertEquals(1, deletes)
         assertNull(stored)
+        assertEquals(LocalDate.of(2026, 11, 8), doneStore.day.value)
     }
 
     @Test
