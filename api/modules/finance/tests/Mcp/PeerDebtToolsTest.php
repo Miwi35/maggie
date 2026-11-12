@@ -162,6 +162,19 @@ class PeerDebtToolsTest extends KernelTestCase
         self::assertArrayHasKey('error', $this->call('list', contactId: $this->id('others_contact')));
     }
 
+    public function testManagePeerDebtsListGivesSince(): void
+    {
+        $this->login();
+
+        self::assertSame('2026-07-14', $this->call('list')['peerDebts'][0]['since']);
+
+        $debt = $this->debtOf('dinner');
+        $debt->setOriginTransaction(null);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->flush();
+        self::assertSame($debt->getCreatedAt()->format('Y-m-d'), $this->call('list')['peerDebts'][0]['since']);
+    }
+
     public function testManageTransactionsGivesMyShare(): void
     {
         $this->login();

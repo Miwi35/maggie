@@ -452,6 +452,42 @@ class PeerDebtApiTest extends WebTestCase
         ]], $dinner['shares']);
     }
 
+    public function testSinceIsTheOriginTransactionBookingDay(): void
+    {
+        $this->login();
+        $this->em()->createQuery('UPDATE '.PeerDebt::class.' d SET d.createdAt = :at WHERE d.object = :o')
+            ->setParameter('at', new \DateTimeImmutable('2026-11-12'))->setParameter('o', 'Dîner au Phare')->execute();
+
+        $this->call('GET', '/api/peer_debts');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('2026-07-14', $this->response()['member'][0]['since']);
+    }
+
+    public function testSinceFallsBackToCreationWithoutOrigin(): void
+    {
+        $this->login();
+        $this->em()->createQuery('UPDATE '.PeerDebt::class.' d SET d.originTransaction = NULL, d.createdAt = :at WHERE d.object = :o')
+            ->setParameter('at', new \DateTimeImmutable('2026-11-12'))->setParameter('o', 'Dîner au Phare')->execute();
+
+        $this->call('GET', '/api/peer_debts');
+
+        self::assertSame('2026-11-12', $this->response()['member'][0]['since']);
+    }
+
+    public function testSinceFallsBackWhenTheOriginWasDeleted(): void
+    {
+        $this->login();
+        $this->em()->createQuery('UPDATE '.PeerDebt::class.' d SET d.createdAt = :at WHERE d.object = :o')
+            ->setParameter('at', new \DateTimeImmutable('2026-11-12'))->setParameter('o', 'Dîner au Phare')->execute();
+        $this->call('DELETE', '/api/transactions/'.$this->id('dinner'));
+        self::assertResponseStatusCodeSame(204);
+
+        $this->call('GET', '/api/peer_debts');
+
+        self::assertSame('2026-11-12', $this->response()['member'][0]['since']);
+    }
+
     public function testMyShareIsReadWithTheTransaction(): void
     {
         $this->login();
