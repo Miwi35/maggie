@@ -36,6 +36,13 @@ const RendezvousCard = ({
 }) => {
   const [draft, setDraft] = useState(time)
   useEffect(() => setDraft(time), [time])
+  const [on, setOn] = useState(enabled)
+  useEffect(() => setOn(enabled), [enabled])
+
+  const handleEnabled = async (value: boolean) => {
+    setOn(value)
+    if (!(await onSave({ [enabledKey]: value }))) setOn(enabled)
+  }
 
   const handleTime = async (value: string) => {
     setDraft(value)
@@ -47,7 +54,7 @@ const RendezvousCard = ({
       <CardContent>
         <Stack spacing={1}>
           <FormControlLabel
-            control={<Switch checked={enabled} onChange={(e) => onSave({ [enabledKey]: e.target.checked })} />}
+            control={<Switch checked={on} onChange={(e) => handleEnabled(e.target.checked)} />}
             label={title}
           />
           <Typography variant="body2" color="text.secondary">
@@ -58,7 +65,7 @@ const RendezvousCard = ({
             label={`Heure — ${title}`}
             value={draft}
             onChange={(e) => handleTime(e.target.value)}
-            disabled={!enabled}
+            disabled={!on}
             size="small"
             sx={{ maxWidth: 160 }}
             slotProps={{ inputLabel: { shrink: true } }}
