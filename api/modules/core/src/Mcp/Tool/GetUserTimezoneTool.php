@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Maggie\Core\Mcp\Tool;
 
+use Maggie\Core\Entity\UserPreference;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Repository\UserPreferenceRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_user_timezone', description: "Read the IANA timezone (e.g. Europe/Paris) the user chose in their preferences. Use it to reason about the user's local time.")]
+#[McpTool(name: 'get_user_timezone', description: "Read the IANA timezone (e.g. Europe/Paris) the user chose in their preferences. Use it to reason about the user's local time. Also gives their working hours (HH:MM start and end, ISO days 1 = Monday … 7).")]
 class GetUserTimezoneTool
 {
     public const DEFAULT_TIMEZONE = 'Europe/Paris';
@@ -28,11 +29,17 @@ class GetUserTimezoneTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         }
 
-        $preference = $this->preferenceRepository->findOneByUser($user);
+        // No preference row yet: the defaults a new one would carry.
+        $preference = $this->preferenceRepository->findOneByUser($user) ?? new UserPreference();
 
+        // The working hours ride along (MAG-790): the agent reads the timezone at every turn,
+        // and needs both to tell whether the user is at work.
         return json_encode([
-            'timezone' => $preference?->getTimezone() ?? self::DEFAULT_TIMEZONE,
+            'timezone' => $preference->getTimezone(),
             'email' => $user->getEmail(),
+            'workStartTime' => $preference->getWorkStartTime(),
+            'workEndTime' => $preference->getWorkEndTime(),
+            'workDays' => $preference->getWorkDays(),
         ], JSON_THROW_ON_ERROR);
     }
 }

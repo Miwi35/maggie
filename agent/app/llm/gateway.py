@@ -22,7 +22,8 @@ from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.policy.engine import A2A_SOURCE
 from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION, skill_index
 from app.trips import is_silent_trip_run, trip_run_rules
-from app.user_timezone import resolve_user_timezone
+from app.user_timezone import resolve_user_timezone, resolve_work_hours
+from app.work_hours import work_hours_line
 
 logger = logging.getLogger(__name__)
 
@@ -110,11 +111,13 @@ class LLMGateway:
         # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
         now = current_datetime_line(tz=tz)
+        # Whether the user is at work, next to the date: the tone follows it (MAG-790).
+        work_hours = work_hours_line(await resolve_work_hours(user_id), datetime.now(tz))
         if spoken:
             preamble = f"{preamble}\n\n{self.personality.get_spoken_prompt()}"
         if in_car:
             preamble = f"{preamble}\n\n{self.personality.get_driving_prompt()}"
-        volatile = f"{memory.notice}{directives}{context_section}\n\n{now}{last_exchange}{preamble}"
+        volatile = f"{memory.notice}{directives}{context_section}\n\n{now}\n{work_hours}{last_exchange}{preamble}"
         moment_skills = skill_index.skills_for_moment(moment) if moment else ""
         return build_system(base + skill_context, volatile, moment_skills, memory.profile, memory.recalled)
 
