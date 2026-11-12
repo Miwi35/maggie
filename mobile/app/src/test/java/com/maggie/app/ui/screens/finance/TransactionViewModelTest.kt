@@ -7,7 +7,11 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.api.ApiRefusalException
+import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.AdvanceSource
+import com.maggie.app.data.model.showsAdvanceSource
 import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.MyShare
@@ -38,6 +42,7 @@ import com.maggie.app.data.model.TransactionSheetSection
 import com.maggie.app.data.model.visibleSheetSections
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
@@ -86,6 +91,7 @@ class TransactionViewModelTest {
     private lateinit var ruleRepository: CategorizationRuleRepository
     private lateinit var peerDebtRepository: PeerDebtRepository
     private lateinit var contactRepository: ContactRepository
+    private lateinit var accountRepository: AccountRepository
     private lateinit var viewModel: TransactionViewModel
 
     private val accountId = "acc-1"
@@ -110,6 +116,7 @@ class TransactionViewModelTest {
         ruleRepository = mockk()
         peerDebtRepository = mockk()
         contactRepository = mockk()
+        accountRepository = mockk()
         // A line not shared, until a test says otherwise.
         coEvery { peerDebtRepository.getMyShare(any()) } answers {
             val line = sampleTransactions.firstOrNull { it.id == firstArg() }
@@ -136,7 +143,7 @@ class TransactionViewModelTest {
     private fun newViewModel() =
         TransactionViewModel(
             transactionRepository, categoryRepository, accountId, mercureService, authRepository,
-            recurringRepository, ruleRepository, peerDebtRepository, contactRepository,
+            recurringRepository, ruleRepository, peerDebtRepository, contactRepository, accountRepository,
         )
 
     @After
@@ -1594,6 +1601,162 @@ class TransactionViewModelTest {
 
         assertEquals("Réseau indisponible", viewModel.uiState.value.detail!!.error)
         assertFalse(viewModel.uiState.value.isLoadingOneOffEnvelopes)
+    }
+
+    // « Source » of an advance with no counterpart (MAG-806): a credit on the current account,
+    // drawn from a livret typed by hand that Maggie holds no line of.
+    private val advanceCredit = Transaction(id = "tx-adv", label = "VIR LIVRET", amountCents = 30000, transferKind = "advance", transferSource = "manual")
+    private val livret = Account(id = "acc-livret", name = "Livret maison", type = "savings")
+    private val single = TransferInfo(transferKind = "advance", transferSource = "manual")
+
+    private fun openAdvance(info: TransferInfo = single, line: Transaction = advanceCredit) {
+        coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(line))
+        coEvery { transactionRepository.getTransfer(line.id) } returns Result.success(info)
+        viewModel = newViewModel()
+    }
+
+    @Test
+    fun `an advance with no counterpart offers its source once the transfer state is read`() = runTest {
+        openAdvance()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-adv")
+        val loading = viewModel.uiState.value.detail!!
+        assertFalse(showsAdvanceSource(loading.transaction.transferKind, loading.info))
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertTrue(showsAdvanceSource(detail.transaction.transferKind, detail.info))
+        assertNull(detail.info!!.advanceSource)
+    }
+
+    @Test
+    fun `an advance paired with its savings leg offers no source`() = runTest {
+        openAdvance(info = single.copy(counterpart = counterpartLeg))
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-adv")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertFalse(showsAdvanceSource(detail.transaction.transferKind, detail.info))
+    }
+
+    @Test
+    fun `an ordinary line or an internal transfer offers no source`() = runTest {
+        coEvery { transactionRepository.getTransfer("tx-1") } returns Result.success(TransferInfo())
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.openDetail("tx-1")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertFalse(showsAdvanceSource(detail.transaction.transferKind, detail.info))
+        assertFalse(showsAdvanceSource("internal", TransferInfo(transferKind = "internal")))
+    }
+
+    @Test
+    fun `opening the choice lists only the savings and investment accounts`() = runTest {
+        val checking = Account(id = "acc-1", name = "Courant", type = "checking")
+        val pea = Account(id = "acc-pea", name = "PEA", type = "investment")
+        coEvery { accountRepository.getAccounts() } returns Result.success(listOf(checking, livret, pea))
+        openAdvance()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-adv")
+        advanceUntilIdle()
+
+        viewModel.loadAdvanceSourceAccounts()
+        assertTrue(viewModel.uiState.value.isLoadingAdvanceSourceAccounts)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(livret, pea), state.advanceSourceAccounts)
+        assertFalse(state.isLoadingAdvanceSourceAccounts)
+    }
+
+    @Test
+    fun `a failed read of the accounts says why on the detail`() = runTest {
+        coEvery { accountRepository.getAccounts() } returns Result.failure(RuntimeException("Réseau indisponible"))
+        openAdvance()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-adv")
+        advanceUntilIdle()
+
+        viewModel.loadAdvanceSourceAccounts()
+        advanceUntilIdle()
+
+        assertEquals("Réseau indisponible", viewModel.uiState.value.detail!!.error)
+        assertFalse(viewModel.uiState.value.isLoadingAdvanceSourceAccounts)
+    }
+
+    @Test
+    fun `choosing a source names it on the sheet and refreshes the list`() = runTest {
+        openAdvance()
+        var served = listOf(advanceCredit)
+        coEvery { transactionRepository.getTransactions(accountId) } answers { pageOf(served) }
+        coEvery { transactionRepository.setAdvanceSource("tx-adv", "acc-livret") } answers {
+            served = listOf(advanceCredit.copy(advanceSourceAccountId = "acc-livret"))
+            Result.success(single.copy(advanceSource = AdvanceSource("acc-livret", "Livret maison")))
+        }
+        advanceUntilIdle()
+        viewModel.openDetail("tx-adv")
+        advanceUntilIdle()
+
+        viewModel.setAdvanceSource("acc-livret")
+        assertTrue(viewModel.uiState.value.detail!!.isSaving)
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("Livret maison", detail.info!!.advanceSource!!.name)
+        assertEquals("acc-livret", detail.transaction.advanceSourceAccountId)
+        assertFalse(detail.isSaving)
+        assertNull(detail.error)
+        coVerify(atLeast = 2) { transactionRepository.getTransactions(accountId) }
+    }
+
+    @Test
+    fun `a refused source shows the API's reason and keeps the sheet as it was`() = runTest {
+        coEvery { transactionRepository.setAdvanceSource("tx-adv", "acc-1") } returns
+            Result.failure(ApiRefusalException(400, "Ce compte n'est pas un compte d'épargne."))
+        openAdvance()
+        advanceUntilIdle()
+        viewModel.openDetail("tx-adv")
+        advanceUntilIdle()
+
+        viewModel.setAdvanceSource("acc-1")
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertEquals("Ce compte n'est pas un compte d'épargne.", detail.error)
+        assertNull(detail.info!!.advanceSource)
+        assertNull(detail.transaction.advanceSourceAccountId)
+        assertFalse(detail.isSaving)
+    }
+
+    @Test
+    fun `removing the source takes it off the sheet`() = runTest {
+        val named = advanceCredit.copy(advanceSourceAccountId = "acc-livret")
+        openAdvance(info = single.copy(advanceSource = AdvanceSource("acc-livret", "Livret maison")), line = named)
+        // The list read again after the change serves the line without its source.
+        var served = listOf(named)
+        coEvery { transactionRepository.getTransactions(accountId) } answers { pageOf(served) }
+        coEvery { transactionRepository.setAdvanceSource("tx-adv", null) } answers {
+            served = listOf(advanceCredit)
+            Result.success(single)
+        }
+        advanceUntilIdle()
+        viewModel.openDetail("tx-adv")
+        advanceUntilIdle()
+        assertEquals("Livret maison", viewModel.uiState.value.detail!!.info!!.advanceSource!!.name)
+
+        viewModel.setAdvanceSource(null)
+        advanceUntilIdle()
+
+        val detail = viewModel.uiState.value.detail!!
+        assertNull(detail.info!!.advanceSource)
+        assertNull(detail.transaction.advanceSourceAccountId)
+        coVerify { transactionRepository.setAdvanceSource("tx-adv", null) }
     }
 
     // « Partage » (MAG-451): the gîte of 800 €, my part 200 €, Julie, Tom and Inès 200 € each.

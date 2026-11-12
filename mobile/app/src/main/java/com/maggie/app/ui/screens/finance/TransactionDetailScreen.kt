@@ -48,7 +48,10 @@ import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransactionSheetSection
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.showsAdvanceSource
 import com.maggie.app.data.model.formatDay
 import com.maggie.app.data.model.incidentRegularisationLabel
 import com.maggie.app.data.model.transactionStatusLabel
@@ -74,6 +77,8 @@ class TransactionSheetActions(
     val onDetach: () -> Unit = {},
     val onSaveNote: (String) -> Unit = {},
     val onPickOneOffEnvelope: (() -> Unit)? = null,
+    // « Source » of an advance or a repayment with no counterpart (MAG-806): opens the full-screen choice.
+    val onPickAdvanceSource: (() -> Unit)? = null,
     // « Partage » (MAG-451): its edits are a draft until its own « Enregistrer ».
     val share: ShareSheetActions? = null,
     // « Ce virement est » of a received transfer (MAG-452): a draft until its own « Enregistrer ».
@@ -221,6 +226,11 @@ private fun NatureSection(state: TransferDetailState, actions: TransactionSheetA
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+        if (showsAdvanceSource(transaction.transferKind, state.info)) {
+            actions.onPickAdvanceSource?.let {
+                AdvanceSourceField(name = state.info?.advanceSource?.name, enabled = !state.isSaving, onClick = it)
+            }
+        }
         OutlinedButton(
             onClick = actions.onRelease,
             enabled = !state.isSaving,
@@ -363,6 +373,129 @@ private fun OneOffEnvelopeField(name: String?, enabled: Boolean, onClick: () -> 
                 .semantics { contentDescription = "Enveloppe ponctuelle, ${name ?: "aucune"}" }
                 .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         )
+    }
+}
+
+/**
+ * « Source » of an advance or a repayment with no counterpart (MAG-806): the savings account the
+ * money comes from or goes back to. A tap opens the full-screen choice, never a dropdown.
+ */
+@Composable
+private fun AdvanceSourceField(name: String?, enabled: Boolean, onClick: () -> Unit) {
+    Box {
+        OutlinedTextField(
+            value = name.orEmpty(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Source") },
+            placeholder = { Text("Aucune") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .testTag(UiTags.TRANSACTION_ADVANCE_SOURCE)
+                .semantics { contentDescription = "Source, ${name ?: "aucune"}" }
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        )
+    }
+}
+
+/** Full-screen choice of the savings or investment account an advance comes from, plus « Aucune source » once one is named. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AdvanceSourceSearchScreen(
+    accounts: List<Account>,
+    selectedId: String?,
+    isLoading: Boolean,
+    error: String?,
+    onLoad: () -> Unit,
+    onPick: (Account?) -> Unit,
+    onBack: () -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    var query by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(Unit) { onLoad() }
+
+    val shown = remember(accounts, query) {
+        accounts.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Choisir la source") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { paddingValues ->
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("Rechercher un compte d'épargne") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(UiTags.TRANSACTION_ADVANCE_SOURCE_SEARCH),
+            )
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp))
+            }
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (selectedId != null) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag(UiTags.TRANSACTION_ADVANCE_SOURCE_NONE)
+                                .clickable { onPick(null) }
+                                .padding(16.dp),
+                        ) {
+                            Text("Aucune source", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "L'avance ne compte plus pour un compte d'épargne",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        HorizontalDivider()
+                    }
+                }
+                if (!isLoading && shown.isEmpty()) {
+                    item {
+                        Text(
+                            if (accounts.isEmpty()) "Aucun compte d'épargne ou d'investissement." else "Aucun compte ne correspond.",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+                items(shown, key = { it.id }) { account ->
+                    Column(modifier = Modifier.fillMaxWidth().clickable { onPick(account) }.padding(16.dp)) {
+                        Text(
+                            text = account.name + if (account.id == selectedId) " ✓" else "",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = listOfNotNull(account.bank?.takeIf { it.isNotBlank() }, accountTypeLabel(account.type))
+                                .joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    HorizontalDivider()
+                }
+            }
+        }
     }
 }
 

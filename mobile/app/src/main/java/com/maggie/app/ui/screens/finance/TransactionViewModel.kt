@@ -8,7 +8,9 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
+import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.ADVANCE_SOURCE_ACCOUNT_TYPES
 import com.maggie.app.data.model.Contact
 import com.maggie.app.data.model.MyShare
 import com.maggie.app.data.model.MyShareRequest
@@ -26,6 +28,7 @@ import com.maggie.app.data.model.amountBoundsAround
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.repository.CategorizationRuleRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.ContactRepository
@@ -71,6 +74,10 @@ data class TransactionUiState(
     // The events a spend can be attributed to (MAG-414), read when the sheet needs them.
     val oneOffEnvelopes: List<Envelope> = emptyList(),
     val isLoadingOneOffEnvelopes: Boolean = false,
+    // « Source » of an advance with no counterpart (MAG-806): the owner's savings and investment
+    // accounts, read when the choice opens.
+    val advanceSourceAccounts: List<Account> = emptyList(),
+    val isLoadingAdvanceSourceAccounts: Boolean = false,
     // « Ajouter une personne » of the sheet's « Partage » open: the owner's contacts, read when it opens.
     val shareContacts: ContactChoice? = null,
     // « Envers qui »: the same full-screen picker, opened from a received transfer's « À rembourser » (MAG-452).
@@ -320,6 +327,7 @@ class TransactionViewModel(
     private val ruleRepository: CategorizationRuleRepository,
     private val peerDebtRepository: PeerDebtRepository,
     private val contactRepository: ContactRepository,
+    private val accountRepository: AccountRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransactionUiState())
@@ -1021,6 +1029,49 @@ class TransactionViewModel(
                     refresh()
                 }
                 .onFailure { e -> updateDetail(id) { it.copy(isSaving = false, error = e.message) } }
+        }
+    }
+
+    /** The accounts « Source » offers: only a savings or an investment account can lend (MAG-806). */
+    fun loadAdvanceSourceAccounts() {
+        _uiState.value = _uiState.value.copy(isLoadingAdvanceSourceAccounts = true)
+        viewModelScope.launch {
+            accountRepository.getAccounts()
+                .onSuccess { accounts ->
+                    _uiState.value = _uiState.value.copy(
+                        advanceSourceAccounts = accounts.filter { it.type in ADVANCE_SOURCE_ACCOUNT_TYPES },
+                        isLoadingAdvanceSourceAccounts = false,
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(isLoadingAdvanceSourceAccounts = false)
+                    _uiState.value.detail?.let { open -> updateDetail(open.transaction.id) { it.copy(error = e.message) } }
+                }
+        }
+    }
+
+    /**
+     * « Source » of the open advance or repayment with no counterpart: the savings account it comes
+     * from or goes back to; null takes it away. The API's answer becomes the transfer state, its
+     * refusal the sheet's error.
+     */
+    fun setAdvanceSource(accountId: String?) {
+        val open = _uiState.value.detail ?: return
+        val id = open.transaction.id
+        updateDetail(id) { it.copy(isSaving = true, error = null) }
+        viewModelScope.launch {
+            transactionRepository.setAdvanceSource(id, accountId)
+                .onSuccess { info ->
+                    updateDetail(id) {
+                        it.copy(
+                            info = info,
+                            isSaving = false,
+                            transaction = it.transaction.copy(advanceSourceAccountId = info.advanceSource?.id),
+                        )
+                    }
+                    refresh()
+                }
+                .onFailure { e -> updateDetail(id) { it.copy(isSaving = false, error = e.message ?: "Enregistrement impossible.") } }
         }
     }
 

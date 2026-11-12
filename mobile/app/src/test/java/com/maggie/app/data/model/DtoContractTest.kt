@@ -60,7 +60,9 @@ class DtoContractTest {
         "RecurringProposal" to setOf("candidates"),
         // The API omits an empty note and the recorded world writes none (MAG-464). It also omits
         // who qualified a line while nobody did, and the series or rule behind it (MAG-479).
-        "Transaction" to setOf("note", "qualifiedBy", "qualifiedBySeries", "qualifiedByRule"),
+        // It also omits a null `advanceSourceAccountId`, and no recorded line is a single-legged
+        // advance with a source named by hand (MAG-806).
+        "Transaction" to setOf("note", "qualifiedBy", "qualifiedBySeries", "qualifiedByRule", "advanceSourceAccountId"),
         // Only GET /api/finance/peer-debts (MAG-455) carries a créance's history; the API Platform resource
         // and the my-share / debt endpoints do not. The test of that recording asserts the field itself.
         "PeerDebt" to setOf("history"),

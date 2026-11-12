@@ -1,0 +1,57 @@
+# « Source » of a single-legged advance, from the phone (MAG-806, extends MAG-102):
+# `e2e/mobile/flows/36-finance-advance-source.yaml`.
+#
+# An account of its own, so no other journey moves its total:
+#   Courant MAG-806          checking, the two credits land here
+#   Livret maison MAG-806    savings typed by hand: no bank connection, so no debit leg
+#                            ever pairs with the credits
+#   two `advance` credits    300,00 € and 200,00 €, marked by hand, no counterpart and
+#                            no source yet
+#
+# The journey names the livret as the source of each credit; the savings advances screen
+# then shows the livret with « Reste à rendre » 500,00 €. Naming the same source twice
+# changes nothing, so a rerun on a stack already played finds the same figure.
+
+Maggie\Core\Entity\User:
+  e2e_advance_source_mobile_user:
+    email: 'e2e-advance-source-mobile@maggie.local'
+    googleId: 'e2e-advance-source-mobile-google-id'
+    name: 'Lucie Avance'
+
+Maggie\Finance\Entity\Account:
+  e2e_advance_source_mobile_checking:
+    name: Courant MAG-806
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 150000
+    isCushion: false
+    user: '@e2e_advance_source_mobile_user'
+  e2e_advance_source_mobile_livret:
+    name: Livret maison MAG-806
+    type: '<(Maggie\Finance\Enum\AccountType::Savings)>'
+    currency: EUR
+    balanceCents: 400000
+    isCushion: false
+    user: '@e2e_advance_source_mobile_user'
+
+Maggie\Finance\Entity\Transaction:
+  e2e_advance_source_mobile_credit_1:
+    account: '@e2e_advance_source_mobile_checking'
+    amountCents: 30000
+    currency: EUR
+    bookedAt: '<e2eDate("-5 days")>'
+    label: 'AVANCE LIVRET UN'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Advance)>'
+    transferSource: '<(Maggie\Finance\Enum\TransferSource::Manual)>'
+    user: '@e2e_advance_source_mobile_user'
+  e2e_advance_source_mobile_credit_2:
+    account: '@e2e_advance_source_mobile_checking'
+    amountCents: 20000
+    currency: EUR
+    bookedAt: '<e2eDate("-3 days")>'
+    label: 'AVANCE LIVRET DEUX'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    transferKind: '<(Maggie\Finance\Enum\TransferKind::Advance)>'
+    transferSource: '<(Maggie\Finance\Enum\TransferSource::Manual)>'
+    user: '@e2e_advance_source_mobile_user'

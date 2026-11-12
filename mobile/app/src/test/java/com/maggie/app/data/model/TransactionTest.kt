@@ -74,4 +74,16 @@ class TransactionTest {
         assertEquals("spent", statusForNature("spent", TransactionNature.Income))
         assertEquals("committed", statusForNature("committed", TransactionNature.Expense))
     }
+
+    @Test
+    fun `only an advance or a repayment with no counterpart offers its source, once read (MAG-806)`() {
+        val leg = TransferLeg(id = "tx-in", label = "Virement du Livret")
+        assertTrue(showsAdvanceSource("advance", TransferInfo(transferKind = "advance")))
+        assertTrue(showsAdvanceSource("repayment", TransferInfo(transferKind = "repayment")))
+        assertFalse(showsAdvanceSource("advance", TransferInfo(transferKind = "advance", counterpart = leg)))
+        assertFalse(showsAdvanceSource("advance", null))
+        assertFalse(showsAdvanceSource("funding", TransferInfo(transferKind = "funding")))
+        assertFalse(showsAdvanceSource("internal", TransferInfo(transferKind = "internal")))
+        assertFalse(showsAdvanceSource("none", TransferInfo()))
+    }
 }

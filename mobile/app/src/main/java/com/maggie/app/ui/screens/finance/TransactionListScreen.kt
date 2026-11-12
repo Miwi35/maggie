@@ -131,6 +131,7 @@ fun TransactionListScreen(
     }
     var searchingCounterpart by remember { mutableStateOf(false) }
     var choosingOneOffEnvelope by remember { mutableStateOf(false) }
+    var choosingAdvanceSource by remember { mutableStateOf(false) }
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(openIncidents) {
@@ -214,6 +215,19 @@ fun TransactionListScreen(
                 },
                 onBack = { choosingOneOffEnvelope = false },
             )
+        } else if (choosingAdvanceSource) {
+            AdvanceSourceSearchScreen(
+                accounts = uiState.advanceSourceAccounts,
+                selectedId = detail.info?.advanceSource?.id,
+                isLoading = uiState.isLoadingAdvanceSourceAccounts,
+                error = detail.error,
+                onLoad = viewModel::loadAdvanceSourceAccounts,
+                onPick = { account ->
+                    viewModel.setAdvanceSource(account?.id)
+                    choosingAdvanceSource = false
+                },
+                onBack = { choosingAdvanceSource = false },
+            )
         } else {
             TransactionDetailScreen(
                 state = detail,
@@ -227,6 +241,7 @@ fun TransactionListScreen(
                     onDetach = viewModel::detachFromSeries,
                     onSaveNote = viewModel::setNote,
                     onPickOneOffEnvelope = { choosingOneOffEnvelope = true },
+                    onPickAdvanceSource = { choosingAdvanceSource = true },
                     share = ShareSheetActions(
                         onEnable = viewModel::setShareEnabled,
                         onMyShareChange = viewModel::changeMyShare,
