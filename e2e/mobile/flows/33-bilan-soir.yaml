@@ -22,6 +22,10 @@ tags:
 # départ apparaît au programme; le trajet est lu côté API avec une origine décidée par moi (la carte du matin la
 # garde). Terminer par « Bonne nuit » clôt le bilan : la carte de l'Accueil disparaît.
 #
+# MAG-826, the opening: étant donné la proaction « Bilan de la journée » jouée (`scripts/bilan-proaction-api.js`, heure du
+# bilan réglée à 00:00), l'Accueil, avant toute réponse, montre la carte « Bilan de la journée » avec « Ouvrir »; le chat
+# porte un seul message du bilan et sa carte (`chat_bilan_card`), dont « Ouvrir » ouvre l'activité.
+#
 # What a JVM test cannot see is the real activity in the real window, the deep link and the status
 # held by the API. What is not here: each transition (`BilanActivityViewModelTest`), the phone and tablet
 # layouts (`BilanActivityScreenTest`), the card's rules and the next-morning cut (`BilanHomeCardTest`,
@@ -44,6 +48,12 @@ tags:
       SUMMARY: "Dentiste"
       EMAIL: ${output.journeyEmail}
 
+- runScript:
+    file: ../scripts/bilan-proaction-api.js
+    env:
+      TODAY: ${TODAY}
+      EMAIL: ${output.journeyEmail}
+
 - launchApp:
     clearState: true
     permissions:
@@ -53,6 +63,33 @@ tags:
       e2e_email: ${output.journeyEmail}
 
 - runFlow: ../subflows/sign-in.yaml
+
+# The review's proaction has been played: the tile offers « Ouvrir » before any answer, and the chat carries the card.
+- extendedWaitUntil:
+    visible:
+      id: "home_bilan_resume"
+    timeout: 30000
+- assertVisible: "Ouvrir"
+- runFlow: ../subflows/open-chat.yaml
+- extendedWaitUntil:
+    visible:
+      id: "chat_bilan_card"
+    timeout: 20000
+- assertVisible: "Bilan de la journée"
+- tapOn:
+    id: "chat_bilan_card_open"
+- extendedWaitUntil:
+    visible:
+      id: "bilan_activity"
+    timeout: 20000
+- tapOn: "Got it"
+  optional: true
+- tapOn:
+    id: "bilan_quit"
+- extendedWaitUntil:
+    visible:
+      id: "home_bilan_resume"
+    timeout: 20000
 
 - openLink: "maggie-e2e://activity/bilan"
 - extendedWaitUntil:
