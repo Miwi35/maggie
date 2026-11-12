@@ -361,12 +361,28 @@ describe('CustomMenu — the modules of the mockup', () => {
     expect(hrefs().filter((href) => (href ?? '').startsWith('/meals/'))).toEqual([])
   })
 
-  test.each(['/', '/calendar'])('shows no sub-entry on %s', async (path) => {
+  test('shows no sub-entry on /', async () => {
     stubPersonality('Maggie')
-    renderMenuAt(path)
+    renderMenuAt('/')
     await screen.findByRole('menuitem', { name: 'Réglages' })
 
     expect(hrefs()).toEqual(MODULES.map(([, href]) => href))
+  })
+
+  test('shows Calendrier and Périodes, and nothing else, under Agenda on /calendar', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/calendar')
+    await screen.findByRole('menuitem', { name: 'Réglages' })
+
+    expect(hrefs()).toEqual(MODULES.flatMap(([name, href]) => (name === 'Agenda' ? [href, '/calendar', '/periods'] : [href])))
+  })
+
+  test('Agenda lists Périodes', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/periods')
+
+    expect(await screen.findByRole('menuitem', { name: 'Périodes' })).toHaveAttribute('href', '/periods')
+    expect(screen.getByRole('menuitem', { name: 'Agenda' })).toHaveClass('Mui-selected')
   })
 
   test('puts the raw data lists under Réglages', async () => {

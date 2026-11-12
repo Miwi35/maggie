@@ -193,7 +193,8 @@ export const NAVIGATION: NavModule[] = [
   {
     label: 'Agenda',
     dashboard: '/calendar',
-    parts: [],
+    dashboardLabel: 'Calendrier',
+    parts: [resourcePart('Périodes', 'periods')],
   },
   {
     label: 'Tâches',

@@ -322,7 +322,8 @@ describe('the sidebar table', () => {
     expect(sidebarEntryOf('/recipes/abc/show')).toBe('/recipes')
     expect(sidebarEntryOf('/grocery')).toBe('/grocery')
     expect(sidebarEntryOf('/finance/cushion')).toBe('/finance/summary/treasury')
-    expect(sidebarEntryOf('/calendar')).toBeUndefined()
+    expect(sidebarEntryOf('/calendar')).toBe('/calendar')
+    expect(sidebarEntryOf('/periods')).toBe('/periods')
   })
 
   test('every entry resolves to a trail of its own module', () => {

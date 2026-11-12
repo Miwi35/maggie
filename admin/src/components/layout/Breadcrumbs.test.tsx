@@ -53,6 +53,14 @@ describe('Breadcrumbs', () => {
     expect(screen.getByText('Catégories')).toHaveAttribute('aria-current', 'page')
   })
 
+  test('the periods read « Agenda › Périodes », Périodes being the current page', () => {
+    renderAt('/periods')
+
+    expect(labels()).toEqual(['Agenda', 'Périodes'])
+    expect(screen.getByRole('link', { name: 'Agenda' })).toHaveAttribute('href', '/calendar')
+    expect(screen.getByText('Périodes')).toHaveAttribute('aria-current', 'page')
+  })
+
   test('the workouts read « Santé › Sport », Sport being the current page', () => {
     renderAt('/workouts')
 
@@ -346,7 +354,7 @@ describe('PageHeading — the h1 of every page', () => {
     )
 
   test.each([
-    ['/calendar', 'Agenda'],
+    ['/calendar', 'Calendrier'],
     ['/tasks', "Aujourd'hui"],
     ['/tasks/upcoming', 'À venir'],
     ['/tasks/someday', 'Un jour'],
