@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -68,7 +67,7 @@ private val CardColor = MaggieTokens.surfaceDark.paper
 private val CellColor = MaggieTokens.surfaceDark.raised
 private val LabelColor = MaggieTokens.surfaceDark.textMuted
 private val CaptionColor = MaggieTokens.surfaceDark.caption
-private val InkOnCoral = Color(0xFF1A0F0E)
+private val InkOnCoral = MaggieTokens.surfaceDark.background
 
 private val FEELINGS = listOf("too_easy" to "Trop facile", "right" to "Bien", "too_hard" to "Trop dur")
 
