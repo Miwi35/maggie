@@ -17,7 +17,7 @@ from app.llm.tools import ToolRouter
 from app.memory.bucket import FakeBucket
 from app.policy.engine import PolicyEngine
 from app.tts.providers import SILENT_MP3_FRAME
-from app.tts.text import to_spoken_text
+from app.tts.text import prepare_text_for_tts, to_spoken_text
 from app.tts.voice_message import (
     NOTHING_TO_SAY,
     SPEECH_DOWN,
@@ -76,6 +76,17 @@ async def send(text: str = DIGEST, context_id: str | None = "ctx-1", **extra: st
 
 
 class TestSpokenText:
+    def test_only_hmm_and_oh_are_played_from_emojis(self):
+        said = prepare_text_for_tts("Bravo 🎉 pour la blague 😂 🤔 et 😮")
+
+        assert "yeah" not in said and "ha ha" not in said
+        assert "hmm" in said and "oh" in said
+
+    def test_the_tool_leaves_nothing_to_say_after_the_vocal(self):
+        from app.tts.voice_message import SEND_VOICE_MESSAGE_TOOL
+
+        assert "reply nothing else" in SEND_VOICE_MESSAGE_TOOL["description"]
+
     def test_markdown_is_said_as_plain_sentences(self):
         written = "## Ta journée\n\n- **10 h** : dentiste\n- _midi_ : marché\n\n> Pense à `la carte`"
 

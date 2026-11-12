@@ -485,7 +485,7 @@ class StreamingGateway:
                     # The pages the answer cites, as one last line: text is what the clients
                     # show, store and send back to the model at the next turn (MAG-384).
                     sources = missing_sources(answer, response_content)
-                    if sources and step_text.strip():
+                    if sources and step_text.strip() and not (spoken or in_car):
                         answer = f"{answer}\n\n{sources}"
                         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{sources}"}
                 break

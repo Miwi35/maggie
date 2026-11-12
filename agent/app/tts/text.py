@@ -3,68 +3,12 @@
 import re
 
 # ---------------------------------------------------------------------------
-# Emoji → natural interjection mapping (French)
-# The TTS will *act out* these emojis instead of ignoring or describing them.
+# Only « hmm… » and « oh » are played; every other emoji is dropped from the spoken text.
 # ---------------------------------------------------------------------------
 EMOJI_INTERJECTIONS: dict[str, str] = {
-    # Laughter / joy
-    "😂": " ha ha ha ! ",
-    "🤣": " ah ah ah ! ",
-    "😆": " hé hé ! ",
-    "😄": " ha ha ! ",
-    "😁": " hé hé ! ",
-    "😅": " hé hé, bon… ",
-    "🙂": "",
-    "😊": "",
-    "☺️": "",
-    # Surprise / shock
-    "😮": " oh ! ",
-    "😲": " oh là là ! ",
-    "😱": " aah ! ",
-    "🤯": " woh ! ",
-    "😳": " oh ! ",
-    # Sadness
-    "😢": " … ",
-    "😭": " ooh… ",
-    "🥺": " … ",
-    "😞": " pfff… ",
-    "😔": " … ",
-    # Thinking / doubt
     "🤔": " hmm… ",
     "🧐": " hmm… ",
-    # Love / affection
-    "❤️": "",
-    "🥰": "",
-    "😍": " oh ! ",
-    "💕": "",
-    "💖": "",
-    "😘": "",
-    # Anger / frustration
-    "😡": " roh ! ",
-    "😤": " pfff ! ",
-    "🤬": "",
-    # Relief / cool
-    "😌": " aah… ",
-    "😎": "",
-    "🤗": "",
-    # Disgust / meh
-    "🤢": " beurk ! ",
-    "🤮": " beurk ! ",
-    "😒": " mouais… ",
-    "🙄": " pfff… ",
-    # Greeting / celebration
-    "👋": "",
-    "🎉": " yeah ! ",
-    "🥳": " ouais ! ",
-    "🎊": "",
-    # Misc
-    "🤷": " bof… ",
-    "👍": "",
-    "👎": "",
-    "🤞": "",
-    "💪": "",
-    "🔥": "",
-    "✨": "",
+    "😮": " oh ! ",
 }
 
 # Regex to strip any remaining emojis not in the map
