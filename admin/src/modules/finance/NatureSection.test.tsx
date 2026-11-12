@@ -2,8 +2,9 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, Form, Notification, testDataProvider } from 'react-admin'
+import type { DataProvider } from 'react-admin'
 import { NatureSection } from './NatureSection'
-import { useTransactionTransfer } from './useTransactionTransfer'
+import { advanceSourceChoices, useTransactionTransfer } from './useTransactionTransfer'
 
 const RECORD = { id: '/api/transactions/01OUT', label: 'Virement vers Courant', amountCents: -300000 }
 
@@ -40,9 +41,9 @@ const fetchMock = vi.fn()
 const respond = (status: number, body: unknown) =>
   Promise.resolve({ ok: status < 400, status, json: async () => body } as Response)
 
-const renderPanel = () =>
+const renderPanel = (dataProvider: DataProvider = testDataProvider()) =>
   render(
-    <AdminContext dataProvider={testDataProvider()}>
+    <AdminContext dataProvider={dataProvider}>
       <Harness />
       <Notification />
     </AdminContext>,
@@ -278,6 +279,120 @@ describe('NatureSection', () => {
       expect(await screen.findByText('A rejection stays on one account.')).toBeInTheDocument()
       expect(screen.getByRole('dialog')).toBeInTheDocument()
       expect(screen.queryByText('Rejeté', { selector: '.MuiChip-label' })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('the source of a single-legged advance (MAG-806)', () => {
+    // As the accounts collection is recorded (api/contract/responses/accounts.collection.json).
+    const ACCOUNTS = [
+      { id: '/api/accounts/01CHK', name: 'Courant', bank: 'CA', currency: 'EUR', type: 'checking' },
+      { id: '/api/accounts/01LIVA', name: 'Livret A', bank: null, currency: 'EUR', type: 'savings' },
+      { id: '/api/accounts/01PEA', name: 'PEA', bank: 'Bourso', currency: 'EUR', type: 'investment' },
+    ]
+    const withAccounts = () =>
+      testDataProvider({
+        getList: () => Promise.resolve({ data: ACCOUNTS, total: ACCOUNTS.length }),
+      } as Partial<DataProvider>)
+
+    const ALONE = { transferKind: 'advance', transferSource: 'manual', counterpart: null, advanceSource: null }
+    const SOURCED = { ...ALONE, advanceSource: { id: '01LIVA', name: 'Livret A' } }
+
+    test('offers only the savings and investment accounts, and sends the bare ULID of the one chosen', async () => {
+      fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+        init?.method === 'PUT' && url.endsWith('/advance-source')
+          ? respond(200, { success: true, ...SOURCED })
+          : respond(200, ALONE),
+      )
+
+      renderPanel(withAccounts())
+      await userEvent.click(await screen.findByRole('combobox', { name: 'Source' }))
+
+      const listbox = await screen.findByRole('listbox')
+      expect(within(listbox).getByRole('option', { name: 'Aucune' })).toBeInTheDocument()
+      expect(within(listbox).getByRole('option', { name: 'Bourso · EUR · PEA' })).toBeInTheDocument()
+      expect(within(listbox).queryByRole('option', { name: /Courant/ })).not.toBeInTheDocument()
+      await userEvent.click(within(listbox).getByRole('option', { name: 'EUR · Livret A' }))
+
+      await waitFor(() =>
+        expect(bodiesOf('PUT')).toEqual([
+          { url: '/api/finance/transactions/01OUT/advance-source', body: { accountId: '01LIVA' } },
+        ]),
+      )
+      expect(await screen.findByText('Source enregistrée')).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Source' })).toHaveTextContent('Livret A')
+    })
+
+    test('« Aucune » takes the source off', async () => {
+      fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+        init?.method === 'PUT' && url.endsWith('/advance-source')
+          ? respond(200, { success: true, ...ALONE })
+          : respond(200, SOURCED),
+      )
+
+      renderPanel(withAccounts())
+      const field = await screen.findByRole('combobox', { name: 'Source' })
+      await waitFor(() => expect(field).toHaveTextContent('Livret A'))
+      await userEvent.click(field)
+      await userEvent.click(await screen.findByRole('option', { name: 'Aucune' }))
+
+      await waitFor(() =>
+        expect(bodiesOf('PUT')).toEqual([
+          { url: '/api/finance/transactions/01OUT/advance-source', body: { accountId: null } },
+        ]),
+      )
+      expect(await screen.findByText('Source retirée')).toBeInTheDocument()
+    })
+
+    test('the source already named is shown before the accounts answer', async () => {
+      fetchMock.mockImplementation(() => respond(200, SOURCED))
+
+      renderPanel()
+
+      expect(await screen.findByRole('combobox', { name: 'Source' })).toHaveTextContent('Livret A')
+    })
+
+    test('an API refusal is shown and the source stays as it was', async () => {
+      fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+        init?.method === 'PUT' && url.endsWith('/advance-source')
+          ? respond(400, { error: 'The source of an advance is one of your savings or investment accounts.' })
+          : respond(200, ALONE),
+      )
+
+      renderPanel(withAccounts())
+      await userEvent.click(await screen.findByRole('combobox', { name: 'Source' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'EUR · Livret A' }))
+
+      expect(
+        await screen.findByText('The source of an advance is one of your savings or investment accounts.'),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Source' })).not.toHaveTextContent('Livret A')
+    })
+
+    test('a repayment without counterpart has the field too', async () => {
+      fetchMock.mockImplementation(() => respond(200, { ...ALONE, transferKind: 'repayment' }))
+
+      renderPanel()
+
+      expect(await screen.findByRole('combobox', { name: 'Source' })).toBeInTheDocument()
+    })
+
+    test('an advance with its other leg, or an internal transfer, has no source to name', async () => {
+      fetchMock.mockImplementation(() => respond(200, { ...PAIRED, transferKind: 'advance' }))
+      const { unmount } = renderPanel()
+      expect(await screen.findByText('Avance d’épargne', { selector: '.MuiChip-label' })).toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: 'Source' })).not.toBeInTheDocument()
+      unmount()
+
+      fetchMock.mockImplementation(() => respond(200, { ...ALONE, transferKind: 'internal' }))
+      renderPanel()
+      expect(await screen.findByText('Virement interne', { selector: '.MuiChip-label' })).toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: 'Source' })).not.toBeInTheDocument()
+    })
+
+    test('advanceSourceChoices keeps the named source even when it is not in the list', () => {
+      expect(advanceSourceChoices([], { id: '01X', name: 'Livret fermé' })).toEqual([{ id: '01X', name: 'Livret fermé' }])
+      expect(advanceSourceChoices(ACCOUNTS, null).map((choice) => choice.id)).toEqual(['01LIVA', '01PEA'])
+      expect(advanceSourceChoices(ACCOUNTS, { id: '01LIVA', name: 'Livret A' })).toHaveLength(2)
     })
   })
 

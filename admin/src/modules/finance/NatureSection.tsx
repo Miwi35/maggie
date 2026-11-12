@@ -8,14 +8,16 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import MenuItem from '@mui/material/MenuItem'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useNotify } from 'react-admin'
+import { useGetList, useNotify } from 'react-admin'
 import { CounterpartLeg, CounterpartSentence, TransferBadge } from './TransferBadge'
 import { NatureInput } from './TransactionForm'
-import { isBetweenAccounts } from './useTransactionTransfer'
-import type { MarkKind, TransactionTransfer, TransferLeg } from './useTransactionTransfer'
+import { advanceSourceChoices, isBetweenAccounts, takesAdvanceSource } from './useTransactionTransfer'
+import type { MarkKind, TransactionTransfer, TransferLeg, TransferState } from './useTransactionTransfer'
 
 const NO_COUNTERPART = ''
 
@@ -94,6 +96,59 @@ const CounterpartChoice = ({
   )
 }
 
+const NO_SOURCE = ''
+
+/**
+ * « Source »: the savings account a single-legged advance comes from, or a
+ * repayment goes back to — a livret no bank sync gives a debit leg (MAG-806).
+ * Acts at once, like the marking; « Aucune » takes the source off.
+ */
+export const AdvanceSourceField = ({
+  transfer,
+  saving,
+  onChange,
+}: {
+  transfer: TransferState
+  saving: boolean
+  onChange: (accountId: string | null) => Promise<boolean>
+}) => {
+  const notify = useNotify()
+  const { data: accounts = [] } = useGetList('accounts', {
+    pagination: { page: 1, perPage: 100 },
+    sort: { field: 'name', order: 'ASC' },
+  })
+  const current = transfer.advanceSource ?? null
+  const choices = advanceSourceChoices(accounts, current)
+
+  const choose = async (value: string) => {
+    if (await onChange(value === NO_SOURCE ? null : value)) {
+      notify(value === NO_SOURCE ? 'Source retirée' : 'Source enregistrée', { type: 'info' })
+    }
+  }
+
+  return (
+    <TextField
+      select
+      size="small"
+      label="Source"
+      value={current?.id ?? NO_SOURCE}
+      disabled={saving}
+      onChange={(event) => void choose(event.target.value)}
+      helperText="Le compte d’épargne d’où vient l’argent, ou vers lequel il repart"
+      sx={{ minWidth: 280 }}
+    >
+      <MenuItem value={NO_SOURCE}>
+        <em>Aucune</em>
+      </MenuItem>
+      {choices.map((choice) => (
+        <MenuItem key={choice.id} value={choice.id}>
+          {choice.name}
+        </MenuItem>
+      ))}
+    </TextField>
+  )
+}
+
 export const REGULARISED_LABEL = 'Régularisé'
 export const NOT_REGULARISED_LABEL = 'Non régularisé'
 
@@ -118,7 +173,7 @@ export const NatureSection = ({
   amountCents: number
 }) => {
   const notify = useNotify()
-  const { transfer, candidates, error, saving, loadCandidates, mark, release } = transferApi
+  const { transfer, candidates, error, saving, loadCandidates, mark, release, setAdvanceSource } = transferApi
   const [choosing, setChoosing] = useState<MarkKind | null>(null)
 
   const marked = isBetweenAccounts(kind) || kind === 'rejected'
@@ -173,6 +228,9 @@ export const NatureSection = ({
               <Typography variant="body2">
                 <CounterpartSentence transfer={transfer} amountCents={amountCents} />
               </Typography>
+              {takesAdvanceSource(transfer) && (
+                <AdvanceSourceField transfer={transfer} saving={saving} onChange={setAdvanceSource} />
+              )}
               <Typography variant="caption" color="text.secondary">
                 Cette ligne ne compte dans aucun chiffre : ni dépense, ni recette.
               </Typography>

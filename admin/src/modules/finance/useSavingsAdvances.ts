@@ -12,9 +12,18 @@ export interface SavingsAdvance {
   isClosed: boolean
 }
 
+/**
+ * One savings account with something left to give back. A livret typed by hand
+ * counts as a whole: advanced minus given back, no pairing (MAG-806).
+ */
 export interface SavingsSource {
   sourceAccountId: string
   sourceAccountName: string
+  /** Everything advanced from this account. */
+  advancedCents: number
+  /** Everything given back to it. */
+  repaidCents: number
+  /** What is left to give back. */
   outstandingCents: number
   openCount: number
 }

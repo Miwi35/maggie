@@ -6,7 +6,8 @@ import { transactionRoute } from './routes.js'
 
 /**
  * A transaction's sheet (`/transactions/<iri>`, MAG-464), read here for its
- * « Partage » section (MAG-451): my part of a spend, and who owes the rest.
+ * « Partage » section (MAG-451): my part of a spend, and who owes the rest;
+ * and for the « Source » of a single-legged advance, in « Nature » (MAG-806).
  */
 export class FinanceTransactionSheetPage extends AdminShell {
   readonly share: Locator
@@ -16,6 +17,8 @@ export class FinanceTransactionSheetPage extends AdminShell {
   readonly debtToRepay: Locator
   /** « Ce virement est » on a transfer with a person (MAG-453), in place of the two above. */
   readonly peerTransfer: PeerTransferQualifier
+  /** « Source »: the savings account of an advance with no other leg here (MAG-806). */
+  readonly advanceSource: Locator
 
   constructor(page: Page) {
     super(page)
@@ -24,6 +27,25 @@ export class FinanceTransactionSheetPage extends AdminShell {
     this.debt = this.share.getByTestId('transaction-debt')
     this.debtToRepay = this.debt.getByRole('button', { name: 'À rembourser' })
     this.peerTransfer = new PeerTransferQualifier(page, this.share)
+    this.advanceSource = this.content.getByRole('combobox', { name: 'Source' })
+  }
+
+  /** The sheet of an advance or a repayment with no counterpart, which offers « Source ». */
+  async openSingleLeggedAdvance(transactionId: string): Promise<void> {
+    await this.goto(transactionRoute(transactionId))
+    await expect(this.advanceSource).toBeVisible()
+  }
+
+  /** Picks the savings account by its name, waiting for the PUT itself: the field redraws from the API's answer. */
+  async chooseAdvanceSource(accountName: string): Promise<void> {
+    await this.advanceSource.click()
+    await Promise.all([
+      this.page.waitForResponse(
+        (response) => response.url().includes('/advance-source') && 'PUT' === response.request().method(),
+      ),
+      this.page.getByRole('option', { name: accountName }).click(),
+    ])
+    await expect(this.advanceSource).toContainText(accountName)
   }
 
   /** The sheet of a transfer with a person, which asks « Ce virement est ». */
