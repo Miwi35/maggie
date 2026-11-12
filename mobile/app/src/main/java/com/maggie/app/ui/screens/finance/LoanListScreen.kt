@@ -47,6 +47,7 @@ import com.maggie.app.data.model.LoanLabels
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.formatLoanMonth
 import com.maggie.app.data.model.formatRate
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -68,6 +69,7 @@ fun LoanListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var deletingLoan by remember { mutableStateOf<Loan?>(null) }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -171,7 +173,7 @@ fun LoanListScreen(
                                         )
                                     }
                                 }
-                                IconButton(onClick = { viewModel.deleteLoan(loan.id) }) {
+                                IconButton(onClick = { deletingLoan = loan }) {
                                     Icon(
                                         Icons.Default.Delete,
                                         contentDescription = "Supprimer",
@@ -184,6 +186,17 @@ fun LoanListScreen(
                 }
             }
         }
+    }
+
+    deletingLoan?.let { item ->
+        ConfirmDeleteDialog(
+            title = "Supprimer le prêt « ${item.name} » ?",
+            onConfirm = {
+                viewModel.deleteLoan(item.id)
+                deletingLoan = null
+            },
+            onDismiss = { deletingLoan = null },
+        )
     }
 
     if (showCreateDialog) {

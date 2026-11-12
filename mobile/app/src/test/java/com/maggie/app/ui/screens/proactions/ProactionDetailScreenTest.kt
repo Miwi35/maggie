@@ -2,11 +2,13 @@ package com.maggie.app.ui.screens.proactions
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -56,13 +58,20 @@ class ProactionDetailScreenTest {
     }
 
     @Test
-    fun `deleting reports the deletion`() {
-        var deleted = false
-        compose.setContent { ProactionDetailContent(proaction = failed, onMove = {}, onDelete = { deleted = true }) }
+    fun `deleteAsksForConfirmation`() {
+        var deleted = 0
+        compose.setContent { ProactionDetailContent(proaction = failed, onMove = {}, onDelete = { deleted++ }) }
 
         compose.onNodeWithContentDescription("Supprimer").performClick()
+        compose.onNodeWithText("Supprimer le rendez-vous « Rappel école » ?").assertIsDisplayed()
+        assertEquals(0, deleted)
 
-        assertEquals(true, deleted)
+        compose.onNodeWithTag(UiTags.CONFIRM_DELETE_CANCEL).performClick()
+        assertEquals(0, deleted)
+
+        compose.onNodeWithContentDescription("Supprimer").performClick()
+        compose.onNodeWithTag(UiTags.CONFIRM_DELETE).performClick()
+        assertEquals(1, deleted)
     }
 
     @Test

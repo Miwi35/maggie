@@ -57,6 +57,8 @@ tags:
 
 - tapOn:
     id: "proaction_detail_delete"
+- tapOn:
+    id: "confirm_delete"
 - extendedWaitUntil:
     notVisible: ".*08:30 Rappel MAG-328.*"
     timeout: 20000

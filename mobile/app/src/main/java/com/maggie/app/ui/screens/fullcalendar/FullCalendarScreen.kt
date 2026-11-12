@@ -26,6 +26,8 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import com.maggie.app.data.model.Agenda
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
 import androidx.compose.material3.HorizontalDivider
@@ -78,6 +80,7 @@ fun FullCalendarScreen(
     var showGoogleImport by remember { mutableStateOf(false) }
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var exportMenuAgendaId by remember { mutableStateOf<String?>(null) }
+    var deletingAgenda by remember { mutableStateOf<Agenda?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -187,7 +190,7 @@ fun FullCalendarScreen(
                             }
                             if (!agenda.isDefault) {
                                 IconButton(
-                                    onClick = { viewModel.deleteAgenda(agenda.id) },
+                                    onClick = { deletingAgenda = agenda },
                                     modifier = Modifier.size(32.dp),
                                 ) {
                                     Icon(
@@ -401,6 +404,17 @@ fun FullCalendarScreen(
                 showGoogleImport = false
             },
             onDismiss = { showGoogleImport = false },
+        )
+    }
+
+    deletingAgenda?.let { item ->
+        ConfirmDeleteDialog(
+            title = "Supprimer l'agenda « ${item.name} » et ses événements ?",
+            onConfirm = {
+                viewModel.deleteAgenda(item.id)
+                deletingAgenda = null
+            },
+            onDismiss = { deletingAgenda = null },
         )
     }
 }

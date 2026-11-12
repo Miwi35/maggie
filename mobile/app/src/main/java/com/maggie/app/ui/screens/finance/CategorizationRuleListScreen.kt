@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.api.CategorizationRuleCreateRequest
+import com.maggie.app.data.model.CategorizationRule
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.Qualification
@@ -51,6 +52,7 @@ import com.maggie.app.data.model.describeRuleScope
 import com.maggie.app.data.model.headline
 import com.maggie.app.data.model.matchTypeLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.EmptyState
@@ -72,6 +74,7 @@ fun CategorizationRuleListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val tree = remember(uiState.categories) { CategoryTree(uiState.categories) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var deletingRule by remember { mutableStateOf<CategorizationRule?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.lastApplyMessage) {
@@ -167,7 +170,7 @@ fun CategorizationRuleListScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                IconButton(onClick = { viewModel.deleteRule(rule.id) }) {
+                                IconButton(onClick = { deletingRule = rule }) {
                                     Icon(
                                         Icons.Default.Delete,
                                         contentDescription = "Supprimer",
@@ -180,6 +183,17 @@ fun CategorizationRuleListScreen(
                 }
             }
         }
+    }
+
+    deletingRule?.let { item ->
+        ConfirmDeleteDialog(
+            title = "Supprimer la règle « ${item.headline()} » ?",
+            onConfirm = {
+                viewModel.deleteRule(item.id)
+                deletingRule = null
+            },
+            onDismiss = { deletingRule = null },
+        )
     }
 
     if (showCreateDialog) {

@@ -46,6 +46,7 @@ import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.label
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.MaggieCard
@@ -179,19 +180,13 @@ fun AccountListScreen(
     }
 
     deleting?.let { account ->
-        AlertDialog(
-            modifier = Modifier.uiTagRoot(),
-            onDismissRequest = { deleting = null },
-            title = { Text("Supprimer le compte « ${account.name} » ?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteAccount(account.id)
-                        deleting = null
-                    },
-                ) { Text("Confirmer", color = MaterialTheme.colorScheme.error) }
+        ConfirmDeleteDialog(
+            title = "Supprimer le compte « ${account.name} » ?",
+            onConfirm = {
+                viewModel.deleteAccount(account.id)
+                deleting = null
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Annuler") } },
+            onDismiss = { deleting = null },
         )
     }
 
