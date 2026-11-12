@@ -72,6 +72,7 @@ object Interruptions {
     private val ENTITY_PATH = Regex("^/api/([a-z_]+)/([0-9A-Za-z-]{1,64})$")
     private val COOKING_TIMER_PATH = Regex("^/api/cooking/timers/([0-9A-Za-z-]{1,64})$")
     private val TASK_PATH = Regex("^/api/tasks/([0-9A-Za-z-]{1,64})$")
+    private val MAKEUP_PATH = Regex("^/api/workout-makeups/([0-9A-Za-z-]{1,64})$")
     private val SHORTAGE_PATH = Regex("^/api/shortage-alerts/([0-9A-Za-z]{26})$")
     private val FINANCE_PATH = Regex("^/finance(?:/([a-z-]+))?/?$")
 
@@ -98,7 +99,15 @@ object Interruptions {
             shortageId = shortageIdOf(notification),
             taskId = taskId,
             showsTask = taskId != null,
+            makeupId = makeupIdOf(notification),
+            reminderActions = if (makeupIdOf(notification) != null) notification.actions else emptyList(),
         )
+    }
+
+    /** The make-up a `workout_makeup` notification offers (MAG-772), read from its IRI; null for any other. */
+    fun makeupIdOf(notification: Notification): String? {
+        if (notification.type != "workout_makeup") return null
+        return MAKEUP_PATH.matchEntire(notification.relatedEntityIri.orEmpty())?.groupValues?.get(1)
     }
 
     /** The task a `task_due` or `task_nudge` notification reminds of (MAG-717), read from its IRI; null for any other. */

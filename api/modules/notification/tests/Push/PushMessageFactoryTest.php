@@ -8,6 +8,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Push\NavigationLinkProvider;
+use Maggie\Notification\Push\PushDataProvider;
 use Maggie\Notification\Push\PushMessageFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -389,6 +390,35 @@ final class PushMessageFactoryTest extends TestCase
 
         self::assertArrayNotHasKey('link', $message['data']);
         self::assertArrayNotHasKey('actionLabel', $message['data']);
+    }
+
+    /** The make-up's buttons are worded from the push alone (MAG-772). */
+    public function testAMakeupCarriesItsMinutesAndItsButtonsInOrder(): void
+    {
+        $factory = new PushMessageFactory('maggie', [], [new class implements PushDataProvider {
+            public function dataFor(string $relatedEntityIri): array
+            {
+                return '/api/workout-makeups/01JMAKEUP' === $relatedEntityIri ? ['makeupId' => '01JMAKEUP', 'softerMinutes' => '45', 'shorterMinutes' => '20'] : [];
+            }
+        }]);
+        $notification = $this->notification(NotificationType::WorkoutMakeup, 'Séance de 18 h 30 manquée, monsieur.', 'Pour garder votre série de 3, ce soir :', '/api/workout-makeups/01JMAKEUP')
+            ->setActions(['softer', 'shorter', 'tomorrow']);
+
+        $data = $factory->build($notification, 't')['data'];
+
+        self::assertSame('workout_makeup', $data['type']);
+        self::assertSame('softer,shorter,tomorrow', $data['actions']);
+        self::assertSame('01JMAKEUP', $data['makeupId']);
+        self::assertSame('45', $data['softerMinutes']);
+        self::assertSame('20', $data['shorterMinutes']);
+        self::assertArrayNotHasKey('reminderId', $data);
+    }
+
+    public function testAnotherNotificationCarriesNoMinutes(): void
+    {
+        $data = (new PushMessageFactory())->build($this->notification(NotificationType::Proaction, 'Titre', null, '/api/events/01JEVENT'), 't')['data'];
+
+        self::assertArrayNotHasKey('softerMinutes', $data);
     }
 
     /** @param array<string, string> $urls related IRI → URL */

@@ -442,4 +442,23 @@ class PushNotifierTest {
         assertNull(shadowOf(manager).getNotification("n-2", PushNotifier.NOTIFICATION_ID))
         assertEquals(listOf("Premier", "Second"), conversation()!!.messages.map { it.text.toString() })
     }
+
+    @Test
+    fun `a make-up carries its three choices worded with the push's minutes, then Plus tard (MAG-772)`() {
+        val makeup = PushPayload.from(
+            mapOf(
+                "notificationId" to "n-1",
+                "type" to "workout_makeup",
+                "title" to "Séance manquée",
+                "makeupId" to "01K0MAKEUP",
+                "softerMinutes" to "30",
+                "shorterMinutes" to "20",
+                "actions" to "softer,shorter,tomorrow",
+            ),
+        )!!
+
+        notifier.show(makeup)
+
+        assertEquals(listOf("30 min, plus doux", "20 min, même intensité", "Demain"), buttons().take(3))
+    }
 }

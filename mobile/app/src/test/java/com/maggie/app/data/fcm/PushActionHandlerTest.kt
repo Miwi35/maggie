@@ -457,4 +457,31 @@ class PushActionHandlerTest {
 
         coVerify(exactly = 0) { api.markNotificationRead(any()) }
     }
+
+    @Test
+    fun `a make-up choice is sent and closes the notification (MAG-772)`() = runBlocking {
+        val makeup = payload("workout_makeup").copy(makeupId = "01K0MAKEUP")
+
+        assertEquals(PushOutcome.Closed, handler.handle(PushActionKind.MAKEUP_SHORTER, makeup))
+
+        coVerify { api.chooseWorkoutMakeup("01K0MAKEUP", "shorter") }
+    }
+
+    @Test
+    fun `a make-up already settled elsewhere is closed with Déjà réglé (MAG-772)`() = runBlocking {
+        coEvery { api.chooseWorkoutMakeup(any(), any()) } throws ApiRefusalException(409, "conflict")
+
+        val outcome = handler.handle(PushActionKind.MAKEUP_TOMORROW, payload("workout_makeup").copy(makeupId = "01K0MAKEUP"))
+
+        assertEquals(PushOutcome.Settled("Déjà réglé."), outcome)
+    }
+
+    @Test
+    fun `a make-up choice that does not get through can be pressed again (MAG-772)`() = runBlocking {
+        coEvery { api.chooseWorkoutMakeup(any(), any()) } throws java.io.IOException("offline")
+
+        val outcome = handler.handle(PushActionKind.MAKEUP_SOFTER, payload("workout_makeup").copy(makeupId = "01K0MAKEUP"))
+
+        assertTrue(outcome is PushOutcome.Retry)
+    }
 }

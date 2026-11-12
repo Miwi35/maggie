@@ -21,6 +21,15 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useMercure } from '../../hooks/useMercure'
 import { getToken } from '../../auth/session'
 import { notificationLink, shortageAlertId } from '../maggie/interruptions'
+import {
+  chooseWorkoutMakeup,
+  fetchWorkoutMakeup,
+  makeupLabel,
+  makeupOptions,
+  workoutMakeupId,
+  type MakeupOption,
+  type WorkoutMakeup,
+} from '../maggie/workoutMakeup'
 import { fetchNavigationUrl, isTripIri, openNavigation } from '../../modules/calendar/trips'
 import { stripDeliveryTags } from '../chat/deliveryTags'
 
@@ -67,6 +76,11 @@ function actionUrl(notification: Notification): string | null {
   if (notification.reminderId) return `/api/task-reminders/${encodeURIComponent(notification.reminderId)}/action`
   const shortageId = shortageAlertId(notification.relatedEntityIri)
   return shortageId ? `/api/shortage-alerts/${shortageId}/action` : null
+}
+
+/** The proposal an unread make-up notification (MAG-772) points at: its choices answer `choose`. */
+function pendingMakeupId(notification: Notification): string | null {
+  return notification.type === 'workout_makeup' && !notification.readAt ? workoutMakeupId(notification.relatedEntityIri) : null
 }
 
 /** The IRI: the `id` react-admin's Hydra provider gives a record, and the `@id` of a Mercure payload. */
@@ -186,6 +200,23 @@ export const NotificationBell = () => {
     }
   }, [bellOpen, departureKey])
 
+  // The minutes of a make-up's buttons, read when the bell opens.
+  const [makeups, setMakeups] = useState<Record<string, WorkoutMakeup>>({})
+  const makeupKey = useMemo(() => notifications.flatMap((n) => pendingMakeupId(n) ?? []).join(','), [notifications])
+  useEffect(() => {
+    if (!bellOpen || !makeupKey) return
+    let live = true
+    for (const id of makeupKey.split(',')) {
+      void fetchWorkoutMakeup(id).then((found) => {
+        if (live && found) setMakeups((known) => ({ ...known, [id]: found }))
+      })
+    }
+
+    return () => {
+      live = false
+    }
+  }, [bellOpen, makeupKey])
+
   const handleNotificationClick = useCallback(
     async (notification: Notification) => {
       const tripIri = notification.type === 'departure' && isTripIri(notification.relatedEntityIri) ? notification.relatedEntityIri : null
@@ -274,6 +305,17 @@ export const NotificationBell = () => {
   // with the words the API gives it.
   const handleAction = useCallback(
     async (notification: Notification, action: string) => {
+      const makeupId = pendingMakeupId(notification)
+      if (makeupId) {
+        setAnswering(notification.id)
+        setError(null)
+        const result = await chooseWorkoutMakeup(makeupId, action as MakeupOption)
+        setAnswering(null)
+        if (result === 'failed') return setError(ANSWER_ERROR)
+        // Chosen or settled elsewhere: either way it is answered, and read.
+        apply({ '@id': notification.id, readAt: new Date().toISOString(), actions: [] })
+        return
+      }
       const url = actionUrl(notification)
       if (!url) return
       setAnswering(notification.id)
@@ -424,7 +466,7 @@ export const NotificationBell = () => {
                       secondaryTypographyProps={{ fontSize: 12 }}
                     />
                   </ListItemButton>
-                  {n.actions && n.actions.length > 0 && actionUrl(n) && (
+                  {n.actions && n.actions.length > 0 && (actionUrl(n) || pendingMakeupId(n)) && (
                     <Box
                       sx={{
                         display: 'flex',
@@ -438,7 +480,7 @@ export const NotificationBell = () => {
                         borderLeftColor: 'primary.main',
                       }}
                     >
-                      {n.actions.map((action) => (
+                      {(pendingMakeupId(n) ? makeupOptions(n.actions) : n.actions).map((action) => (
                         <Button
                           key={action}
                           size="small"
@@ -449,7 +491,9 @@ export const NotificationBell = () => {
                             handleAction(n, action)
                           }}
                         >
-                          {ACTION_LABELS[action] ?? action}
+                          {pendingMakeupId(n)
+                            ? makeupLabel(action as MakeupOption, makeups[pendingMakeupId(n) ?? ''] ?? null)
+                            : (ACTION_LABELS[action] ?? action)}
                         </Button>
                       ))}
                     </Box>

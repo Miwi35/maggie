@@ -228,7 +228,7 @@ class PushNotifier(private val context: Context) {
             broadcast(PushActionReceiver.actionFor(kind), payload),
             flags,
         )
-        val builder = NotificationCompat.Action.Builder(0, kind.label, pending)
+        val builder = NotificationCompat.Action.Builder(0, payload.labelOf(kind), pending)
         if (kind == PushActionKind.REPLY) {
             builder
                 .addRemoteInput(RemoteInput.Builder(PushActionReceiver.KEY_REPLY).setLabel(kind.label).build())

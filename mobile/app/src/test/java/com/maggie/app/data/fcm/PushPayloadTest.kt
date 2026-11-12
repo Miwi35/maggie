@@ -353,4 +353,30 @@ class PushPayloadTest {
         val payload = PushPayload.from(mapOf("notificationId" to "n-1", "type" to "message", "channel" to PushChannels.CHAT_QUIET))!!
         assertEquals(PushChannels.CHAT, payload.channel)
     }
+
+    @Test
+    fun `a make-up carries its three choices in order, worded with the minutes of the push (MAG-772)`() {
+        val makeup = payload(
+            "workout_makeup",
+            "makeupId" to "01K0MAKEUP",
+            "softerMinutes" to "30",
+            "shorterMinutes" to "20",
+            "actions" to "tomorrow,shorter,softer",
+        )
+
+        assertEquals(listOf(PushActionKind.MAKEUP_SOFTER, PushActionKind.MAKEUP_SHORTER, PushActionKind.MAKEUP_TOMORROW), makeup.actions())
+        assertEquals(
+            listOf("30 min, plus doux", "20 min, même intensité", "Demain"),
+            makeup.actions().map(makeup::labelOf),
+        )
+        assertTrue(makeup.awaitsAnswer)
+    }
+
+    @Test
+    fun `a make-up choice missing from the push does not appear, and the minutes unknown word the button generically`() {
+        val makeup = payload("workout_makeup", "makeupId" to "01K0MAKEUP", "actions" to "softer")
+
+        assertEquals(listOf(PushActionKind.MAKEUP_SOFTER), makeup.actions())
+        assertEquals("Plus doux", makeup.labelOf(PushActionKind.MAKEUP_SOFTER))
+    }
 }

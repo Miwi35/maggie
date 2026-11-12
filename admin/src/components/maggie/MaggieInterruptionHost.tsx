@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useDataProvider } from 'react-admin'
+import { useDataProvider, useNotify } from 'react-admin'
 import { useNavigate } from 'react-router-dom'
 import { lookupNavigation, openNavigation } from '../../modules/calendar/trips'
 import { MaggieInterruption } from './MaggieInterruption'
 import { useMaggieInterruption } from './useMaggieInterruption'
+import { chooseWorkoutMakeup, fetchWorkoutMakeup, makeupLabel, type MakeupOption, type WorkoutMakeup } from './workoutMakeup'
 
 interface MaggieInterruptionHostProps {
   chatOpen: boolean
@@ -40,6 +41,7 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
   const { current, dismiss, openChat, withdraw } = useMaggieInterruption({ chatOpen, onOpenChat })
   const dataProvider = useDataProvider()
   const navigate = useNavigate()
+  const notify = useNotify()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,6 +76,22 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     })
     navigation.current = entry
   }, [currentId, departureTrip, withdraw])
+
+  // The minutes of a make-up's buttons are read from the proposal; the words show without them meanwhile.
+  const makeup = current?.source === 'notification' ? current.makeup : undefined
+  const [loaded, setLoaded] = useState<{ id: string; makeup: WorkoutMakeup } | null>(null)
+  const makeupId = makeup?.id
+  useEffect(() => {
+    if (!makeupId) return
+    let cancelled = false
+    void fetchWorkoutMakeup(makeupId).then((found) => {
+      if (!cancelled && found) setLoaded({ id: makeupId, makeup: found })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [makeupId])
+  const loadedMakeup = makeupId && loaded?.id === makeupId ? loaded.makeup : null
 
   const send = useCallback(
     async (post: () => Promise<boolean>) => {
@@ -123,6 +141,25 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
       })
     dismiss(false)
   }, [current, dataProvider, dismiss])
+
+  // The API reads the notification and takes it off the phones when the choice is made.
+  const choose = useCallback(
+    async (option: MakeupOption) => {
+      if (!current || !makeup) return
+      setBusy(true)
+      setError(null)
+      const result = await chooseWorkoutMakeup(makeup.id, option)
+      if (result === 'failed') {
+        if (currentIdRef.current !== current.id) return
+        setError("Votre réponse n'est pas partie. Réessayez, ou gardez-la pour plus tard.")
+        setBusy(false)
+        return
+      }
+      if (result === 'settled') notify('Déjà réglé')
+      dismiss(false)
+    },
+    [current, dismiss, makeup, notify],
+  )
 
   const goToDeparture = useCallback(async () => {
     const entry = navigation.current
@@ -178,6 +215,8 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
       onAction={act}
       secondaryLabel={secondaryLabel}
       onSecondary={openLink}
+      choices={makeup?.options.map((option) => ({ key: option, label: makeupLabel(option, loadedMakeup) }))}
+      onChoose={(key) => void choose(key as MakeupOption)}
       holdsQuestion={current?.source === 'approval'}
       busy={busy}
       error={error}

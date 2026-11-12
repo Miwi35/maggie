@@ -23,8 +23,9 @@ data class PushInteraction(
  *
  * [reminderKey] is the key a task reminder's button goes by in `data.actions` and in
  * `POST /api/task-reminders/{id}/action` (MAG-510); null for the buttons the app picks itself.
+ * [makeupOption] is the same for a make-up's (MAG-772): `POST /api/workout-makeups/{id}/choose`.
  */
-enum class PushActionKind(val label: String, val reminderKey: String? = null) {
+enum class PushActionKind(val label: String, val reminderKey: String? = null, val makeupOption: String? = null) {
     REPLY("Répondre"),
     OK("C'est noté"),
     DONE("Fait"),
@@ -60,6 +61,15 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
     /** « Écouter » of the morning digest's notification (MAG-773): the media service plays the last digest voice. */
     LISTEN("Écouter"),
 
+    /** « 45 min, plus doux » of a missed session's make-up (MAG-772); the minutes come with the payload. */
+    MAKEUP_SOFTER("Plus doux", makeupOption = "softer"),
+
+    /** « 20 min, même intensité » (MAG-772). */
+    MAKEUP_SHORTER("Même intensité", makeupOption = "shorter"),
+
+    /** « Demain » of a make-up (MAG-772): the missed session is planned again tomorrow. */
+    MAKEUP_TOMORROW("Demain", makeupOption = "tomorrow"),
+
     /** « Marquer comme lu » of a conversation (MAG-682): never shown in the tray, Android Auto presses it after reading aloud. */
     MARK_AS_READ("Marquer comme lu"),
     ;
@@ -67,6 +77,9 @@ enum class PushActionKind(val label: String, val reminderKey: String? = null) {
     companion object {
         /** The button a reminder's key names; null for a key this version does not know. */
         fun ofReminderKey(key: String): PushActionKind? = entries.firstOrNull { it.reminderKey == key }
+
+        /** The button a make-up's key names, in the order the choices are shown. */
+        fun ofMakeupOption(key: String): PushActionKind? = entries.firstOrNull { it.makeupOption == key }
     }
 }
 
@@ -102,9 +115,21 @@ data class PushPayload(
     val silent: Boolean = false,
     /** A task reminder at a precise time (MAG-717): the toaster shows the task's card and « Ouvrir la tâche », never its list. */
     val showsTask: Boolean = false,
+    /** The make-up of a missed session the notification is (MAG-772): its buttons answer it. */
+    val makeupId: String? = null,
+    /** The minutes of the « softer » and « shorter » buttons; null until known (the push carries them, the toaster reads them). */
+    val softerMinutes: Int? = null,
+    val shorterMinutes: Int? = null,
 ) {
     /** Delivered late (a push held back for hours), an alert is over once its [expiresAt] has passed. */
     fun isExpired(now: Instant): Boolean = expiresAt != null && !expiresAt.isAfter(now)
+
+    /** « 45 min, plus doux », « 20 min, même intensité », « Demain »: a make-up's buttons are worded with its minutes. */
+    fun labelOf(kind: PushActionKind): String = when (kind) {
+        PushActionKind.MAKEUP_SOFTER -> softerMinutes?.let { "$it min, plus doux" } ?: kind.label
+        PushActionKind.MAKEUP_SHORTER -> shorterMinutes?.let { "$it min, même intensité" } ?: kind.label
+        else -> kind.label
+    }
 
     /** A message Maggie wrote in the conversation (MAG-687): a tap goes to it, nothing is said while the chat shows it. */
     val isMessage: Boolean get() = type == MESSAGE_TYPE
@@ -149,6 +174,7 @@ data class PushPayload(
     fun actions(): List<PushActionKind> {
         val kind = interaction?.kind
         return when {
+            makeupId != null -> reminderActions.mapNotNull(PushActionKind::ofMakeupOption).distinct().sortedBy { MAKEUP_ORDER.indexOf(it) }
             reminderId != null -> reminderActions.mapNotNull(PushActionKind::ofReminderKey).distinct().take(MAX_ACTIONS)
             shortageId != null -> listOf(PushActionKind.ADD_TO_LIST, PushActionKind.LATER)
             showsTask -> listOf(PushActionKind.GO, PushActionKind.LATER)
@@ -191,9 +217,11 @@ data class PushPayload(
         /** `NotificationType::Departure`. */
         const val DEPARTURE_TYPE = "departure"
 
+        private val MAKEUP_ORDER = listOf(PushActionKind.MAKEUP_SOFTER, PushActionKind.MAKEUP_SHORTER, PushActionKind.MAKEUP_TOMORROW)
+
         private val ANSWERING = setOf(
             PushActionKind.DONE, PushActionKind.LATER, PushActionKind.APPROVE, PushActionKind.DENY, PushActionKind.ADD_TO_LIST,
-        )
+        ) + MAKEUP_ORDER
 
         /** The buttons Android shows on a notification, at most. */
         const val MAX_ACTIONS = 3
@@ -230,6 +258,9 @@ data class PushPayload(
                 expiresAt = parseInstant(data["expiresAt"]),
                 messageId = data["messageId"]?.takeIf { it.isNotBlank() },
                 silent = data["silent"] == "1",
+                makeupId = data["makeupId"]?.takeIf { it.isNotBlank() },
+                softerMinutes = data["softerMinutes"]?.toIntOrNull(),
+                shorterMinutes = data["shorterMinutes"]?.toIntOrNull(),
                 reminderActions = data["actions"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() },
             )
         }

@@ -78,6 +78,9 @@ class PushMessageFactory
         private readonly string $deepLinkScheme = 'maggie',
         #[AutowireIterator(NavigationLinkProvider::TAG)]
         private readonly iterable $navigationLinks = [],
+        /** @var iterable<PushDataProvider> */
+        #[AutowireIterator(PushDataProvider::TAG)]
+        private readonly iterable $pushData = [],
     ) {
     }
 
@@ -121,10 +124,26 @@ class PushMessageFactory
 
         return [
             'token' => $deviceToken,
-            'data' => $data,
+            'data' => $data + $this->extraData($notification->getRelatedEntityIri()),
             // Delivered at once, even to a phone in Doze.
             'android' => ['priority' => 'high'] + $this->ttl($notification),
         ];
+    }
+
+    /** @return array<string, string> */
+    private function extraData(?string $relatedEntityIri): array
+    {
+        if (null === $relatedEntityIri) {
+            return [];
+        }
+        foreach ($this->pushData as $provider) {
+            $data = $provider->dataFor($relatedEntityIri);
+            if ([] !== $data) {
+                return $data;
+            }
+        }
+
+        return [];
     }
 
     /**

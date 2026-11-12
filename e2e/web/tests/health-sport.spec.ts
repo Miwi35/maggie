@@ -1,6 +1,10 @@
 import { test, expect, e2eNow, parisDay, parisTime } from '../fixtures/index.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { HealthSportPage } from '../pages/HealthSportPage.js'
+import { HomePage } from '../pages/HomePage.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
+import { getCollection } from '../helpers/api.js'
+import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
 
 /**
  * Santé › Sport, the first journey of the new Santé module — MAG-705.
@@ -17,6 +21,12 @@ import { HealthSportPage } from '../pages/HealthSportPage.js'
  * MAG-777 extends it: Given une séance prévue aujourd'hui à 18:30, When j'ouvre l'Agenda, Then
  * « Séance A » est à 18:30 dans l'agenda « Santé » ; When je la déplace à 19:00, Then Santé › Sport
  * la montre à 19:00.
+ *
+ * MAG-772 extends it: Given une séance prévue hier à 18:00 et non faite, et la proposition de
+ * rattrapage de Maggie (seed `71-workout-makeup.yaml`), When Maggie interrompt, Then trois
+ * choix empilés « 30 min, plus doux », « 20 min, même intensité », « Demain » puis « Plus tard » ;
+ * When je clique « Demain », Then l'interruption se ferme et Santé › Sport montre une séance
+ * prévue demain.
  */
 
 interface WorkoutRow {
@@ -160,5 +170,50 @@ test.describe('A planned session in the « Santé » agenda — MAG-777', () => 
     const sport = new HealthSportPage(page)
     await sport.open()
     await expect(sport.row(id)).toContainText('Séance A')
+  })
+})
+
+test.describe('Maggie proposes to make up the missed session — MAG-772', () => {
+  // Its own seeded account: answering settles the proposal and plans a session.
+  test.describe.configure({ mode: 'serial', retries: 0 })
+
+  test('the interruption stacks three choices, « Demain » plans the session tomorrow and closes it', async ({ makeupUser }) => {
+    const { page, api, session } = makeupUser
+    const dashboard = new HomePage(page)
+    await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+    await new ChatPanel(page).ensureClosed()
+
+    // Given the notification Maggie sent, delivered on the hub.
+    const [stored] = (await getCollection<{ id: string; type: string; [key: string]: unknown }>(api, '/api/notifications?itemsPerPage=100')).filter(
+      (n) => n.type === 'workout_makeup',
+    )
+    expect(stored, 'the seeded make-up notification').toBeDefined()
+    await publishOnHub(page, `/users/${session.user.id}/api/notifications/${stored.id}`, { '@id': `/api/notifications/${stored.id}`, ...stored })
+
+    // Then the three choices, worded with the minutes, then « Plus tard ».
+    const interruption = page.getByRole('alertdialog')
+    await expect(interruption).toBeVisible()
+    await expect(interruption.getByRole('button', { name: '30 min, plus doux' })).toBeVisible()
+    await expect(interruption.getByRole('button', { name: '20 min, même intensité' })).toBeVisible()
+    await expect(interruption.getByRole('button', { name: 'Demain' })).toBeVisible()
+    await expect(interruption.getByRole('button', { name: 'Plus tard' })).toBeVisible()
+
+    // When I choose « Demain », Then it closes and the API planned a session tomorrow.
+    await interruption.getByRole('button', { name: 'Demain' }).click()
+    await expect(interruption).toBeHidden()
+
+    const tomorrow = parisDay(new Date(e2eNow().getTime() + 24 * 3600 * 1000))
+    await expect
+      .poll(async () => {
+        const rows = await getCollection<WorkoutRow>(api, '/api/workouts?itemsPerPage=100')
+
+        return rows.filter((w) => w.source === 'planned' && parisDay(new Date(w.startedAt)) === tomorrow).length
+      })
+      .toBeGreaterThan(0)
+
+    // …and Santé › Sport lists it.
+    const sport = new HealthSportPage(page)
+    await sport.open()
+    await expect(page.getByText('Prévue').first()).toBeVisible()
   })
 })

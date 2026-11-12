@@ -11,9 +11,11 @@ const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
 
 const update = vi.fn()
+const notify = vi.fn()
 vi.mock('react-admin', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-admin')>()),
   useDataProvider: () => ({ update }),
+  useNotify: () => notify,
 }))
 
 class FakeEventSource {
@@ -69,6 +71,7 @@ describe('MaggieInterruptionHost', () => {
     vi.stubGlobal('fetch', fetchMock)
     navigate.mockReset()
     update.mockReset().mockResolvedValue({})
+    notify.mockReset()
     onOpenChat.mockReset()
   })
 
@@ -291,6 +294,84 @@ describe('MaggieInterruptionHost', () => {
 
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByRole('button', { name: 'Autoriser' })).toBeEnabled()
+  })
+
+  describe('a missed session\'s make-up (MAG-772)', () => {
+    const makeupUrl = '/api/workout-makeups/01K0MAKEUP00000000000000A'
+    const makeup = {
+      '@id': '/api/notifications/n12',
+      id: 'n12',
+      type: 'workout_makeup',
+      title: 'Séance de 18 h 30 manquée, monsieur.',
+      body: 'Pour garder votre série de 3, ce soir :',
+      relatedEntityIri: makeupUrl,
+      actions: ['softer', 'shorter', 'tomorrow'],
+      readAt: null,
+    }
+
+    const answerWith = (choose: { ok: boolean; status: number }) =>
+      fetchMock.mockImplementation((url: string, init?: { method?: string }) => {
+        if (url === makeupUrl) return Promise.resolve({ ok: true, status: 200, json: async () => ({ softerMinutes: 45, shorterMinutes: 20, status: 'proposed' }) })
+        if (url === `${makeupUrl}/choose` && init?.method === 'POST') return Promise.resolve({ ...choose, json: async () => ({}) })
+        return Promise.resolve({ ok: true, status: 200, json: async () => [] })
+      })
+
+    test('shows Maggie\'s text, the three choices in order, then « Plus tard »', async () => {
+      answerWith({ ok: true, status: 200 })
+      setup()
+      feed().emit(makeup)
+
+      const dialog = await screen.findByRole('alertdialog')
+      expect(dialog).toHaveTextContent('Pour garder votre série de 3, ce soir :')
+      const labels = await waitFor(() => {
+        const found = screen.getAllByRole('button').map((b) => b.textContent)
+        expect(found).toContain('45 min, plus doux')
+        return found
+      })
+      expect(labels).toEqual(['45 min, plus doux', '20 min, même intensité', 'Demain', 'Plus tard'])
+    })
+
+    test('an option missing from the actions does not appear', async () => {
+      answerWith({ ok: true, status: 200 })
+      setup()
+      feed().emit({ ...makeup, actions: ['tomorrow'] })
+
+      await screen.findByRole('button', { name: 'Demain' })
+      expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Demain', 'Plus tard'])
+    })
+
+    test('a choice posts `choose` and closes', async () => {
+      answerWith({ ok: true, status: 200 })
+      setup()
+      feed().emit(makeup)
+
+      await userEvent.click(await screen.findByRole('button', { name: '20 min, même intensité' }))
+
+      expect(fetchMock).toHaveBeenCalledWith(`${makeupUrl}/choose`, expect.objectContaining({ method: 'POST', body: JSON.stringify({ option: 'shorter' }) }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    })
+
+    test('a make-up already settled (409) closes, saying so', async () => {
+      answerWith({ ok: false, status: 409 })
+      setup()
+      feed().emit(makeup)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Demain' }))
+
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+      expect(notify).toHaveBeenCalledWith('Déjà réglé')
+    })
+
+    test('an answer that does not go keeps the choices and says so', async () => {
+      answerWith({ ok: false, status: 500 })
+      setup()
+      feed().emit(makeup)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Demain' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent("Votre réponse n'est pas partie")
+      expect(screen.getByRole('button', { name: 'Demain' })).toBeEnabled()
+    })
   })
 
   describe('a missing product (MAG-570)', () => {

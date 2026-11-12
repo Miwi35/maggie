@@ -1,0 +1,70 @@
+# The make-up journeys (MAG-772, extends MAG-705): a session planned yesterday at
+# 18:00 and not done, its proposal « proposed » (30 min softer, 20 min shorter, a
+# streak of 3) and the notification Maggie sent for it.
+#
+# One account per journey, web and phone: answering settles the proposal, takes the
+# notification down and plans a session, which would move the bell and the sessions
+# of any account another journey reads. The detector that files the proposal is
+# MAG-771's (its own tests); here it is seeded as already sent.
+
+Maggie\Core\Entity\User:
+  e2e_makeup_web_user:
+    email: 'e2e-makeup@maggie.local'
+    googleId: 'e2e-makeup-google-id'
+    name: 'Marie Rattrape'
+  e2e_makeup_mobile_user:
+    email: 'e2e-makeup-mobile@maggie.local'
+    googleId: 'e2e-makeup-mobile-google-id'
+    name: 'Marc Rattrape'
+
+Maggie\Health\Entity\Workout:
+  e2e_makeup_web_missed:
+    user: '@e2e_makeup_web_user'
+    type: '<(Maggie\Health\Enum\WorkoutType::Strength)>'
+    title: Séance A
+    startedAt: '<e2eDate("-1 day 18:00")>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    variant: '<(Maggie\Health\Enum\WorkoutVariant::Normal)>'
+  e2e_makeup_mobile_missed:
+    user: '@e2e_makeup_mobile_user'
+    type: '<(Maggie\Health\Enum\WorkoutType::Strength)>'
+    title: Séance A
+    startedAt: '<e2eDate("-1 day 18:00")>'
+    durationMinutes: 45
+    source: '<(Maggie\Health\Enum\WorkoutSource::Planned)>'
+    variant: '<(Maggie\Health\Enum\WorkoutVariant::Normal)>'
+
+Maggie\Health\Entity\WorkoutMakeup:
+  e2e_makeup_web:
+    __construct:
+      - '@e2e_makeup_web_user'
+      - '@e2e_makeup_web_missed'
+      - 30
+      - 20
+      - 3
+  e2e_makeup_mobile:
+    __construct:
+      - '@e2e_makeup_mobile_user'
+      - '@e2e_makeup_mobile_missed'
+      - 30
+      - 20
+      - 3
+
+Maggie\Notification\Entity\Notification:
+  e2e_makeup_web_notification:
+    user: '@e2e_makeup_web_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::WorkoutMakeup)>'
+    title: 'Séance de 18 h manquée, monsieur.'
+    body: 'Pour garder votre série de 3, demain :'
+    relatedEntityIri: '<("/api/workout-makeups/" . @e2e_makeup_web->getId())>'
+    actions: [softer, shorter, tomorrow]
+    readAt: null
+  e2e_makeup_mobile_notification:
+    user: '@e2e_makeup_mobile_user'
+    type: '<(Maggie\Notification\Enum\NotificationType::WorkoutMakeup)>'
+    title: 'Séance de 18 h manquée, monsieur.'
+    body: 'Pour garder votre série de 3, demain :'
+    relatedEntityIri: '<("/api/workout-makeups/" . @e2e_makeup_mobile->getId())>'
+    actions: [softer, shorter, tomorrow]
+    readAt: null

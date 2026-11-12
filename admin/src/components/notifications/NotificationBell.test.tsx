@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NotificationBell } from './NotificationBell'
 
@@ -546,6 +546,55 @@ describe('NotificationBell — a missing product (MAG-570)', () => {
     emit({ '@id': shortage.id, deleted: true })
 
     expect(screen.queryByText(shortage.title)).toBeNull()
+  })
+})
+
+describe('NotificationBell — a make-up proposal (MAG-772)', () => {
+  const fetchMock = vi.fn()
+  const makeupUrl = '/api/workout-makeups/01K0MAKEUP00000000000000A'
+  const proposal = {
+    ...dentist,
+    id: iri('01K0MKUP'),
+    type: 'workout_makeup',
+    title: 'Séance de 18 h 30 manquée, monsieur.',
+    body: 'Pour garder votre série de 3, ce soir :',
+    relatedEntityIri: makeupUrl,
+    reminderId: null,
+    actions: ['softer', 'shorter', 'tomorrow'],
+  }
+
+  beforeEach(() => {
+    refetch.mockReset()
+    update.mockReset()
+    redirect.mockReset()
+    fetchMock.mockReset().mockImplementation((url: string) =>
+      Promise.resolve(
+        url === makeupUrl
+          ? { ok: true, status: 200, json: async () => ({ softerMinutes: 45, shorterMinutes: 20, status: 'proposed' }) }
+          : { ok: true, status: 200, json: async () => ({}) },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    listed = [proposal, film]
+  })
+
+  test('offers the three choices, worded with the minutes', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    expect(await screen.findByRole('button', { name: '45 min, plus doux' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '20 min, même intensité' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Demain' })).toBeInTheDocument()
+  })
+
+  test('a choice posts `choose` and takes the buttons away', async () => {
+    render(<NotificationBell />)
+    await openBell()
+
+    await userEvent.click(await screen.findByRole('button', { name: '20 min, même intensité' }))
+
+    expect(fetchMock).toHaveBeenCalledWith(`${makeupUrl}/choose`, expect.objectContaining({ method: 'POST', body: JSON.stringify({ option: 'shorter' }) }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Demain' })).toBeNull())
   })
 })
 

@@ -77,6 +77,7 @@ fun InterruptionHost(
                 onToggle = viewModel::toggle,
                 onSubmit = viewModel::submit,
                 loadTask = viewModel::loadTask,
+                loadMakeup = viewModel::loadMakeup,
             )
         }
     }

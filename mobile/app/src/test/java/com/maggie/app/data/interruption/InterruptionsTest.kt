@@ -319,4 +319,17 @@ class InterruptionsTest {
         assertFalse(Interruptions.of(Notification(id = "n", type = "reminder", title = "t", relatedEntityIri = "/api/events/01HX"))!!.showsTask)
         assertFalse(Interruptions.of(Notification(id = "n", type = "proaction", title = "t", relatedEntityIri = "/api/tasks/01HX"))!!.showsTask)
     }
+
+    @Test
+    fun `a make-up notification carries its proposal and its choices (MAG-772)`() {
+        val payload = Interruptions.of(
+            Notification(
+                id = "n-m", type = "workout_makeup", title = "Séance manquée",
+                relatedEntityIri = "/api/workout-makeups/01K0MAKEUP", actions = listOf("softer", "tomorrow"),
+            ),
+        )!!
+
+        assertEquals("01K0MAKEUP", payload.makeupId)
+        assertEquals(listOf(PushActionKind.MAKEUP_SOFTER, PushActionKind.MAKEUP_TOMORROW), payload.actions())
+    }
 }

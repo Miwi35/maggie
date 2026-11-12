@@ -33,6 +33,9 @@ interface MaggieInterruptionProps {
   /** A second action next to the first — « Refuser » beside « Autoriser », « Voir l'événement » beside « C'est noté ». */
   secondaryLabel?: string
   onSecondary?: () => void
+  /** Choices stacked in a list instead of the two actions (MAG-772): one press answers. */
+  choices?: { key: string; label: string }[]
+  onChoose?: (key: string) => void
   /** A question is being asked: its buttons act when pressed, so the focus starts on « Plus tard ». */
   holdsQuestion?: boolean
   /** An answer is on its way: the buttons wait for it. */
@@ -58,6 +61,8 @@ export const MaggieInterruption = ({
   onAction,
   secondaryLabel,
   onSecondary,
+  choices,
+  onChoose,
   holdsQuestion = false,
   busy = false,
   error = null,
@@ -71,7 +76,7 @@ export const MaggieInterruption = ({
   const previousFocus = useRef<HTMLElement | null>(null)
   const actedOn = useRef(false)
   const chimedFor = useRef<string | null>(null)
-  const asksForAnswer = holdsQuestion
+  const asksForAnswer = holdsQuestion || (choices?.length ?? 0) > 0
 
   // Taken before the modal moves the focus; given back only when it was put off.
   // Opening the chat is not that: the chat's own input wants the focus.
@@ -222,18 +227,39 @@ export const MaggieInterruption = ({
             </Typography>
           )}
           <Box sx={{ display: 'flex', flexDirection: narrow ? 'column' : 'row', flexWrap: 'wrap', gap: '12px' }}>
-            <Button
-              ref={actionRef}
-              autoFocus={!asksForAnswer}
-              variant="contained"
-              color="primary"
-              disabled={busy}
-              onClick={handleAction}
-              sx={{ borderRadius: 999, minHeight: 44, px: 3 }}
-            >
-              {actionLabel}
-            </Button>
-            {secondaryLabel !== undefined && (
+            {choices && choices.length > 0 ? (
+              <Box component="ul" sx={{ listStyle: 'none', margin: 0, padding: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {choices.map((choice) => (
+                  <li key={choice.key}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      disabled={busy}
+                      onClick={() => {
+                        actedOn.current = false
+                        onChoose?.(choice.key)
+                      }}
+                      sx={{ borderRadius: '14px', minHeight: 48, justifyContent: 'flex-start', px: 2, fontSize: 16 }}
+                    >
+                      {choice.label}
+                    </Button>
+                  </li>
+                ))}
+              </Box>
+            ) : (
+              <Button
+                ref={actionRef}
+                autoFocus={!asksForAnswer}
+                variant="contained"
+                color="primary"
+                disabled={busy}
+                onClick={handleAction}
+                sx={{ borderRadius: 999, minHeight: 44, px: 3 }}
+              >
+                {actionLabel}
+              </Button>
+            )}
+            {!choices?.length && secondaryLabel !== undefined && (
               <Button
                 variant="outlined"
                 disabled={busy}

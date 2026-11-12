@@ -2,6 +2,7 @@ import { SEARCH_INDEX_CONFIG } from '../../modules/search/searchConfig'
 import { isTripIri } from '../../modules/calendar/trips'
 import { stripDeliveryTags } from '../chat/deliveryTags'
 import { HEALTH_NUTRITION_PATH } from '../layout/navigation'
+import { makeupOptions, workoutMakeupId, type MakeupOption } from './workoutMakeup'
 
 /** Where an interruption comes from — what its action does depends on it. */
 export type InterruptionSource = 'proaction' | 'notification' | 'approval'
@@ -27,6 +28,8 @@ export type Interruption =
       link: NotificationLink | null
       shortageId?: string
       departureTrip?: string
+      /** A missed session's make-up (MAG-772): the choices she offers, answered by `choose`. */
+      makeup?: { id: string; options: MakeupOption[] }
       /** Epoch ms from when it is no longer worth saying (MAG-679). */
       expiresAt?: number
     })
@@ -159,6 +162,8 @@ export function readFeedMessage(raw: string): FeedEvent | null {
     const shortageId = Array.isArray(data.actions) && data.actions.includes('add') ? shortageAlertId(iri) : null
     // « Pars maintenant » (MAG-655): its answer is the trip's navigation link, "Y aller".
     const departureTrip = type === 'departure' && isTripIri(iri) ? iri : null
+    const makeupId = type === 'workout_makeup' ? workoutMakeupId(iri) : null
+    const makeupChoices = makeupId ? makeupOptions(data.actions) : []
     return {
       kind: 'interrupt',
       interruption: {
@@ -170,6 +175,7 @@ export function readFeedMessage(raw: string): FeedEvent | null {
         link: notificationLink(iri),
         ...(shortageId && { shortageId }),
         ...(departureTrip && { departureTrip }),
+        ...(makeupId && makeupChoices.length > 0 && { makeup: { id: makeupId, options: makeupChoices } }),
         ...(Number.isFinite(expiresAt) && { expiresAt }),
       },
     }
