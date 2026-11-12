@@ -15,4 +15,4 @@ turns:
           from: '2026-09-01'
           to: '2026-09-30'
           refs: ['e2e-statement-n26-1', 'e2e-statement-n26-2']
-  - text: "C'est fait : les deux virements de N26 sont dans Maggie, à qualifier."
+  - text: "Les deux virements de N26 sont dans Maggie, à qualifier."

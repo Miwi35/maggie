@@ -11,4 +11,4 @@ turns:
   - tools:
       - name: read_bank_statement
         input: {accountId: '\1', from: '2026-09-01', to: '2026-09-30', search: 'N26'}
-  - text: "J'ai trouvé deux virements de N26 en septembre : 50,00 € le 2 septembre et 30,00 € le 9 septembre. Je n'ai rien importé : veux-tu que je les ajoute à Maggie ?"
+  - text: "J'ai trouvé deux virements de N26 en septembre : 50,00 € le 2 septembre et 30,00 € le 9 septembre. Je n'ai rien importé : souhaitez-vous que je les ajoute à Maggie ?"
