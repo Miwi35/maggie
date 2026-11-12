@@ -3,7 +3,8 @@ import { getCollection } from '../helpers/api.js'
 
 /**
  * The periods (MAG-809, « Périodes et contexte du jour » part 1, extends MAG-97): API
- * only for now, the screen comes with part 6, which adds its steps to this file.
+ * only. Parts 2 to 4 extend this file; the screen's steps (part 6) go to
+ * `agenda-periods-page.spec.ts`.
  *
  * The account is created for the test: its only period is the one written here, so the
  * occurrences counted are this series' and a retry starts on an account of its own.
