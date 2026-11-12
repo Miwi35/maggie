@@ -7,6 +7,7 @@ use Maggie\Calendar\Enum\TaskCriticality;
 use Maggie\Calendar\Enum\TaskPriority;
 use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\Message\PushTaskToGoogleCommand;
+use Maggie\Calendar\Service\ModuleAgendas;
 use Maggie\Calendar\Service\TaskEstimate;
 use Maggie\Calendar\Service\TaskHierarchy;
 use Maggie\Calendar\Service\TaskSchedule;
@@ -23,6 +24,7 @@ class CreateTaskHandler
     public function __construct(
         private readonly CreateTask $createTask,
         private readonly TaskHierarchy $hierarchy,
+        private readonly ModuleAgendas $moduleAgendas,
         private readonly UserRepository $userRepository,
         private readonly MessageBusInterface $bus,
         private readonly LoggerInterface $logger,
@@ -62,6 +64,9 @@ class CreateTaskHandler
             $task->setParent($this->hierarchy->parentFor(null, $user, $command->parentId));
         }
         $task->setPosition($command->position ?? $this->hierarchy->lastPosition($user, $task->getParent()));
+
+        // Persisted here and flushed with the task; never the user's own agenda named « Tâches ».
+        $this->moduleAgendas->forUser($user, Task::AGENDA_MODULE, Task::AGENDA_NAME, Task::AGENDA_COLOR, adoptLegacy: false);
 
         $task = $this->createTask->execute($task);
 

@@ -6,12 +6,14 @@ use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
 use Google\Service\Tasks\Task as GoogleTask;
 use Google\Service\Tasks\TaskLinks;
+use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\GoogleTaskListSelection;
 use Maggie\Calendar\Service\GoogleTaskMapper;
 use Maggie\Calendar\Service\GoogleTasksApiClient;
 use Maggie\Calendar\Service\GoogleTasksSyncService;
+use Maggie\Calendar\Service\ModuleAgendas;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
@@ -35,6 +37,7 @@ class GoogleTasksSyncServiceTest extends TestCase
     private TaskRepository $taskRepository;
     private GoogleTaskListSelection $selection;
     private EntityManagerInterface $entityManager;
+    private ModuleAgendas $moduleAgendas;
 
     protected function setUp(): void
     {
@@ -58,6 +61,8 @@ class GoogleTasksSyncServiceTest extends TestCase
         $this->taskRepository = $this->createMock(TaskRepository::class);
         $this->selection = $this->createMock(GoogleTaskListSelection::class);
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
+        $this->moduleAgendas = $this->createMock(ModuleAgendas::class);
+        $this->moduleAgendas->method('forUser')->willReturn([new Agenda(), false]);
     }
 
     private function createService(): GoogleTasksSyncService
@@ -67,6 +72,7 @@ class GoogleTasksSyncServiceTest extends TestCase
             $this->taskMapper,
             $this->taskRepository,
             $this->selection,
+            $this->moduleAgendas,
             $this->entityManager,
             $this->hub,
             $this->bus,
@@ -85,6 +91,21 @@ class GoogleTasksSyncServiceTest extends TestCase
         $user->setGoogleTaskListId('task-list-1');
 
         return $user;
+    }
+
+    public function testPullCreatesTheTasksModuleAgenda(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->apiClient->method('listTasks')->willReturn([]);
+        $this->taskRepository->method('findBy')->willReturn([]);
+
+        $moduleAgendas = $this->createMock(ModuleAgendas::class);
+        $moduleAgendas->expects(self::once())->method('forUser')
+            ->with($user, Agenda::MODULE_TASKS, 'Tâches', '#E8A9D9', false)
+            ->willReturn([new Agenda(), true]);
+        $this->moduleAgendas = $moduleAgendas;
+
+        $this->createService()->pullFromGoogle($user);
     }
 
     public function testPullSkipsTaskWhenGoogleTimestampNotNewer(): void
