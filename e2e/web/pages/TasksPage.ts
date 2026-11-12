@@ -56,27 +56,14 @@ export class TasksPage extends AdminShell {
   readonly later: Locator
   /** « Changer », on the day: the proposal on demand. */
   readonly change: Locator
-  /** « Le soir » (MAG-500): the review, which replaces the day after the evening time until « Bonne nuit ». */
-  readonly evening: Locator
-  /** What is done, listed first. */
-  readonly eveningDone: Locator
-  /** Each task left, with its three ways out. */
-  readonly eveningLeft: Locator
-  /** « Bonne nuit »: records what helped and closes. */
-  readonly goodNight: Locator
-  /** « Plus tard »: closes the review without recording it. */
-  readonly eveningLater: Locator
-  /** « Le soir », on the day: the review on demand. */
-  readonly openEveningButton: Locator
   /** The bravo of a task done (MAG-508), over the day: named « {titre} · faite ». */
   readonly bravo: Locator
   /** The reward's message, from a written bank. */
   readonly bravoMessage: Locator
   /** « Pause méritée »: back to the day. */
   readonly pause: Locator
-  /** The constellation of the month (MAG-509), in the bravo or in the evening: « Ta constellation d'octobre · 5 étoiles ». */
+  /** The constellation of the month (MAG-509), in the bravo: « Ta constellation d'octobre · 5 étoiles ». */
   readonly constellationOfBravo: Locator
-  readonly constellationOfEvening: Locator
   /** « Nouvelle routine », on « Routines » (MAG-511). */
   readonly newRoutine: Locator
   /** The routine's form, new or opened from its card: titled « Nouvelle routine » or by the routine. */
@@ -99,23 +86,16 @@ export class TasksPage extends AdminShell {
     this.go = this.morning.getByRole('button', { name: "C'est parti" })
     this.later = this.morning.getByRole('button', { name: 'Plus tard' })
     this.change = this.content.getByRole('button', { name: 'Changer', exact: true })
-    this.evening = this.content.getByRole('region', { name: 'Le soir' })
-    this.eveningDone = this.evening.getByRole('list', { name: 'Fait' })
-    this.eveningLeft = this.evening.getByRole('list', { name: 'Reste' })
-    this.goodNight = this.evening.getByRole('button', { name: 'Bonne nuit', exact: true })
-    this.eveningLater = this.evening.getByRole('button', { name: 'Plus tard', exact: true })
-    this.openEveningButton = this.content.getByRole('button', { name: 'Le soir', exact: true })
     // A dialog is drawn outside the page's content.
     this.bravo = page.getByRole('dialog', { name: / · faite$/ })
     this.bravoMessage = this.bravo.getByTestId('bravo-message')
     this.pause = this.bravo.getByRole('button', { name: 'Pause méritée', exact: true })
     this.constellationOfBravo = this.bravo.getByTestId('constellation')
-    this.constellationOfEvening = this.evening.getByTestId('constellation')
     this.newRoutine = this.content.getByRole('button', { name: 'Nouvelle routine', exact: true })
     this.routineDialog = page.getByRole('dialog')
   }
 
-  /** The page on « Routines », by its own route: the morning or the evening are offered on « Aujourd'hui » only. */
+  /** The page on « Routines », by its own route: the morning is offered on « Aujourd'hui » only. */
   async openRoutines(): Promise<void> {
     await this.goto(ROUTES.tasksRoutines)
     await expect(this.heading).toHaveText('Routines')
@@ -143,16 +123,13 @@ export class TasksPage extends AdminShell {
   }
 
   /**
-   * The page on « Aujourd'hui », the day shown. The morning (MAG-498) and the evening (MAG-500) are
-   * offered once per load and replace the day: a journey about the day puts them off.
+   * The page on « Aujourd'hui », the day shown. The morning (MAG-498) is offered once per load and
+   * replaces the day: a journey about the day puts it off.
    */
   async open(): Promise<void> {
     await this.openMorning()
     if (await this.later.isVisible()) {
       await this.later.click()
-    }
-    if (await this.eveningLater.isVisible()) {
-      await this.eveningLater.click()
     }
     await expect(this.dayReady).toBeVisible()
   }
@@ -162,11 +139,11 @@ export class TasksPage extends AdminShell {
     return this.dayRows.first().or(this.content.getByText("Rien à faire aujourd'hui"))
   }
 
-  /** The page once « Ta journée », « Le soir » or the day is on screen — whichever the hour and the day call for. */
+  /** The page once « Ta journée » or the day is on screen — whichever the hour and the day call for. */
   async openMorning(): Promise<void> {
     await this.goto(ROUTES.tasks)
     await expect(this.heading).toHaveText("Aujourd'hui")
-    await expect(this.later.or(this.eveningLater).or(this.dayReady)).toBeVisible()
+    await expect(this.later.or(this.dayReady)).toBeVisible()
   }
 
   /** The star a task done carries in the day's list (MAG-509). */
@@ -177,16 +154,6 @@ export class TasksPage extends AdminShell {
   /** « Suivante : {titre} … », the next task of the day from the bravo. */
   next(title: string): Locator {
     return this.bravo.getByRole('button', { name: new RegExp(`^Suivante : ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
-  }
-
-  /** The row of `title` among the tasks left in the evening. */
-  leftRow(title: string): Locator {
-    return this.eveningLeft.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
-  }
-
-  /** The way out of `title` in the evening: « Demain », « Plus tard » or « Mettre de côté ». */
-  outcome(title: string, label: 'Demain' | 'Plus tard' | 'Mettre de côté'): Locator {
-    return this.leftRow(title).getByRole('button', { name: `${title} : ${label}`, exact: true })
   }
 
   /** The row of `title` in the proposal. */
