@@ -5,6 +5,7 @@ namespace Maggie\Calendar\MessageHandler;
 use Maggie\Calendar\Message\DeleteAgendaCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Calendar\Repository\PeriodRepository;
 use Maggie\Calendar\Service\GoogleCalendarApiClient;
 use Maggie\Calendar\UseCase\DeleteAgenda;
 use Maggie\Core\Elasticsearch\IndexMetadataReader;
@@ -22,6 +23,7 @@ class DeleteAgendaHandler
         private readonly GoogleCalendarApiClient $googleApiClient,
         private readonly MessageBusInterface $messageBus,
         private readonly IndexMetadataReader $metadataReader,
+        private readonly PeriodRepository $periodRepository,
     ) {
     }
 
@@ -57,11 +59,11 @@ class DeleteAgendaHandler
             }
         }
 
-        // The database cascade removes the agenda's events, meals included, without any command of their own.
+        // The database cascade removes the agenda's events, meals included, and its periods without any command of their own.
         $documents = [];
-        foreach ($this->eventRepository->findBy(['agenda' => $agenda]) as $event) {
-            foreach ($this->metadataReader->indicesOf($event::class) as $indexName) {
-                $documents[] = [$indexName, (string) $event->getId()];
+        foreach ([...$this->eventRepository->findBy(['agenda' => $agenda]), ...$this->periodRepository->findBy(['agenda' => $agenda])] as $row) {
+            foreach ($this->metadataReader->indicesOf($row::class) as $indexName) {
+                $documents[] = [$indexName, (string) $row->getId()];
             }
         }
 
