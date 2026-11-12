@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maggie.app.data.model.Bank
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.bankSyncSummary
 import com.maggie.app.data.repository.BankConnectionRepository
@@ -14,6 +15,11 @@ data class BankConnectionUiState(
     val isLoading: Boolean = false,
     val isSyncing: Boolean = false,
     val reconnectingId: String? = null,
+    /** A first journey is being started: a second tap on a bank must not open a second one. */
+    val connecting: Boolean = false,
+    val banks: List<Bank> = emptyList(),
+    val banksCountry: String = "FR",
+    val banksLoading: Boolean = false,
     /** Set once the bank answered with a consent URL; the screen opens it and clears it. */
     val authorizationUrl: String? = null,
     val message: String? = null,
@@ -25,8 +31,8 @@ data class BankConnectionUiState(
  *
  * The consent itself happens at the bank, in a browser, and the provider sends
  * the user back to the web admin: the only thing this screen can do is open the
- * URL and let the list be read again afterwards. Hence [reconnect] handing back
- * a URL instead of a result.
+ * URL and let the list be read again afterwards. Hence [reconnect] and [connect]
+ * handing back a URL instead of a result.
  */
 class BankConnectionViewModel(
     private val repository: BankConnectionRepository,
@@ -84,6 +90,54 @@ class BankConnectionViewModel(
         }
     }
 
+    private companion object {
+        const val CONSENT_MESSAGE = "Autorisez l'accès chez votre banque, puis revenez et actualisez."
+    }
+
+    /** The banks the provider offers in [country], for the search. */
+    fun loadBanks(country: String) {
+        // A stale answer must not overwrite the list of the country chosen since.
+        _uiState.value = _uiState.value.copy(banksCountry = country, banksLoading = true, banks = emptyList())
+
+        viewModelScope.launch {
+            repository.banks(country)
+                .onSuccess { banks ->
+                    if (_uiState.value.banksCountry == country) {
+                        _uiState.value = _uiState.value.copy(banks = banks, banksLoading = false)
+                    }
+                }
+                .onFailure { failure ->
+                    if (_uiState.value.banksCountry == country) {
+                        _uiState.value = _uiState.value.copy(banksLoading = false, error = failure.message)
+                    }
+                }
+        }
+    }
+
+    /** A first link with [bankName]: the same hand-over to the browser as [reconnect]. */
+    fun connect(bankName: String, country: String) {
+        if (_uiState.value.connecting) {
+            return
+        }
+
+        // Marked before the coroutine starts, like [reconnect]: each journey is a pending connection.
+        _uiState.value = _uiState.value.copy(connecting = true, error = null)
+
+        viewModelScope.launch {
+            repository.start(bankName, country)
+                .onSuccess { authorization ->
+                    _uiState.value = _uiState.value.copy(
+                        connecting = false,
+                        authorizationUrl = authorization.authorizationUrl,
+                        message = CONSENT_MESSAGE,
+                    )
+                }
+                .onFailure { failure ->
+                    _uiState.value = _uiState.value.copy(connecting = false, error = failure.message)
+                }
+        }
+    }
+
     fun reconnect(id: String) {
         if (_uiState.value.reconnectingId != null) {
             return
@@ -99,7 +153,7 @@ class BankConnectionViewModel(
                     _uiState.value = _uiState.value.copy(
                         reconnectingId = null,
                         authorizationUrl = authorization.authorizationUrl,
-                        message = "Autorisez l'accès chez votre banque, puis revenez et actualisez.",
+                        message = CONSENT_MESSAGE,
                     )
                 }
                 .onFailure { failure ->
