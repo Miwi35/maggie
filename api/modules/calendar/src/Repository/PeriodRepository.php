@@ -7,6 +7,7 @@ namespace Maggie\Calendar\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
+use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Period;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Time\DayBound;
@@ -75,6 +76,27 @@ class PeriodRepository extends ServiceEntityRepository
             ->setParameter('to', $to, Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('firstDay', DayBound::firstDay($from), Types::DATE_IMMUTABLE)
             ->setParameter('lastDay', DayBound::lastDay($to), Types::DATE_IMMUTABLE)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The holiday periods of that agenda starting from `first` to `last`, both
+     * days included, YYYY-MM-DD — what the import of the holidays finds already there (MAG-810).
+     *
+     * @return list<Period>
+     */
+    public function findHolidaysIn(Agenda $agenda, string $first, string $last): array
+    {
+        /* @var list<Period> */
+        return $this->createQueryBuilder('p')
+            ->where('p.agenda = :agenda')
+            ->andWhere('p.holiday IS NOT NULL')
+            ->andWhere('p.startDate >= :first AND p.startDate <= :last')
+            ->setParameter('agenda', $agenda->getId(), 'ulid')
+            ->setParameter('first', new \DateTimeImmutable($first), Types::DATE_IMMUTABLE)
+            ->setParameter('last', new \DateTimeImmutable($last), Types::DATE_IMMUTABLE)
+            ->orderBy('p.startDate')
             ->getQuery()
             ->getResult();
     }
