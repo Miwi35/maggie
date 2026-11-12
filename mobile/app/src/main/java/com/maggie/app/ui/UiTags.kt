@@ -667,29 +667,6 @@ object UiTags {
     const val TASKS_TODAY_URGENCY_PREFIX = "tasks_today_urgency_"
     const val TASKS_TODAY_TIMER_PREFIX = "tasks_today_timer_"
 
-    /**
-     * « Le soir » (MAG-500): the review, its list of what is done, each task left by id with its three
-     * ways out and « Annuler », each « Qu'est-ce qui t'a aidé ? » choice by value, « Bonne nuit » and
-     * « Plus tard ».
-     */
-    const val TASKS_EVENING = "tasks_evening"
-    const val TASKS_EVENING_DONE = "tasks_evening_done"
-    const val TASKS_EVENING_LEFT_PREFIX = "tasks_evening_left_"
-    const val TASKS_EVENING_OUTCOME_PREFIX = "tasks_evening_outcome_"
-    const val TASKS_EVENING_UNDO_PREFIX = "tasks_evening_undo_"
-    const val TASKS_EVENING_HELPED_PREFIX = "tasks_evening_helped_"
-    const val TASKS_EVENING_GOOD_NIGHT = "tasks_evening_good_night"
-    const val TASKS_EVENING_LATER = "tasks_evening_later"
-
-    fun tasksEveningLeft(taskId: String) = TASKS_EVENING_LEFT_PREFIX + taskId
-
-    /** [outcome] is `tomorrow`, `later` or `aside`. */
-    fun tasksEveningOutcome(taskId: String, outcome: String) = "$TASKS_EVENING_OUTCOME_PREFIX${outcome}_$taskId"
-
-    fun tasksEveningUndo(taskId: String) = TASKS_EVENING_UNDO_PREFIX + taskId
-
-    fun tasksEveningHelped(value: String) = TASKS_EVENING_HELPED_PREFIX + value
-
     fun tasksTodayRow(id: String) = TASKS_TODAY_ROW_PREFIX + id
 
     fun tasksTodayCheck(id: String) = TASKS_TODAY_CHECK_PREFIX + id

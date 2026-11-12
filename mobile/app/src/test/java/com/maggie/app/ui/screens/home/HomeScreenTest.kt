@@ -60,7 +60,7 @@ class HomeScreenTest {
 
     /**
      * The segment's own click action: under Robolectric a synthetic touch does not select a segmented
-     * button, whereas the real tap does (`24-home` and `17c-tasks-evening` tap them on a device).
+     * button, whereas the real tap does (`24-home` taps them on a device).
      */
     private fun selectSegment(tag: String) {
         compose.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick)

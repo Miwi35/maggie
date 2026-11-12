@@ -61,7 +61,6 @@ class TasksHeaderScreenTest {
         coEvery { repository.getTaskView(TaskView.UPCOMING, null) } returns
             Result.success(TaskViewResponse(counts = TaskViewCounts(today = 1, upcoming = 2, someday = 3, done = 4)))
         coEvery { repository.getCompletedBetween(any(), any(), any()) } returns emptyList()
-        coEvery { repository.getEveningTime() } returns Result.failure(IllegalStateException("offline"))
         val auth = mockk<AuthRepository>()
         every { auth.token } returns flowOf("jwt")
         coEvery { auth.getUserId() } returns "u1"
