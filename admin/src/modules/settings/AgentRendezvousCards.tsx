@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNotify } from 'react-admin'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -7,11 +7,7 @@ import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useMercure } from '../../hooks/useMercure'
-import { useUserPreferences } from '../../hooks/useUserPreferences'
 import type { UserPreference } from '../../hooks/useUserPreferences'
-
-const MERCURE_TOPICS = ['/api/user_preferences/{id}']
 
 type RendezvousPatch = Partial<
   Pick<UserPreference, 'morningDigestEnabled' | 'morningDigestTime' | 'eveningReviewEnabled' | 'eveningReviewTime'>
@@ -77,14 +73,14 @@ const RendezvousCard = ({
 }
 
 /** Réglages › Maggie (MAG-788): the morning digest and the evening review, each a switch and an hour, saved as they change. */
-export const AgentRendezvousCards = () => {
+export const AgentRendezvousCards = ({
+  preferences,
+  updatePreference,
+}: {
+  preferences: UserPreference | null
+  updatePreference: (patch: RendezvousPatch) => Promise<boolean>
+}) => {
   const notify = useNotify()
-  const { preferences, updatePreference, refresh } = useUserPreferences()
-
-  const handleMercure = useCallback(() => {
-    refresh()
-  }, [refresh])
-  useMercure(MERCURE_TOPICS, handleMercure)
 
   if (!preferences) return null
 

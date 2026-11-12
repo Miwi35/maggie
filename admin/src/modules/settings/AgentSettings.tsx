@@ -9,6 +9,7 @@ import { AgentRendezvousCards } from './AgentRendezvousCards'
 import { ProactionJournal } from './ProactionJournal'
 import { MemorySettings, type MemoryNotice } from './MemorySettings'
 import { useMercure } from '../../hooks/useMercure'
+import { useUserPreferences } from '../../hooks/useUserPreferences'
 import { PROACTION_STATUS_LABELS } from '../calendar/proaction'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -209,6 +210,14 @@ export const AgentSettings = () => {
     }
   }, [])
 
+  // The page's own Mercure connection also carries the preferences: a sixth stream would leave the
+  // browser no connection for a PATCH over HTTP/1.1 (MAG-473).
+  const { preferences, updatePreference, refresh: refreshPreferences } = useUserPreferences()
+  const refreshPreferencesRef = useRef(refreshPreferences)
+  useEffect(() => {
+    refreshPreferencesRef.current = refreshPreferences
+  })
+
   // Mercure subscriptions for live updates
   useEffect(() => {
     const userId = getStoredUserId()
@@ -218,6 +227,7 @@ export const AgentSettings = () => {
       agentTopic(AGENT_STREAMS.instructions, userId),
       agentTopic(AGENT_STREAMS.skills, userId),
       agentTopic(AGENT_STREAMS.memory, userId),
+      `/users/${userId}/api/user_preferences/{id}`,
     ])
     const eventSource = new EventSource(url.toString(), { withCredentials: true })
 
@@ -226,7 +236,10 @@ export const AgentSettings = () => {
         const data = JSON.parse(event.data)
 
         // Detect type by shape
-        if ('paths' in data) {
+        if ('theme' in data) {
+          // The rendezvous' preferences, changed elsewhere (the phone)
+          refreshPreferencesRef.current()
+        } else if ('paths' in data) {
           // Memory notice
           memoryListeners.current.forEach((listener) => listener(data.paths ?? null))
         } else if ('tags' in data || (data.deleted && 'name' in data)) {
@@ -466,7 +479,7 @@ export const AgentSettings = () => {
 
   return (
     <Box maxWidth={tab === 4 ? 1400 : 900} mx="auto" mt={2}>
-      <AgentRendezvousCards />
+      <AgentRendezvousCards preferences={preferences} updatePreference={updatePreference} />
       <Card>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tab label="Personnalité" />

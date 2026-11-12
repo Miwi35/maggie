@@ -2,11 +2,16 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AgentRendezvousCards } from './AgentRendezvousCards'
+import { useUserPreferences } from '../../hooks/useUserPreferences'
+
+const Harness = () => {
+  const { preferences, updatePreference } = useUserPreferences()
+  return <AgentRendezvousCards preferences={preferences} updatePreference={updatePreference} />
+}
 
 const notify = vi.fn()
 
 vi.mock('react-admin', () => ({ useNotify: () => notify }))
-vi.mock('../../hooks/useMercure', () => ({ useMercure: () => {} }))
 
 const PREFERENCES = {
   id: 'p1',
@@ -42,7 +47,7 @@ describe('AgentRendezvousCards', () => {
 
   test('shows the saved state and hours', async () => {
     stubApi({ eveningReviewEnabled: false, eveningReviewTime: '22:15' })
-    render(<AgentRendezvousCards />)
+    render(<Harness />)
 
     expect(await screen.findByLabelText('Digest du matin')).toBeChecked()
     expect(screen.getByLabelText('Heure — Digest du matin')).toHaveValue('07:00')
@@ -52,7 +57,7 @@ describe('AgentRendezvousCards', () => {
 
   test('the switch sends the change and says it is saved', async () => {
     const fetchMock = stubApi()
-    render(<AgentRendezvousCards />)
+    render(<Harness />)
 
     await userEvent.click(await screen.findByLabelText('Digest du matin'))
 
@@ -63,7 +68,7 @@ describe('AgentRendezvousCards', () => {
 
   test('the hour is greyed while the rendezvous is off', async () => {
     stubApi({ morningDigestEnabled: false })
-    render(<AgentRendezvousCards />)
+    render(<Harness />)
 
     expect(await screen.findByLabelText('Heure — Digest du matin')).toBeDisabled()
     expect(screen.getByLabelText('Heure — Bilan du soir')).toBeEnabled()
@@ -71,7 +76,7 @@ describe('AgentRendezvousCards', () => {
 
   test('a changed hour is sent', async () => {
     const fetchMock = stubApi()
-    render(<AgentRendezvousCards />)
+    render(<Harness />)
 
     fireEvent.change(await screen.findByLabelText('Heure — Bilan du soir'), { target: { value: '22:15' } })
 
@@ -80,7 +85,7 @@ describe('AgentRendezvousCards', () => {
 
   test('a refusal shows an error and restores the saved hour', async () => {
     stubApi({}, 400)
-    render(<AgentRendezvousCards />)
+    render(<Harness />)
 
     fireEvent.change(await screen.findByLabelText('Heure — Bilan du soir'), { target: { value: '22:15' } })
 
