@@ -339,4 +339,33 @@ class AccountViewModelTest {
         assertNull(state.timelines["acc-1"])
         assertTrue(state.timelines.getValue("acc-2").isLoaded)
     }
+
+    @Test
+    fun renameUpdatesTheList() = runTest {
+        coEvery { accountRepository.renameAccount("acc-2", "Épargne") } returns
+            Result.success(sampleAccounts[1].copy(name = "Épargne"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.renameAccount("acc-2", " Épargne ")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Compte courant", "Épargne"), state.accounts.map { it.name })
+        assertNull(state.error)
+    }
+
+    @Test
+    fun renameFailureKeepsTheNameAndShowsTheError() = runTest {
+        coEvery { accountRepository.renameAccount(any(), any()) } returns Result.failure(RuntimeException("refusé"))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.renameAccount("acc-2", "Épargne")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Compte courant", "Livret A"), state.accounts.map { it.name })
+        assertEquals("refusé", state.error)
+    }
 }

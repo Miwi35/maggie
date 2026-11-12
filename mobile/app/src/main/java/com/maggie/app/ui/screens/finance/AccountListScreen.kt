@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.finance
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,7 +62,7 @@ import kotlin.math.roundToInt
 
 private val ACCOUNT_TYPES = listOf("checking", "savings", "investment", "cash")
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AccountListScreen(
     viewModel: AccountViewModel,
@@ -73,6 +75,7 @@ fun AccountListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<Account?>(null) }
+    var renaming by remember { mutableStateOf<Account?>(null) }
 
     ErrorSnackbar(
         error = uiState.error,
@@ -136,7 +139,10 @@ fun AccountListScreen(
                         MaggieCard(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onOpenAccount(account.id, account.label()) },
+                                .combinedClickable(
+                                    onClick = { onOpenAccount(account.id, account.label()) },
+                                    onLongClick = { renaming = account },
+                                ),
                         ) {
                             Row(
                                 modifier = Modifier
@@ -164,6 +170,9 @@ fun AccountListScreen(
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
+                                IconButton(onClick = { renaming = account }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Renommer")
+                                }
                                 IconButton(onClick = { deleting = account }) {
                                     Icon(
                                         Icons.Default.Delete,
@@ -190,6 +199,17 @@ fun AccountListScreen(
         )
     }
 
+    renaming?.let { account ->
+        AccountRenameDialog(
+            initialName = account.name,
+            onConfirm = { name ->
+                if (name.trim() != account.name) viewModel.renameAccount(account.id, name)
+                renaming = null
+            },
+            onDismiss = { renaming = null },
+        )
+    }
+
     if (showCreateDialog) {
         AccountCreateDialog(
             onConfirm = { request ->
@@ -199,6 +219,40 @@ fun AccountListScreen(
             onDismiss = { showCreateDialog = false },
         )
     }
+}
+
+@Composable
+private fun AccountRenameDialog(
+    initialName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+
+    AlertDialog(
+        modifier = Modifier.uiTagRoot(),
+        onDismissRequest = onDismiss,
+        title = { Text("Renommer le compte") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nom") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) {
+                Text("Enregistrer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

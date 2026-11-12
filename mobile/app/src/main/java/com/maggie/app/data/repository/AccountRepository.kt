@@ -20,6 +20,10 @@ class AccountRepository(
         apiService.deleteAccount(id)
     }
 
+    suspend fun renameAccount(id: String, name: String): Result<Account> = runCatching {
+        apiService.updateAccountName(id, name)
+    }
+
     /** One month of an account by day (MAG-422); the current month when [month] is null. */
     suspend fun accountTimeline(accountId: String, month: String? = null): Result<AccountTimeline> = runCatching {
         apiService.getAccountTimeline(accountId, month)

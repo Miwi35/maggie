@@ -2320,6 +2320,14 @@ class MaggieApiService(
         client.delete("$baseUrl/api/accounts/$id")
     }
 
+    suspend fun updateAccountName(id: String, name: String): Account {
+        return client.patch("$baseUrl/api/accounts/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("name", name) })
+        }.orRefusal().body()
+    }
+
     /** « Corriger le solde » of a hand-kept account: a merge-patch of the one field. */
     suspend fun updateAccountBalance(id: String, balanceCents: Int): Account {
         return client.patch("$baseUrl/api/accounts/$id") {
