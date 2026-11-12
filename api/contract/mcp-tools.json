@@ -1200,6 +1200,39 @@
         },
         "description": "Daily weather forecast from Open-Meteo: condition (text, plus `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min and max temperature (°C), rain (mm and probability), wind and gusts (km/h), and alerts. Without `date` it returns today and tomorrow; with `date` (YYYY-MM-DD, from today up to 15 days ahead) only that day. `location` is a city name; without it the city the user chose in their preferences is used, and if there is none the tool says so — ask the user for a city. Alerts are derived from the forecast (storm, strong wind, heavy rain, snow, heat, hard frost), not official warnings. When the weather service is down the result is an `error`: say so plainly and carry on without the weather."
     },
+    "import_bank_transactions": {
+        "name": "import_bank_transactions",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "accountId": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "refs": {
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "accountId",
+                "from"
+            ]
+        },
+        "description": "Import into Maggie ONLY the bank movements the user chose, after read_bank_statement showed them and the user agreed — never a whole period, never without their go-ahead. accountId, from and to are the ones given to read_bank_statement (the bank is read again over the same period); refs[] are the ref values of the chosen entries (200 at most). A movement already in Maggie is skipped, so running it again imports nothing. Answers {imported, skipped, unknownRefs (asked for, but not found in the bank's answer), transactionIds}; or status history_unavailable / rate_limited with the bank's message, and nothing is imported. The movements arrive without a category, like those of the regular sync: qualify them afterwards with manage_transactions (or manage_peer_debts for a transfer with a person). The regular sync is untouched."
+    },
     "list_daily_rendezvous": {
         "name": "list_daily_rendezvous",
         "inputSchema": {
@@ -4428,6 +4461,57 @@
             "properties": []
         },
         "description": "Say what to transfer to give the savings advances back (\"quoi virer, où, et combien ?\"). No arguments. One counter-transfer per open advance, of exactly what is left of it, from the checking account the money landed on to the savings source it came from: proposals[] gives fromAccountId, toAccountId, amountCents, advanceId, currency and a label ready to copy; totalCents adds them up. The proposal is capped at what the checking account holds: when it cannot cover an advance, the proposal is reduced to the balance (isPartial true) and unproposed[] says what could not be proposed (advanceId, sourceAccountName, amountCents, reason insufficient_balance or no_checking_account), unproposedCents adding it up — say it plainly, never present a reduced transfer as the full return. With no open advance, proposals is empty and that is good news: nothing is owed. Amounts are positive integer cents, divide by 100 to speak them. Nothing here moves money: say what to transfer, never that it was transferred. When the user makes the exact transfer, the next detection settles the advance on its own; a regular top-up of the savings account is never counted as a return (mark it funding with manage_transactions if it could be mistaken for one)."
+    },
+    "read_bank_statement": {
+        "name": "read_bank_statement",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "accountId": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "search": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "direction": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "credit",
+                        "debit"
+                    ]
+                },
+                "minAmountCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "accountId",
+                "from"
+            ]
+        },
+        "description": "Look at the movements of one bank account over a period, straight from the bank, WITHOUT importing anything: nothing is written in Maggie. Use it for movements the user asks about that Maggie does not hold (older than its history, or never imported), then say what you found and offer to import the relevant ones with import_bank_transactions. accountId is an account of Maggie linked to a bank connection; from and to are YYYY-MM-DD (to defaults to today). Banks often refuse a period older than 90 days without a new strong authentication: the answer is then status history_unavailable with the bank's message and nothing else; status rate_limited says the bank's daily ceiling is reached, try later. Every call costs one bank fetch per page, so keep the filters tight: search (text looked for in the label and the counterparty, ignoring case and accents), direction (credit or debit), minAmountCents (the amount's absolute value is at least that). Answers status ok, entries[] ({ref, bookedOn, amountCents signed — negative is a debit —, label, counterparty, inMaggie: already imported}), firstDay, lastDay, count (the movements matching) and truncated (true when entries[] holds only the first 200 or the bank has more pages: narrow the period or the filters). ref is what import_bank_transactions takes."
     },
     "read_web_page": {
         "name": "read_web_page",

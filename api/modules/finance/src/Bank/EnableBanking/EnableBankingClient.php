@@ -171,7 +171,9 @@ class EnableBankingClient
         }
 
         if ($status >= 400) {
-            throw new \RuntimeException(sprintf('Enable Banking answered %d on %s: %s', $status, $path, $body['message'] ?? $body['error'] ?? 'no message'));
+            $bankMessage = $body['message'] ?? $body['error'] ?? 'no message';
+
+            throw new BankRefusedException($status, (string) $bankMessage, sprintf('Enable Banking answered %d on %s: %s', $status, $path, $bankMessage));
         }
 
         return $body;

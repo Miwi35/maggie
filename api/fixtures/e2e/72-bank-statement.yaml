@@ -1,0 +1,32 @@
+# The bank statement journey (MAG-802): Maggie reads a month straight from the bank, then imports
+# only the movements the owner chose. WireMock answers the account below with a September
+# statement (.docker/e2e/wiremock/mappings/enablebanking.json): two « N26 » transfers and ten
+# other movements. Nothing is stored in Maggie beforehand, and no other journey signs in here:
+# the journey counts exactly what it imported.
+
+Maggie\Core\Entity\User:
+  e2e_bank_statement_user:
+    email: 'e2e-bank-statement@maggie.local'
+    googleId: 'e2e-bank-statement-google-id'
+    name: 'Sacha Relevé'
+
+Maggie\Finance\Entity\BankConnection:
+  e2e_bank_statement_connection:
+    bankName: 'Mock Bank'
+    country: 'FR'
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    sessionId: 'e2e-bank-statement-session'
+    consentExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    user: '@e2e_bank_statement_user'
+
+Maggie\Finance\Entity\Account:
+  e2e_bank_statement_account:
+    name: Compte courant
+    bank: Mock Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 100000
+    isCushion: false
+    externalAccountId: 'e2e-account-statement'
+    bankConnection: '@e2e_bank_statement_connection'
+    user: '@e2e_bank_statement_user'

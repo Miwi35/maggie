@@ -159,6 +159,16 @@ class ImportStatement
     }
 
     /**
+     * Whether this row is a movement already stored on the account: nothing is written.
+     *
+     * @param array<string, int> $seenInFile pass the same array for every row of one read, so identical movements count one by one
+     */
+    public function isKnown(Account $account, StatementRow $row, array &$seenInFile = []): bool
+    {
+        return null !== $this->findStored($account, $row, $seenInFile);
+    }
+
+    /**
      * The stored movement this row is, if any.
      *
      * The bank's reference settles it when both sides carry one. Otherwise the

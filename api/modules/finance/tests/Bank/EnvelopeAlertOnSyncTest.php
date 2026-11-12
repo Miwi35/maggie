@@ -21,6 +21,7 @@ use Maggie\Finance\Repository\BankConnectionRepository;
 use Maggie\Finance\UseCase\AlertEnvelopeLimits;
 use Maggie\Finance\UseCase\ImportStatement;
 use Maggie\Finance\UseCase\MergeDuplicateAccounts;
+use Maggie\Finance\UseCase\ReadBankStatement;
 use Maggie\Finance\UseCase\SyncBankAccounts;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
@@ -214,8 +215,11 @@ class EnvelopeAlertOnSyncTest extends KernelTestCase
     {
         $container = self::getContainer();
 
+        $client = new EnableBankingClient($http, 'app-id', $this->keyPath, 'https://api.example.test');
+
         return new SyncBankAccounts(
-            new EnableBankingClient($http, 'app-id', $this->keyPath, 'https://api.example.test'),
+            $client,
+            new ReadBankStatement($client, $container->get(AccountRepository::class), $container->get('logger')),
             $container->get(BankConnectionRepository::class),
             $container->get(AccountRepository::class),
             $container->get(ImportStatement::class),

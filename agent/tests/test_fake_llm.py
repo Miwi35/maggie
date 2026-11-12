@@ -559,6 +559,33 @@ class TestMatching:
         assert second.content[0].input["mealId"] == meal
         assert second.content[0].input["slot"] == "lunch"
 
+    async def test_the_bank_statement_scenarios_read_with_a_tight_filter_then_import_only_the_chosen_refs(self):
+        """89-bank-statement-*.yaml (MAG-802): `read_bank_statement` on the month with `search`, then `import_bank_transactions` on two refs."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        account = "01JBQF3KQXW8Z7P4M5R6T9VNCE"
+
+        async def ask(question: str):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Ael",
+                tools=[{"name": "read_bank_statement"}, {"name": "import_bank_transactions"}],
+                messages=[{"role": "user", "content": question}],
+            )
+
+        read = await ask(f"Montre-moi les virements de N26 en septembre, compte {account} (relevé MAG-802).")
+        imported = await ask(f"Importe-les : les deux virements de N26 de septembre, compte {account}.")
+
+        assert read.content[0].name == "read_bank_statement"
+        assert read.content[0].input == {"accountId": account, "from": "2026-09-01", "to": "2026-09-30", "search": "N26"}
+        assert imported.content[0].name == "import_bank_transactions"
+        assert imported.content[0].input == {
+            "accountId": account,
+            "from": "2026-09-01",
+            "to": "2026-09-30",
+            "refs": ["e2e-statement-n26-1", "e2e-statement-n26-2"],
+        }
+
     async def test_the_step_goal_scenario_changes_only_the_step_goal_of_the_health_profile(self):
         """97-health-step-goal.yaml (MAG-707): `update_health_profile` with `stepGoal` alone, then the answer."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)

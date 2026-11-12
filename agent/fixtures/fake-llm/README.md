@@ -258,6 +258,10 @@ Wednesday and Friday at 18:30, `${next_monday}`…`${next_sunday}` being the wee
 at 3,9 %, 160 € rent, resale in 2036-06) through `manage_investments` set: one round lists the projects,
 `results_matches` captures the Box's id from it. The figures said are the scenario's own: the fake does not read the result.
 
+**Bank statement** (MAG-802). `89-bank-statement-read.yaml` answers « Montre-moi les virements de N26 en septembre, compte <id> » with
+`read_bank_statement` (September, `search: N26`: nothing is imported); `89-bank-statement-import.yaml` answers « Importe-les : … compte <id> »
+with `import_bank_transactions` on the two refs the WireMock statement gives the N26 transfers. The account id is said by the journey.
+
 **Trips** (MAG-657). `06-planning-trips.yaml` is the morning card on a day with a « Dentiste »: like the custody day it
 only matches once the agenda is in the history, and takes the event's id from this run's own `get_events_by_date`
 (`results_matches`); it estimates, keeps the trip by car (the checks before departure are the API's cron, MAG-730).

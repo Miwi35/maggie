@@ -1,0 +1,18 @@
+# « Importe-les » (MAG-802): only the two refs the owner chose are imported. The sentence is
+# self-contained — the owner repeats what and where — because a follow-up message may open its own
+# thread, and the account id is not something the fake can recover from a tool result.
+name: bank-statement-import
+description: Import two chosen bank movements through MCP.
+
+match:
+  user_matches: "importe-les.*virements de N26 de septembre.*compte ([0-9A-HJKMNP-TV-Z]{26})"
+
+turns:
+  - tools:
+      - name: import_bank_transactions
+        input:
+          accountId: '\1'
+          from: '2026-09-01'
+          to: '2026-09-30'
+          refs: ['e2e-statement-n26-1', 'e2e-statement-n26-2']
+  - text: "Les deux virements de N26 sont dans Maggie, à qualifier."
