@@ -37,7 +37,7 @@ class HomeViewModelTest {
 
     @Test
     fun `the default layout stacks the cards in the spec's order for the phone and the tablet`() {
-        val spec = listOf("bilan", "tasks", "agenda", "grocery", "cuisine", "health", "finance", "leisure")
+        val spec = listOf("digest", "bilan", "tasks", "agenda", "grocery", "cuisine", "health", "finance", "leisure")
 
         assertEquals(spec, viewModel.cards(HomeFormat.PHONE))
         assertEquals(spec, viewModel.cards(HomeFormat.TABLET))

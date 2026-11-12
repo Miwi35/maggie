@@ -116,6 +116,12 @@ object DeepLinks {
 
     fun patternsFor(route: String): List<String> = PATTERNS[route].orEmpty()
 
+    /** The destination of the digest screen: the message is an optional query argument, so a plain `digest` still opens it. */
+    val digestPattern = "${Screen.Digest.route}?$ARG_MESSAGE={$ARG_MESSAGE}"
+
+    /** The route that opens the digest of this message, as the notification would (MAG-808). */
+    fun digestRoute(messageId: String) = "${Screen.Digest.route}?$ARG_MESSAGE=$messageId"
+
     /** The route that opens this task's sheet, as a link would (MAG-717). */
     fun taskRoute(id: String) = TASK_ROUTE.replace("{$ARG_ID}", id)
 

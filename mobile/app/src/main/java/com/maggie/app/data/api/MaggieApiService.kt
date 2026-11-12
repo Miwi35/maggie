@@ -1643,6 +1643,19 @@ class MaggieApiService(
         }.orRefusal().body<List<ChatMessage>>().firstOrNull()
     }
 
+    /** The newest digest message (its block carries the text and the opening), whatever its day; null when there is none (MAG-808). */
+    suspend fun getLatestDigest(): ChatMessage? {
+        return client.get("$baseUrl/agent/messages") {
+            url.parameters.append("screen", "digest")
+            url.parameters.append("limit", "1")
+        }.orRefusal().body<List<ChatMessage>>().firstOrNull()
+    }
+
+    /** The first opening of the digest screen (MAG-808): sets `openedAt` on the message's block once; a second call changes nothing. */
+    suspend fun markDigestOpened(messageId: String) {
+        client.post("$baseUrl/agent/messages/$messageId/digest/opened").orRefusal()
+    }
+
     /**
      * The short signed URL of a voice message's audio (MAG-686): the call is authenticated, the URL
      * it returns is not and goes to the player as it is. 403 for another user's message, 404 without audio.

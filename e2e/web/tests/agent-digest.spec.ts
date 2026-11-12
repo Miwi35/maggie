@@ -8,9 +8,10 @@ import { getCollection, waitForIndexed } from '../helpers/api.js'
  * (`06-planning-digest.yaml` schedules the digest two minutes ahead once it has read that instruction,
  * `98-proaction-digest-due.yaml` runs it), When the planning runs and the digest's hour comes — moved to a
  * minute ago, the stack's clock barely moves (MAG-234) — and the executor claims it, Then the thread holds
- * ONE message on the `digest` screen, with its audio, which cites the weather (the simulated Open-Meteo)
- * and ends with the code's sentence naming the appointment and its hour; a `message` notification opens
- * the digest; the journal shows the weather read and no `send_voice_message`.
+ * ONE message on the `digest` screen, with its audio, which announces itself (MAG-808) and carries a
+ * `digest` block holding the text: it cites the weather (the simulated Open-Meteo) and ends with the code's
+ * sentence naming the appointment and its hour; a `message` notification opens the digest; the opening route
+ * marks the block once and only once; the journal shows the weather read and no `send_voice_message`.
  *
  * An account of its own: the planning reads its instructions, and no other journey's must match.
  */
@@ -25,6 +26,7 @@ interface AgentMessage {
   content: string
   screen?: string
   audio?: { transcript: string }
+  blocks?: { type: string; day: string; text: string; expiresAt: string; openedAt: string | null }[]
 }
 
 interface JournalRun {
@@ -80,16 +82,23 @@ test('the digest instruction said once brings one message, read and heard, and a
   // Then the executor runs it: one message on the digest screen, with its audio.
   const digest = async () => {
     const messages = (await (await api.get('/agent/messages?limit=20')).json()) as AgentMessage[]
-    return messages.filter((m) => m.role === 'assistant' && m.screen === 'digest' && m.content.includes('digest MAG-709'))
+    return messages.filter(
+      (m) => m.role === 'assistant' && m.screen === 'digest' && m.blocks?.some((b) => b.type === 'digest' && b.text.includes('digest MAG-709')),
+    )
   }
   await expect.poll(async () => (await digest()).length, { message: 'the digest was never run', timeout: 180_000, intervals: [2_000] }).toBe(1)
   const [message] = await digest()
+  const block = message.blocks!.find((b) => b.type === 'digest')!
+  expect(message.content).toBe('Votre digest du matin est disponible.')
   expect(message.audio?.transcript).toContain('degrés')
-  expect(message.content).toContain('degrés')
+  expect(block.text).toContain('degrés')
+  expect(block.day).toBe(today)
+  expect(block.expiresAt).toContain('T14:00:00')
+  expect(block.openedAt).toBeNull()
   // The model never named the appointment, even after the rewrite: the code appends it, with its hour,
   // after the weather (the seeded agenda's other appointments are appended too, in the day's order).
-  expect(message.content).toContain('Vous avez aussi Kiné à 14 h 30.')
-  expect(message.content.indexOf('degrés')).toBeLessThan(message.content.indexOf('Vous avez aussi Kiné'))
+  expect(block.text).toContain('Vous avez aussi Kiné à 14 h 30.')
+  expect(block.text.indexOf('degrés')).toBeLessThan(block.text.indexOf('Vous avez aussi Kiné'))
 
   // The notification of the message opens the digest, not the thread.
   const notification = await waitForIndexed<{ type: string; relatedEntityIri: string | null }>(
@@ -99,6 +108,21 @@ test('the digest instruction said once brings one message, read and heard, and a
     { what: 'The notification of the digest' },
   )
   expect(notification.relatedEntityIri).toBe(`/digest?message=${message.id}`)
+
+  // The opening route marks the block once: the second call changes nothing.
+  const opened = async () => {
+    const messages = (await (await api.get('/agent/messages?screen=digest&limit=1')).json()) as AgentMessage[]
+    return messages[0].blocks!.find((b) => b.type === 'digest')!.openedAt
+  }
+  const first = await api.post(`/agent/messages/${message.id}/digest/opened`)
+  expect(first.status(), await first.text()).toBe(200)
+  const openedAt = await opened()
+  expect(openedAt).not.toBeNull()
+  const second = await api.post(`/agent/messages/${message.id}/digest/opened`)
+  expect(second.status(), await second.text()).toBe(200)
+  expect(await opened()).toBe(openedAt)
+  const unknown = await api.post('/agent/messages/00000000-0000-0000-0000-000000000000/digest/opened')
+  expect(unknown.status()).toBe(404)
 
   // The journal keeps the run: the weather was read, and the model did not call the voice tool.
   const journal = (await (await api.get('/agent/journal')).json()) as JournalRun[]

@@ -158,6 +158,36 @@ class MessageRepository:
             logger.warning(f"Failed to publish answered question to Mercure: {e}")
         return "ok", msg, block
 
+    async def mark_digest_opened(self, user_id: str, message_id: str) -> str:
+        """Set `openedAt` on the digest block of one of the user's messages, once (MAG-808).
+
+        Returns `unknown` (not the user's, or no digest block), `already` or `ok`. The row is locked, so two
+        openings at once set it once. The message is published on `ok`: the Home tile goes away.
+        """
+        async with agent_session() as session:
+            result = await session.execute(
+                select(Message)
+                .where(Message.id == message_id, Message.user_id == user_id, Message.role == "assistant")
+                .with_for_update()
+            )
+            msg = result.scalar_one_or_none()
+            blocks = [dict(b) for b in (msg.ui_blocks or [])] if msg else []
+            block = next((b for b in blocks if b.get("type") == "digest"), None)
+            if msg is None or block is None:
+                return "unknown"
+            if block.get("openedAt"):
+                return "already"
+            block["openedAt"] = datetime.now(UTC).isoformat()
+            msg.ui_blocks = blocks
+            await session.commit()
+            await session.refresh(msg)
+
+        try:
+            await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
+        except Exception as e:
+            logger.warning(f"Failed to publish the opened digest to Mercure: {e}")
+        return "ok"
+
     async def get(self, message_id: str) -> Message | None:
         async with agent_session() as session:
             result = await session.execute(select(Message).where(Message.id == message_id))

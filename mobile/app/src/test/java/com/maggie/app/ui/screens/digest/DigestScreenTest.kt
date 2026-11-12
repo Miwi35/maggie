@@ -13,12 +13,10 @@ import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.AudioAttachment
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.CuisineHomeMeal
+import com.maggie.app.data.model.DigestBlock
 import com.maggie.app.data.model.CuisineHomeSlot
 import com.maggie.app.data.model.CuisineHomeState
-import com.maggie.app.data.model.FinanceHomeRing
-import com.maggie.app.data.model.FinanceHomeState
 import com.maggie.app.data.model.HomeTask
-import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.HomeTasks
 import com.maggie.app.data.model.Weather
 import com.maggie.app.screentest.ScreenRule
@@ -49,7 +47,6 @@ class DigestScreenTest {
         agenda = AgendaHomeState("2026-10-27", listOf(AgendaHomeEvent(id = "e1", summary = "Dentiste", startAt = "2026-10-27T09:00:00+01:00"))),
         tasks = HomeTasks(tasks = listOf(HomeTask("t1", "Appeler Paul", overdueDays = 1), HomeTask("t2", "Appeler le garage", time = "10:00")), total = 2),
         cuisine = CuisineHomeState(listOf(CuisineHomeSlot("lunch", listOf(CuisineHomeMeal("ml", "Soupe", 2, listOf("Soupe")))), CuisineHomeSlot("dinner"))),
-        finance = FinanceHomeState(week = FinanceHomeRing(spentCents = 20_000, expectedSpentCents = 30_000, plannedCents = 50_000), accountCount = 1),
     )
 
     private fun draw(ui: DigestUiState, opened: MutableList<String> = mutableListOf(), onBack: () -> Unit = {}, onChat: () -> Unit = {}) =
@@ -67,7 +64,7 @@ class DigestScreenTest {
         val tops = listOf(
             top(UiTags.DIGEST_DATE), top(UiTags.DIGEST_GREETING), top(UiTags.VOICE_PLAY), top(UiTags.DIGEST_MESSAGE_TEXT), top(UiTags.DIGEST_WEATHER),
             top(UiTags.homeCard(HomeModules.AGENDA)), top(UiTags.homeCard(HomeModules.TASKS)),
-            top(UiTags.homeCard(HomeModules.CUISINE)), top(UiTags.homeCard(HomeModules.FINANCE)),
+            top(UiTags.homeCard(HomeModules.CUISINE)),
         )
         assertEquals(tops.sorted(), tops)
         compose.onNodeWithText("Répondre à Maggie…").assertIsDisplayed()
@@ -80,7 +77,6 @@ class DigestScreenTest {
         compose.onNodeWithText("Dentiste").assertIsDisplayed()
         compose.onNodeWithText("reportée hier").assertIsDisplayed()
         compose.onNodeWithText("Déjeuner").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.DIGEST_FINANCE_WEEK).assertIsDisplayed()
     }
 
     @Test
@@ -91,11 +87,25 @@ class DigestScreenTest {
     }
 
     @Test
-    fun `the finance card reads the week as spent over planned`() {
+    fun `there is no finance card`() {
         draw(full)
 
-        compose.onNodeWithText("Semaine").assertIsDisplayed()
-        compose.onNodeWithText("${formatCentsRounded(20_000)} / ${formatCentsRounded(50_000)}").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.homeCard(HomeModules.FINANCE)).assertDoesNotExist()
+        compose.onNodeWithText("Semaine").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the text is the block's, not the announcement`() {
+        val announcement = ChatMessage(
+            id = "m1",
+            role = "assistant",
+            content = "Votre digest du matin est disponible.",
+            blocks = listOf(DigestBlock(day = "2026-10-27", text = "Voici votre journée, monsieur.")),
+        )
+        draw(full.copy(message = announcement))
+
+        compose.onNodeWithTag(UiTags.DIGEST_MESSAGE_TEXT).assertTextEquals("Voici votre journée, monsieur.")
+        compose.onNodeWithText("Votre digest du matin est disponible.").assertDoesNotExist()
     }
 
     @Test
@@ -107,7 +117,7 @@ class DigestScreenTest {
 
     @Test
     fun `a card with nothing to say is not drawn`() {
-        draw(full.copy(weather = null, agenda = AgendaHomeState("2026-10-27"), tasks = HomeTasks(), cuisine = CuisineHomeState(), finance = FinanceHomeState()))
+        draw(full.copy(weather = null, agenda = AgendaHomeState("2026-10-27"), tasks = HomeTasks(), cuisine = CuisineHomeState()))
 
         compose.onNodeWithTag(UiTags.DIGEST_WEATHER).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.homeCard(HomeModules.AGENDA)).assertDoesNotExist()
@@ -124,9 +134,8 @@ class DigestScreenTest {
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.AGENDA)).performClick()
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.TASKS)).performClick()
         compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.CUISINE)).performClick()
-        compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.FINANCE)).performClick()
 
-        assertEquals(listOf(Screen.Calendar.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.FinanceDashboard.route), opened)
+        assertEquals(listOf(Screen.Calendar.route, Screen.Tasks.route, Screen.Cookbook.route), opened)
     }
 
     @Test

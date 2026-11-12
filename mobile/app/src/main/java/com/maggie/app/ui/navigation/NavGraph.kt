@@ -1400,6 +1400,7 @@ fun NavGraph() {
                         onOpenThreads = { showContextSheet = true },
                         onClosePanel = { chatPanelOpen = false },
                         onOpenTask = { navController.navigate(DeepLinks.taskRoute(it)) },
+                        onOpenDigest = { navController.navigate(DeepLinks.digestRoute(it)) },
                     )
                 }
             } else {
@@ -1600,10 +1601,11 @@ fun NavGraph() {
                             draft = DeepLinks.chatDraft(linked),
                             messageId = DeepLinks.chatMessageId(linked),
                             onOpenTask = { navController.navigate(DeepLinks.taskRoute(it)) },
+                            onOpenDigest = { navController.navigate(DeepLinks.digestRoute(it)) },
                         )
                     }
                     composable(
-                        Screen.Digest.route,
+                        DeepLinks.digestPattern,
                         arguments = listOf(
                             navArgument(DeepLinks.ARG_MESSAGE) {
                                 type = NavType.StringType
@@ -2585,6 +2587,10 @@ fun NavGraph() {
             onOpenTask = {
                 showChatSheet = false
                 navController.navigate(DeepLinks.taskRoute(it))
+            },
+            onOpenDigest = {
+                showChatSheet = false
+                navController.navigate(DeepLinks.digestRoute(it))
             },
         )
     }

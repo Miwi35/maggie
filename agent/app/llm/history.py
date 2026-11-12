@@ -82,8 +82,19 @@ INTERRUPTION_BEFORE_WORDS = (
 )
 
 
+def _digest_text(row: Message) -> str | None:
+    """The text of the digest a message announces: the card shows an announcement, the model reads the digest."""
+    for block in row.ui_blocks or []:
+        if isinstance(block, dict) and block.get("type") == "digest" and block.get("text"):
+            return str(block["text"])
+    return None
+
+
 def _spoken(row: Message) -> str:
     """The row's text, with the interruption it ended on spelled out for the model."""
+    digest = _digest_text(row)
+    if digest:
+        return digest
     if not row.interrupted:
         return row.content
     if row.content == NOTHING_SAID:

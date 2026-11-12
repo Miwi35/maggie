@@ -100,7 +100,7 @@ for (;;) {
   const messages = http.get(base + '/agent/messages?limit=20', { headers: headers() })
   if (messages.ok) {
     const written = JSON.parse(messages.body).filter(function (message) {
-      return message.role === 'assistant' && message.screen === 'digest' && message.audio && message.content.indexOf('digest MAG-709') >= 0
+      return message.role === 'assistant' && message.screen === 'digest' && message.audio && JSON.stringify(message.blocks || []).indexOf('degrés') >= 0
     })[0]
     if (written) {
       output.digestMessageId = written.id

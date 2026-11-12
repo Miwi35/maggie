@@ -104,9 +104,18 @@ def message_screen(raw: object) -> str | None:
 
 
 async def send_voice_message(
-    user_id: str, text: str, context_id: str | None = None, *, screen: str | None = None
+    user_id: str,
+    text: str,
+    context_id: str | None = None,
+    *,
+    screen: str | None = None,
+    content: str | None = None,
+    ui_blocks: list[dict] | None = None,
 ) -> Message:
-    """Say `text` in the user's voice, keep the MP3 in the bucket, and post the message that carries it."""
+    """Say `text` in the user's voice, keep the MP3 in the bucket, and post the message that carries it.
+
+    The message reads `content` (the transcript when not given) and carries `ui_blocks`.
+    """
     bucket = _bucket()
     if bucket is None:
         raise VoiceMessageError(STORAGE_OFF)
@@ -137,7 +146,14 @@ async def send_voice_message(
         "transcript": transcript,
     }
     return await message_repo.create(
-        user_id, "assistant", transcript, context_id, message_id=message_id, audio=attachment, screen=screen
+        user_id,
+        "assistant",
+        content or transcript,
+        context_id,
+        message_id=message_id,
+        audio=attachment,
+        screen=screen,
+        ui_blocks=ui_blocks,
     )
 
 

@@ -82,6 +82,12 @@ class ChatRepository(
     suspend fun answerQuestion(id: String, choices: List<String>, channel: String): Result<QuestionBlock> =
         runCatching { apiService.answerQuestion(id, choices, channel) }
 
+    /** Tells the server the digest of [messageId] was opened (MAG-808); idempotent, throws when it cannot be reached. */
+    suspend fun markDigestOpened(messageId: String) = apiService.markDigestOpened(messageId)
+
+    /** The newest digest message, whatever its day; null when there is none (MAG-808). */
+    suspend fun latestDigest(): ChatMessage? = apiService.getLatestDigest()
+
     /** Load the most recent messages (API-first, Room fallback). */
     suspend fun loadRecentMessages(limit: Int = 20): List<ChatMessage> {
         return try {

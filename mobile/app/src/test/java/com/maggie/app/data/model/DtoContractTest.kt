@@ -99,6 +99,21 @@ class DtoContractTest {
         assertTrue(Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessage>("""{"role":"user","content":"x"}""").blocks.isEmpty())
     }
 
+    // The block is the shape agent/app/digest.py `digest_block` writes (MAG-808).
+    @Test
+    fun `a message reads its digest block (MAG-808)`() {
+        val body = """{"id":"m3","role":"assistant","content":"Votre digest du matin est disponible.","blocks":[
+            {"type":"digest","day":"2026-11-12","text":"Bonjour monsieur.","expiresAt":"2026-11-12T14:00:00+01:00","openedAt":null}]}"""
+        val message = Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessage>(body)
+
+        val digest = message.digest!!
+        assertEquals("2026-11-12", digest.day)
+        assertEquals("Bonjour monsieur.", digest.text)
+        assertEquals("2026-11-12T14:00:00+01:00", digest.expiresAt)
+        assertNull(digest.openedAt)
+        assertEquals(listOf(digest), message.shownBlocks)
+    }
+
     @Test
     fun `a notification reads its choice interaction (MAG-717)`() {
         val body = """{"id":"n1","type":"question","title":"Quels jours ?","interaction":{"kind":"choice","options":["Lundi","Mardi"],"multiple":true,"questionId":"q1"}}"""

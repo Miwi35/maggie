@@ -11,9 +11,14 @@ env:
 # and waits for the executor), the simulated weather and one appointment today
 # And the last digest voice, read as the car's media service reads it (`GET /agent/messages?screen=digest&withAudio=true&limit=1`,
 #   MAG-773, checked in the script: Android Auto does not run in CI, the media service is JVM-tested)
-# When I open the digest from its link `maggie-e2e://digest?message=<id>`
+# When I sign in
+# Then the Accueil announces it with the `home_digest` tile (MAG-808), unopened and before 14:00 (the stack's clock is 11:00 UTC)
+# When I tap the tile
 # Then the date heads the screen, the digest's text (`digest_message_text`) and vocal (`voice_play`) both come from that one message, the weather card reads the day (Open-Meteo is WireMock: rain, 19°,
 #   min 10°, 3 mm, 70 %, wind 23 km/h), Maggie's vocal is there to play and the Agenda card holds the appointment
+#
+# When I go back to the Accueil, the tile is gone (the opening told the server, Mercure told the Accueil); when I open
+# the chat, the thread holds the announcement and the `chat_digest_card`, which opens the screen again.
 #
 # What is not here: the order of the blocks, the empty cards, a weather in error and the tablet's two
 # columns are the JVM's (`DigestScreenTest`, `DigestViewModelTest`). It runs as a user of its own: the digest
@@ -37,7 +42,12 @@ env:
 
 - runFlow: ../subflows/sign-in.yaml
 
-- openLink: "maggie-e2e://digest?message=${output.digestMessageId}"
+- extendedWaitUntil:
+    visible:
+      id: "home_digest"
+    timeout: 30000
+- tapOn:
+    id: "home_digest"
 
 - extendedWaitUntil:
     visible:
@@ -64,3 +74,30 @@ env:
 # On the tablet the Agenda card runs under the fold: the evening event needs a scroll.
 - scrollUntilVisible:
     element: "Rendez-vous digest"
+- scrollUntilVisible:
+    element:
+      id: "digest_back"
+    direction: UP
+- tapOn:
+    id: "digest_back"
+# The opening told the server and Mercure took the tile off the Accueil.
+- extendedWaitUntil:
+    notVisible:
+      id: "home_digest"
+    timeout: 20000
+
+- runFlow: ../subflows/open-chat.yaml
+- extendedWaitUntil:
+    visible:
+      id: "chat_digest_card"
+    timeout: 20000
+- assertVisible: "Votre digest du matin est disponible."
+- assertVisible: "Digest du matin"
+- tapOn:
+    id: "chat_digest_card"
+- extendedWaitUntil:
+    visible:
+      id: "digest_screen"
+    timeout: 20000
+- assertVisible:
+    id: "digest_message_text"

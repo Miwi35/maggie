@@ -372,7 +372,7 @@ class TestProactionConsumer:
 
     async def test_the_digest_rendezvous_goes_through_run_digest_and_notifies_its_one_message(self):
         """MAG-807: the digest is one message stored by `run_digest`; the consumer stores nothing more."""
-        stored = MagicMock(id="msg-1", audio={"durationMs": 900})
+        stored = MagicMock(id="msg-1", audio={"durationMs": 900}, content="Votre digest du matin est disponible.")
         run = AsyncMock(return_value=({"response": "Bonjour monsieur.", "tool_calls": []}, stored))
         notify = AsyncMock()
 
@@ -385,7 +385,9 @@ class TestProactionConsumer:
         run.assert_awaited_once()
         consumed.gateway.proaction.assert_not_called()
         consumed.messages.create.assert_not_called()
-        notify.assert_awaited_once_with("user-1", "msg-1", "Bonjour monsieur.", has_audio=True, screen="digest")
+        notify.assert_awaited_once_with(
+            "user-1", "msg-1", "Votre digest du matin est disponible.", has_audio=True, screen="digest"
+        )
 
     async def test_another_proaction_keeps_the_generic_path(self):
         run = AsyncMock()

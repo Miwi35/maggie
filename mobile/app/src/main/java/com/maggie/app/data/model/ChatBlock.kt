@@ -27,6 +27,19 @@ data class QuestionBlock(
 @Serializable
 data class TaskBlock(val type: String = "task", val id: String) : ChatBlock
 
+/**
+ * The morning digest a message announces (MAG-808): its [text], the [day] it is for, when it stops being offered on the
+ * Accueil ([expiresAt], ISO) and when it was first opened ([openedAt], ISO, `null` until then).
+ */
+@Serializable
+data class DigestBlock(
+    val type: String = "digest",
+    val day: String = "",
+    val text: String = "",
+    val expiresAt: String = "",
+    val openedAt: String? = null,
+) : ChatBlock
+
 /** A block this version does not know: kept so the list decodes, drawn as nothing. */
 @Serializable
 data class UnknownBlock(val type: String = "") : ChatBlock
@@ -36,6 +49,7 @@ object ChatBlockSerializer : JsonContentPolymorphicSerializer<ChatBlock>(ChatBlo
         when (element.jsonObject["type"]?.jsonPrimitive?.content) {
             "question" -> QuestionBlock.serializer()
             "task" -> TaskBlock.serializer()
+            "digest" -> DigestBlock.serializer()
             else -> UnknownBlock.serializer()
         }
 }

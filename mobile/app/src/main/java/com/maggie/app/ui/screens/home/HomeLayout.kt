@@ -42,7 +42,7 @@ object HomeLayout {
         HomeModules.LEISURE,
     )
 
-    private val LAUNCH_CARDS = cards(HomeModules.BILAN)
+    private val LAUNCH_CARDS = cards(HomeModules.DIGEST, HomeModules.BILAN)
 
     val file: HomeLayoutFile = HomeLayoutFile(
         mapOf(

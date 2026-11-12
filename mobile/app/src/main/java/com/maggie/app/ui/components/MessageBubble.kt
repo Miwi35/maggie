@@ -198,7 +198,7 @@ fun MessageBubble(
                         }
                         val audio = message.audio
                         val playback = rememberVoicePlayback()
-                        if (audio != null && !isUser) {
+                        if (audio != null && !isUser && message.digest == null) {
                             VoiceBubble(message.id, audio, playback)
                         } else {
                             val linkColor = MaterialTheme.colorScheme.primary

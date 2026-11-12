@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.db.journal_repository import journal_tool_calls
-from app.digest import run_digest
+from app.digest import DIGEST_AVAILABLE, digest_block, run_digest
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import PROACTION_MAX_ITERATIONS
 from app.llm.runner import run_tool_loop
@@ -186,13 +186,15 @@ def storage():
 
 
 class TestRunDigest:
-    async def test_run_digest_stores_one_message_on_the_digest_screen_with_its_vocal(self, api, storage):
+    async def test_the_digest_message_says_it_is_available_and_carries_its_block(self, api, storage):
         result, stored = await run_digest(_Gateway(), DIGEST)
 
         storage.voice.assert_awaited_once()
         args, kwargs = storage.voice.await_args
-        assert args[0] == USER and args[2] == "ctx-1" and kwargs == {"screen": "digest"}
+        assert args[0] == USER and args[2] == "ctx-1"
+        assert kwargs["screen"] == "digest" and kwargs["content"] == DIGEST_AVAILABLE
         assert args[1] == result["response"]
+        assert kwargs["ui_blocks"] == [digest_block(result["response"], date(2030, 11, 14), ZoneInfo("Europe/Paris"))]
         storage.thread.create.assert_not_called()
         assert stored is storage.voice.return_value
         assert "send_voice_message" not in tools_called(result)
@@ -233,7 +235,8 @@ class TestRunDigest:
         result, stored = await run_digest(_Gateway(), DIGEST)
 
         kwargs = storage.thread.create.await_args.kwargs
-        assert (kwargs["content"], kwargs["screen"], kwargs["role"]) == (result["response"], "digest", "assistant")
+        assert (kwargs["content"], kwargs["screen"], kwargs["role"]) == (DIGEST_AVAILABLE, "digest", "assistant")
+        assert kwargs["ui_blocks"][0]["text"] == result["response"]
         assert stored is storage.thread.create.return_value
 
 
