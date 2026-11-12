@@ -171,6 +171,9 @@ the proaction itself, then the router on what it wrote.
 `system_contains`, and is therefore the proof that the summaries reach a
 proaction at all.
 
+`92-day-context-line.yaml` (MAG-811) declares the `Contexte du jour :` line and the seeded « Garde » as its
+`system_contains`, and answers « Contexte lu. » only when the day context really reaches the prompt.
+
 `82-greeting.yaml` answers « Bonjour Maggie » and nothing else: the two-window chat
 journey sends it from one window to see the exchange reach the other (MAG-109).
 `82-greeting-reference.yaml` answers « Bonjour Maggie (réf abc123) » and repeats the
