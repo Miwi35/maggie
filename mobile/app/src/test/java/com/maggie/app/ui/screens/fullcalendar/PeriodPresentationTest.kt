@@ -44,6 +44,16 @@ class PeriodPresentationTest {
     }
 
     @Test
+    fun `a series that ends is past only once its last occurrence is`() {
+        val counted = timed("c", "2026-10-23T16:00:00Z", "2026-10-30T17:00:00Z", "FREQ=WEEKLY;INTERVAL=2;COUNT=6")
+        val ended = timed("e", "2026-08-01T16:00:00Z", "2026-08-02T16:00:00Z", "FREQ=WEEKLY;COUNT=3")
+        val untilDays = days("u", "2026-10-01", "2026-10-03", "FREQ=WEEKLY;UNTIL=20261231")
+
+        assertEquals(listOf("c", "u"), periodGroups(listOf(counted, ended, untilDays), PeriodTab.UPCOMING, now, zone).flatMap { it.periods }.map { it.id }.sorted())
+        assertEquals(listOf("e"), periodGroups(listOf(counted, ended, untilDays), PeriodTab.PAST, now, zone).flatMap { it.periods }.map { it.id })
+    }
+
+    @Test
     fun `upcoming puts the period in progress first, then the coming ones by month`() {
         val ongoing = days("now", "2026-10-20", "2026-10-30")
         val december = days("dec", "2026-12-20", "2027-01-03")

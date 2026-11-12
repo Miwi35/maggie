@@ -1,5 +1,6 @@
 package com.maggie.app.data.model
 
+import com.maggie.app.util.RruleUtils
 import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.LocalDate
@@ -64,9 +65,27 @@ data class Period(
     /** A series with no COUNT nor UNTIL never ends. */
     val isOpenEnded: Boolean get() = rrule != null && !rrule.contains("COUNT=") && !rrule.contains("UNTIL=")
 
+    /** The end, exclusive, of the last occurrence of a series that ends (COUNT or UNTIL); the period's own end otherwise. */
+    fun seriesEndsAt(): Instant? {
+        val start = startsAt() ?: return null
+        val end = endsAt() ?: return null
+        val rule = rrule ?: return end
+        if (isOpenEnded) return null
+        val last = runCatching {
+            if (allDay) {
+                val first = firstDay ?: return end
+                RruleUtils.expandRruleDates(rule, first, first, first.plusYears(200)).lastOrNull()
+                    ?.atStartOfDay(zone)?.toInstant()
+            } else {
+                RruleUtils.expandRrule(rule, start, start, start.plus(java.time.Duration.ofDays(365L * 200)), timeZone).lastOrNull()
+            }
+        }.getOrNull() ?: return end
+        return last.plus(java.time.Duration.between(start, end))
+    }
+
     fun hasEnded(now: Instant): Boolean {
         if (isOpenEnded) return false
-        val end = endsAt() ?: return false
+        val end = seriesEndsAt() ?: return false
         return !end.isAfter(now)
     }
 

@@ -53,8 +53,17 @@ fun PeriodListScreen(
     showsDetailPane: Boolean,
     onOpenForm: (String?) -> Unit,
     modifier: Modifier = Modifier,
+    requestedId: String? = null,
+    onRequestHandled: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // A chip of the calendar asks for this period's form: it opens in the pane once the list is read.
+    LaunchedEffect(requestedId, uiState.hasLoaded, showsDetailPane) {
+        if (requestedId != null && uiState.hasLoaded && showsDetailPane) {
+            viewModel.openEdit(requestedId)
+            onRequestHandled()
+        }
+    }
     val open: (String?) -> Unit = { id ->
         if (!showsDetailPane) onOpenForm(id) else if (id == null) viewModel.openNew() else viewModel.openEdit(id)
     }

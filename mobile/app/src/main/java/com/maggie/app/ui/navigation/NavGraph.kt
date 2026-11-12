@@ -797,12 +797,14 @@ private fun HealthSportFormPage(navController: NavController, entry: NavBackStac
 
 /** « Périodes » of Agenda (MAG-815), out of [NavGraph]'s lambda like the placements. */
 @Composable
-private fun PeriodListPage(navController: NavController, showsDetailPane: Boolean) {
+private fun PeriodListPage(navController: NavController, showsDetailPane: Boolean, requestedId: String?, onRequestHandled: () -> Unit) {
     val periodViewModel: PeriodViewModel = koinViewModel()
     PeriodListScreen(
         viewModel = periodViewModel,
         showsDetailPane = showsDetailPane,
         onOpenForm = { id -> navController.navigate(Screen.PeriodForm.of(id)) { launchSingleTop = true } },
+        requestedId = requestedId,
+        onRequestHandled = onRequestHandled,
     )
 }
 
@@ -1017,6 +1019,8 @@ fun NavGraph() {
     // restored over a forgotten selection would be a blank screen.
     var selectedEvent by rememberSavedSelection<ExpandedEvent>()
     var selectedTask by rememberSavedSelection<Task>()
+    // The period a chip or a folded form asks the Périodes pane to open: the pane's own ViewModel is not the form's.
+    var requestedPeriodId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingTask by remember { mutableStateOf<Task?>(null) }
     // One of Maggie's runs: kept by id and read from the calendar's list, so it follows a move and closes on a delete.
     var selectedProactionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1307,6 +1311,9 @@ fun NavGraph() {
     LaunchedEffect(currentRoute, layout.detailPaneFits) {
         val route = currentRoute ?: return@LaunchedEffect
         val list = foldsDetailRouteIntoPane(route, layout.detailPaneFits) ?: return@LaunchedEffect
+        if (route == Screen.PeriodForm.route) {
+            requestedPeriodId = navController.currentBackStackEntry?.arguments?.getString(DeepLinks.ARG_ID)
+        }
         navController.foldRouteInto(route, list)
     }
 
@@ -1760,7 +1767,7 @@ fun NavGraph() {
                         }
                     }
                     composable(Screen.PeriodList.route) {
-                        PeriodListPage(navController, paneShown)
+                        PeriodListPage(navController, paneShown, requestedPeriodId) { requestedPeriodId = null }
                     }
                     composable(
                         Screen.PeriodForm.route,

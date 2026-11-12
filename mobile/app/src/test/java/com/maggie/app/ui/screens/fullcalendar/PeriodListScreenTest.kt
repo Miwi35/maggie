@@ -193,4 +193,18 @@ class PeriodListScreenTest {
         compose.waitUntil(5_000) { viewModel.uiState.value.form == null }
         coVerify { repository.createPeriod(any()) }
     }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-xhdpi")
+    fun `on a tablet a period asked for by the calendar opens in the pane once the list is read`() {
+        val viewModel = viewModel()
+        var handled = false
+        compose.setContent {
+            PeriodListScreen(viewModel, showsDetailPane = true, onOpenForm = {}, requestedId = "p2", onRequestHandled = { handled = true })
+        }
+
+        waitForTag(UiTags.PERIOD_FORM)
+        assertEquals("p2", viewModel.uiState.value.selectedId)
+        assertEquals(true, handled)
+    }
 }
