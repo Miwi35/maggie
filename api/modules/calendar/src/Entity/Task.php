@@ -102,13 +102,14 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     private TaskCriticality $criticality = TaskCriticality::Low;
 
     /**
-     * A day, as Google Tasks has it: its API keeps no time of day (MAG-404).
-     * The index keeps the default date formats, which a day goes through.
+     * The deadline, a day. Maggie's own: Google Tasks' `due` is the scheduled
+     * day, not a deadline (MAG-822). The index keeps the default date
+     * formats, which a day goes through.
      */
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
     #[ApiProperty(
-        description: 'The day the task is due, YYYY-MM-DD.',
+        description: 'The day the task is due, its deadline, YYYY-MM-DD. Maggie\'s own: Google never sees it.',
         openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'],
     )]
     #[Context(
@@ -119,13 +120,14 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
 
     /**
      * The day the owner plans to do it (MAG-718), not a deadline: it puts the
-     * task in that day's agenda and in « Aujourd'hui ». Maggie's own: Google
-     * Tasks only keeps the due day.
+     * task in that day's agenda and in « Aujourd'hui ». It is Google Tasks'
+     * `due`, the day Google shows it on (MAG-822); the moment, the time and
+     * the reminders stay Maggie's.
      */
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
     #[ApiProperty(
-        description: 'The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day\'s agenda and in today\'s tasks. Maggie\'s own: Google never sees it.',
+        description: 'The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day\'s agenda and in today\'s tasks; also the day Google Tasks shows it on.',
         openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'],
     )]
     #[Context(
