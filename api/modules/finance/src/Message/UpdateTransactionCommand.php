@@ -25,7 +25,7 @@ final readonly class UpdateTransactionCommand
      * `qualifiedByRuleId` instead files the line with the whole qualification
      * of that rule.
      *
-     * @param array<string, mixed>|null                                                      $qualification
+     * @param array<string, mixed>|null                                                                      $qualification
      * @param list<'categoryId'|'transferKind'|'recurringOperation'|'note'|'oneOffEnvelope'|'advanceSource'> $clearFields
      */
     public function __construct(

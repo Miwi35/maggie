@@ -118,7 +118,7 @@ class AdvanceSourceToolTest extends KernelTestCase
         $credit = $this->singleLeggedAdvance(60000);
         $this->resetMercure();
 
-        $checking =$this->update((string) $credit->getId(), advanceSourceAccountId: $this->accountId('joint'));
+        $checking = $this->update((string) $credit->getId(), advanceSourceAccountId: $this->accountId('joint'));
         $theirs = $this->update((string) $credit->getId(), advanceSourceAccountId: $this->accountId('other_livret'));
 
         self::assertArrayHasKey('error', $checking);
