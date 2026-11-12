@@ -1,0 +1,11 @@
+# « Contexte du jour » (MAG-811): the prompt carries the line for today and tomorrow, with the periods
+# covering them. Only answers once the owner's seeded « Garde » really is in front of the model.
+name: day-context-line
+description: Answers a day-context question when the prompt carries the Contexte du jour line and the custody.
+
+match:
+  user_contains: "contexte du jour"
+  system_contains: ["Contexte du jour :", "Garde"]
+
+turns:
+  - text: "Contexte lu."
