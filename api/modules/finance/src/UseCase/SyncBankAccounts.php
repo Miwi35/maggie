@@ -184,7 +184,7 @@ class SyncBankAccounts
     /**
      * @param array<string, string> $psuHeaders
      *
-     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, ignored: int, pages: int, calls: int, from: string, balanceCents: ?int, transactionIds: list<string>}
+     * @return array{imported: int, skipped: int, categorized: int, counterpartiesCompleted: int, ignored: int, received: int, pages: int, calls: int, from: string, balanceCents: ?int, transactionIds: list<string>}
      */
     private function syncAccount(
         BankConnection $connection,
@@ -280,12 +280,16 @@ class SyncBankAccounts
             'categorized' => $result['categorized'],
             'counterpartiesCompleted' => $result['counterpartiesCompleted'],
             'ignored' => $ignored,
+            'received' => $received,
             'pages' => $pages,
             'calls' => $pages + 1,
             'from' => $from->format('Y-m-d'),
             'balanceCents' => $balanceCents,
             'transactionIds' => $result['transactionIds'],
-        ];
+        ] + (0 === $received ? [
+            'status' => 'empty_from_bank',
+            'message' => sprintf('La banque n\'a renvoyé aucun mouvement depuis le %s.', $from->format('d/m/Y')),
+        ] : []);
     }
 
     /**

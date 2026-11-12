@@ -219,6 +219,65 @@ class SyncBankAccountsTest extends KernelTestCase
         self::assertSame([245000, -20000, -1250], $amounts);
     }
 
+    public function testAN26StatementImportsItsMovements(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        // N26 leaves booking_date empty and dates its movements by value or
+        // transaction date; amounts, names and the reference are invented.
+        $http = $this->provider([$this->page([
+            [
+                'entry_reference' => 'n26-in',
+                'status' => 'BOOK',
+                'booking_date' => null,
+                'value_date' => '2026-11-03',
+                'transaction_amount' => ['amount' => '150.00', 'currency' => 'EUR'],
+                'credit_debit_indicator' => 'CRDT',
+                'debtor' => ['name' => 'Jeanne Exemple'],
+                'remittance_information' => ['Remboursement'],
+            ],
+            [
+                'entry_reference' => 'n26-card',
+                'status' => 'BOOK',
+                'transaction_date' => '2026-11-05',
+                'transaction_amount' => ['amount' => '8.90', 'currency' => 'EUR'],
+                'credit_debit_indicator' => 'DBIT',
+                'creditor' => ['name' => 'Café Exemple'],
+            ],
+            [
+                'entry_reference' => 'n26-out',
+                'status' => 'BOOK',
+                'booking_date' => '2026-11-07T00:00:00Z',
+                'transaction_amount' => ['amount' => '40.00', 'currency' => 'EUR'],
+                'credit_debit_indicator' => 'DBIT',
+                'creditor' => ['name' => 'Paul Modèle'],
+                'remittance_information' => ['Part du week-end'],
+            ],
+        ])]);
+
+        $result = $this->sync($http)->execute($this->getFixture('test_user'));
+
+        self::assertSame(3, $result['imported']);
+        self::assertSame('synced', $result['accounts'][0]['status']);
+
+        $rows = self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Transaction::class)->findBy([], ['bookedAt' => 'ASC']);
+        self::assertSame([15000, -890, -4000], array_map(static fn (Transaction $t) => $t->getAmountCents(), $rows));
+        self::assertSame(['2026-11-03', '2026-11-05', '2026-11-07'], array_map(static fn (Transaction $t) => $t->getBookedAt()->format('Y-m-d'), $rows));
+    }
+
+    public function testAnEmptyBankAnswerIsReported(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $this->connectAccount();
+
+        $result = $this->sync($this->provider([$this->page([])]))->execute($this->getFixture('test_user'));
+
+        self::assertSame(0, $result['imported']);
+        self::assertSame('empty_from_bank', $result['accounts'][0]['status']);
+        self::assertSame(0, $result['accounts'][0]['received']);
+    }
+
     public function testWhatItWritesIsIndexedOrTheListsWouldNotShowIt(): void
     {
         $this->loadFixtures('account.yaml');
