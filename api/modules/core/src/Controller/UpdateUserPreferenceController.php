@@ -68,7 +68,7 @@ final class UpdateUserPreferenceController
         }
 
         // The daily rendezvous' hours (MAG-787): "HH:MM", never null.
-        foreach (['morningDigestTime', 'eveningReviewTime'] as $name) {
+        foreach (['morningDigestTime', 'eveningReviewTime', 'workStartTime', 'workEndTime'] as $name) {
             if (\array_key_exists($name, $body) && !self::isHourMinute($body[$name])) {
                 return new JsonResponse(['error' => "{$name} must be HH:MM"], Response::HTTP_BAD_REQUEST);
             }
@@ -86,6 +86,18 @@ final class UpdateUserPreferenceController
                     Response::HTTP_BAD_REQUEST,
                 );
             }
+        }
+
+        // Working days (MAG-790): ISO 1 = Monday … 7 = Sunday, each once.
+        $workDays = null;
+        if (\array_key_exists('workDays', $body)) {
+            $days = $body['workDays'];
+            if (!\is_array($days) || !array_is_list($days)
+                || array_filter($days, static fn (mixed $d): bool => \is_int($d) && $d >= 1 && $d <= 7) !== $days) {
+                return new JsonResponse(['error' => 'workDays must be a list of ISO days, 1 to 7'], Response::HTTP_BAD_REQUEST);
+            }
+            $workDays = array_values(array_unique($days));
+            sort($workDays);
         }
 
         $agendaIds = $body['enabledAgendaIds'] ?? null;
@@ -116,6 +128,9 @@ final class UpdateUserPreferenceController
                 morningDigestTime: $body['morningDigestTime'] ?? null,
                 eveningReviewEnabled: $body['eveningReviewEnabled'] ?? null,
                 eveningReviewTime: $body['eveningReviewTime'] ?? null,
+                workStartTime: $body['workStartTime'] ?? null,
+                workEndTime: $body['workEndTime'] ?? null,
+                workDays: $workDays,
             ));
         } catch (HandlerFailedException $e) {
             $cause = $e->getPrevious() ?? $e;
@@ -137,6 +152,9 @@ final class UpdateUserPreferenceController
             'morningDigestTime' => $preference->getMorningDigestTime(),
             'eveningReviewEnabled' => $preference->getEveningReviewEnabled(),
             'eveningReviewTime' => $preference->getEveningReviewTime(),
+            'workStartTime' => $preference->getWorkStartTime(),
+            'workEndTime' => $preference->getWorkEndTime(),
+            'workDays' => $preference->getWorkDays(),
         ];
         // Like the GET, which API Platform serialises without its null fields:
         // the two answers must carry the same keys.

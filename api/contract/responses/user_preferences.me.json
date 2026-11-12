@@ -17,6 +17,15 @@
     "morningDigestTime": "07:00",
     "eveningReviewEnabled": true,
     "eveningReviewTime": "21:30",
+    "workStartTime": "09:00",
+    "workEndTime": "18:00",
+    "workDays": [
+        1,
+        2,
+        3,
+        4,
+        5
+    ],
     "createdAt": "2026-01-01T00:00:00+00:00",
     "updatedAt": "2026-01-01T00:00:00+00:00"
 }

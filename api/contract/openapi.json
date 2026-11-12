@@ -32089,6 +32089,29 @@
                         "default": "21:30",
                         "type": "string"
                     },
+                    "workStartTime": {
+                        "description": "Working hours (MAG-790), \"HH:MM\" in the user's timezone: the agent's tone follows them. Start before end.",
+                        "default": "09:00",
+                        "type": "string"
+                    },
+                    "workEndTime": {
+                        "default": "18:00",
+                        "type": "string"
+                    },
+                    "workDays": {
+                        "description": "ISO days, 1 = Monday … 7 = Sunday",
+                        "default": [
+                            1,
+                            2,
+                            3,
+                            4,
+                            5
+                        ],
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -32174,6 +32197,29 @@
                     "eveningReviewTime": {
                         "default": "21:30",
                         "type": "string"
+                    },
+                    "workStartTime": {
+                        "description": "Working hours (MAG-790), \"HH:MM\" in the user's timezone: the agent's tone follows them. Start before end.",
+                        "default": "09:00",
+                        "type": "string"
+                    },
+                    "workEndTime": {
+                        "default": "18:00",
+                        "type": "string"
+                    },
+                    "workDays": {
+                        "description": "ISO days, 1 = Monday … 7 = Sunday",
+                        "default": [
+                            1,
+                            2,
+                            3,
+                            4,
+                            5
+                        ],
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
                     },
                     "createdAt": {
                         "readOnly": true,
@@ -32265,6 +32311,29 @@
                             "eveningReviewTime": {
                                 "default": "21:30",
                                 "type": "string"
+                            },
+                            "workStartTime": {
+                                "description": "Working hours (MAG-790), \"HH:MM\" in the user's timezone: the agent's tone follows them. Start before end.",
+                                "default": "09:00",
+                                "type": "string"
+                            },
+                            "workEndTime": {
+                                "default": "18:00",
+                                "type": "string"
+                            },
+                            "workDays": {
+                                "description": "ISO days, 1 = Monday … 7 = Sunday",
+                                "default": [
+                                    1,
+                                    2,
+                                    3,
+                                    4,
+                                    5
+                                ],
+                                "type": "array",
+                                "items": {
+                                    "type": "integer"
+                                }
                             },
                             "createdAt": {
                                 "readOnly": true,

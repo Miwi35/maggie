@@ -24,6 +24,13 @@ class UpdateUserPreferenceHandler
             throw new \DomainException("UserPreference not found: {$command->userPreferenceId}");
         }
 
+        // Working hours (MAG-790): checked against what is stored, before anything is written.
+        $workStart = $command->workStartTime ?? $pref->getWorkStartTime();
+        $workEnd = $command->workEndTime ?? $pref->getWorkEndTime();
+        if ((null !== $command->workStartTime || null !== $command->workEndTime) && $workEnd <= $workStart) {
+            throw new \DomainException('workEndTime must be after workStartTime');
+        }
+
         if (null !== $command->theme) {
             $pref->setTheme($command->theme);
         }
@@ -64,6 +71,11 @@ class UpdateUserPreferenceHandler
         }
         if (null !== $command->eveningReviewTime) {
             $pref->setEveningReviewTime($command->eveningReviewTime);
+        }
+
+        $pref->setWorkStartTime($workStart)->setWorkEndTime($workEnd);
+        if (null !== $command->workDays) {
+            $pref->setWorkDays($command->workDays);
         }
 
         $pref->setUpdatedAt(new \DateTimeImmutable());

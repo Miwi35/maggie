@@ -25,6 +25,11 @@ final readonly class UpdateUserPreferenceCommand
         public ?string $morningDigestTime = null,
         public ?bool $eveningReviewEnabled = null,
         public ?string $eveningReviewTime = null,
+        // Working hours (MAG-790); null leaves each as it is. The handler checks end > start.
+        public ?string $workStartTime = null,
+        public ?string $workEndTime = null,
+        /** @var list<int>|null */
+        public ?array $workDays = null,
     ) {
     }
 }
