@@ -126,6 +126,33 @@ class SubtasksViewModelTest {
     }
 
     @Test
+    fun `deleteRemovesTheSubtask`() = runTest {
+        coEvery { taskRepository.deleteTask("s1") } returns Result.success(Unit)
+        val viewModel = loaded()
+        advanceUntilIdle()
+
+        viewModel.delete(truck)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { taskRepository.deleteTask("s1") }
+        assertEquals(listOf("s2"), viewModel.uiState.value.subtasks.map { it.id })
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `deleteFailureKeepsTheSubtaskAndShowsTheError`() = runTest {
+        coEvery { taskRepository.deleteTask("s1") } returns Result.failure(RuntimeException("Network error"))
+        val viewModel = loaded()
+        advanceUntilIdle()
+
+        viewModel.delete(truck)
+        advanceUntilIdle()
+
+        assertEquals(listOf("s1", "s2"), viewModel.uiState.value.subtasks.map { it.id })
+        assertEquals("Network error", viewModel.uiState.value.error)
+    }
+
+    @Test
     fun `a blank title adds nothing`() = runTest {
         val viewModel = loaded()
         advanceUntilIdle()

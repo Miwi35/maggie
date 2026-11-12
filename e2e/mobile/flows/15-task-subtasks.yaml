@@ -73,3 +73,14 @@ tags:
       text: "Changer d'adresse à la banque"
       below: "Réserver le camion"
     timeout: 20000
+
+# Deleting the first subtask from its parent's sheet leaves only the second (MAG-797).
+- tapOn:
+    id: "subtask_delete"
+    index: 0
+- tapOn:
+    id: "task_delete_confirm"
+- extendedWaitUntil:
+    notVisible: "Réserver le camion"
+    timeout: 20000
+- assertVisible: "Changer d'adresse à la banque"
