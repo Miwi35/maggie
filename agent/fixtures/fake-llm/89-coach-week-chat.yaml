@@ -64,4 +64,4 @@ turns:
             - {exercise: air-squat, step: 2, sets: 2, target: 12, targetMin: 8, targetMax: 15, restSeconds: 90, targetRir: 3}
             - {exercise: glute-bridge, step: 1, sets: 2, target: 12, targetMin: 10, targetMax: 15, restSeconds: 60, targetRir: 3}
             - {exercise: side-plank-knees, step: 1, sets: 2, target: 20, targetMin: 15, targetMax: 30, restSeconds: 60, targetRir: 3}
-  - text: "J'ai prévu trois séances la semaine prochaine, à 18 h 30, d'une demi-heure : lundi (Séance A, avec les tests de départ), mercredi (Séance B) et vendredi (Séance A). Les deux dernières restent prudentes, on les réajustera après les tests. Elles sont dans ton agenda Santé."
+  - text: "J'ai prévu trois séances la semaine prochaine, à 18 h 30, d'une demi-heure : lundi (Séance A, avec les tests de départ), mercredi (Séance B) et vendredi (Séance A). Les deux dernières restent prudentes, on les réajustera après les tests. Elles sont dans votre agenda Santé."
