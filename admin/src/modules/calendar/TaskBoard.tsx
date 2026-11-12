@@ -14,14 +14,12 @@ import { TaskBravoBanner, TaskPalier } from './TaskBravo'
 import { TaskDay } from './TaskDay'
 import { TaskFormDialog } from './TaskFormDialog'
 import { TaskSheet } from './TaskSheet'
-import { TaskEvening } from './TaskEvening'
 import { TaskList } from './TaskList'
 import type { ListedTask } from './TaskList'
 import { TaskMorning } from './TaskMorning'
 import { TaskRoutines } from './TaskRoutines'
-import { claimEvening, claimMorning, dayTasks, eveningDue, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
+import { claimMorning, dayTasks, fetchDayPlan, fetchDayTimes, morningDue } from './dayPlan'
 import type { DayPlan } from './dayPlan'
-import { fetchDayReview } from './dayReview'
 import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
 import { fetchTask, fetchTaskView, findTaskView, setTaskDone, TASK_TOPICS } from './taskViews'
@@ -95,7 +93,6 @@ const TasksPage = ({ view }: TasksPageProps) => {
   const [day, setDay] = useState<DayPlan | null>(null)
   const [dayFailed, setDayFailed] = useState(false)
   const [preparing, setPreparing] = useState(false)
-  const [reviewing, setReviewing] = useState<DayPlan | null>(null)
   const [opening, setOpening] = useState(true)
   const [cheer, setCheer] = useState<RewardCheer>(DEFAULT_CHEER)
   const [palier, setPalier] = useState<Reward | null>(null)
@@ -169,10 +166,9 @@ const TasksPage = ({ view }: TasksPageProps) => {
     loadDay()
   }, [loadDay])
 
-  // At the first visit of the day, the evening opens after the evening time on a day that holds tasks
-  // until « Bonne nuit » (MAG-500); else the morning, after the morning time while the day is not
-  // confirmed (MAG-498). Each opens once per load. The day waits for that answer, so it does not
-  // flash before the morning or the evening replaces it.
+  // At the first visit of the day, the morning opens after the morning time while the day is not
+  // confirmed (MAG-498), once per load. The day waits for that answer, so it does not flash before
+  // the morning replaces it. There is no evening here: the day stays open at any hour (MAG-825).
   const decided = useRef(false)
   const linked = useRef(target)
   useEffect(() => {
@@ -184,16 +180,9 @@ const TasksPage = ({ view }: TasksPageProps) => {
     const opened = day
     const at = new Date()
     fetchDayTimes()
-      .then(async ({ morningTime, eveningTime }) => {
-        // A link to a task shows that task: neither the morning nor the evening covers it.
+      .then(({ morningTime }) => {
+        // A link to a task shows that task: the morning does not cover it.
         if (linked.current) return
-        if (eveningDue(at, eveningTime, opened.total, null)) {
-          const review = await fetchDayReview(opened.date).catch(() => null)
-          if (review && eveningDue(at, eveningTime, opened.total, review.reviewedAt) && claimEvening()) {
-            setReviewing(opened)
-            return
-          }
-        }
         if (morningDue(at, morningTime, opened.confirmedAt) && claimMorning()) setPreparing(true)
       })
       .catch(() => undefined)
@@ -244,11 +233,6 @@ const TasksPage = ({ view }: TasksPageProps) => {
     },
     [showDay, reload],
   )
-
-  const closeEvening = useCallback(() => {
-    setReviewing(null)
-    reload()
-  }, [reload])
 
   // The day only carries what it draws: the sheet wants the whole task.
   const edit = (taskId: string) => {
@@ -315,9 +299,7 @@ const TasksPage = ({ view }: TasksPageProps) => {
     content = <TaskRoutines animate={cheer.animation} />
   } else if (view === 'today') {
     content =
-      reviewing ? (
-        <TaskEvening day={reviewing} onClose={closeEvening} onDone={closeEvening} animate={cheer.animation} />
-      ) : preparing ? (
+      preparing ? (
         <TaskMorning date={today} onClose={() => setPreparing(false)} onConfirmed={confirmMorning} />
       ) : dayFailed ? (
         <Alert severity="error">Tâches indisponibles</Alert>
@@ -333,7 +315,6 @@ const TasksPage = ({ view }: TasksPageProps) => {
           highlightId={highlighted}
           selectedId={editing?.id ?? null}
           onChange={() => setPreparing(true)}
-          onEvening={() => setReviewing(day)}
           cheer={cheer}
         />
       )
