@@ -43,7 +43,13 @@ tags:
     timeout: 20000
 
 # The category is read in French, as on the product sheet (MAG-794), never « produce ».
-- back
+- tapOn: "Retour"
+- extendedWaitUntil:
+    visible: "Nom du produit"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Catégorie"
+    timeout: 20000
 - tapOn: "Catégorie"
 - extendedWaitUntil:
     visible: "Fruits et légumes"
