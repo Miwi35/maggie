@@ -32,7 +32,7 @@ SEND_VOICE_MESSAGE_TOOL = {
         "the thread as an audio message they can play now or later. Use it when the user asks for a vocal "
         "(« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the "
         "text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the "
-        "thread once the tool answers: do not repeat its text in your reply, a short word is enough."
+        "thread once the tool answers: reply nothing else."
     ),
     "input_schema": {
         "type": "object",

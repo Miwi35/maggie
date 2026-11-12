@@ -203,3 +203,23 @@ class TestTheDrivingInstruction:
             await asyncio.sleep(0)
 
         assert seen["in_car"] is in_car
+
+
+class TestNumbersAndTags:
+    async def test_the_spoken_block_rounds_numbers_and_ties_tags_to_the_news(self, agent_db):
+        prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming", spoken=True))
+
+        assert "un seul chiffre par phrase, arrondi" in prompt
+        assert "[softly] ou [reassuring]" in prompt
+
+    async def test_the_driving_block_rounds_numbers_too(self, agent_db):
+        prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming", in_car=True))
+
+        assert "un seul chiffre arrondi par phrase" in prompt
+
+    def test_the_system_prompt_forbids_identifiers(self):
+        from pathlib import Path
+
+        yaml_text = (Path(__file__).parents[1] / "app/personality/default.yaml").read_text()
+
+        assert "Jamais d'identifiant" in yaml_text

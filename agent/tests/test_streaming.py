@@ -662,7 +662,7 @@ class TestWebSearchStreamed:
         gw.tool_router.get_tool_definitions = AsyncMock(return_value=[{"name": "search"}])
         return gw, sent
 
-    async def _run(self, gw):
+    async def _run(self, gw, **kwargs):
         events = []
         with (
             patch("app.llm.contexts.context_repo") as contexts,
@@ -679,7 +679,7 @@ class TestWebSearchStreamed:
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock(return_value=None)
 
-            async for event in gw.chat_stream("Toussaint ?", "user-1", "msg-1"):
+            async for event in gw.chat_stream("Toussaint ?", "user-1", "msg-1", **kwargs):
                 events.append(event)
             await asyncio.gather(*gw._background)
             return events, messages.create.await_args.kwargs
@@ -710,6 +710,15 @@ class TestWebSearchStreamed:
             elif event["type"] == "TEXT_MESSAGE_CONTENT":
                 shown += event["delta"]
         assert shown == expected
+
+    @pytest.mark.parametrize("mode", ["spoken", "in_car"])
+    async def test_an_answer_read_aloud_has_no_sources_line(self, mode):
+        gw, _ = self._gateway()
+
+        events, stored = await self._run(gw, **{mode: True})
+
+        assert "Source" not in "".join(e.get("delta", "") for e in events)
+        assert "Source" not in str(stored)
 
     async def test_the_search_is_a_tool_call_the_clients_see_end(self):
         gw, _ = self._gateway()

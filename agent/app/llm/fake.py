@@ -350,7 +350,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         )
         text = str(raw_turn.get("text") or "")
         web_search = _parse_web_search(raw_turn.get("web_search"), source, position)
-        if not text and not tools:
+        if not text and not tools and "text" not in raw_turn:
             raise ValueError(f"{source}: turn {position} has neither 'text' nor 'tools'")
         turns.append(Turn(text=text, tools=tools, web_search=web_search))
 
