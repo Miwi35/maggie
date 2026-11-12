@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +44,7 @@ fun TaskDetailSheet(
     subtasks: SubtasksUiState,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
     onDescriptionChange: ((String) -> Unit)? = null,
 ) {
@@ -50,6 +52,7 @@ fun TaskDetailSheet(
         task = task,
         subtasks = subtasks,
         onEdit = onEdit,
+        onDelete = onDelete,
         onToggleDone = onToggleDone,
         onDescriptionChange = onDescriptionChange,
         onBack = onDismiss,
@@ -70,6 +73,7 @@ fun TaskDetailContent(
     task: Task,
     subtasks: SubtasksUiState,
     onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onToggleDone: (Boolean) -> Unit,
     onDescriptionChange: ((String) -> Unit)? = null,
     onBack: (() -> Unit)? = null,
@@ -96,6 +100,13 @@ fun TaskDetailContent(
                 )
                 IconButton(onClick = onEdit, modifier = Modifier.testTag(UiTags.TASK_DETAIL_EDIT)) {
                     Icon(Icons.Default.Edit, contentDescription = "Modifier")
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.testTag(UiTags.TASK_DETAIL_DELETE)) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Supprimer",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
 

@@ -64,6 +64,7 @@ class MarkdownFormsTest {
                 task = Task(id = "t1", title = "Piscine", description = "- [ ] Douche solaire\n- [ ] Pompe"),
                 subtasks = SubtasksUiState(parentId = "t1"),
                 onEdit = {},
+                onDelete = {},
                 onToggleDone = {},
                 onDescriptionChange = { saved = it },
             )
