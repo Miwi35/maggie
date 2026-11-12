@@ -522,6 +522,8 @@ web:
       - 'agent/app/trips.py'
       - 'agent/app/queue/**'
       - 'agent/fixtures/fake-llm/06-*.yaml'
+  e2e/web/tests/agenda-periods.spec.ts:
+    areas: [calendar]
   e2e/web/tests/agenda-recurrence.spec.ts:
     areas: [calendar]
   e2e/web/tests/agenda-tasks.spec.ts:
