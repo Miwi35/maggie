@@ -59,6 +59,7 @@ import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.monthLabel
 import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.ListDetailPane
 import java.util.Locale
@@ -310,6 +311,7 @@ private fun EnvelopeForm(
 ) {
     // The draft is keyed by the envelope, not by its content: a refusal keeps what was typed.
     val key = stored?.id ?: categoryId
+    var confirmingDelete by remember(key) { mutableStateOf(false) }
     var isMonthly by remember(key) { mutableStateOf(stored?.mode != "annual") }
     var amountText by remember(key) { mutableStateOf(stored?.let { eurosText(it.amountCents) }.orEmpty()) }
     var thresholdText by remember(key) {
@@ -439,11 +441,21 @@ private fun EnvelopeForm(
             Text(if (stored == null) "Créer" else "Enregistrer")
         }
         if (stored != null) {
-            TextButton(onClick = { viewModel.deleteEnvelope(stored.id) }, enabled = !isSaving) {
+            TextButton(onClick = { confirmingDelete = true }, enabled = !isSaving) {
                 Text("Supprimer l'enveloppe", color = MaterialTheme.colorScheme.error)
             }
         }
         TextButton(onClick = viewModel::closeEditor) { Text("Fermer") }
+    }
+    if (confirmingDelete && stored != null) {
+        ConfirmDeleteDialog(
+            title = "Supprimer l'enveloppe « $title » ?",
+            onConfirm = {
+                confirmingDelete = false
+                viewModel.deleteEnvelope(stored.id)
+            },
+            onDismiss = { confirmingDelete = false },
+        )
     }
 }
 
@@ -457,6 +469,7 @@ private fun OneOffForm(
     onClose: () -> Unit,
 ) {
     var name by remember(stored?.id) { mutableStateOf(stored?.name.orEmpty()) }
+    var confirmingDelete by remember(stored?.id) { mutableStateOf(false) }
     var amountText by remember(stored?.id) { mutableStateOf(stored?.let { eurosText(it.amountCents) }.orEmpty()) }
     val amountCents = parseEuros(amountText)
 
@@ -487,11 +500,21 @@ private fun OneOffForm(
             Text(if (stored == null) "Créer" else "Enregistrer")
         }
         onDelete?.let {
-            TextButton(onClick = it, enabled = !isSaving) {
+            TextButton(onClick = { confirmingDelete = true }, enabled = !isSaving) {
                 Text("Supprimer l'enveloppe", color = MaterialTheme.colorScheme.error)
             }
         }
         TextButton(onClick = onClose) { Text("Fermer") }
+    }
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "Supprimer l'enveloppe « ${stored?.name.orEmpty()} » ?",
+            onConfirm = {
+                confirmingDelete = false
+                onDelete?.invoke()
+            },
+            onDismiss = { confirmingDelete = false },
+        )
     }
 }
 

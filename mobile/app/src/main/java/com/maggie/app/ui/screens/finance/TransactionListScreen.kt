@@ -54,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.DateField
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -110,6 +111,7 @@ fun TransactionListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var deletingTransaction by remember { mutableStateOf<Transaction?>(null) }
     var showBalanceDialog by remember { mutableStateOf(false) }
     var dialogPrefill by remember { mutableStateOf<TransactionPrefill?>(null) }
 
@@ -442,7 +444,7 @@ fun TransactionListScreen(
                                                 MaterialTheme.colorScheme.primary
                                             },
                                         )
-                                        IconButton(onClick = { viewModel.deleteTransaction(transaction.id) }) {
+                                        IconButton(onClick = { deletingTransaction = transaction }) {
                                             Icon(
                                                 Icons.Default.Delete,
                                                 contentDescription = "Supprimer",
@@ -482,6 +484,17 @@ fun TransactionListScreen(
                 )
             }
         }
+    }
+
+    deletingTransaction?.let { item ->
+        ConfirmDeleteDialog(
+            title = "Supprimer la transaction « ${item.label} » ?",
+            onConfirm = {
+                viewModel.deleteTransaction(item.id)
+                deletingTransaction = null
+            },
+            onDismiss = { deletingTransaction = null },
+        )
     }
 
     if (showCreateDialog) {

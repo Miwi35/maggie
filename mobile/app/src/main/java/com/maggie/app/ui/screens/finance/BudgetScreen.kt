@@ -83,6 +83,7 @@ import com.maggie.app.data.model.overlappingMonth
 import com.maggie.app.data.model.splitSharesOf
 import com.maggie.app.data.model.toSortPillLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.FinanceTopBar
@@ -456,6 +457,17 @@ private fun BudgetCard(
     onSaveSplit: () -> Unit = {},
     onCancelSplit: () -> Unit = {},
 ) {
+    var confirmingDelete by remember { mutableStateOf(false) }
+    if (confirmingDelete && onDelete != null) {
+        ConfirmDeleteDialog(
+            title = "Supprimer l'enveloppe « $label » ?",
+            onConfirm = {
+                confirmingDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmingDelete = false },
+        )
+    }
     MaggieCard(modifier = Modifier.fillMaxWidth().padding(start = ((depth - 1) * 16).dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
@@ -484,7 +496,7 @@ private fun BudgetCard(
                     }
                 }
                 if (onDelete != null) {
-                    IconButton(onClick = onDelete) {
+                    IconButton(onClick = { confirmingDelete = true }) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Supprimer",

@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.grocery
 
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +51,7 @@ fun StoreListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var deletingStore by remember { mutableStateOf<Store?>(null) }
 
     Scaffold(
         topBar = {
@@ -102,7 +104,7 @@ fun StoreListScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                IconButton(onClick = { viewModel.deleteStore(store.id) }) {
+                                IconButton(onClick = { deletingStore = store }) {
                                     Icon(
                                         Icons.Default.Delete,
                                         contentDescription = "Supprimer",
@@ -115,6 +117,17 @@ fun StoreListScreen(
                 }
             }
         }
+    }
+
+    deletingStore?.let { item ->
+        ConfirmDeleteDialog(
+            title = "Supprimer le magasin « ${item.name} » ?",
+            onConfirm = {
+                viewModel.deleteStore(item.id)
+                deletingStore = null
+            },
+            onDismiss = { deletingStore = null },
+        )
     }
 
     if (showCreateDialog) {

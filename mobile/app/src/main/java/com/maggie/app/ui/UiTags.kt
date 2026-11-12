@@ -2002,6 +2002,8 @@ object UiTags {
     const val TASK_DETAIL_EDIT = "task_detail_edit"
     const val TASK_DETAIL_DONE = "task_detail_done"
     const val TASK_DETAIL_DELETE = "task_detail_delete"
+    const val CONFIRM_DELETE = "confirm_delete"
+    const val CONFIRM_DELETE_CANCEL = "confirm_delete_cancel"
     const val TASK_DELETE_CONFIRM = "task_delete_confirm"
     const val TASK_DELETE_CANCEL = "task_delete_cancel"
 

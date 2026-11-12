@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.DateField
 import com.maggie.app.ui.components.TimeField
 import com.maggie.app.ui.screens.shared.parseColor
@@ -86,6 +87,18 @@ fun ProactionDetailContent(
     frame: @Composable (body: @Composable () -> Unit) -> Unit = { body -> body() },
 ) {
     var editing by remember(proaction.id) { mutableStateOf(false) }
+    var confirmingDelete by remember(proaction.id) { mutableStateOf(false) }
+
+    if (confirmingDelete) {
+        ConfirmDeleteDialog(
+            title = "Supprimer le rendez-vous « ${proaction.summary.ifBlank { proaction.prompt }} » ?",
+            onConfirm = {
+                confirmingDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmingDelete = false },
+        )
+    }
 
     frame {
         Column(
@@ -149,7 +162,7 @@ fun ProactionDetailContent(
                     Icon(Icons.Default.Edit, contentDescription = "Modifier l'heure")
                 }
                 IconButton(
-                    onClick = onDelete,
+                    onClick = { confirmingDelete = true },
                     modifier = Modifier.testTag(UiTags.PROACTION_DETAIL_DELETE),
                 ) {
                     Icon(
