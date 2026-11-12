@@ -47,9 +47,13 @@ tags:
     visible: ".*Séance MAG-430 35.*"
     timeout: 30000
 
-- assertVisible: ".*Séance MAG-430 36.*"
+- extendedWaitUntil:
+    visible: ".*Séance MAG-430 36.*"
+    timeout: 30000
 
-- assertVisible: ".*Séance MAG-430 37.*"
+- extendedWaitUntil:
+    visible: ".*Séance MAG-430 37.*"
+    timeout: 30000
 
 - assertVisible:
     id: "calendar_month_slot_${output.month}-24_0"

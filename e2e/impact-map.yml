@@ -537,6 +537,8 @@ web:
     areas: [calendar]
   e2e/web/tests/agenda-recurrence.spec.ts:
     areas: [calendar]
+  e2e/web/tests/agenda-module-layers.spec.ts:
+    areas: [calendar]
   e2e/web/tests/agenda-tasks.spec.ts:
     areas: [calendar, dashboard]
   e2e/web/tests/calendar-preferences.spec.ts:
