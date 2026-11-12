@@ -7,12 +7,12 @@ env:
 ---
 # The morning digest screen (MAG-710, extends MAG-709 and MAG-99).
 #
-# Given the digest Maggie sent (vocal and written message, `scripts/digest-api.js` plays the planning
+# Given the digest Maggie sent (one message, its text and its vocal — MAG-807, `scripts/digest-api.js` plays the planning
 # and waits for the executor), the simulated weather and one appointment today
 # And the last digest voice, read as the car's media service reads it (`GET /agent/messages?screen=digest&withAudio=true&limit=1`,
 #   MAG-773, checked in the script: Android Auto does not run in CI, the media service is JVM-tested)
 # When I open the digest from its link `maggie-e2e://digest?message=<id>`
-# Then the date heads the screen, the weather card reads the day (Open-Meteo is WireMock: rain, 19°,
+# Then the date heads the screen, the digest's text (`digest_message_text`) and vocal (`voice_play`) both come from that one message, the weather card reads the day (Open-Meteo is WireMock: rain, 19°,
 #   min 10°, 3 mm, 70 %, wind 23 km/h), Maggie's vocal is there to play and the Agenda card holds the appointment
 #
 # What is not here: the order of the blocks, the empty cards, a weather in error and the tablet's two
@@ -57,6 +57,8 @@ env:
 - assertVisible: "vent 23 km/h"
 - assertVisible:
     id: "voice_play"
+- assertVisible:
+    id: "digest_message_text"
 - assertVisible:
     id: "home_card_agenda"
 # On the tablet the Agenda card runs under the fold: the evening event needs a scroll.

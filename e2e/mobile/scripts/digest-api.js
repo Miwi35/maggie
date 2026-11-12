@@ -3,14 +3,14 @@
 // The digest only exists as a message Maggie sends when its hour comes, so this plays what the web
 // journey `agent-digest.spec.ts` plays: the instruction, the planning, the digest's event moved to an hour
 // before the stack's pinned clock (TODAY, 11:00 UTC), then the wait for the written message on the `digest`
-// screen (the executor claims what is due once a minute). It also gives the account an event today, for the
+// screen, one message that carries its audio since MAG-807 (the executor claims what is due once a minute). It also gives the account an event today, for the
 // Agenda card.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL, E2E_LOGIN_TOKEN and TODAY from `run.sh`):
 //   SUMMARY  the title of today's event
 //   EMAIL    the account (the journey's own user)
 //
-// Sets output.digestMessageId: the written digest, which the deep link `digest?message=` opens, and
+// Sets output.digestMessageId: the digest (text and vocal in one message), which the deep link `digest?message=` opens, and
 // output.digestVoiceId: the voice the car's media lists (MAG-773), read through the filtered
 // `GET /agent/messages?screen=digest&withAudio=true&limit=1` the media service calls.
 
@@ -100,7 +100,7 @@ for (;;) {
   const messages = http.get(base + '/agent/messages?limit=20', { headers: headers() })
   if (messages.ok) {
     const written = JSON.parse(messages.body).filter(function (message) {
-      return message.role === 'assistant' && message.screen === 'digest' && !message.audio && message.content.indexOf('digest MAG-709') >= 0
+      return message.role === 'assistant' && message.screen === 'digest' && message.audio && message.content.indexOf('digest MAG-709') >= 0
     })[0]
     if (written) {
       output.digestMessageId = written.id
