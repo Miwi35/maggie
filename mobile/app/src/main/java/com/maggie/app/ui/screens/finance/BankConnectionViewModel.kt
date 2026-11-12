@@ -111,6 +111,17 @@ class BankConnectionViewModel(
         }
     }
 
+    /** The accounts and their transactions stay; only the link goes, and the list is read again. */
+    fun forget(id: String) {
+        viewModelScope.launch {
+            repository.forget(id)
+                .onSuccess { refresh() }
+                .onFailure { failure ->
+                    _uiState.value = _uiState.value.copy(error = failure.message ?: "Impossible d'oublier la banque")
+                }
+        }
+    }
+
     /** The URL is a one-shot order to open a browser, not a piece of state to keep. */
     fun consumeAuthorizationUrl() {
         _uiState.value = _uiState.value.copy(authorizationUrl = null)

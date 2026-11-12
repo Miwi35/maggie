@@ -32,6 +32,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +50,7 @@ import com.maggie.app.data.model.bankConnectionTone
 import com.maggie.app.data.model.bankReconnectLabel
 import com.maggie.app.data.model.lastSyncLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -72,6 +75,7 @@ fun BankConnectionListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    var forgetting by remember { mutableStateOf<BankConnection?>(null) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -145,12 +149,26 @@ fun BankConnectionListScreen(
                                 connection = connection,
                                 busy = uiState.reconnectingId == connection.id,
                                 onReconnect = { viewModel.reconnect(connection.id) },
+                                onForget = { forgetting = connection },
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    forgetting?.let { connection ->
+        ConfirmDeleteDialog(
+            title = "Oublier la banque « ${connection.bankName} » ?",
+            message = "Ses comptes et leurs transactions restent dans Maggie, mais la synchronisation avec cette banque s'arrête.",
+            confirmLabel = "Oublier",
+            onConfirm = {
+                viewModel.forget(connection.id)
+                forgetting = null
+            },
+            onDismiss = { forgetting = null },
+        )
     }
 }
 
@@ -159,6 +177,7 @@ private fun ConnectionCard(
     connection: BankConnection,
     busy: Boolean,
     onReconnect: () -> Unit,
+    onForget: () -> Unit,
 ) {
     val notice = bankConnectionNotice(connection)
 
@@ -198,8 +217,11 @@ private fun ConnectionCard(
                 )
             }
 
-            if (bankConnectionOffersReconnect(connection)) {
-                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onForget, enabled = !busy) {
+                    Text("Oublier la banque", color = MaterialTheme.colorScheme.error)
+                }
+                if (bankConnectionOffersReconnect(connection)) {
                     if (bankConnectionNeedsAction(connection)) {
                         Button(onClick = onReconnect, enabled = !busy) {
                             Text(bankReconnectLabel(connection))

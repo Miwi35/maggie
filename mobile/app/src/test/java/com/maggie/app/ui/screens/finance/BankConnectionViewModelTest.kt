@@ -205,4 +205,34 @@ class BankConnectionViewModelTest {
         assertNull(state.message)
         assertNull(state.error)
     }
+
+    @Test
+    fun forgetRemovesTheConnection() = runTest {
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+        coEvery { repository.forget("conn-1") } returns Result.success(Unit)
+        coEvery { repository.getConnections() } returns Result.success(connections.filter { it.id != "conn-1" })
+
+        viewModel.forget("conn-1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Mock Bank"), state.connections.map { it.bankName })
+        assertNull(state.error)
+        coVerify(exactly = 1) { repository.forget("conn-1") }
+    }
+
+    @Test
+    fun forgetFailureKeepsItAndShowsTheError() = runTest {
+        coEvery { repository.forget("conn-1") } returns Result.failure(RuntimeException("refusé"))
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.forget("conn-1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Autre Banque", "Mock Bank"), state.connections.map { it.bankName })
+        assertEquals("refusé", state.error)
+    }
 }

@@ -20,4 +20,8 @@ class BankConnectionRepository(
     suspend fun reconnect(id: String): Result<BankAuthorization> = runCatching {
         apiService.reconnectBankConnection(id)
     }.rethrowCancellation()
+
+    suspend fun forget(id: String): Result<Unit> = runCatching {
+        apiService.forgetBankConnection(id)
+    }.rethrowCancellation()
 }

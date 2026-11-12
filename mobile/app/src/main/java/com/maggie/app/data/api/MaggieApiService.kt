@@ -3486,6 +3486,11 @@ class MaggieApiService(
         return client.post("$baseUrl/api/finance/bank-connections/$id/reconnect").body()
     }
 
+    /** Unhooks the link: its accounts and their transactions are kept, the sync stops. */
+    suspend fun forgetBankConnection(id: String) {
+        client.delete("$baseUrl/api/finance/bank-connections/$id").orRefusal()
+    }
+
     // Finance — Safety cushion
     suspend fun getCushionStatus(): CushionStatus {
         return client.get("$baseUrl/api/finance/cushion-status").body()
