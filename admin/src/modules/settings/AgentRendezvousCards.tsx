@@ -80,7 +80,6 @@ const RendezvousCard = ({
 export const AgentRendezvousCards = () => {
   const notify = useNotify()
   const { preferences, updatePreference, refresh } = useUserPreferences()
-  const [saved, setSaved] = useState(false)
 
   const handleMercure = useCallback(() => {
     refresh()
@@ -90,10 +89,9 @@ export const AgentRendezvousCards = () => {
   if (!preferences) return null
 
   const save = async (patch: RendezvousPatch) => {
-    setSaved(false)
     const ok = await updatePreference(patch)
     if (ok) {
-      setSaved(true)
+      notify('Enregistré', { type: 'success' })
     } else {
       notify('Impossible d’enregistrer ce rendez-vous', { type: 'error' })
     }
@@ -120,11 +118,6 @@ export const AgentRendezvousCards = () => {
         timeKey="eveningReviewTime"
         onSave={save}
       />
-      {saved && (
-        <Typography variant="body2" color="success.main" sx={{ mb: 2 }}>
-          Enregistré
-        </Typography>
-      )}
     </>
   )
 }

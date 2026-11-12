@@ -57,7 +57,7 @@ describe('AgentRendezvousCards', () => {
     await userEvent.click(await screen.findByLabelText('Digest du matin'))
 
     await waitFor(() => expect(patches(fetchMock)).toEqual([{ morningDigestEnabled: false }]))
-    expect(await screen.findByText('Enregistré')).toBeInTheDocument()
+    await waitFor(() => expect(notify).toHaveBeenCalledWith('Enregistré', { type: 'success' }))
     expect(screen.getByLabelText('Heure — Digest du matin')).toBeDisabled()
   })
 
@@ -86,6 +86,6 @@ describe('AgentRendezvousCards', () => {
 
     await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
     await waitFor(() => expect(screen.getByLabelText('Heure — Bilan du soir')).toHaveValue('21:30'))
-    expect(screen.queryByText('Enregistré')).not.toBeInTheDocument()
+    expect(notify).not.toHaveBeenCalledWith('Enregistré', expect.anything())
   })
 })
