@@ -75,6 +75,17 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
     #[ORM\Column(length: 5, options: ['default' => '21:30'])]
     private string $eveningReviewTime = '21:30';
 
+    /** Working hours (MAG-790), "HH:MM" in the user's timezone: the agent's tone follows them. Start before end. */
+    #[ORM\Column(length: 5, options: ['default' => '09:00'])]
+    private string $workStartTime = '09:00';
+
+    #[ORM\Column(length: 5, options: ['default' => '18:00'])]
+    private string $workEndTime = '18:00';
+
+    /** @var list<int> ISO days, 1 = Monday … 7 = Sunday */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[1,2,3,4,5]'])]
+    private array $workDays = [1, 2, 3, 4, 5];
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -263,6 +274,44 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getWorkStartTime(): string
+    {
+        return $this->workStartTime;
+    }
+
+    public function setWorkStartTime(string $workStartTime): static
+    {
+        $this->workStartTime = $workStartTime;
+
+        return $this;
+    }
+
+    public function getWorkEndTime(): string
+    {
+        return $this->workEndTime;
+    }
+
+    public function setWorkEndTime(string $workEndTime): static
+    {
+        $this->workEndTime = $workEndTime;
+
+        return $this;
+    }
+
+    /** @return list<int> */
+    public function getWorkDays(): array
+    {
+        return $this->workDays;
+    }
+
+    /** @param list<int> $workDays */
+    public function setWorkDays(array $workDays): static
+    {
+        $this->workDays = $workDays;
+
+        return $this;
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -297,6 +346,9 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
             'morningDigestTime' => $this->morningDigestTime,
             'eveningReviewEnabled' => $this->eveningReviewEnabled,
             'eveningReviewTime' => $this->eveningReviewTime,
+            'workStartTime' => $this->workStartTime,
+            'workEndTime' => $this->workEndTime,
+            'workDays' => $this->workDays,
         ], $changedProperties);
     }
 }

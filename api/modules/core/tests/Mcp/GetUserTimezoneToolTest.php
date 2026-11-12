@@ -14,6 +14,8 @@ class GetUserTimezoneToolTest extends KernelTestCase
     use FixtureLoaderTrait;
     use SecurityTokenTrait;
 
+    private const DEFAULT_WORK_HOURS = ['workStartTime' => '09:00', 'workEndTime' => '18:00', 'workDays' => [1, 2, 3, 4, 5]];
+
     protected function setUp(): void
     {
         self::bootKernel();
@@ -50,7 +52,7 @@ class GetUserTimezoneToolTest extends KernelTestCase
         $preference->setTimezone('America/New_York');
         $this->em()->flush();
 
-        self::assertSame(['timezone' => 'America/New_York', 'email' => $user->getEmail()], $this->call());
+        self::assertSame(['timezone' => 'America/New_York', 'email' => $user->getEmail()] + self::DEFAULT_WORK_HOURS, $this->call());
     }
 
     public function testFallsBackToParisWhenTheUserHasNoPreferences(): void
@@ -60,7 +62,7 @@ class GetUserTimezoneToolTest extends KernelTestCase
         $this->em()->remove($this->em()->getRepository(UserPreference::class)->findOneBy(['user' => $user]));
         $this->em()->flush();
 
-        self::assertSame(['timezone' => 'Europe/Paris', 'email' => $user->getEmail()], $this->call());
+        self::assertSame(['timezone' => 'Europe/Paris', 'email' => $user->getEmail()] + self::DEFAULT_WORK_HOURS, $this->call());
     }
 
     public function testNeverReadsAnotherUsersTimezone(): void
@@ -77,6 +79,21 @@ class GetUserTimezoneToolTest extends KernelTestCase
 
         $user = $this->loginFixtureUser();
 
-        self::assertSame(['timezone' => 'Europe/Paris', 'email' => $user->getEmail()], $this->call());
+        self::assertSame(['timezone' => 'Europe/Paris', 'email' => $user->getEmail()] + self::DEFAULT_WORK_HOURS, $this->call());
+    }
+
+    public function testGivesTheWorkingHoursOfTheUserPreferences(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/user_preference.yaml');
+        $user = $this->loginFixtureUser();
+        $preference = $this->em()->getRepository(UserPreference::class)->findOneBy(['user' => $user]);
+        $preference->setWorkStartTime('08:30')->setWorkEndTime('17:00')->setWorkDays([1, 2, 3, 4]);
+        $this->em()->flush();
+
+        $result = $this->call();
+
+        self::assertSame('08:30', $result['workStartTime']);
+        self::assertSame('17:00', $result['workEndTime']);
+        self::assertSame([1, 2, 3, 4], $result['workDays']);
     }
 }

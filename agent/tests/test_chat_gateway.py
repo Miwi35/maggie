@@ -8,6 +8,8 @@ app and the A2A bridge take.
 """
 
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from contextlib import ExitStack, contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -18,6 +20,7 @@ from app.db.context_model import ContextStatus
 from app.llm.gateway import API_ERROR_MESSAGE, UNREACHABLE_MESSAGE, LLMGateway
 from app.memory.agent_memory import MemoryBlocks
 
+PARIS = ZoneInfo("Europe/Paris")
 ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "active", "summary": None}
 
 
@@ -273,3 +276,47 @@ class TestTheTimezoneIsReadOnceForATurn:
             await _gateway().chat("Quelle heure est-il ?", "user-1", exclude_message_id="msg-1")
 
         call_tool.assert_awaited_once_with("get_user_timezone", {}, user_id="user-1")
+
+
+class TestTheWorkingHoursLine:
+    """Whether the user is at work goes next to the date, never into the cached prefix (MAG-790)."""
+
+    @staticmethod
+    async def _system(now, work_hours: dict) -> list[dict]:
+        systems: list = []
+
+        async def run(system, _messages, _tools, **_kwargs):
+            systems.append(system)
+            return {"response": "C'est noté.", "tool_calls": []}
+
+        async def history(_user_id, **_rest):
+            return [{"role": "user", "content": "Bonjour"}]
+
+        clock = MagicMock(wraps=datetime)
+        clock.now = MagicMock(return_value=now)
+        with (
+            _stubs(_Run(), history),
+            patch("app.llm.gateway.run_tool_loop", run),
+            patch("app.llm.gateway.resolve_work_hours", AsyncMock(return_value=work_hours)),
+            patch("app.llm.gateway.datetime", clock),
+        ):
+            await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
+        return systems[0]
+
+    async def test_a_tuesday_at_ten_is_en_cours(self):
+        system = await self._system(datetime(2026, 11, 10, 10, 0, tzinfo=PARIS), {})
+
+        assert "Horaires de travail : en cours" in system[-1]["text"]
+        assert "Horaires de travail" not in system[0]["text"]
+
+    async def test_a_tuesday_at_seven_pm_is_out_of_hours(self):
+        system = await self._system(datetime(2026, 11, 10, 19, 0, tzinfo=PARIS), {})
+
+        assert "hors horaires de travail" in system[-1]["text"]
+        assert "Horaires de travail" not in system[0]["text"]
+
+    async def test_the_users_own_days_count(self):
+        saturday = datetime(2026, 11, 14, 10, 0, tzinfo=PARIS)
+        system = await self._system(saturday, {"workStartTime": "09:00", "workEndTime": "18:00", "workDays": [6]})
+
+        assert "Horaires de travail : en cours" in system[-1]["text"]

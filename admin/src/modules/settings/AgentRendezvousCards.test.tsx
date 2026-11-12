@@ -25,6 +25,9 @@ const PREFERENCES = {
   morningDigestTime: '07:00',
   eveningReviewEnabled: true,
   eveningReviewTime: '21:30',
+  workStartTime: '09:00',
+  workEndTime: '18:00',
+  workDays: [1, 2, 3, 4, 5],
 }
 
 function stubApi(initial: Record<string, unknown> = {}, patchStatus = 200) {
@@ -92,5 +95,75 @@ describe('AgentRendezvousCards', () => {
     await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
     await waitFor(() => expect(screen.getByLabelText('Heure — Bilan du soir')).toHaveValue('21:30'))
     expect(notify).not.toHaveBeenCalledWith('Enregistré', expect.anything())
+  })
+
+  describe('Horaires de travail (MAG-790)', () => {
+    test('shows the saved hours and days', async () => {
+      stubApi({ workEndTime: '17:00', workDays: [1, 2, 3, 4] })
+      render(<Harness />)
+
+      expect(await screen.findByLabelText('Début du travail')).toHaveValue('09:00')
+      expect(screen.getByLabelText('Fin du travail')).toHaveValue('17:00')
+      expect(screen.getByRole('button', { name: 'jeudi' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'vendredi' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    test('a changed end and a day taken off are sent and saved', async () => {
+      const fetchMock = stubApi()
+      render(<Harness />)
+
+      fireEvent.change(await screen.findByLabelText('Fin du travail'), { target: { value: '17:00' } })
+      await waitFor(() => expect(patches(fetchMock)).toEqual([{ workEndTime: '17:00' }]))
+      await userEvent.click(screen.getByRole('button', { name: 'vendredi' }))
+
+      await waitFor(() => expect(patches(fetchMock)).toEqual([{ workEndTime: '17:00' }, { workDays: [1, 2, 3, 4] }]))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'vendredi' })).toHaveAttribute('aria-pressed', 'false'))
+      expect(notify).toHaveBeenCalledWith('Enregistré', { type: 'success' })
+    })
+
+    test('an end before the start is said and not sent', async () => {
+      const fetchMock = stubApi()
+      render(<Harness />)
+
+      fireEvent.change(await screen.findByLabelText('Fin du travail'), { target: { value: '08:00' } })
+
+      expect(screen.getByText('La fin doit suivre le début')).toBeInTheDocument()
+      expect(patches(fetchMock)).toEqual([])
+    })
+
+    test('an end typed a segment at a time reaches 17:00 and only that is sent', async () => {
+      const fetchMock = stubApi()
+      render(<Harness />)
+      const end = await screen.findByLabelText('Fin du travail')
+
+      fireEvent.change(end, { target: { value: '01:00' } })
+      expect(end).toHaveValue('01:00')
+      fireEvent.change(end, { target: { value: '17:00' } })
+
+      await waitFor(() => expect(patches(fetchMock)).toEqual([{ workEndTime: '17:00' }]))
+      expect(screen.queryByText('La fin doit suivre le début')).not.toBeInTheDocument()
+    })
+
+    test('a start refused for now is sent with the end that puts it back in order', async () => {
+      const fetchMock = stubApi()
+      render(<Harness />)
+
+      fireEvent.change(await screen.findByLabelText('Début du travail'), { target: { value: '20:00' } })
+      expect(screen.getByText('La fin doit suivre le début')).toBeInTheDocument()
+      fireEvent.change(screen.getByLabelText('Fin du travail'), { target: { value: '23:00' } })
+
+      await waitFor(() => expect(patches(fetchMock)).toEqual([{ workStartTime: '20:00', workEndTime: '23:00' }]))
+      expect(screen.queryByText('La fin doit suivre le début')).not.toBeInTheDocument()
+    })
+
+    test('a refused day restores the saved days', async () => {
+      stubApi({}, 400)
+      render(<Harness />)
+
+      await userEvent.click(await screen.findByRole('button', { name: 'lundi' }))
+
+      await waitFor(() => expect(notify).toHaveBeenCalledWith(expect.any(String), { type: 'error' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'lundi' })).toHaveAttribute('aria-pressed', 'true'))
+    })
   })
 })

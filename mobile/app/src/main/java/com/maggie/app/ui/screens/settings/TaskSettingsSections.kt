@@ -495,7 +495,7 @@ private fun UrgencyAlerts(
 
 /** A day before the due day, a fifth of the row: filled with the urgency's [color] when on. */
 @Composable
-private fun RowScope.DayButton(text: String, selected: Boolean, color: Color, tag: String, onClick: () -> Unit) {
+internal fun RowScope.DayButton(text: String, selected: Boolean, color: Color, tag: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .weight(1f)

@@ -44,7 +44,8 @@ from app.memory.agent_memory import AgentMemory
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.skills.index import MOMENT_CHAT, skill_index
-from app.user_timezone import resolve_user_timezone
+from app.user_timezone import resolve_user_timezone, resolve_work_hours
+from app.work_hours import work_hours_line
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,9 @@ class StreamingGateway:
         last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
 
         date_line = current_datetime_line(tz=tz)
-        volatile = f"{memory.notice}{directives}{context_section}\n\n{date_line}{last_exchange}"
+        # Whether the user is at work, next to the date: the tone follows it (MAG-790).
+        work_hours = work_hours_line(await resolve_work_hours(user_id), datetime.now(tz))
+        volatile = f"{memory.notice}{directives}{context_section}\n\n{date_line}\n{work_hours}{last_exchange}"
         if spoken:
             volatile = f"{volatile}\n\n{self.personality.get_spoken_prompt()}"
         if in_car:

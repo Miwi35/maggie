@@ -51,4 +51,26 @@ test.describe('the daily rendezvous', () => {
     await expect(page.getByLabel('Digest du matin', { exact: true })).not.toBeChecked()
     await expect(page.getByLabel('Heure — Bilan du soir')).toHaveValue('22:15')
   })
+
+  // The working hours (MAG-790): the end set to 17:00 and Friday taken off, then a reload.
+  test('the working hours are saved and survive a reload', async ({ page }) => {
+    const shell = new AdminShell(page)
+
+    await shell.goto(ROUTES.home)
+    await shell.expectLoaded()
+    await shell.navigateTo('Maggie', 'Réglages')
+
+    await page.getByLabel('Fin du travail').fill('17:00')
+    await expect(page.getByText('Enregistré')).toBeVisible()
+    const friday = page.getByRole('button', { name: 'vendredi' })
+    await friday.click()
+    await expect(friday).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByText('Enregistré').first()).toBeVisible()
+
+    await page.reload()
+
+    await expect(page.getByLabel('Fin du travail')).toHaveValue('17:00')
+    await expect(page.getByRole('button', { name: 'vendredi' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('button', { name: 'jeudi' })).toHaveAttribute('aria-pressed', 'true')
+  })
 })

@@ -344,4 +344,80 @@ class UpdateUserPreferenceControllerTest extends WebTestCase
         self::assertTrue($stored->getEveningReviewEnabled());
         self::assertSame('21:30', $stored->getEveningReviewTime());
     }
+
+    public function testTheWorkingHoursAreSavedReturnedAndPublished(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch(['workEndTime' => '17:00', 'workDays' => [4, 1, 2, 3, 3]]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('09:00', $data['workStartTime']);
+        self::assertSame('17:00', $data['workEndTime']);
+        self::assertSame([1, 2, 3, 4], $data['workDays']);
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
+        self::assertSame('09:00', $stored->getWorkStartTime(), 'left out keeps it');
+        self::assertSame('17:00', $stored->getWorkEndTime());
+        self::assertSame([1, 2, 3, 4], $stored->getWorkDays());
+
+        $this->assertMercureUpdatePublished('/api/user_preferences/');
+        $payloads = $this->mercurePayloadsOn('/api/user_preferences/'.$this->getFixture('preference')->getId());
+        self::assertNotEmpty($payloads);
+        $last = end($payloads);
+        self::assertSame('17:00', $last['workEndTime']);
+        self::assertSame([1, 2, 3, 4], $last['workDays']);
+    }
+
+    public function testTheGetCarriesTheWorkingHoursDefaults(): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->client->request('GET', '/api/user_preferences/me', [], [], $this->authHeaders());
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('09:00', $data['workStartTime']);
+        self::assertSame('18:00', $data['workEndTime']);
+        self::assertSame([1, 2, 3, 4, 5], $data['workDays']);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function badWorkingHours(): iterable
+    {
+        yield 'end before the stored start' => [['workEndTime' => '08:00']];
+        yield 'end equal to start' => [['workStartTime' => '12:00', 'workEndTime' => '12:00']];
+        yield 'start after the stored end' => [['workStartTime' => '19:00']];
+        yield 'malformed hour' => [['workStartTime' => '9:00']];
+        yield 'null hour' => [['workEndTime' => null]];
+        yield 'day 0' => [['workDays' => [0, 1]]];
+        yield 'day 8' => [['workDays' => [1, 8]]];
+        yield 'day as a string' => [['workDays' => ['1']]];
+        yield 'not a list' => [['workDays' => 'weekdays']];
+        yield 'null days' => [['workDays' => null]];
+    }
+
+    /** @param array<string, mixed> $body */
+    #[\PHPUnit\Framework\Attributes\DataProvider('badWorkingHours')]
+    public function testBadWorkingHoursAreRejectedAndChangeNothing(array $body): void
+    {
+        $this->loadFixtures('user_preference.yaml');
+        $this->authenticateAsUser($this->getFixture('test_user'));
+
+        $this->patch($body + ['theme' => 'dark']);
+
+        self::assertResponseStatusCodeSame(400);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $stored = $em->find(UserPreference::class, $this->getFixture('preference')->getId());
+        self::assertSame('09:00', $stored->getWorkStartTime());
+        self::assertSame('18:00', $stored->getWorkEndTime());
+        self::assertSame([1, 2, 3, 4, 5], $stored->getWorkDays());
+        self::assertNotSame('dark', $stored->getTheme(), 'nothing else of the request is written');
+    }
 }

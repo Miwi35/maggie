@@ -17,6 +17,9 @@ TIMEZONE_FRESH_SECONDS = 60
 
 known_timezones: dict[str, ZoneInfo] = {}
 read_at: dict[str, float] = {}
+# The working hours (MAG-790) come with the timezone, in the same answer: start, end, ISO days.
+WORK_HOURS_KEYS = ("workStartTime", "workEndTime", "workDays")
+known_work_hours: dict[str, dict] = {}
 
 
 async def resolve_user_timezone(user_id: str) -> ZoneInfo:
@@ -35,13 +38,15 @@ async def resolve_user_timezone(user_id: str) -> ZoneInfo:
 
     try:
         raw = await mcp_client.call_tool(USER_TIMEZONE_TOOL, {}, user_id=user_id)
-        name = json.loads(raw)["timezone"]
+        answer = json.loads(raw)
+        name = answer["timezone"]
     except Exception as e:
         fallback = known or ZoneInfo(settings.planning_timezone)
         logger.warning(f"Timezone of user {user_id} unreadable, keeping {fallback.key}: {e!r}")
         return fallback
 
     read_at[user_id] = time.monotonic()
+    known_work_hours[user_id] = {key: answer[key] for key in WORK_HOURS_KEYS if key in answer}
 
     try:
         known_timezones[user_id] = ZoneInfo(name)
@@ -49,6 +54,13 @@ async def resolve_user_timezone(user_id: str) -> ZoneInfo:
         logger.warning(f"Invalid timezone {name!r} for user {user_id}, planning on {settings.planning_timezone}: {e!r}")
         known_timezones[user_id] = ZoneInfo(settings.planning_timezone)
     return known_timezones[user_id]
+
+
+async def resolve_work_hours(user_id: str) -> dict:
+    """The working hours read with the timezone (`workStartTime`, `workEndTime`, `workDays`), from the same
+    fresh read. Never read: an empty dict, which `app.work_hours` takes as the defaults."""
+    await resolve_user_timezone(user_id)
+    return known_work_hours.get(user_id, {})
 
 
 async def resolve_user_email(user_id: str) -> str | None:

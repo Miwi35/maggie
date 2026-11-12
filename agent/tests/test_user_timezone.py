@@ -73,3 +73,25 @@ class TestOneReadPerTurn:
         assert await resolve_user_timezone("user-1") == TOKYO  # and the outage was not remembered as fresh
 
         assert mock.await_count == 3
+
+
+class TestTheWorkingHoursComeWithIt:
+    """The same answer carries the working hours (MAG-790): no second call for them."""
+
+    async def test_they_are_read_from_the_same_call(self, monkeypatch, clock):
+        answer = {"timezone": "Europe/Paris", "workStartTime": "08:30", "workEndTime": "17:00", "workDays": [1, 2]}
+        mock = AsyncMock(return_value=json.dumps(answer))
+        monkeypatch.setattr(user_timezone.mcp_client, "call_tool", mock)
+        user_timezone.known_work_hours.clear()
+
+        await resolve_user_timezone("user-1")
+        hours = await user_timezone.resolve_work_hours("user-1")
+
+        assert hours == {"workStartTime": "08:30", "workEndTime": "17:00", "workDays": [1, 2]}
+        mock.assert_awaited_once()
+
+    async def test_never_read_is_empty(self, monkeypatch, clock):
+        answering(monkeypatch, RuntimeError("API down"))
+        user_timezone.known_work_hours.clear()
+
+        assert await user_timezone.resolve_work_hours("user-1") == {}

@@ -14,6 +14,10 @@ export interface UserPreference {
   morningDigestTime: string
   eveningReviewEnabled: boolean
   eveningReviewTime: string
+  // Working hours (MAG-790): "HH:MM" and ISO days, 1 = Monday … 7 = Sunday.
+  workStartTime: string
+  workEndTime: string
+  workDays: number[]
 }
 
 function apiFetch(path: string, options: RequestInit = {}) {
