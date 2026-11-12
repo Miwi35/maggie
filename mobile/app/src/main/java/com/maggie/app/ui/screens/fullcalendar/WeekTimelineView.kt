@@ -31,7 +31,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.Period
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.shared.parseColor
 import com.maggie.app.ui.theme.readableTextOn
@@ -55,6 +57,9 @@ fun WeekTimelineView(
     onEventClick: (ExpandedEvent) -> Unit = {},
     onDayClick: (LocalDate) -> Unit = {},
     onEmptySlotClick: (LocalDate, Int) -> Unit = { _, _ -> },
+    periods: List<Period> = emptyList(),
+    agendas: List<Agenda> = emptyList(),
+    onPeriodClick: (Period) -> Unit = {},
 ) {
     val monday = currentDate.with(DayOfWeek.MONDAY)
     val days = (0L..6L).map { monday.plusDays(it) }
@@ -122,6 +127,8 @@ fun WeekTimelineView(
                 )
             }
         }
+
+        PeriodChips(periodsOnDays(periods, days), agendas, onPeriodClick, Modifier.padding(start = HOUR_LABEL_WIDTH))
 
         // Spanning events section (all-day + multi-day)
         if (spanSlots.isNotEmpty()) {

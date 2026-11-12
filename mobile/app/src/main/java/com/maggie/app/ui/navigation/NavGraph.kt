@@ -1698,6 +1698,7 @@ fun NavGraph() {
                                     onCreateEvent = { navController.navigate(Screen.EventCreate.route) },
                                     onCreateTask = { createTask() },
                                     onOpenTasks = { navigateTo(Screen.Tasks.route) },
+                                    onPeriodClick = { navController.navigate(Screen.PeriodForm.of(it.id)) { launchSingleTop = true } },
                                     onEventClick = {
                                         // A meal is edited in the Cuisine module, not as an event.
                                         val layer = calendarViewModel.layerOf(it.agendaIri)

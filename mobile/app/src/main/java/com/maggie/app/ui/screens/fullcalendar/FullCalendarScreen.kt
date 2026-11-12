@@ -29,6 +29,7 @@ import androidx.compose.material3.DropdownMenuItem
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.MODULE_AGENT
 import com.maggie.app.data.model.MODULE_COOKBOOK
+import com.maggie.app.data.model.Period
 import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
@@ -70,6 +71,8 @@ fun FullCalendarScreen(
     onCreateEvent: () -> Unit = {},
     onCreateTask: () -> Unit = {},
     onEventClick: (ExpandedEvent) -> Unit = {},
+    // A chip of a period (MAG-815) opens its form.
+    onPeriodClick: (Period) -> Unit = {},
     // The tasks screen (MAG-408), reached from the options menu of the agenda.
     onOpenTasks: (() -> Unit)? = null,
     // A module's own view (MAG-354): its title replaces the agenda drawer, and nothing is created here.
@@ -354,6 +357,9 @@ fun FullCalendarScreen(
                                 viewModel.navigateToDate(date)
                                 viewModel.setViewType(CalendarViewType.DAY)
                             },
+                            periods = uiState.periods,
+                            agendas = uiState.agendas,
+                            onPeriodClick = onPeriodClick,
                         )
                         CalendarViewType.DAY -> DayTimelineView(
                             currentDate = uiState.currentDate,
@@ -361,6 +367,9 @@ fun FullCalendarScreen(
                             onNavigateForward = { viewModel.navigateForward() },
                             onNavigateBackward = { viewModel.navigateBackward() },
                             onEventClick = onEventClick,
+                            periods = uiState.periods,
+                            agendas = uiState.agendas,
+                            onPeriodClick = onPeriodClick,
                             trips = uiState.trips,
                             onTripGo = { openNavigation(context, it) },
                         )

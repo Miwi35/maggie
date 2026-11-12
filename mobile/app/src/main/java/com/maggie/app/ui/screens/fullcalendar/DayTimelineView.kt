@@ -20,7 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.Period
 import com.maggie.app.data.model.Trip
 import com.maggie.app.ui.UiTags
 import com.maggie.app.util.DateRanges
@@ -37,6 +39,9 @@ fun DayTimelineView(
     onNavigateBackward: () -> Unit,
     onEventClick: (ExpandedEvent) -> Unit = {},
     onEmptySlotClick: (Int) -> Unit = {},
+    periods: List<Period> = emptyList(),
+    agendas: List<Agenda> = emptyList(),
+    onPeriodClick: (Period) -> Unit = {},
     trips: List<Trip> = emptyList(),
     onTripGo: (Trip) -> Unit = {},
     clock: () -> Instant = Instant::now,
@@ -74,6 +79,8 @@ fun DayTimelineView(
                 }
             },
     ) {
+        PeriodChips(periodsOnDays(periods, listOf(currentDate)), agendas, onPeriodClick)
+
         // All-day events
         AllDayRow(
             events = allDayEvents,

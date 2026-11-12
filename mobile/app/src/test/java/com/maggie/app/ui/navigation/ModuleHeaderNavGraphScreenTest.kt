@@ -94,12 +94,13 @@ class ModuleHeaderNavGraphScreenTest {
     }
 
     @Test
-    fun `Agenda keeps the bar's title and has no breadcrumb`() {
+    fun `Agenda shows one header, the breadcrumb Agenda › Jour`() {
         launchOnHome()
 
         open("calendar")
 
         assertEquals(1, headersShown())
-        compose.onNodeWithTag(UiTags.TOP_BAR_TITLE).assertTextEquals("Agenda")
+        compose.onNodeWithTag(UiTags.BREADCRUMB_MODULE).assertTextEquals("Agenda")
+        compose.onNodeWithTag(UiTags.TOP_BAR_TITLE).assertDoesNotExist()
     }
 }
