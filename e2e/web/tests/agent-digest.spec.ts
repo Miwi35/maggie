@@ -86,8 +86,10 @@ test('the digest instruction said once brings one message, read and heard, and a
   const [message] = await digest()
   expect(message.audio?.transcript).toContain('degrés')
   expect(message.content).toContain('degrés')
-  // The model never named the appointment, even after the rewrite: the code appends it, with its hour.
-  expect(message.content.trimEnd()).toMatch(/Vous avez aussi Kiné à 14 h 30\.$/)
+  // The model never named the appointment, even after the rewrite: the code appends it, with its hour,
+  // after the weather (the seeded agenda's other appointments are appended too, in the day's order).
+  expect(message.content).toContain('Vous avez aussi Kiné à 14 h 30.')
+  expect(message.content.indexOf('degrés')).toBeLessThan(message.content.indexOf('Vous avez aussi Kiné'))
 
   // The notification of the message opens the digest, not the thread.
   const notification = await waitForIndexed<{ type: string; relatedEntityIri: string | null }>(
