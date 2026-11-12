@@ -187,6 +187,26 @@ class SuiviViewModel(
         }
     }
 
+    /** « Supprimer » (MAG-800), once confirmed: the weighing leaves the list and the curve at once; it comes back if the API refuses. */
+    fun delete(id: String) {
+        val before = _uiState.value
+        val removed = before.measurements.firstOrNull { it.id == id } ?: return
+        _uiState.value = before.copy(measurements = before.measurements - removed, error = null)
+        viewModelScope.launch {
+            repository.deleteBodyMeasurement(id)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(message = MESSAGE_DELETED)
+                    load(showLoading = false)
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        measurements = (_uiState.value.measurements + removed).sortedByDescending { it.measuredAt },
+                        error = MESSAGE_DELETE,
+                    )
+                }
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
@@ -199,5 +219,7 @@ class SuiviViewModel(
         const val MESSAGE_LOAD = "Les pesées n'ont pas pu être chargées."
         const val MESSAGE_EXCLUDE = "La pesée n'a pas été écartée."
         const val MESSAGE_EXCLUDED = "Pesée écartée"
+        const val MESSAGE_DELETE = "La pesée n'a pas été supprimée."
+        const val MESSAGE_DELETED = "Pesée supprimée"
     }
 }
