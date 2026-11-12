@@ -202,6 +202,6 @@ async def test_the_sport_line_hands_the_week_to_the_coach_without_naming_it():
         repo.get = AsyncMock(return_value=None)
         prompt = await PersonalityEngine().get_system_prompt("user-1")
 
-    line = next(line for line in prompt.splitlines() if line.startswith("SPORT"))
+    line = next(line for line in prompt.splitlines() if line.strip().startswith("- Sport :"))
     assert "`coach`" in line and "manage_workouts" in line and "planned" in line and "strength" in line
     assert "jamais" in line
