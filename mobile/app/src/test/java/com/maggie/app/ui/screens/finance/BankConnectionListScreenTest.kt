@@ -3,10 +3,12 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.screentest.FakeBankConnections
 import com.maggie.app.screentest.ScreenRule
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,5 +66,24 @@ class BankConnectionListScreenTest {
 
         compose.onNodeWithText("Connectée").assertIsDisplayed()
         compose.onNodeWithText("Reconnecter").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the connect entry is there when no bank is linked yet`() {
+        val server = FakeBankConnections(emptyList())
+        compose.setContent { BankConnectionListScreen(viewModel = server.viewModel, onBack = {}) }
+
+        compose.onNodeWithText("Connecter une banque").assertIsDisplayed().assertIsEnabled()
+    }
+
+    @Test
+    fun `the connect entry ends the list of linked banks and opens the search`() {
+        val server = FakeBankConnections(listOf(link()))
+        var opened = 0
+        compose.setContent { BankConnectionListScreen(viewModel = server.viewModel, onBack = {}, onConnect = { opened++ }) }
+
+        compose.onNodeWithText("Mock Bank").assertIsDisplayed()
+        compose.onNodeWithText("Connecter une banque").assertIsDisplayed().performClick()
+        assertEquals(1, opened)
     }
 }
