@@ -117,22 +117,24 @@ const WorkHoursCard = ({
   // only not saved, so the next keystroke can still reach a valid hour.
   const [outOfOrder, setOutOfOrder] = useState(false)
 
-  const handleStart = async (value: string) => {
-    setStartDraft(value)
-    if (!value) return
-    const refused = endDraft <= value
+  // Both drafts go together: once the pair is in order again, every hour that differs from the saved one is sent
+  // in one PATCH, the start refused a moment ago included.
+  const savePair = async (nextStart: string, nextEnd: string) => {
+    setStartDraft(nextStart)
+    setEndDraft(nextEnd)
+    if (!nextStart || !nextEnd) return
+    const refused = nextEnd <= nextStart
     setOutOfOrder(refused)
-    if (refused || value === start) return
-    if (!(await onSave({ workStartTime: value }))) setStartDraft(start)
-  }
-
-  const handleEnd = async (value: string) => {
-    setEndDraft(value)
-    if (!value) return
-    const refused = value <= startDraft
-    setOutOfOrder(refused)
-    if (refused || value === end) return
-    if (!(await onSave({ workEndTime: value }))) setEndDraft(end)
+    if (refused) return
+    const patch: RendezvousPatch = {
+      ...(nextStart !== start ? { workStartTime: nextStart } : {}),
+      ...(nextEnd !== end ? { workEndTime: nextEnd } : {}),
+    }
+    if (Object.keys(patch).length === 0) return
+    if (!(await onSave(patch))) {
+      setStartDraft(start)
+      setEndDraft(end)
+    }
   }
 
   const handleDays = async (value: number[]) => {
@@ -154,7 +156,7 @@ const WorkHoursCard = ({
               type="time"
               label="Début du travail"
               value={startDraft}
-              onChange={(e) => handleStart(e.target.value)}
+              onChange={(e) => savePair(e.target.value, endDraft)}
               size="small"
               sx={{ maxWidth: 160 }}
               slotProps={{ inputLabel: { shrink: true } }}
@@ -163,7 +165,7 @@ const WorkHoursCard = ({
               type="time"
               label="Fin du travail"
               value={endDraft}
-              onChange={(e) => handleEnd(e.target.value)}
+              onChange={(e) => savePair(startDraft, e.target.value)}
               error={outOfOrder}
               helperText={outOfOrder ? 'La fin doit suivre le début' : undefined}
               size="small"
