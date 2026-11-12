@@ -262,7 +262,7 @@ class DtoContractTest {
 
     @Test
     fun `a period reads its days with the end excluded and shows it included`() {
-        val period = json.decodeFromJsonElement(serializer<ApiCollection<Period>>(), readRecording("periods.collection")).member.single()
+        val period = json.decodeFromJsonElement(serializer<ApiCollection<Period>>(), readRecording("periods.collection")).member.single { it.allDay }
 
         assertEquals("2026-03-14", period.startDate)
         assertEquals(java.time.LocalDate.of(2026, 3, 20), period.lastDay)

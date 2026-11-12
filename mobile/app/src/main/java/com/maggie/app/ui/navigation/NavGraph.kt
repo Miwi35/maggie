@@ -226,7 +226,11 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.home.HomeScreen
 import com.maggie.app.ui.screens.home.HomeViewModel
+import com.maggie.app.ui.components.AgendaTopBar
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
+import com.maggie.app.ui.screens.fullcalendar.PeriodFormScreen
+import com.maggie.app.ui.screens.fullcalendar.PeriodListScreen
+import com.maggie.app.ui.screens.fullcalendar.PeriodViewModel
 import com.maggie.app.ui.screens.digest.DigestScreen
 import com.maggie.app.ui.screens.digest.DigestViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
@@ -362,6 +366,13 @@ sealed class Screen(val route: String, val label: String) {
     data object LoanDetail : Screen("finance_loans/{${DeepLinks.ARG_ID}}", "Prêt") {
         fun of(loanId: String): String = "finance_loans/$loanId"
     }
+    /** « Périodes » of Agenda (MAG-815). */
+    data object PeriodList : Screen("agenda/periods", "Périodes")
+    /** The full-screen form of a period (MAG-815), `id` absent for a new one: drawn without chrome. */
+    data object PeriodForm : Screen("agenda/periods/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Période") {
+        fun of(periodId: String?): String =
+            if (periodId == null) "agenda/periods/form" else "agenda/periods/form?${DeepLinks.ARG_ID}=$periodId"
+    }
     data object PlacementList : Screen("finance_placements", "Placements")
     /** The full-screen form of a placement (MAG-555): `id` absent for a new one. Outside the menus, so drawn without chrome. */
     data object PlacementForm : Screen("finance_placements/form?${DeepLinks.ARG_ID}={${DeepLinks.ARG_ID}}", "Placement") {
@@ -421,7 +432,7 @@ private val MAIN_SCREENS = setOf(
 )
 
 // The screens whose content opens with the module's breadcrumb: the generic bar and its title would stack on it.
-private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthNutrition.route, Screen.HealthJournal.route, Screen.HealthSport.route, Screen.HealthConfiguration.route)
+private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Calendar.route, Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthNutrition.route, Screen.HealthJournal.route, Screen.HealthSport.route, Screen.HealthConfiguration.route)
 
 // The full-screen chat has its own input: a second way in would duplicate it
 // The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
@@ -446,6 +457,7 @@ internal data class Chrome(
 // The screens whose list has a detail beside it. The Accueil's cards list events too, but it has no pane: their events stay sheets.
 private val DETAIL_PANE_ROUTES = setOf(
     Screen.Calendar.route,
+    Screen.PeriodList.route,
     Screen.Tasks.route,
     Screen.Cookbook.route,
     Screen.Grocery.route,
@@ -458,6 +470,7 @@ private val DETAIL_PANE_ROUTES = setOf(
 private val DETAIL_ROUTE_LISTS = mapOf(
     Screen.RecipeDetail.route to Screen.Cookbook.route,
     Screen.AccountTransactions.route to Screen.AccountList.route,
+    Screen.PeriodForm.route to Screen.PeriodList.route,
 )
 
 /**
@@ -778,6 +791,29 @@ private fun HealthSportFormPage(navController: NavController, entry: NavBackStac
     WorkoutFormScreen(
         viewModel = sportViewModel,
         workoutId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId),
+        onClose = { navController.popBackStack() },
+    )
+}
+
+/** « Périodes » of Agenda (MAG-815), out of [NavGraph]'s lambda like the placements. */
+@Composable
+private fun PeriodListPage(navController: NavController, showsDetailPane: Boolean) {
+    val periodViewModel: PeriodViewModel = koinViewModel()
+    PeriodListScreen(
+        viewModel = periodViewModel,
+        showsDetailPane = showsDetailPane,
+        onOpenForm = { id -> navController.navigate(Screen.PeriodForm.of(id)) { launchSingleTop = true } },
+    )
+}
+
+/** The full-screen form of a period, on the list's ViewModel: the list shows what it saved without a request of its own. */
+@Composable
+private fun PeriodFormPage(navController: NavController, entry: NavBackStackEntry) {
+    val listEntry = remember(entry) { navController.previousBackStackEntry }
+    val periodViewModel: PeriodViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
+    PeriodFormScreen(
+        viewModel = periodViewModel,
+        periodId = entry.arguments?.getString(DeepLinks.ARG_ID)?.takeIf(DeepLinks::isValidId),
         onClose = { navController.popBackStack() },
     )
 }
@@ -1134,6 +1170,21 @@ fun NavGraph() {
         }
     }
 
+    // Jour and Périodes are siblings: from Périodes, back goes to the calendar.
+    fun selectAgendaSection(section: AgendaSection) {
+        val calendarInBackStack = runCatching { navController.getBackStackEntry(Screen.Calendar.route) }.isSuccess
+        val action = agendaSectionAction(section, calendarInBackStack)
+        val currentId = navController.currentBackStackEntry?.destination?.id
+        navController.navigate(action.route) {
+            if (action.popToCalendar) {
+                popUpTo(Screen.Calendar.route) { inclusive = false }
+            } else if (currentId != null) {
+                popUpTo(currentId) { inclusive = true }
+            }
+            launchSingleTop = true
+        }
+    }
+
     // A sub-view with a route of its own replaces the page it is on; the others are a state the graph keeps.
     fun selectFinanceSubview(section: FinanceSection, subview: FinanceSubview) {
         val route = subview.route
@@ -1326,6 +1377,10 @@ fun NavGraph() {
         onSelectSection = ::selectGrocerySection,
         onOpenDrawer = if (chrome.showsRail) null else ({ scope.launch { drawerState.open() } }),
     )
+    val agendaNav = AgendaNav(
+        onSelectSection = ::selectAgendaSection,
+        onOpenDrawer = if (chrome.showsRail) null else ({ scope.launch { drawerState.open() } }),
+    )
     // Tâches and Cuisine draw their breadcrumb in place of the bar's title (MAG-670): same burger, same actions.
     val moduleBar = ModuleBar(
         onOpenDrawer = if (chrome.showsRail) null else ({ scope.launch { drawerState.open() } }),
@@ -1359,6 +1414,7 @@ fun NavGraph() {
     CompositionLocalProvider(
         LocalFinanceNav provides financeNav,
         LocalGroceryNav provides groceryNav,
+        LocalAgendaNav provides agendaNav,
         LocalModuleBar provides moduleBar,
         LocalHeaderActions provides headerActions,
     ) {
@@ -1631,7 +1687,10 @@ fun NavGraph() {
                         val event = selectedEvent
                         val task = selectedTask
                         val proaction = selectedProaction
+                        Column(Modifier.fillMaxSize()) {
+                        AgendaTopBar(AgendaSection.DAY)
                         ListDetailPane(
+                            modifier = Modifier.weight(1f),
                             showsDetailPane = paneShown,
                             list = {
                                 FullCalendarScreen(
@@ -1697,6 +1756,16 @@ fun NavGraph() {
                             },
                             placeholder = "Touchez un événement pour le voir ici.",
                         )
+                        }
+                    }
+                    composable(Screen.PeriodList.route) {
+                        PeriodListPage(navController, paneShown)
+                    }
+                    composable(
+                        Screen.PeriodForm.route,
+                        arguments = listOf(navArgument(DeepLinks.ARG_ID) { type = NavType.StringType; nullable = true; defaultValue = null }),
+                    ) { entry ->
+                        PeriodFormPage(navController, entry)
                     }
                     composable(Screen.Tasks.route, deepLinks = DeepLinks.forRoute(Screen.Tasks.route)) {
                         val task = selectedTask
