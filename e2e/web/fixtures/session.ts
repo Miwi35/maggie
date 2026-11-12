@@ -98,6 +98,12 @@ export const MEALS_USER_EMAIL = 'e2e-meals@maggie.local'
 export const ENVELOPE_ALERT_USER_EMAIL = 'e2e-envelope-alert@maggie.local'
 
 /**
+ * The account of the bank statement journey (MAG-802): its bank connection is simulated by a
+ * September statement, and the journey counts exactly the movements it imports.
+ */
+export const BANK_STATEMENT_USER_EMAIL = 'e2e-bank-statement@maggie.local'
+
+/**
  * The twelfth seeded account, for the seasonality journey (MAG-494): it puts a
  * potiron and tomatoes on its list and asks Maggie what is in season — a list
  * and a chat history no other file may share.

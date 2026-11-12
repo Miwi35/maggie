@@ -328,6 +328,224 @@
           "response-template"
         ]
       }
+    },
+    {
+      "name": "Transactions of the bank statement account (MAG-802) — September's statement, answered only for the period the tool must ask: date_from=2026-09-01 and date_to=2026-09-30 (any other period has no stub and the journey fails)",
+      "request": {
+        "method": "GET",
+        "urlPathPattern": "/enablebanking/accounts/e2e-account-statement/transactions",
+        "queryParameters": {
+          "date_from": {
+            "equalTo": "2026-09-01"
+          },
+          "date_to": {
+            "equalTo": "2026-09-30"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "transactions": [
+            {
+              "entry_reference": "e2e-statement-n26-1",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "50.00"
+              },
+              "credit_debit_indicator": "CRDT",
+              "status": "BOOK",
+              "booking_date": "2026-09-02",
+              "debtor": {
+                "name": "N26 Bank"
+              },
+              "remittance_information": [
+                "Virement N26 Léo septembre"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-n26-2",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "30.00"
+              },
+              "credit_debit_indicator": "CRDT",
+              "status": "BOOK",
+              "booking_date": "2026-09-09",
+              "debtor": {
+                "name": "N26 Bank"
+              },
+              "remittance_information": [
+                "Virement N26 Léo cantine"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-1",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "45.99"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-03",
+              "creditor": {
+                "name": "CARREFOUR MARKET"
+              },
+              "remittance_information": [
+                "CARREFOUR MARKET"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-2",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "12.50"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-04",
+              "creditor": {
+                "name": "BOULANGERIE DU PORT"
+              },
+              "remittance_information": [
+                "BOULANGERIE DU PORT"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-3",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "8.90"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-06",
+              "creditor": {
+                "name": "TABAC DE LA GARE"
+              },
+              "remittance_information": [
+                "TABAC DE LA GARE"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-4",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "63.20"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-08",
+              "creditor": {
+                "name": "LECLERC RENNES"
+              },
+              "remittance_information": [
+                "LECLERC RENNES"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-5",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "29.99"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-10",
+              "creditor": {
+                "name": "NETFLIX"
+              },
+              "remittance_information": [
+                "NETFLIX"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-6",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "75.00"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-12",
+              "creditor": {
+                "name": "PHARMACIE CENTRALE"
+              },
+              "remittance_information": [
+                "PHARMACIE CENTRALE"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-7",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "3500.00"
+              },
+              "credit_debit_indicator": "CRDT",
+              "status": "BOOK",
+              "booking_date": "2026-09-15",
+              "debtor": {
+                "name": "SALAIRE ACME"
+              },
+              "remittance_information": [
+                "SALAIRE ACME"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-8",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "18.40"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-18",
+              "creditor": {
+                "name": "CINEMA PATHE"
+              },
+              "remittance_information": [
+                "CINEMA PATHE"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-9",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "52.10"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-22",
+              "creditor": {
+                "name": "STATION TOTAL"
+              },
+              "remittance_information": [
+                "STATION TOTAL"
+              ]
+            },
+            {
+              "entry_reference": "e2e-statement-other-10",
+              "transaction_amount": {
+                "currency": "EUR",
+                "amount": "9.99"
+              },
+              "credit_debit_indicator": "DBIT",
+              "status": "BOOK",
+              "booking_date": "2026-09-27",
+              "creditor": {
+                "name": "SPOTIFY"
+              },
+              "remittance_information": [
+                "SPOTIFY"
+              ]
+            }
+          ],
+          "continuation_key": null
+        }
+      }
     }
   ]
 }

@@ -136,8 +136,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // (MAG-573): its « Riz basmati » would match the stock journey's « Riz ». The thirty-first and
         // thirty-second are the cushion share's (MAG-669), web and mobile: both journeys write the share
         // the planning reads. The thirty-third to thirty-fifth are the trip estimate's, the replan's and the dictation's (MAG-745): each
-        // sets a state a neighbour in its Playwright lot read. The thirty-sixth and thirty-seventh are the make-up's (MAG-772), web and mobile: answering settles the proposal and plans a session. A thirty-eighth would mean somebody added an account without saying why.
-        self::assertSame(37, $this->rowsOf(User::class));
+        // sets a state a neighbour in its Playwright lot read. The thirty-sixth and thirty-seventh are the make-up's (MAG-772), web and mobile: answering settles the proposal and plans a session. The thirty-eighth is the bank statement's (MAG-802): it counts exactly what it imports from a simulated September. A thirty-ninth would mean somebody added an account without saying why.
+        self::assertSame(38, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -149,6 +149,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-meals@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-envelope-alert@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-envelope-alert-mobile@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-bank-statement@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-season@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-packagings@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-scores@maggie.local']));
@@ -211,8 +212,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Thirteen since MAG-529: the next project account's current account, Livret jeune and Livret A.
         // Fourteen since MAG-556: the placement withdrawal account's PEA. Fifteen since MAG-565: the Accueil account's current account.
         // Sixteen since MAG-631: the balance account's Livret A, behind its project.
-        // Twenty since MAG-669: each cushion share account's current account and Livret A.
-        self::assertSame(20, $this->rowsOf(Account::class));
+        // Twenty since MAG-669: each cushion share account's current account and Livret A. Twenty-one since MAG-802: the bank statement account's current account.
+        self::assertSame(21, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since
@@ -554,11 +555,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(38, $this->rowsOf(User::class));
+        self::assertSame(39, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(37, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(38, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

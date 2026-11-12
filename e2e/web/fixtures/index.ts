@@ -12,6 +12,7 @@ import {
   ADJUST_USER_EMAIL,
   APPROVALS_USER_EMAIL,
   ENVELOPE_ALERT_USER_EMAIL,
+  BANK_STATEMENT_USER_EMAIL,
   HOME_USER_EMAIL,
   SHORTAGE_USER_EMAIL,
   MAKEUP_USER_EMAIL,
@@ -65,6 +66,7 @@ export {
   TRANSFERS_USER_EMAIL,
   MEALS_USER_EMAIL,
   ENVELOPE_ALERT_USER_EMAIL,
+  BANK_STATEMENT_USER_EMAIL,
   SEASON_USER_EMAIL,
   SCORES_USER_EMAIL,
   UPCOMING_USER_EMAIL,
@@ -221,6 +223,8 @@ export interface MaggieFixtures {
   mealsUser: OtherUser
   /** The tenth seeded account, for the envelope alert after a bank sync (MAG-49). */
   envelopeAlertUser: OtherUser
+  /** The bank statement journey's account (MAG-802). */
+  bankStatementUser: OtherUser
   /** The seasonality journey's (MAG-494): its grocery list and its chat are its own. */
   seasonUser: OtherUser
   /** The thirteenth seeded account, for the rings and the rhythm curve (MAG-417). */
@@ -508,6 +512,9 @@ export const test = base.extend<MaggieFixtures>({
 
   envelopeAlertUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(ENVELOPE_ALERT_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+  bankStatementUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(BANK_STATEMENT_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
   seasonUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(SEASON_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)

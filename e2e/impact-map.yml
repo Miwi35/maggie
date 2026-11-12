@@ -447,6 +447,15 @@ web:
       - 'agent/app/queue/scheduler.py'
       - 'agent/app/db/journal_*.py'
       - 'agent/fixtures/fake-llm/06-planning-journal.yaml'
+  e2e/web/tests/agent-bank-statement.spec.ts:
+    areas: [chat, finance]
+    paths:
+      - 'agent/fixtures/fake-llm/89-bank-statement-*.yaml'
+      - 'agent/app/skills/releves-bancaires.md'
+      - '.docker/e2e/wiremock/mappings/enablebanking.json'
+      - 'api/modules/finance/src/Mcp/Tool/*BankStatement*.php'
+      - 'api/modules/finance/src/Mcp/Tool/ImportBankTransactionsTool.php'
+      - 'api/modules/finance/src/UseCase/ReadBankStatement.php'
   e2e/web/tests/agent-digest.spec.ts:
     areas: [chat, settings]
     paths:
