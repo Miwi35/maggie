@@ -83,7 +83,7 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
       const failed = () => {
         // Overtaken meanwhile (answered elsewhere): the question now shown is not the one that failed.
         if (currentIdRef.current !== current.id) return
-        setError("Ta réponse n'est pas partie. Réessaie, ou garde-la pour plus tard.")
+        setError("Votre réponse n'est pas partie. Réessayez, ou gardez-la pour plus tard.")
         setBusy(false)
       }
       try {

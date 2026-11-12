@@ -463,7 +463,7 @@ describe('threads in the chat', () => {
       renderWithTheme(<Host />)
       await screen.findByText('Ajoute du parmesan')
 
-      await user.type(screen.getByPlaceholderText('Demande à Maggie...'), 'Bonjour')
+      await user.type(screen.getByPlaceholderText('Demander à Maggie…'), 'Bonjour')
       await user.click(screen.getByRole('button', { name: 'Envoyer' }))
 
       await screen.findByText('Bonjour')
@@ -543,7 +543,7 @@ describe('threads in the chat', () => {
       renderWithTheme(<Host />)
       await screen.findByText('Ajoute du parmesan')
 
-      await user.type(screen.getByPlaceholderText('Demande à Maggie...'), 'Et du basilic ?')
+      await user.type(screen.getByPlaceholderText('Demander à Maggie…'), 'Et du basilic ?')
       await user.click(screen.getByRole('button', { name: 'Envoyer' }))
       act(() => {
         stream.callbacks.onContextUpdate({ id: 'ctx-1', label: 'Courses de la semaine', status: 'active' })

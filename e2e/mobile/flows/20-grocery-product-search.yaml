@@ -41,3 +41,11 @@ tags:
 - extendedWaitUntil:
     visible: "Timbres du voisin"
     timeout: 20000
+
+# The category is read in French, as on the product sheet (MAG-794), never « produce ».
+- back
+- tapOn: "Catégorie"
+- extendedWaitUntil:
+    visible: "Fruits et légumes"
+    timeout: 20000
+- assertNotVisible: "produce"

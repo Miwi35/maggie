@@ -143,7 +143,7 @@ function publish(payload: Record<string, unknown>) {
   })
 }
 
-const field = () => screen.getByPlaceholderText('Demande à Maggie...') as HTMLInputElement
+const field = () => screen.getByPlaceholderText('Demander à Maggie…') as HTMLInputElement
 
 /** Sends `text`, then Maggie starts answering: the first words of `answer` are on screen. */
 async function sendAndStartAnswer(user: ReturnType<typeof userEvent.setup>, text: string, answer = 'Je regarde') {

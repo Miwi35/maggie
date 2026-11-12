@@ -26,7 +26,7 @@ export interface ApprovalItem extends Approval {
 }
 
 export const APPROVAL_ERRORS = {
-  network: "Impossible d'envoyer ta réponse. Réessaie.",
+  network: "Votre réponse n'a pas pu partir. Réessayez.",
   alreadyDecided: 'Cette action a déjà été traitée.',
 } as const
 
