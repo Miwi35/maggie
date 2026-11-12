@@ -202,12 +202,13 @@ test.describe('Maggie proposes to make up the missed session — MAG-772', () =>
     await interruption.getByRole('button', { name: 'Demain' }).click()
     await expect(interruption).toBeHidden()
 
-    const tomorrow = parisDay(new Date(e2eNow().getTime() + 24 * 3600 * 1000))
+    // Tomorrow is the day after the miss (seeded yesterday): the next 18:00 still ahead.
+    const now = e2eNow().getTime()
     await expect
       .poll(async () => {
         const rows = await getCollection<WorkoutRow>(api, '/api/workouts?itemsPerPage=100')
 
-        return rows.filter((w) => w.source === 'planned' && parisDay(new Date(w.startedAt)) === tomorrow).length
+        return rows.filter((w) => w.source === 'planned' && new Date(w.startedAt).getTime() > now).length
       })
       .toBeGreaterThan(0)
 
