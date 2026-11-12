@@ -7,8 +7,8 @@ name: scroll the list under the finger to its end
 #     is never reached (`17b-tasks-day`: `tasks_reserve_toggle`);
 #   - it takes an element as visible while its bounds are on screen, and the launcher's
 #     taskbar (the bottom 60 px of the tablet) is on screen: a button the list clips at the
-#     window's foot is « visible » and the tap lands on the taskbar (`17c-tasks-evening`:
-#     `tasks_evening_good_night`, centre at y = 741 for a window ending at 740).
+#     window's foot is « visible » and the tap lands on the taskbar (the evening's
+#     « Bonne nuit » of MAG-500, centre at y = 741 for a window ending at 740).
 #
 # So the journey scrolls the list itself: three flings from the left quarter of the screen,
 # which is inside the list on all three formats (a phone's single column, a foldable's
