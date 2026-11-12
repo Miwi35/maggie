@@ -1199,7 +1199,7 @@ class TestAMultiStepAnswerKeepsOnlyItsLastStep:
             tool_results=[RuntimeError("tool crashed")],
             saved=saved,
         )
-        apology = "Désolé, une erreur est survenue. Réessaie."
+        apology = "Pardon, je n'y arrive pas pour l'instant. Je réessaie dans un instant."
 
         assert [message["content"] for message in saved] == [apology]
         assert the_bubble(events) == apology

@@ -103,7 +103,7 @@ class TestRoutes:
         """The summary would be a second doomed call, with the user still waiting on this one."""
         mock_gateway.chat = AsyncMock(
             return_value={
-                "response": "Désolé, une erreur est survenue. Réessaie.",
+                "response": "Pardon, je n'y arrive pas pour l'instant. Je réessaie dans un instant.",
                 "tool_calls": [],
                 "context_id": "ctx-1",
                 "error": True,
@@ -120,7 +120,7 @@ class TestRoutes:
         mock_msg_repo.create.assert_awaited_with(
             user_id="test-user",
             role="assistant",
-            content="Désolé, une erreur est survenue. Réessaie.",
+            content="Pardon, je n'y arrive pas pour l'instant. Je réessaie dans un instant.",
             context_id="ctx-1",
             blocks=None,
             ui_blocks=None,

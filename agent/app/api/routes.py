@@ -1010,19 +1010,19 @@ async def transcribe(
         logger.warning("Whisper quota exhausted: %s", exc)
         raise HTTPException(
             status_code=503,
-            detail="Quota OpenAI dépassé — recharge le compte pour réactiver la transcription.",
+            detail="Quota OpenAI dépassé — rechargez le compte pour réactiver la transcription.",
         ) from exc
     except anthropic.RateLimitError as exc:
         logger.warning("Anthropic rate-limited during transcription cleanup: %s", exc)
         raise HTTPException(
             status_code=503,
-            detail="Anthropic est temporairement rate-limité, réessaie dans quelques instants.",
+            detail="Anthropic est temporairement rate-limité, réessayez dans quelques instants.",
         ) from exc
     except openai.AuthenticationError as exc:
         logger.error("OpenAI authentication failed: %s", exc)
         raise HTTPException(
             status_code=503,
-            detail="Clé API OpenAI invalide — vérifie la configuration côté agent.",
+            detail="Clé API OpenAI invalide — vérifiez la configuration côté agent.",
         ) from exc
     except (openai.APIError, anthropic.APIError) as exc:
         logger.exception("LLM provider error during transcription")

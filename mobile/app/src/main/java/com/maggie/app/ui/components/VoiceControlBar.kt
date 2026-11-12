@@ -95,7 +95,7 @@ fun VoiceControlBar(
         VoiceState.IDLE -> when (hint) {
             VoiceHint.HOLD_LONGER -> "Maintenez le bouton pour parler"
             // Nothing was sent, on purpose: the hold held no voice (MAG-222).
-            VoiceHint.NOTHING_HEARD -> "Je n'ai rien entendu"
+            VoiceHint.NOTHING_HEARD -> "Pardon, je n'ai pas entendu. Vous pouvez répéter ?"
             null -> "Maintenez pour parler"
         }
         VoiceState.LISTENING -> if (handsFree) {

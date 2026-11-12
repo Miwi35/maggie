@@ -15,7 +15,7 @@ export type CleanupMode = 'none' | 'auto'
  * when it is given silence — « Thank you for watching » reached the chat that way
  * (retour de recette MAG-222) — so an empty answer is a result, not a failure.
  */
-export const NOTHING_HEARD = "Je n'ai rien entendu"
+export const NOTHING_HEARD = "Pardon, je n'ai pas entendu. Vous pouvez répéter ?"
 
 export function useTranscription() {
   const [loading, setLoading] = useState(false)

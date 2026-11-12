@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_ITERATIONS = 5
 DEFAULT_MAX_TOKENS = 4096
-ITERATION_LIMIT_MESSAGE = "I encountered an issue processing your request. Please try again."
+ITERATION_LIMIT_MESSAGE = "Je me suis perdue en route, je n'ai rien enregistré. Vous me redonnez le point de départ ?"
 
 
 async def run_tool_loop(
