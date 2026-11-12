@@ -22,6 +22,7 @@ class GoogleTasksSyncService
         private readonly GoogleTaskMapper $taskMapper,
         private readonly TaskRepository $taskRepository,
         private readonly GoogleTaskListSelection $selection,
+        private readonly ModuleAgendas $moduleAgendas,
         private readonly EntityManagerInterface $entityManager,
         private readonly HubInterface $hub,
         private readonly MessageBusInterface $messageBus,
@@ -65,6 +66,9 @@ class GoogleTasksSyncService
             ]);
             throw $e;
         }
+
+        // The flush below files it; an owner whose tasks predate the agenda gets it at the next pull.
+        $this->moduleAgendas->forUser($user, Task::AGENDA_MODULE, Task::AGENDA_NAME, Task::AGENDA_COLOR, adoptLegacy: false);
 
         // Index existing local tasks by their Google Task ID
         $existingTasks = $this->taskRepository->findBy([

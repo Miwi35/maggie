@@ -56,6 +56,7 @@
         "order[createdAt]": "admin GroceryListView"
     },
     "/api/agendas": {
+        "exists[module]": "admin CalendarView and mobile getModuleAgendas, the modules' agendas (Repas, Santé, Tâches…) the filter lists (MAG-820)",
         "order[name]": "admin CalendarView, EventCreateDialog and UserPreferenceSettings",
         "order[id]": "admin raw-data list (react-admin sorts by id when a list names no sort)"
     },

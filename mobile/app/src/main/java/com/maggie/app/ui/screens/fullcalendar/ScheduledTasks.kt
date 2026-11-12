@@ -8,7 +8,8 @@ import java.time.ZoneId
 
 /** The id of the tasks' [ExpandedEvent.agendaIri]: a scheduled task is no agenda's event (MAG-718). */
 const val TASKS_FILTER_ID = "__tasks__"
-const val TASKS_COLOR = "#1976D2"
+/** The tasks module's dark hue (`taches` in `Tokens.kt`), until the « Tâches » agenda is known. */
+const val TASKS_FALLBACK_COLOR = "#E8A9D9"
 
 /** How long a task at a precise time lasts on the timeline when it has no estimate. */
 private val DEFAULT_TASK_LENGTH: Duration = Duration.ofMinutes(30)
@@ -25,7 +26,13 @@ private val MOMENT_PREFIXES = mapOf(
  * the task's, so a touch opens its sheet. A task with no scheduled day is not in the agenda — the deadline
  * is no day it is done on. Null for those.
  */
-fun scheduledTaskEvent(task: Task, zone: ZoneId): ExpandedEvent? {
+fun scheduledTaskEvent(
+    task: Task,
+    zone: ZoneId,
+    agendaId: String = TASKS_FILTER_ID,
+    color: String = TASKS_FALLBACK_COLOR,
+    agendaName: String = "Tâches",
+): ExpandedEvent? {
     val day = task.scheduledDay ?: return null
     val time = task.scheduledAt
     if (time != null) {
@@ -37,9 +44,9 @@ fun scheduledTaskEvent(task: Task, zone: ZoneId): ExpandedEvent? {
             startAt = start.toString(),
             endAt = start.plus(length).toString(),
             timeZone = zone.id,
-            agendaIri = TASKS_FILTER_ID,
-            agendaColor = TASKS_COLOR,
-            agendaName = "Tâches",
+            agendaIri = agendaId,
+            agendaColor = color,
+            agendaName = agendaName,
         )
     }
     val prefix = task.scheduledMoment?.let { MOMENT_PREFIXES[it] }
@@ -49,8 +56,8 @@ fun scheduledTaskEvent(task: Task, zone: ZoneId): ExpandedEvent? {
         allDay = true,
         startDate = day,
         endDate = endDateAfter(day),
-        agendaIri = TASKS_FILTER_ID,
-        agendaColor = TASKS_COLOR,
-        agendaName = "Tâches",
+        agendaIri = agendaId,
+        agendaColor = color,
+        agendaName = agendaName,
     )
 }

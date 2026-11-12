@@ -64,6 +64,9 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.ui.screens.lock.LockScreen
 import com.maggie.app.data.model.ExpandedEvent
+import com.maggie.app.data.model.MODULE_AGENT
+import com.maggie.app.data.model.MODULE_COOKBOOK
+import com.maggie.app.data.model.MODULE_TASKS
 import com.maggie.app.data.model.OPERATION_SERIES
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
@@ -226,9 +229,6 @@ import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
 import com.maggie.app.ui.screens.digest.DigestScreen
 import com.maggie.app.ui.screens.digest.DigestViewModel
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarViewModel
-import com.maggie.app.ui.screens.fullcalendar.MEALS_FILTER_ID
-import com.maggie.app.ui.screens.fullcalendar.PROACTIONS_FILTER_ID
-import com.maggie.app.ui.screens.fullcalendar.TASKS_FILTER_ID
 import com.maggie.app.ui.screens.chat.ChatScreen
 import com.maggie.app.ui.screens.proactions.ProactionDetailContent
 import com.maggie.app.ui.screens.proactions.ProactionDetailSheet
@@ -1637,18 +1637,19 @@ fun NavGraph() {
                                     onOpenTasks = { navigateTo(Screen.Tasks.route) },
                                     onEventClick = {
                                         // A meal is edited in the Cuisine module, not as an event.
-                                        if (it.agendaIri == PROACTIONS_FILTER_ID) {
+                                        val layer = calendarViewModel.layerOf(it.agendaIri)
+                                        if (layer == MODULE_AGENT) {
                                             selectedTask = null
                                             selectedEvent = null
                                             selectedProactionId = it.id
-                                        } else if (it.agendaIri == TASKS_FILTER_ID) {
+                                        } else if (layer == MODULE_TASKS) {
                                             // A scheduled task (MAG-718) opens its own sheet, not an event's.
                                             calendarViewModel.uiState.value.tasks.firstOrNull { task -> task.id == it.id }?.let { task ->
                                                 selectedEvent = null
                                                 selectedProactionId = null
                                                 selectedTask = task
                                             }
-                                        } else if (it.agendaIri != MEALS_FILTER_ID) {
+                                        } else if (layer != MODULE_COOKBOOK) {
                                             selectedTask = null
                                             selectedProactionId = null
                                             selectedEvent = it

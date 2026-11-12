@@ -14,4 +14,10 @@ data class Agenda(
     // Account.isCushion.
     @SerialName("default") val isDefault: Boolean = false,
     val googleCalendarId: String? = null,
+    /** The module that files in this agenda (`tasks`, `cookbook`, `agent`, `health`, `finance`…); null for the user's own. */
+    val module: String? = null,
 )
+
+const val MODULE_TASKS = "tasks"
+const val MODULE_COOKBOOK = "cookbook"
+const val MODULE_AGENT = "agent"

@@ -3,7 +3,7 @@ import { useDataProvider, useNotify } from 'react-admin'
 import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
-import { criticalityColor, SOURCE_COLORS, TOKENS } from '../../design/tokens'
+import { SOURCE_COLORS, TOKENS } from '../../design/tokens'
 import { addDays, daysBetween, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { ALL_LIVE_KINDS, useLiveRead, type LiveKind } from './calendarLive'
@@ -98,7 +98,18 @@ const proactionUlid = (id: string) => bareId(id.startsWith(PROACTION_PREFIX) ? i
 const PROACTION_MARKS: Record<string, string> = { completed: '\u2713 ', failed: '\u26A0 ' }
 
 const MEAL_COLOR = SOURCE_COLORS.meals
-const TASK_DONE_COLOR = SOURCE_COLORS.done
+/** The tasks' own line, until the « Tâches » agenda exists (MAG-820); same for `__meals__` and the Maggie line. */
+const TASKS_LINE = '__tasks__'
+const MEALS_LINE = '__meals__'
+const TASKS_FALLBACK_COLOR = TOKENS.module.taches.dark
+const DEFAULT_TASK_MINUTES = 30
+
+/** A local `YYYY-MM-DDTHH:mm:ss` moved by some minutes: FullCalendar reads it in the calendar's zone. */
+const localDateTime = (date: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`
+}
 const MEAL_SLOT_LABELS: Record<string, string> = { lunch: 'Déj', dinner: 'Dîner' }
 const mealTitle = (m: CalendarMeal) => {
   const label = MEAL_SLOT_LABELS[m.slot] || m.slot
@@ -580,6 +591,9 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const [rawProactions, setRawProactions] = useState<CalendarProaction[]>([])
   const [rawTrips, setRawTrips] = useState<Trip[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
+  // The agendas the modules keep: a line each in the filter, whatever the module (MAG-820).
+  const [moduleAgendas, setModuleAgendas] = useState<CalendarData[]>([])
+  const moduleIdsRef = useRef<string[]>([])
   const [enabledCalendars, setEnabledCalendars] = useState<Set<string> | null>(null)
   const [miniCalDate, setMiniCalDate] = useState(new Date())
   const [currentView, setCurrentView] = useState<CalendarView>('dayGridMonth')
@@ -622,6 +636,22 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const loadCalendars = useCallback(() => {
     // A module view lists no agenda: its items are all the module's own.
     if (moduleCalendar) return Promise.resolve(false)
+    dataProvider
+      .getList('agendas', {
+        pagination: { page: 1, perPage: 50 },
+        sort: { field: 'name', order: 'ASC' },
+        filter: { 'exists[module]': true },
+      })
+      .then(({ data }) => {
+        const modules = (data as unknown as CalendarData[]).filter((c) => c.module)
+        moduleIdsRef.current = modules.map((c) => c.id)
+        setModuleAgendas(modules)
+        const fresh = modules.filter((c) => !knownCalendarIds.current.has(c.id))
+        for (const c of fresh) knownCalendarIds.current.add(c.id)
+        setEnabledCalendars((prev) => (prev === null || 0 === fresh.length ? prev : new Set([...prev, ...fresh.map((c) => c.id)])))
+      })
+      .catch((error) => console.error(error))
+
     return dataProvider
       .getList('agendas', {
         pagination: { page: 1, perPage: 50 },
@@ -639,7 +669,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         const fresh = cals.filter((c) => !known.has(c.id))
         for (const c of fresh) known.add(c.id)
         setEnabledCalendars((prev) => {
-          if (prev === null) return new Set([...cals.map((c) => c.id), '__tasks__', '__meals__', PROACTION_LINE])
+          if (prev === null) return new Set([...cals.map((c) => c.id), ...moduleIdsRef.current, TASKS_LINE, MEALS_LINE, PROACTION_LINE])
           // Keep existing toggles (a hidden agenda stays hidden), show the agendas never seen before
           const next = new Set(prev)
           for (const c of fresh) next.add(c.id)
@@ -676,7 +706,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     const shown = calendars.filter((c) => savedIds.has(bareId(c.id)))
     // Every saved agenda deleted since: an empty screen would look broken, not filtered.
     if (0 === shown.length) return
-    setEnabledCalendars(new Set([...shown.map((c) => c.id), '__tasks__', '__meals__', PROACTION_LINE]))
+    setEnabledCalendars(new Set([...shown.map((c) => c.id), ...moduleIdsRef.current, TASKS_LINE, MEALS_LINE, PROACTION_LINE]))
   }, [preferences, calendars])
 
   // --- Agenda sidebar handlers ---
@@ -793,19 +823,38 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   // --- Calendar maps ---
   const calendarColorMap = useMemo(() => {
     const map = new Map<string, string>()
-    calendars.forEach((cal) => {
+    ;[...calendars, ...moduleAgendas].forEach((cal) => {
       map.set(cal.id, cal.color || theme.palette.primary.main)
     })
     return map
-  }, [calendars, theme.palette.primary.main])
+  }, [calendars, moduleAgendas, theme.palette.primary.main])
 
   const calendarNameMap = useMemo(() => {
     const map = new Map<string, string>()
-    calendars.forEach((cal) => {
+    ;[...calendars, ...moduleAgendas].forEach((cal) => {
       map.set(cal.id, cal.name)
     })
     return map
-  }, [calendars])
+  }, [calendars, moduleAgendas])
+
+  // The three layers the client draws itself take their agenda's id, name and colour; before it exists, their own.
+  const layers = useMemo(() => {
+    const of = (module: string, fallback: CalendarData): CalendarData => moduleAgendas.find((a) => a.module === module) ?? fallback
+    return {
+      agent: of('agent', { id: PROACTION_LINE, name: 'Maggie', color: PROACTION_COLOR, default: false, module: 'agent' }),
+      cookbook: of('cookbook', { id: MEALS_LINE, name: 'Repas', color: MEAL_COLOR, default: false, module: 'cookbook' }),
+      tasks: of('tasks', { id: TASKS_LINE, name: 'Tâches', color: TASKS_FALLBACK_COLOR, default: false, module: 'tasks' }),
+    }
+  }, [moduleAgendas])
+  const filterLines = useMemo(
+    () => [
+      layers.agent,
+      layers.cookbook,
+      layers.tasks,
+      ...moduleAgendas.filter((a) => !['agent', 'cookbook', 'tasks'].includes(a.module ?? '')),
+    ],
+    [layers, moduleAgendas],
+  )
 
   // --- Fetch events + tasks ---
   // `kinds` narrows the read to what a live update touched. Answers come back in any
@@ -841,11 +890,15 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
 
                 return [...range.data, ...series.data].filter((e) => !seen.has(e.id) && seen.add(e.id))
               }),
-        // By day, like meals: `dueDate` is a day-typed field since MAG-404.
+        // By day, like meals, and by the scheduled day, not the deadline: the Agenda is where the task is done (MAG-820).
         tasks: () =>
           moduleCalendar
             ? nothing.then((r) => r.data)
-            : list('tasks', 'dueDate', { 'dueDate[after]': day.after, 'dueDate[before]': day.before }).then((r) => r.data),
+            : list('tasks', 'scheduledDate', {
+                'scheduledDate[after]': day.after,
+                'scheduledDate[before]': day.before,
+                'exists[completedAt]': false,
+              }).then((r) => r.data),
         // A meal is a day and a slot, and `date` is a day-typed field: an instant would not
         // even parse against it (MAG-251).
         meals: () => list('meals', 'date', { 'date[after]': day.after, 'date[before]': day.before }).then((r) => r.data),
@@ -1077,20 +1130,25 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     return result
   }, [rawEvents, calendarColorMap, activeRange, theme])
 
-  // --- Map tasks → FullCalendar all-day events with criticality colors ---
+  // --- Map tasks → FullCalendar events, on their scheduled day, in the « Tâches » agenda's colour ---
   const taskEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
+    const { id, color } = layers.tasks
+    const background = color || TASKS_FALLBACK_COLOR
     return rawTasks
-      .filter((t) => t.dueDate)
+      .filter((t) => t.scheduledDate && null == t.completedAt)
       .map((t) => {
-        const color = criticalityColor(t.criticality)
-        const isDone = t.completedAt != null
-        const background = isDone ? TASK_DONE_COLOR : color
+        const timed = 'time' === t.scheduledMoment && t.scheduledTime
+        const start = timed ? `${t.scheduledDate}T${t.scheduledTime!.slice(0, 5)}:00` : t.scheduledDate!
+        const end = timed
+          ? localDateTime(new Date(new Date(start).getTime() + (t.estimatedMinutes ?? DEFAULT_TASK_MINUTES) * 60_000))
+          : undefined
         return {
           id: `task-${t.id}`,
-          title: `${isDone ? '\u2713 ' : ''}${t.title}`,
-          start: t.dueDate!,
-          allDay: true,
-          calendarId: '__tasks__',
+          title: t.title,
+          start,
+          end,
+          allDay: !timed,
+          calendarId: id,
           backgroundColor: background,
           borderColor: background,
           textColor: getEventTextColor(theme, background),
@@ -1099,14 +1157,15 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             isTask: true,
             priority: t.priority,
             criticality: t.criticality,
-            isDone,
+            isDone: false,
           },
         }
       })
-  }, [rawTasks, theme])
+  }, [rawTasks, theme, layers.tasks])
 
   // --- Map meals → FullCalendar all-day events ---
   const mealEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
+    const mealColor = layers.cookbook.color || MEAL_COLOR
     return rawMeals.map((m) => {
       return {
         id: `meal-${m.id}`,
@@ -1115,27 +1174,27 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         // get wrong (MAG-251).
         start: m.date,
         allDay: true,
-        calendarId: '__meals__',
-        backgroundColor: MEAL_COLOR,
-        borderColor: MEAL_COLOR,
-        textColor: getEventTextColor(theme, MEAL_COLOR),
+        calendarId: layers.cookbook.id,
+        backgroundColor: mealColor,
+        borderColor: mealColor,
+        textColor: getEventTextColor(theme, mealColor),
         extendedProps: { isMeal: true },
       }
     })
-  }, [rawMeals, theme])
+  }, [rawMeals, theme, layers.cookbook])
 
   // --- Map proactions → FullCalendar timed events of the « Maggie » agenda ---
   const proactionEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
     return rawProactions.map((p) => {
       const failed = p.executionStatus === 'failed'
-      const color = failed ? theme.palette.error.main : PROACTION_COLOR
+      const color = failed ? theme.palette.error.main : layers.agent.color || PROACTION_COLOR
       return {
         id: `${PROACTION_PREFIX}${proactionUlid(p.id)}`,
         title: `${PROACTION_MARKS[p.executionStatus] ?? ''}${p.summary}`,
         start: p.startAt,
         end: p.endAt,
         allDay: false,
-        calendarId: PROACTION_LINE,
+        calendarId: layers.agent.id,
         backgroundColor: color,
         borderColor: color,
         textColor: getEventTextColor(theme, color),
@@ -1146,7 +1205,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         extendedProps: {
           isProaction: true,
           summary: p.summary,
-          calendarId: PROACTION_LINE,
+          calendarId: layers.agent.id,
           proaction: {
             prompt: p.prompt,
             executionStatus: p.executionStatus,
@@ -1156,29 +1215,29 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         },
       }
     })
-  }, [rawProactions, theme])
+  }, [rawProactions, theme, layers.agent])
 
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
     if (!enabledCalendars) return [...coloredEvents, ...taskEvents, ...mealEvents, ...proactionEvents]
     // An activity's appointment lives in a module agenda the list leaves out, so no toggle
     // could hide it: it shows whatever is ticked (the review's, MAG-456).
-    const listed = new Set(calendars.map((c) => c.id))
+    const listed = new Set([...calendars, ...moduleAgendas].map((c) => c.id))
     const calFiltered = coloredEvents.filter(
       (e) =>
         enabledCalendars.has(e.calendarId) ||
         (!listed.has(e.calendarId) && activityAgenda(e.extendedProps?.activity as string | undefined) !== undefined),
     )
-    const tasksVisible = enabledCalendars.has('__tasks__')
-    const mealsVisible = enabledCalendars.has('__meals__')
-    const proactionsVisible = enabledCalendars.has(PROACTION_LINE)
+    const tasksVisible = enabledCalendars.has(layers.tasks.id)
+    const mealsVisible = enabledCalendars.has(layers.cookbook.id)
+    const proactionsVisible = enabledCalendars.has(layers.agent.id)
     return [
       ...calFiltered,
       ...(tasksVisible ? taskEvents : []),
       ...(mealsVisible ? mealEvents : []),
       ...(proactionsVisible ? proactionEvents : []),
     ]
-  }, [coloredEvents, enabledCalendars, calendars, taskEvents, mealEvents, proactionEvents])
+  }, [coloredEvents, enabledCalendars, calendars, moduleAgendas, layers, taskEvents, mealEvents, proactionEvents])
 
   // --- The trip line under an event of the day view (« Partir à l'heure ») ---
   const tripOfEvent = useMemo(() => tripsByEvent(rawTrips), [rawTrips])
@@ -2256,91 +2315,42 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             >
               Autres agendas
             </Typography>
-            <Box
-              data-testid="maggie-agenda-row"
-              onClick={() => toggleCalendar(PROACTION_LINE)}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                py: 0.25,
-                px: 0.5,
-                cursor: 'pointer',
-                borderRadius: 1,
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Checkbox
-                size="small"
-                checked={enabledCalendars?.has(PROACTION_LINE) ?? true}
-                tabIndex={-1}
-                disableRipple
-                sx={{
-                  p: 0.25,
-                  color: PROACTION_COLOR,
-                  '&.Mui-checked': { color: PROACTION_COLOR },
-                }}
-              />
-              <AutoAwesomeIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
-              <Typography variant="body2">
-                Maggie
-              </Typography>
-            </Box>
-            <Box
-              onClick={() => toggleCalendar('__meals__')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                py: 0.25,
-                px: 0.5,
-                cursor: 'pointer',
-                borderRadius: 1,
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Checkbox
-                size="small"
-                checked={enabledCalendars?.has('__meals__') ?? true}
-                tabIndex={-1}
-                disableRipple
-                sx={{
-                  p: 0.25,
-                  color: MEAL_COLOR,
-                  '&.Mui-checked': { color: MEAL_COLOR },
-                }}
-              />
-              <RestaurantIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
-              <Typography variant="body2">
-                Repas
-              </Typography>
-            </Box>
-            <Box
-              onClick={() => toggleCalendar('__tasks__')}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                py: 0.25,
-                px: 0.5,
-                cursor: 'pointer',
-                borderRadius: 1,
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
-            >
-              <Checkbox
-                size="small"
-                checked={enabledCalendars?.has('__tasks__') ?? true}
-                tabIndex={-1}
-                disableRipple
-                sx={{
-                  p: 0.25,
-                  color: SOURCE_COLORS.tasks,
-                  '&.Mui-checked': { color: SOURCE_COLORS.tasks },
-                }}
-              />
-              <ChecklistIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
-              <Typography variant="body2">
-                Tâches
-              </Typography>
-            </Box>
+            {filterLines.map((line) => {
+              const color = line.color || theme.palette.primary.main
+              const Icon = { agent: AutoAwesomeIcon, cookbook: RestaurantIcon, tasks: ChecklistIcon }[line.module ?? '']
+              return (
+                <Box
+                  key={line.id}
+                  data-testid={'agent' === line.module ? 'maggie-agenda-row' : 'module-agenda-row'}
+                  onClick={() => toggleCalendar(line.id)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    py: 0.25,
+                    px: 0.5,
+                    cursor: 'pointer',
+                    borderRadius: 1,
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  <Checkbox
+                    size="small"
+                    checked={enabledCalendars?.has(line.id) ?? true}
+                    tabIndex={-1}
+                    disableRipple
+                    sx={{
+                      p: 0.25,
+                      color,
+                      '&.Mui-checked': { color },
+                    }}
+                  />
+                  {Icon && <Icon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />}
+                  <Typography variant="body2" sx={Icon ? undefined : { ml: 0.5 }}>
+                    {line.name}
+                  </Typography>
+                </Box>
+              )
+            })}
           </Box>
           )}
         </Box>

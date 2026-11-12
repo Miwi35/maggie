@@ -1506,6 +1506,15 @@ class MaggieApiService(
         }.body<ApiCollection<Agenda>>().member
     }
 
+    /** The internal agendas the modules keep (Repas, Maggie, Santé, Finance, Tâches…): left out of [getAgendas]. */
+    suspend fun getModuleAgendas(): List<Agenda> {
+        return client.get("$baseUrl/api/agendas") {
+            accept(ContentType("application", "ld+json"))
+            parameter("exists[module]", "true")
+            withoutPagination()
+        }.body<ApiCollection<Agenda>>().member
+    }
+
     suspend fun getAgenda(id: String): Agenda {
         return client.get("$baseUrl/api/agendas/$id") {
             accept(ContentType("application", "ld+json"))

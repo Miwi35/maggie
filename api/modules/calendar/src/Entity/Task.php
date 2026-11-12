@@ -66,6 +66,10 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
 {
     use HasGoogleTaskTrackingTrait;
     use MercurePayloadFilterTrait;
+    /** The agenda module the tasks are shown under in the calendar: only a name, a colour and a filter box, tasks hold no link to it. */
+    public const AGENDA_MODULE = Agenda::MODULE_TASKS;
+    public const AGENDA_NAME = 'Tâches';
+    public const AGENDA_COLOR = '#E8A9D9';
 
     public const MAX_ESTIMATED_MINUTES = 1440;
 

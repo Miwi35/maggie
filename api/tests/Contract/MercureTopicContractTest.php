@@ -105,10 +105,17 @@ final class MercureTopicContractTest extends WebTestCase
         );
     }
 
-    /** @return list<\Symfony\Component\Mercure\Update> */
+    /**
+     * The task's own updates: the first task also files the « Tâches » module agenda (MAG-820), which publishes its own.
+     *
+     * @return list<\Symfony\Component\Mercure\Update>
+     */
     private function entityUpdates(): array
     {
-        return array_values($this->getMercureHub()->getUpdates());
+        return array_values(array_filter(
+            $this->getMercureHub()->getUpdates(),
+            static fn ($update): bool => str_starts_with((string) (json_decode($update->getData(), true)['@id'] ?? ''), '/api/tasks/'),
+        ));
     }
 
     /**

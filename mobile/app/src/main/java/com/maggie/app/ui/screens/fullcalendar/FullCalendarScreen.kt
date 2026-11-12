@@ -27,6 +27,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import com.maggie.app.data.model.Agenda
+import com.maggie.app.data.model.MODULE_AGENT
+import com.maggie.app.data.model.MODULE_COOKBOOK
 import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
@@ -96,55 +98,38 @@ fun FullCalendarScreen(
                 )
 
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag(UiTags.CALENDAR_MEALS_FILTER)
-                                .clickable { viewModel.toggleMeals() }
-                                .padding(horizontal = 12.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(
-                                checked = uiState.mealsEnabled,
-                                onCheckedChange = { viewModel.toggleMeals() },
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(android.graphics.Color.parseColor(MEALS_COLOR))),
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Repas",
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f),
-                            )
+                    items(uiState.moduleAgendas, key = { it.id }) { agenda ->
+                        val color = try {
+                            Color(android.graphics.Color.parseColor(agenda.color))
+                        } catch (_: Exception) {
+                            MaterialTheme.colorScheme.primary
                         }
-                    }
-                    item {
+                        val tag = when (agenda.module) {
+                            MODULE_COOKBOOK -> UiTags.CALENDAR_MEALS_FILTER
+                            MODULE_AGENT -> UiTags.CALENDAR_PROACTIONS_FILTER
+                            else -> "calendar_module_filter_${agenda.module}"
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag(UiTags.CALENDAR_PROACTIONS_FILTER)
-                                .clickable { viewModel.toggleProactions() }
+                                .testTag(tag)
+                                .clickable { viewModel.toggleAgenda(agenda.id) }
                                 .padding(horizontal = 12.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(
-                                checked = uiState.proactionsEnabled,
-                                onCheckedChange = { viewModel.toggleProactions() },
+                                checked = agenda.id in uiState.enabledAgendas,
+                                onCheckedChange = { viewModel.toggleAgenda(agenda.id) },
                             )
                             Box(
                                 modifier = Modifier
                                     .size(12.dp)
                                     .clip(CircleShape)
-                                    .background(Color(android.graphics.Color.parseColor(PROACTIONS_COLOR))),
+                                    .background(color),
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Maggie",
+                                text = agenda.name,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f),
                             )

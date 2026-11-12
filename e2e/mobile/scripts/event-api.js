@@ -55,13 +55,13 @@ function persoAgenda() {
 if (ACTION === 'create-burst') {
   // More events than one API page holds (30), inside the window the app loads (MAG-430).
   // All but the last three are filler, three a day from the 10th. The last three, created
-  // last and so served last, sit alone on the 24th, 25th and 26th: those are what the
+  // last and so served last, sit alone on the 24th, 26th and 28th (the 25th holds the Finance review, drawn since MAG-820, the 27th a piano lesson): those are what the
   // journey looks for. From the 10th on, so that none lands in the dashboard's week.
   const perso = persoAgenda()
   const count = Number(COUNT)
   for (let i = 1; i <= count; i++) {
     const witness = i > count - 3
-    const day = witness ? 24 + (i - (count - 3) - 1) : 10 + Math.floor((i - 1) / 3)
+    const day = witness ? 24 + 2 * (i - (count - 3) - 1) : 10 + Math.floor((i - 1) / 3)
     const hour = witness ? '09' : '0' + (7 + ((i - 1) % 3))
     const date = MONTH + '-' + (day < 10 ? '0' + day : day)
     const created = http.post(base + '/api/events', {
