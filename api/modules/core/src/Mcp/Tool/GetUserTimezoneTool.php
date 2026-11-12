@@ -10,7 +10,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Repository\UserPreferenceRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_user_timezone', description: "Read the IANA timezone (e.g. Europe/Paris) the user chose in their preferences. Use it to reason about the user's local time. Also gives their working hours (HH:MM start and end, ISO days 1 = Monday … 7).")]
+#[McpTool(name: 'get_user_timezone', description: "Read the IANA timezone (e.g. Europe/Paris) the user chose in their preferences. Use it to reason about the user's local time. Also gives their working hours (HH:MM start and end, ISO days 1 = Monday … 7) and sickSince: the day they fell sick, YYYY-MM-DD, null when they are not sick (set_sick).")]
 class GetUserTimezoneTool
 {
     public const DEFAULT_TIMEZONE = 'Europe/Paris';
@@ -40,6 +40,8 @@ class GetUserTimezoneTool
             'workStartTime' => $preference->getWorkStartTime(),
             'workEndTime' => $preference->getWorkEndTime(),
             'workDays' => $preference->getWorkDays(),
+            // The sick state rides along too (MAG-810): no extra call to know it.
+            'sickSince' => $preference->getSickSince()?->format('Y-m-d'),
         ], JSON_THROW_ON_ERROR);
     }
 }

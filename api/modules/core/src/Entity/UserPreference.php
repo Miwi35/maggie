@@ -11,6 +11,8 @@ use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Repository\UserPreferenceRepository;
 use Maggie\Core\State\UserPreferenceItemProvider;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Uid\Ulid;
 
 #[ORM\Entity(repositoryClass: UserPreferenceRepository::class)]
@@ -85,6 +87,11 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
     /** @var list<int> ISO days, 1 = Monday … 7 = Sunday */
     #[ORM\Column(type: Types::JSON, options: ['default' => '[1,2,3,4,5]'])]
     private array $workDays = [1, 2, 3, 4, 5];
+
+    /** The day the user said they fell sick (MAG-810), in their timezone; null when they are not sick. Kept until they say it is over. */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Context(normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
+    private ?\DateTimeImmutable $sickSince = null;
 
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
@@ -312,6 +319,18 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
         return $this;
     }
 
+    public function getSickSince(): ?\DateTimeImmutable
+    {
+        return $this->sickSince;
+    }
+
+    public function setSickSince(?\DateTimeImmutable $sickSince): static
+    {
+        $this->sickSince = $sickSince;
+
+        return $this;
+    }
+
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
@@ -349,6 +368,7 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
             'workStartTime' => $this->workStartTime,
             'workEndTime' => $this->workEndTime,
             'workDays' => $this->workDays,
+            'sickSince' => $this->sickSince?->format('Y-m-d'),
         ], $changedProperties);
     }
 }

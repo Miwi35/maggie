@@ -14,7 +14,7 @@ class GetUserTimezoneToolTest extends KernelTestCase
     use FixtureLoaderTrait;
     use SecurityTokenTrait;
 
-    private const DEFAULT_WORK_HOURS = ['workStartTime' => '09:00', 'workEndTime' => '18:00', 'workDays' => [1, 2, 3, 4, 5]];
+    private const DEFAULT_WORK_HOURS = ['workStartTime' => '09:00', 'workEndTime' => '18:00', 'workDays' => [1, 2, 3, 4, 5], 'sickSince' => null];
 
     protected function setUp(): void
     {
@@ -95,5 +95,16 @@ class GetUserTimezoneToolTest extends KernelTestCase
         self::assertSame('08:30', $result['workStartTime']);
         self::assertSame('17:00', $result['workEndTime']);
         self::assertSame([1, 2, 3, 4], $result['workDays']);
+    }
+
+    public function testItGivesSickSince(): void
+    {
+        $this->loadFixtures(__DIR__.'/../Controller/fixtures/user_preference.yaml');
+        $user = $this->loginFixtureUser();
+        $preference = $this->em()->getRepository(UserPreference::class)->findOneBy(['user' => $user]);
+        $preference->setSickSince(new \DateTimeImmutable('2026-11-10'));
+        $this->em()->flush();
+
+        self::assertSame('2026-11-10', $this->call()['sickSince']);
     }
 }

@@ -63,6 +63,7 @@ framework:
             'Maggie\Calendar\Message\PullTasksFromGoogleCommand': async
             'Maggie\Core\Message\UpdateUserCommand': sync
             'Maggie\Core\Message\UpdateUserPreferenceCommand': sync
+            'Maggie\Core\Message\SetSickCommand': sync
             'Maggie\Core\Message\SaveActivityStatusCommand': sync
             'Maggie\Core\Message\DeleteActivityStatusCommand': sync
             'Maggie\Core\Message\ReportUserLocationCommand': sync
