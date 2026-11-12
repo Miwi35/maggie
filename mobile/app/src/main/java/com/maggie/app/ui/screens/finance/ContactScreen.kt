@@ -49,6 +49,7 @@ import com.maggie.app.data.model.ContactDebt
 import com.maggie.app.data.model.ContactHistoryLine
 import com.maggie.app.data.model.CounterpartySuggestion
 import com.maggie.app.data.model.debtDayLabel
+import com.maggie.app.data.model.sinceLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.lastSeenLabel
 import com.maggie.app.data.model.PeerDebt
@@ -384,7 +385,7 @@ private fun DebtRow(debt: ContactDebt) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(debt.subject, style = MaterialTheme.typography.bodyLarge)
-            debtDayLabel(debt.createdOn)?.let {
+            sinceLabel(debt.since)?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
