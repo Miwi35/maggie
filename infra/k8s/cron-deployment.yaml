@@ -40,6 +40,10 @@ spec:
             - name: jwt-keys
               mountPath: /var/www/api/config/jwt
               readOnly: true
+            # Bank provider signing key: the scheduled app:finance:sync signs its calls with it.
+            - name: bank-keys
+              mountPath: /var/www/api/config/bank
+              readOnly: true
           # One console command peaks at ~58 MiB. Jobs start one per minute
           # (.docker/php/crontab), but a slow one can still run when the next
           # starts, and check-reminders runs every minute (MAG-27): 384Mi holds
@@ -55,3 +59,8 @@ spec:
         - name: jwt-keys
           secret:
             secretName: jwt-keys
+        - name: bank-keys
+          secret:
+            secretName: bank-keys
+            # Absent on a cluster that has not connected a bank yet.
+            optional: true
