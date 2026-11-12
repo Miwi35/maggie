@@ -7,7 +7,7 @@
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   EMAIL   the journey's user (`${output.journeyEmail}`)
 //   TODAY   the stack's day, YYYY-MM-DD (`${TODAY}`)
-//   MINI    optional, any value: also writes « Séance B » (one push-up set, planned at 19:00 so the card keeps
+//   MINI    optional, any value: also writes « Séance B » (one push-up set, planned 25 h later, the schedule guard asking 24 h between two sessions, so the card keeps
 //           « Séance A ») and sets `output.miniId` for the deep link that launches it (MAG-781)
 
 (function () {
@@ -66,7 +66,7 @@ if (typeof MINI !== 'undefined' && MINI) {
   const mini = {
     type: 'strength',
     title: 'Séance B',
-    startedAt: new Date(today + 3600 * 1000).toISOString(),
+    startedAt: new Date(today + 25 * 3600 * 1000).toISOString(),
     durationMinutes: 10,
     source: 'planned',
     variant: 'normal',
