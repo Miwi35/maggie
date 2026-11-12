@@ -18,4 +18,4 @@ turns:
           type: task_due
           title: "Dans 3 j : Appeler le garage"
           relatedEntityIri: /api/tasks/e2e-task-due
-  - text: "C'est envoyé : je te préviens dans l'application."
+  - text: "Je vous préviens dans l'application."

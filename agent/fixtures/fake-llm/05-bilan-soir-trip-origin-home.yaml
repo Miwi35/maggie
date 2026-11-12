@@ -11,4 +11,4 @@ turns:
   - tools:
       - name: set_trip
         input: {eventId: '\1', mode: drive, origin: home, decidedBy: user}
-  - text: "C'est noté : demain, vous partez de la maison."
+  - text: "Demain, vous partez de la maison."

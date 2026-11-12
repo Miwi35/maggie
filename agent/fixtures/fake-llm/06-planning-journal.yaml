@@ -29,4 +29,4 @@ turns:
           prompt: "Fais le point de la journée avec l'utilisateur."
           scheduled_at: '\1T23:00:00'
           summary: "Point du soir"
-  - text: "Proaction posée : le point du soir à 23 h."
+  - text: "C'est programmé : le point du soir à 23 h."

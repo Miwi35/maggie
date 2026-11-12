@@ -18,4 +18,4 @@ match:
   system_contains: "résumé e2e : l'utilisateur organise sa semaine"
 
 turns:
-  - text: "Nous parlions de l'organisation de ta semaine."
+  - text: "Nous parlions de l'organisation de votre semaine."

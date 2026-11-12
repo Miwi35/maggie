@@ -27,4 +27,4 @@ turns:
     tools:
       - name: plan_annual_budget
         input: {year: 2033}
-  - text: "D'après l'année écoulée, il te faut compter 489,00 € pour tes festivals."
+  - text: "D'après l'année écoulée, il vous faut compter 489,00 € pour vos festivals."

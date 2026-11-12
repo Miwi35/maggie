@@ -14,9 +14,9 @@ import { HomePage } from '../pages/HomePage.js'
 
 const QUESTION = 'Crée un événement test à elle demain'
 const CORRECTED = 'Crée un événement test à Ael demain'
-const FIRST_WORDS = /Je regarde ton agenda/
+const FIRST_WORDS = /Je regarde votre agenda/
 const FROZEN_END = 'FIN DE LA RÉPONSE'
-const CORRECTED_ANSWER = "Compris : un événement test à Ael demain. Quelle heure te convient ?"
+const CORRECTED_ANSWER = "Compris : un événement test à Ael demain. Quelle heure vous convient ?"
 
 // The second account, like chat-send-failed.spec.ts, under the chat lock for the same reason:
 // an answer to another run of the account reaching this window would muddy the counts.

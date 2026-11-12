@@ -13,4 +13,4 @@ match:
   history_contains: "coupé la parole"
 
 turns:
-  - text: "Compris, je m'arrête là et je ne reprends pas mon histoire. Les tomates sont déjà sur ta liste."
+  - text: "Compris, je m'arrête là et je ne reprends pas mon histoire. Les tomates sont déjà sur votre liste."

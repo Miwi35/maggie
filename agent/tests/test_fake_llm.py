@@ -589,7 +589,7 @@ class TestMatching:
         ("question", "expected", "answer"),
         [
             ("Je passe au 18:6 à partir de 13 h", {"fastingProtocol": "18:6", "fastingWindowStart": "13:00"}, "18:6"),
-            ("Arrête le jeûne", {"fastingProtocol": "none"}, "plus de jeûne"),
+            ("Arrête le jeûne", {"fastingProtocol": "none"}, "Plus de jeûne"),
         ],
     )
     async def test_the_fasting_scenarios_change_the_protocol_of_the_health_profile(self, question, expected, answer):
@@ -734,7 +734,7 @@ class TestMatching:
             "Annonce-le brièvement.",
         )
 
-        assert text_of(answer) == f"C'est fait : l'événement Test validation est supprimé ({event_id})."
+        assert text_of(answer) == f"L'événement Test validation est supprimé ({event_id})."
 
     async def test_the_decision_scenario_needs_the_decision_line_in_the_history(self):
         """77-decision-recalled.yaml answers only when the history carries the user's answer (MAG-336)."""
@@ -751,7 +751,7 @@ class TestMatching:
         informed = await ask(client, "Qu'ai-je décidé ?", history=history)
         uninformed = await ask(client, "Qu'ai-je décidé ?", history=history[:2])
 
-        assert text_of(informed) == "Tu as autorisé la suppression : je m'en suis occupée."
+        assert text_of(informed) == "Vous avez autorisé la suppression : je m'en suis occupée."
         assert text_of(uninformed).startswith("[fake-llm] aucun scénario")
 
     async def test_a_greeting_with_a_reference_is_answered_with_that_reference(self):
@@ -761,8 +761,8 @@ class TestMatching:
         referenced = await ask(client, "Bonjour Maggie (réf 1a2b3c4d)")
         bare = await ask(client, "Bonjour Maggie")
 
-        assert text_of(referenced) == "Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf 1a2b3c4d)"
-        assert text_of(bare) == "Bonjour ! Je suis là, dis-moi ce qu'il te faut."
+        assert text_of(referenced) == "Bonjour monsieur. Je suis là, dites-moi ce qu'il vous faut. (réf 1a2b3c4d)"
+        assert text_of(bare) == "Bonjour monsieur. Je suis là, dites-moi ce qu'il vous faut."
 
     async def test_an_agenda_question_with_a_reference_reads_the_agenda_then_repeats_it(self):
         """30-upcoming-events-reference.yaml: the same tool round as the bare question (MAG-394)."""
@@ -798,7 +798,7 @@ class TestMatching:
         )
 
         assert "FIN DE LA RÉPONSE" in text_of(stopped)
-        assert text_of(corrected) == "Compris : un événement test à Ael demain. Quelle heure te convient ?"
+        assert text_of(corrected) == "Compris : un événement test à Ael demain. Quelle heure vous convient ?"
         # A « c'est noté » with no tool behind it is sent back by the claim guard, and the one-turn
         # scenario then answers « n'a pas de tour 2 » on screen.
         assert not claims_learning(text_of(corrected))
@@ -1820,3 +1820,20 @@ class TestAQuestionWithAPicture:
         )
 
         assert text_of(answer) == "Sur votre écran, je vois une cafetière italienne."
+
+
+class TestTheShippedFixturesSpeakInHerVoice:
+    """MAG-791: the scripted answers keep the register of the prompt — vouvoiement, no « C'est noté : » mould."""
+
+    def test_no_answer_tutoies_or_opens_with_the_mould(self):
+        tutoiement = re.compile(r"\b(tu|te|t'|ton|ta|tes|toi)\b|dis-moi|\bTu\b", re.IGNORECASE)
+        found = []
+        for path in sorted(DEFAULT_FIXTURES_DIR.glob("*.yaml")):
+            if path.name.startswith("00-style-synthesis"):
+                continue
+            scenario = yaml.safe_load(path.read_text(encoding="utf-8"))
+            for turn in scenario.get("turns", []):
+                text = turn.get("text") or ""
+                if tutoiement.search(text) or text.startswith(("C'est noté :", "C'est fait :")):
+                    found.append(f"{path.name}: {text[:60]}")
+        assert found == []

@@ -16,4 +16,4 @@ turns:
           scheduledDate: "${friday}"
           scheduledMoment: time
           scheduledTime: "18:00"
-  - text: "C'est fait : la tâche est créée avec sa liste, programmée vendredi à 18 h, et je vous le rappellerai à l'heure."
+  - text: "La tâche est créée avec sa liste, programmée vendredi à 18 h, et je vous le rappellerai à l'heure."

@@ -17,4 +17,4 @@ turns:
   - tools:
       - name: update_task
         input: {id: '\1', scheduledDate: '${friday}', scheduledMoment: time, scheduledTime: "18:00"}
-  - text: "C'est fait : l'appel au garage est programmé vendredi à 18 h, je vous le rappellerai à l'heure."
+  - text: "L'appel au garage est programmé vendredi à 18 h, je vous le rappellerai à l'heure."

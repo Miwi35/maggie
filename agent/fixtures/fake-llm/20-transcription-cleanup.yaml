@@ -13,4 +13,4 @@ match:
   user_contains: "assistant de transcription"
 
 turns:
-  - text: "Ajoute des tomates à la liste de courses, s'il te plaît."
+  - text: "Ajoutez des tomates à la liste de courses, s'il vous plaît."

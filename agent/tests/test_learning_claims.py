@@ -32,7 +32,7 @@ from tests.test_reminder_guard import stream_turn, the_bubble
 
 RULE = "Quand je demande un rappel, je veux une notification."
 RECIPES = "Quand je te demande une recette, donne-moi les quantités pour deux."
-TAUGHT = "J'ai créé la compétence « Rappel avec notification » : un rappel demandé arrivera en notification. Elle est visible dans Réglages › Agent › Compétences."
+TAUGHT = "Désormais, un rappel demandé vous arrivera en notification."
 
 LEARNING_OFFERED = [
     {"name": name, "input_schema": {}}
@@ -299,7 +299,7 @@ class TestWhatTheModelIsTold:
     async def test_the_prompt_says_where_the_user_sees_it(self):
         prompt = await shipped_prompt()
 
-        assert "Réglages › Agent" in prompt
+        assert "Réglages › Maggie" in prompt
         for tab in ("Instructions", "Compétences", "Proactions"):
             assert tab in prompt
         assert "ne dis jamais qu'aucun endroit" in prompt.lower()
@@ -308,7 +308,7 @@ class TestWhatTheModelIsTold:
         prompt = await shipped_prompt()
 
         assert "une confirmation DIT L'ACTION FAITE" in prompt
-        assert "« J'ai créé la compétence « Rappels par notification » »" in prompt
+        assert "« À partir de maintenant, je… »" in prompt
         assert "« C'est noté » seul n'est pas une confirmation" in prompt
 
     def test_create_skill_carries_the_owners_rule(self):

@@ -24,4 +24,4 @@ turns:
       - name: create_recipe
         input:
           name: "Boeuf bourguignon : la vraie recette"
-  - text: "Je ne vois pas la recette elle-même : ta capture montre le titre et la photo, et je n'ai que le domaine marmiton.org. Je n'ai rien créé. Veux-tu que je lise la page, ou peux-tu me donner les ingrédients et les étapes ?"
+  - text: "Je ne vois pas la recette elle-même : votre capture montre le titre et la photo, et je n'ai que le domaine marmiton.org. Je n'ai rien créé. Voulez-vous que je lise la page, ou pouvez-vous me donner les ingrédients et les étapes ?"

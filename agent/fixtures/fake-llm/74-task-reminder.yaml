@@ -13,4 +13,4 @@ turns:
         input: {name: jambon}
       - name: create_task
         input: {title: "Faire les courses", dueDate: "${tomorrow}"}
-  - text: "C'est fait : jambon est sur la liste, et Faire les courses est dans vos tâches de demain, je vous la rappellerai le matin."
+  - text: "Jambon est sur la liste, et Faire les courses est dans vos tâches de demain, je vous la rappellerai le matin."

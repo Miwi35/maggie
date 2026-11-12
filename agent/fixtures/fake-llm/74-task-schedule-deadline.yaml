@@ -16,4 +16,4 @@ turns:
   - tools:
       - name: update_task
         input: {id: '\1', dueDate: '${friday}'}
-  - text: "C'est fait : le dossier CAF a pour échéance vendredi."
+  - text: "Le dossier CAF a pour échéance vendredi."

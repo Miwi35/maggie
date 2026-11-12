@@ -35,7 +35,7 @@ tags:
       id: "interruption"
     timeout: 40000
 - assertVisible: "MAGGIE · maintenant"
-- assertVisible: "Un point sur tes comptes ?"
+- assertVisible: "Un point sur vos comptes ?"
 - assertVisible: "C'est noté"
 - assertVisible: "Ouvrir les finances"
 

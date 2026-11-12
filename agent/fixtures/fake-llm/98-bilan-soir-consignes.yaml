@@ -21,4 +21,4 @@ turns:
         input: {day: '${today}', kind: task, text: "Acheter du pain", due_date: '${tomorrow}'}
       - name: add_bilan_consigne
         input: {day: '${today}', kind: instruction, text: "Le mardi, je pars plus tôt", instruction_kind: planning}
-  - text: "C'est noté : un rappel demain à neuf heures pour le garage, une tâche pour demain, acheter du pain, et une consigne que je retiens, le mardi vous partez plus tôt."
+  - text: "Un rappel demain à neuf heures pour le garage, une tâche pour demain, acheter du pain, et une consigne que je retiens, le mardi vous partez plus tôt."

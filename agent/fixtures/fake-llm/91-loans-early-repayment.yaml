@@ -29,4 +29,4 @@ turns:
         input:
           action: early_repayment
           loanId: '\1'
-  - text: "C'est noté, les IRA de ton prêt immo sont au plafond légal. Un remboursement total te coûterait 882 € d'indemnités, à comparer aux intérêts qu'il te reste à payer."
+  - text: "Les IRA de votre prêt immo sont au plafond légal. Un remboursement total vous coûterait 882 € d'indemnités, à comparer aux intérêts qu'il vous reste à payer."

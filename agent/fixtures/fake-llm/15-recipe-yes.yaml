@@ -35,4 +35,4 @@ turns:
               {"text": "Faire revenir les légumes.", "durationMinutes": 8, "utensils": ["Poêle"]},
               {"text": "Égoutter les pâtes et mélanger avec les légumes.", "waitsFor": [3, 4]}
             ]
-  - text: "C'est fait : « Pâtes aux légumes » est dans ton livre de recettes, pour 4 personnes, avec ses 3 ingrédients, ses 5 étapes, la casserole et la poêle."
+  - text: "« Pâtes aux légumes » est dans votre livre de recettes, pour 4 personnes, avec ses 3 ingrédients, ses 5 étapes, la casserole et la poêle."

@@ -89,7 +89,7 @@ class TestTickingARoutine:
     async def test_it_notes_it_and_stops_there(self, api):
         result = await ask("J'ai bu mon grand verre d'eau")
 
-        assert result["response"] == "C'est noté, ton grand verre d'eau est coché."
+        assert result["response"] == "Votre grand verre d'eau est coché."
 
 
 class TestAddingARoutine:

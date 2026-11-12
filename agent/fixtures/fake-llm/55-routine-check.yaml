@@ -19,4 +19,4 @@ turns:
   - tools:
       - name: check_routine
         input: {id: '\1'}
-  - text: "C'est noté, ton grand verre d'eau est coché."
+  - text: "Votre grand verre d'eau est coché."

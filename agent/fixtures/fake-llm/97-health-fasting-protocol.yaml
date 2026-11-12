@@ -14,4 +14,4 @@ turns:
   - tools:
       - name: update_health_profile
         input: {fastingProtocol: '18:6', fastingWindowStart: '13:00'}
-  - text: "C'est noté : jeûne 18:6, votre fenêtre s'ouvre à 13 h et dure 6 h."
+  - text: "Jeûne 18:6 : votre fenêtre s'ouvre à 13 h et dure 6 h."

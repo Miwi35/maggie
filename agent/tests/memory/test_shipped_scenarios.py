@@ -118,7 +118,7 @@ async def test_a_missed_recall_is_logged_by_the_shipped_scenario_and_the_night_t
     said = await turn(MISS_SAID)
 
     assert [call["name"] for call in said["tool_calls"]] == ["memory_log_miss"]
-    assert "Cette nuit" in said["response"]
+    assert "je le retiens" in said["response"]
     [logged] = await misses.cases(env.service, USER_A)
     assert logged.attendue == ROSES and logged.demande == "Un bouquet pour la fête des mères"
     assert recall.rank(await env.service.cards(USER_A), logged.demande, date.today()) == []

@@ -161,7 +161,7 @@ const THREAD_SUMMARY = "Résumé e2e : l'utilisateur organise sa semaine avec Ma
 /** 71-context-summary-recall.yaml — only answerable once that summary is in the system prompt. */
 const RECALL = {
   question: 'De quoi parlions-nous au juste ?',
-  answer: "Nous parlions de l'organisation de ta semaine.",
+  answer: "Nous parlions de l'organisation de votre semaine.",
 }
 
 /** 80-proaction-bin-night.yaml — what a scheduled proaction would say. */
@@ -170,20 +170,20 @@ const PROACTION = { prompt: 'Rappelle-lui de sortir les poubelles', message: 'Pe
 /** 81-proaction-thread-recall.yaml — only answerable once the thread summaries reach a proaction. */
 const PROACTION_RECALL = {
   prompt: 'Fais le point sur sa semaine',
-  message: 'Tu organises ta semaine avec moi — je te relance là-dessus.',
+  message: 'Vous organisez votre semaine avec moi — je reviens vers vous là-dessus.',
 }
 
 /** 82-greeting.yaml — the exchange one window sends and the other must see. */
 const GREETING = {
   question: 'Bonjour Maggie',
-  answer: "Bonjour ! Je suis là, dis-moi ce qu'il te faut.",
+  answer: "Bonjour monsieur. Je suis là, dites-moi ce qu'il vous faut.",
 }
 
 /** 87-learning-forgotten-once.yaml — a rule announced as learned before anything stored it. */
 const RULE = {
   request: 'Quand je demande un rappel, je veux une notification',
   skill: 'rappel-avec-notification',
-  answer: "J'ai créé la compétence « Rappel avec notification »",
+  answer: 'Désormais, un rappel demandé vous arrivera en notification.',
 }
 
 /** 45-grocery-list.yaml + 73-tool-result-replay.yaml — reading a result Maggie fetched last turn. */
@@ -191,7 +191,7 @@ const TOOL_REPLAY = {
   read: "Qu'est-ce qu'il me faut acheter ?",
   readAnswer: 'Sur votre liste il y a des tomates, des pâtes et des piles.',
   followUp: "Et le dernier article de cette liste, c'est quoi exactement ?",
-  answer: 'Le dernier article de ta liste, ce sont les piles LR03.',
+  answer: 'Le dernier article de votre liste, ce sont les piles LR03.',
 }
 
 /** 75-create-event-to-delete.yaml + 76-delete-event-just-created.yaml — « supprime-la », by the id last turn's result gave. */
@@ -206,7 +206,7 @@ const BEHAVIOR = {
   request: 'Tutoie-moi et évite les emojis',
   directive: 'Tutoie-moi et évite les emojis',
   question: 'Dis-moi bonjour',
-  answer: "Bonjour ! Je te réponds sans emoji, comme tu me l'as demandé.",
+  answer: "Je vous réponds sans emoji, comme vous me l'avez demandé.",
 }
 
 test('a scripted question runs its tool and streams the answer back', async ({ page }) => {
@@ -607,7 +607,7 @@ test('an item bought at a named store is shelved by its productId, without a que
  */
 const PURCHASE_SUGGESTIONS = {
   question: 'Il me manque quelque chose ?',
-  answer: "Le café : tu en prends toutes les 2 semaines, il est dû. Je l'ajoute ?",
+  answer: "Le café : vous en prenez toutes les 2 semaines, il est dû. Je l'ajoute ?",
 }
 
 test('« il me manque quelque chose ? » reads the products due again through get_purchase_suggestions', async ({
@@ -1115,13 +1115,13 @@ test('a skill corrected in its file reaches the prompt at the next synchronisati
 /** 62-last-exchange-known.yaml — only answerable once the last conversation is in the system prompt. */
 const LAST_EXCHANGE = {
   question: "Combien de temps s'est écoulé depuis notre dernier échange ?",
-  answer: 'Rebonjour ! On a parlé il y a quelques instants, je te laisse reprendre le fil.',
+  answer: 'Nous avons parlé il y a quelques instants, je vous laisse reprendre le fil.',
 }
 
 /** 04 + 72-thread-history-recall.yaml — picking an older thread back up. */
 const THREAD_RECALL = {
   question: 'Reprends le fil de mon budget, s\'il te plaît',
-  answer: "On parlait de ton budget du mois — je reprends le fil là où on s'était arrêtés.",
+  answer: "On parlait de votre budget du mois — je reprends le fil là où nous nous étions arrêtés.",
 }
 
 /**

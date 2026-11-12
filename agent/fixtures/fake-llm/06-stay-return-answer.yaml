@@ -14,4 +14,4 @@ turns:
   - tools:
       - name: set_trip
         input: {eventId: '\1', mode: drive, leg: return, decidedBy: user, departAt: "${tomorrow}T11:00:00+01:00"}
-  - text: "C'est noté : retour à 11 h."
+  - text: "Retour à 11 h."

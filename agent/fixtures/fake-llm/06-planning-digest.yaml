@@ -31,4 +31,4 @@ turns:
           prompt: "Fais le digest de la journée de l'utilisateur, par écrit et en vocal, avec la compétence digest (digest MAG-709)."
           scheduled_at: '${in_2_minutes}'
           summary: "Digest du matin"
-  - text: "Proaction posée : le digest du matin."
+  - text: "C'est programmé : le digest du matin."

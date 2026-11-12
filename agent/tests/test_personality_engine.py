@@ -300,6 +300,24 @@ class TestPersonalityEngine:
         assert "qu'après l'accord de l'utilisateur" in prompt
 
     @pytest.mark.asyncio
+    async def test_the_shipped_prompt_opens_with_who_she_is_and_how_she_speaks(self):
+        """MAG-791: the register comes before any technical rule, and no spoken-only block carries it."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        assert prompt.startswith("QUI TU ES ET COMMENT TU PARLES")
+        section = prompt.split("Langue principale", 1)[0]
+        for expected in ("tu vouvoies, toujours", "une fois par message au plus", "Horaires de travail", "sans « monsieur »",
+                         "« C'est noté : »", "« directive »", "Je vous en prie.", "Bonne nuit, monsieur.",
+                         "Bonne route.", "Autre chose ?", "d'abord tu répares", "Je radote.", "Discrétion"):
+            assert expected in section
+        assert "Sois concise et directe" not in prompt
+        assert "cette nuit tu chercheras" not in prompt
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_greet_by_the_gap(self):
         """The half of MAG-10 that lives in the prompt: the line is injected, but only this rule uses it."""
         engine = PersonalityEngine()
@@ -309,7 +327,7 @@ class TestPersonalityEngine:
             prompt = await engine.get_system_prompt("user-1")
 
         assert "dernière conversation" in prompt.lower()
-        assert "rebonjour" in prompt.lower()
+        assert "Bonjour monsieur" in prompt
         assert "reprendre le fil" in prompt.lower()
         # The date line itself stays out of the cached prefix.
         assert "Nous sommes le" not in prompt

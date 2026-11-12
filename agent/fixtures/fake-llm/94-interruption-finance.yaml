@@ -16,7 +16,7 @@ turns:
         input:
           action: create
           type: finance
-          title: "Un point sur tes comptes ?"
+          title: "Un point sur vos comptes ?"
           body: "Ton budget courses a bougé cette semaine."
           relatedEntityIri: /finance/accounts
-  - text: "C'est envoyé : je te préviens dans l'application."
+  - text: "Je vous préviens dans l'application."

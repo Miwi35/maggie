@@ -13,4 +13,4 @@ match:
   user_matches: 'a validé delete_event\(.*?([0-9A-HJKMNP-TV-Z]{26})'
 
 turns:
-  - text: "C'est fait : l'événement Test validation est supprimé (\\1)."
+  - text: "L'événement Test validation est supprimé (\\1)."

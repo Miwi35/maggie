@@ -20,4 +20,4 @@ match:
   history_contains: "où en est mon budget"
 
 turns:
-  - text: "On parlait de ton budget du mois — je reprends le fil là où on s'était arrêtés."
+  - text: "On parlait de votre budget du mois — je reprends le fil là où nous nous étions arrêtés."

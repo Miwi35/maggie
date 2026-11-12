@@ -9,4 +9,4 @@ turns:
   - tools:
       - name: create_task
         input: {title: "Appeler le plombier"}
-  - text: "C'est fait : la tâche « Appeler le plombier » est créée."
+  - text: "La tâche « Appeler le plombier » est créée."

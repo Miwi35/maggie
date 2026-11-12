@@ -149,8 +149,8 @@ MEMORY_TOOLS = [
             "and fixed, and it is reported. First find the fiche with memory_search (or write it with "
             "memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the "
             "words the owner said when it should have come back (the sentence where you missed it, not the "
-            "reproach), `chemin` = the fiche that should have come back. Then tell him it is noted and that you "
-            "will look into why tonight."
+            "reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … "
+            "je le retiens. » — do not mention the night or any follow-up."
         ),
         "input_schema": {
             "type": "object",

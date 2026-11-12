@@ -13,4 +13,4 @@ turns:
   - tools:
       - name: get_upcoming_events
         input: {days: 7}
-  - text: "J'ai regardé ton agenda pendant que tu étais parti : rien d'urgent."
+  - text: "J'ai regardé votre agenda pendant que vous étiez parti : rien d'urgent."

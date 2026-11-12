@@ -19,4 +19,4 @@ turns:
           start_date: "2099-12-22"
           end_date: "2100-01-04"
           all_day: true
-  - text: "C'est noté : vacances d'hiver du 22 décembre 2099 au 3 janvier 2100, sur toute la durée."
+  - text: "Les vacances d'hiver sont dans votre agenda, du 22 décembre 2099 au 3 janvier 2100, sur toute la durée."

@@ -13,4 +13,4 @@ turns:
   - tools:
       - name: update_health_profile
         input: {fastingProtocol: none}
-  - text: "C'est fait : plus de jeûne. Dites-le-moi quand vous voudrez reprendre."
+  - text: "Plus de jeûne. Dites-le-moi quand vous voudrez reprendre."

@@ -14,4 +14,4 @@ turns:
   - tools:
       - name: set_trip
         input: {eventId: '\1', mode: drive, origin: position, decidedBy: user, arriveAt: "${today}T16:00:00+01:00"}
-  - text: "C'est noté : trajet enregistré pour une arrivée à 16 h."
+  - text: "Trajet enregistré pour une arrivée à 16 h."

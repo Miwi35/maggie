@@ -12,7 +12,7 @@ import { HomePage } from '../pages/HomePage.js'
  */
 
 const ANSWER =
-  "J'ai regardé ton agenda une seule fois pour répondre à ce message envoyé deux fois, sans rien refaire."
+  "J'ai regardé votre agenda une seule fois pour répondre à ce message envoyé deux fois, sans rien refaire."
 
 // The second account, for the same reason as chat-client-leaves.spec.ts.
 test('the same message sent twice while Maggie answers makes one turn and one answer', async ({ otherUser }) => {

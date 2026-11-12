@@ -27,7 +27,7 @@ test.describe.configure({ retries: 0 })
 const AGENDA = 'e2e_approvals_agenda'
 
 /** 74-delete-event-approved.yaml puts the event's id in the sentence: it is this test's announcement alone. */
-const announcement = (id: string): string => `C'est fait : l'événement Test validation est supprimé (${id}).`
+const announcement = (id: string): string => `L'événement Test validation est supprimé (${id}).`
 
 /** The card shows the agent's sentence, which quotes the title and never the id: a title of its own tells the runs apart. */
 const uniqueTitle = (label: string): string => `${label} ${randomUUID().slice(0, 8)}`
@@ -96,7 +96,7 @@ test('Autoriser runs the held deletion and Maggie announces it', async ({ approv
   // The next turn knows the decision: 77-decision-recalled.yaml answers only when the line
   // reached the model's history.
   const recalled = await chat.send("Qu'ai-je décidé ?")
-  expect(assistantText(recalled)).toBe("Tu as autorisé la suppression : je m'en suis occupée.")
+  expect(assistantText(recalled)).toBe("Vous avez autorisé la suppression : je m'en suis occupée.")
 
   await page.reload()
   await chat.open()

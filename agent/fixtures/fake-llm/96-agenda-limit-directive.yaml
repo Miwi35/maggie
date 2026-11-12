@@ -14,4 +14,4 @@ turns:
         input:
           content: "Ne me parle que des événements des agendas Défaut et Garde Ael"
           kind: behavior
-  - text: "J'ai ajouté une directive : je ne lis plus que les agendas Défaut et Garde Ael."
+  - text: "Désormais, je ne lis plus que les agendas Défaut et Garde Ael."

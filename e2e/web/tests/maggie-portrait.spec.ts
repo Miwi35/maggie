@@ -17,7 +17,7 @@ import { HomePage } from '../pages/HomePage.js'
 test('Maggie is a portrait until clicked, then answers a greeting', async ({ otherUser }) => {
   const { page } = otherUser
   const ref = randomUUID().slice(0, 8)
-  const ANSWER = `Bonjour ! Je suis là, dis-moi ce qu'il te faut. (réf ${ref})`
+  const ANSWER = `Bonjour monsieur. Je suis là, dites-moi ce qu'il vous faut. (réf ${ref})`
 
   // Given the admin just opened, then only the portrait is there — no conversation.
   await new HomePage(page).open()

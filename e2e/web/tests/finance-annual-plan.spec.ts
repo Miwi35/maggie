@@ -97,7 +97,7 @@ test('asking Maggie to prepare the year reads what the year behind cost', async 
   // the absence alone would be green on a panel that rendered nothing.
   expect(assistantText(events)).toContain('489,00 €')
   await expect(
-    chat.bubbles("D'après l'année écoulée, il te faut compter 489,00 € pour tes festivals."),
+    chat.bubbles("D'après l'année écoulée, il vous faut compter 489,00 € pour vos festivals."),
   ).toHaveCount(1)
   await expect(chat.bubbles("Je regarde ce que l'année écoulée a coûté.")).toHaveCount(0)
 

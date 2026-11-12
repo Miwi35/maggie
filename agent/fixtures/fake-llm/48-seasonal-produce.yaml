@@ -13,4 +13,4 @@ turns:
   - tools:
       - name: get_seasonal_produce
         input: {}
-  - text: "En ce moment, c'est la saison du potiron, des poireaux et des pommes. Le potiron de ta liste est de saison."
+  - text: "En ce moment, c'est la saison du potiron, des poireaux et des pommes. Le potiron de votre liste est de saison."

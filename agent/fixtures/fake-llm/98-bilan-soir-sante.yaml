@@ -22,4 +22,4 @@ turns:
   - tools:
       - name: save_bilan_step
         input: {day: '${today}', step: sante, answers: {mood: 7, fatigue: 4}}
-  - text: "C'est noté : un moral à sept et une fatigue à quatre. On passe aux consignes pour demain ?"
+  - text: "Un moral à sept et une fatigue à quatre, je le retiens. On passe aux consignes pour demain ?"
