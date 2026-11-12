@@ -24452,6 +24452,11 @@
                             "null"
                         ]
                     },
+                    "since": {
+                        "readOnly": true,
+                        "description": "Since when: the day the origin transaction was booked, else the day the debt was created.",
+                        "type": "string"
+                    },
                     "amountCents": {
                         "readOnly": true,
                         "description": "What the shares add up to.",
@@ -24521,6 +24526,11 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "since": {
+                        "readOnly": true,
+                        "description": "Since when: the day the origin transaction was booked, else the day the debt was created.",
+                        "type": "string"
                     },
                     "amountCents": {
                         "readOnly": true,
@@ -24595,6 +24605,11 @@
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "since": {
+                                "readOnly": true,
+                                "description": "Since when: the day the origin transaction was booked, else the day the debt was created.",
+                                "type": "string"
                             },
                             "amountCents": {
                                 "readOnly": true,

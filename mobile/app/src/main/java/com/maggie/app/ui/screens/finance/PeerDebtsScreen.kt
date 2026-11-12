@@ -43,6 +43,7 @@ import com.maggie.app.data.model.PeerDebt
 import com.maggie.app.data.model.balanceLabel
 import com.maggie.app.data.model.compensationLabel
 import com.maggie.app.data.model.debtDayLabel
+import com.maggie.app.data.model.sinceLabel
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.model.owesYouLabel
 import com.maggie.app.data.model.youOweLabel
@@ -277,7 +278,12 @@ private fun PersonDetail(balance: ContactBalance, lines: List<ContactDebt>, onOp
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag(UiTags.PEER_DEBTS_PERSON_LINE),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(line.subject, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(line.subject, style = MaterialTheme.typography.bodyMedium)
+                    sinceLabel(line.since)?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 Text(
                     if (line.direction == PeerDebt.DIRECTION_I_OWE) youOweLabel(line.remainingCents) else owesYouLabel(line.remainingCents),
                     style = MaterialTheme.typography.bodySmall,
@@ -307,6 +313,9 @@ private fun ObjectRow(debt: PeerDebt, selected: Boolean, onClick: () -> Unit) {
             Text(owedSentence(debt), style = MaterialTheme.typography.bodyMedium)
         }
         Text(peopleSentence(debt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        sinceLabel(debt.since)?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         debt.notes?.takeIf { it.isNotBlank() }?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

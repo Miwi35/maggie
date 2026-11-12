@@ -42,6 +42,8 @@ data class PeerDebt(
     val remainingCents: Int = 0,
     // "open" | "settled".
     val status: String = STATUS_OPEN,
+    // « 2026-10-03 »: the origin transaction's booking day, else the creation day.
+    val since: String? = null,
     val createdAt: String? = null,
     val shares: List<PeerDebtShare> = emptyList(),
     // Only `GET /api/finance/peer-debts` sends it: the transfers that gave shares back, latest first.
@@ -178,8 +180,8 @@ fun youOweLabel(remainingCents: Int, currency: String = "EUR"): String = "tu lui
 data class ContactDebt(
     val debtId: String,
     val subject: String,
-    /** « 2026-03-20 », the day the créance was made; null when unknown. */
-    val createdOn: String?,
+    /** « 2026-03-20 », since when the créance stands; null when unknown. */
+    val since: String?,
     /** What is left of this contact's share. */
     val remainingCents: Int,
     /** [PeerDebt.DIRECTION_OWED_TO_ME] (they owe the owner) or [PeerDebt.DIRECTION_I_OWE]. */
@@ -195,12 +197,12 @@ fun openDebtsOf(debts: List<PeerDebt>, contactId: String): List<ContactDebt> =
             ContactDebt(
                 debtId = debt.id,
                 subject = debt.`object`.orEmpty().ifBlank { "Dépense partagée" },
-                createdOn = debt.createdAt?.take(10),
+                since = debt.since ?: debt.createdAt?.take(10),
                 remainingCents = share.remainingCents,
                 direction = debt.direction,
             )
         }
-        .sortedByDescending { it.createdOn.orEmpty() }
+        .sortedByDescending { it.since.orEmpty() }
 
 /** One transfer of a contact's history: the line, and the créance or dette it gave back. */
 data class ContactHistoryLine(
@@ -230,6 +232,9 @@ fun historyOf(debts: List<PeerDebt>, contactId: String): List<ContactHistoryLine
         .sortedByDescending { it.bookedAt.orEmpty() }
 
 private val DEBT_DAY_FORMAT = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.FRANCE)
+
+/** « depuis le 20 mars 2026 », or null when [since] is unknown. */
+fun sinceLabel(since: String?): String? = debtDayLabel(since)?.let { "depuis le $it" }
 
 /** « 20 mars 2026 », or null when the day is unknown or does not parse. */
 fun debtDayLabel(createdOn: String?): String? =

@@ -170,6 +170,12 @@ class PeerDebt implements MercurePublishable, OwnedByUserInterface, IndexableInt
         return null !== $this->originTransaction ? (string) $this->originTransaction->getId() : null;
     }
 
+    /** Since when: the day the origin transaction was booked, else the day the debt was created. */
+    public function getSince(): string
+    {
+        return ($this->originTransaction?->getBookedAt() ?? $this->createdAt)->format('Y-m-d');
+    }
+
     /** @return list<PeerDebtShare> */
     public function getShares(): array
     {
@@ -275,6 +281,7 @@ class PeerDebt implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'repaidCents' => $this->getRepaidCents(),
             'remainingCents' => $this->getRemainingCents(),
             'status' => $this->getStatus()->value,
+            'since' => $this->getSince(),
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
             'shares' => array_map(static fn (PeerDebtShare $share): array => $share->toArray(), $this->getShares()),
         ];
@@ -311,13 +318,14 @@ class PeerDebt implements MercurePublishable, OwnedByUserInterface, IndexableInt
             'amountCents' => $this->getAmountCents(),
             'remainingCents' => $this->getRemainingCents(),
             'status' => $this->getStatus()->value,
+            'since' => $this->getSince(),
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
         ], self::withDerivedProperties($changedProperties), ['originTransaction' => 'originTransactionId']);
     }
 
     /**
      * The totals and the status are read off the shares: a change of shares
-     * carries them.
+     * carries them; `since` follows the origin.
      *
      * @param string[]|null $changedProperties
      *
@@ -325,10 +333,16 @@ class PeerDebt implements MercurePublishable, OwnedByUserInterface, IndexableInt
      */
     private static function withDerivedProperties(?array $changedProperties): ?array
     {
-        if (null === $changedProperties || !\in_array('shares', $changedProperties, true)) {
-            return $changedProperties;
+        if (null === $changedProperties) {
+            return null;
+        }
+        if (\in_array('originTransaction', $changedProperties, true)) {
+            $changedProperties[] = 'since';
+        }
+        if (\in_array('shares', $changedProperties, true)) {
+            $changedProperties = [...$changedProperties, 'amountCents', 'remainingCents', 'status'];
         }
 
-        return [...$changedProperties, 'amountCents', 'remainingCents', 'status'];
+        return $changedProperties;
     }
 }

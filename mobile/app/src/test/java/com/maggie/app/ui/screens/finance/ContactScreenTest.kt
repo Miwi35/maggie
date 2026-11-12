@@ -80,6 +80,7 @@ class ContactScreenTest {
         val gite = PeerDebt(
             id = "d-1",
             `object` = "Gîte des Cimes",
+            since = "2026-10-03",
             createdAt = "2026-10-10T09:00:00+00:00",
             amountCents = 60000,
             remainingCents = 60000,
@@ -92,7 +93,7 @@ class ContactScreenTest {
 
         compose.onNodeWithText("En cours").assertIsDisplayed()
         compose.onNodeWithText("Gîte des Cimes").assertIsDisplayed()
-        compose.onNodeWithText("10 octobre 2026").assertIsDisplayed()
+        compose.onNodeWithText("depuis le 3 octobre 2026").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.CONTACT_DEBT_REMAINING).assertTextEquals(owesYouLabel(20000))
     }
 

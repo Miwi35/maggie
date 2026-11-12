@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.finance
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -37,6 +38,7 @@ class PeerDebtsScreenTest {
         id = "d-gite",
         `object` = "Gîte de Crozon",
         notes = "Août",
+        since = "2026-10-03",
         amountCents = 40000,
         remainingCents = 40000,
         shares = listOf(
@@ -97,6 +99,7 @@ class PeerDebtsScreenTest {
 
         assertEquals(2, compose.onAllNodesWithTag(UiTags.PEER_DEBTS_PERSON_LINE).fetchSemanticsNodes().size)
         compose.onNodeWithText("Essence du road trip").assertIsDisplayed()
+        compose.onNodeWithText("depuis le 3 octobre 2026").assertIsDisplayed()
         compose.onNodeWithText("tu lui dois ${formatCents(28000)}").assertIsDisplayed()
         compose.onNodeWithText("Fiche et comptes de Tom").performClick()
 
@@ -116,6 +119,17 @@ class PeerDebtsScreenTest {
         compose.onNodeWithText("Julie ${formatCents(20000)} · Tom ${formatCents(20000)}").assertIsDisplayed()
         compose.onNodeWithText("Août").assertIsDisplayed()
         compose.onNodeWithText("tu dois ${formatCents(28000)}").assertIsDisplayed()
+    }
+
+    @Test
+    fun `each line shows since, and a debt without since shows no date`() {
+        val model = viewModel()
+        compose.setContent { PeerDebtsScreen(model, onBack = {}, onOpenContact = {}, onAddPerson = {}) }
+
+        compose.onNodeWithTag(UiTags.PEER_DEBTS_TAB_OBJECT).performClick()
+
+        assertEquals(1, compose.onAllNodesWithText("depuis le 3 octobre 2026").fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodesWithText("depuis le", substring = true).fetchSemanticsNodes().size)
     }
 
     @Test

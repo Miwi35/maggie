@@ -24,6 +24,7 @@ const debt = (id: string, direction: 'owed_to_me' | 'i_owe', object: string, sha
   repaidCents: 0,
   remainingCents: shares.reduce((sum, s) => sum + s.remainingCents, 0),
   status: 'open',
+  since: '2026-07-03',
   createdAt: '2026-08-14T10:00:00+00:00',
   shares,
   history: [],
@@ -126,6 +127,20 @@ describe('PeerDebtsPage — « Créances et dettes »', () => {
     expect(flat(objects[0])).toContain('Julie 200,00 € · Tom 200,00 €')
     expect(objects[0]).toHaveTextContent('Pris sur ma carte')
     expect(flat(objects[1])).toContain('tu dois 280,00 €')
+  })
+
+  test('shows since on each object row and each expanded person line', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const people = await screen.findAllByTestId('peer-debt-person')
+    await user.click(within(people[0]).getByRole('button', { name: 'Tom' }))
+    expect(flat(within(people[0]).getByRole('list', { name: 'Détail de Tom' }))).toContain('depuis le 03/07/2026')
+
+    await user.click(screen.getByRole('button', { name: 'Par objet' }))
+    for (const row of screen.getAllByTestId('peer-debt-object')) {
+      expect(flat(row)).toContain('depuis le 03/07/2026')
+    }
   })
 
   test('is a section with its heading and no tabs: « Par objet » is a switch, not a tab', async () => {

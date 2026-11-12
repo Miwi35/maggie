@@ -13,6 +13,7 @@
         "repaidCents": 0,
         "remainingCents": 28000,
         "status": "open",
+        "since": "2026-03-21",
         "createdAt": "2026-01-01T00:00:00+00:00",
         "shares": [
             {

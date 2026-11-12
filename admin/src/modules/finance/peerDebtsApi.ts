@@ -27,6 +27,8 @@ export interface PeerDebt {
   repaidCents: number
   remainingCents: number
   status: 'open' | 'settled'
+  /** `YYYY-MM-DD`: the origin transaction's booking day, else the creation day. */
+  since: string
   createdAt: string
   shares: PeerDebtShare[]
 }

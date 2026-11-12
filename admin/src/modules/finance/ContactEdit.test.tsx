@@ -42,6 +42,7 @@ const GITE = {
   repaidCents: 0,
   remainingCents: 60000,
   status: 'open',
+  since: '2026-07-03',
   createdAt: '2026-08-14T10:00:00+00:00',
   shares: [
     { id: '01S1', contactId: '01JULIE', contactName: 'Julie', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
@@ -181,7 +182,8 @@ describe('ContactEdit — the « fiche contact »', () => {
     const items = within(open).getAllByRole('listitem')
     expect(items).toHaveLength(1)
     expect(items[0]).toHaveTextContent('Gîte Ardèche')
-    expect(items[0]).toHaveTextContent('14/08/2026')
+    expect(items[0]).toHaveTextContent('depuis le 03/07/2026')
+    expect(items[0]).not.toHaveTextContent('14/08/2026')
     expect(items[0].textContent?.replace(/\s/gu, ' ')).toContain('te doit 200,00 €')
     expect(screen.queryByText('Restaurant')).not.toBeInTheDocument()
   })

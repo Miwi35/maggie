@@ -24,6 +24,7 @@
             ],
             "createdAt": "2026-01-01T00:00:00+00:00",
             "originTransactionId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "since": "2026-03-20",
             "amountCents": 6000,
             "repaidCents": 1000,
             "remainingCents": 5000,

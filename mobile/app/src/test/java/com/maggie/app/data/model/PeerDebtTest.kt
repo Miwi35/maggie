@@ -21,6 +21,7 @@ class PeerDebtTest {
             PeerDebt(
                 id = "d-1",
                 `object` = "Gîte",
+                since = "2026-10-03",
                 createdAt = "2026-10-10T09:00:00+00:00",
                 shares = listOf(
                     PeerDebtShare("s-1", "c-tom", "Tom", amountCents = 20000, remainingCents = 20000),
@@ -32,7 +33,7 @@ class PeerDebtTest {
         )
 
         assertEquals(
-            listOf(ContactDebt("d-1", "Gîte", "2026-10-10", 20000), ContactDebt("d-3", "Dépense partagée", "2026-09-01", 500)),
+            listOf(ContactDebt("d-1", "Gîte", "2026-10-03", 20000), ContactDebt("d-3", "Dépense partagée", "2026-09-01", 500)),
             openDebtsOf(debts, "c-tom"),
         )
         assertEquals(emptyList<ContactDebt>(), openDebtsOf(debts, "c-julie"))
@@ -63,6 +64,8 @@ class PeerDebtTest {
         assertEquals("10 octobre 2026", debtDayLabel("2026-10-10"))
         assertNull(debtDayLabel(null))
         assertNull(debtDayLabel("hier"))
+        assertEquals("depuis le 3 octobre 2026", sinceLabel("2026-10-03"))
+        assertNull(sinceLabel(null))
     }
 
     @Test

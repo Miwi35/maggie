@@ -407,6 +407,11 @@ test.describe('a shared spend', () => {
     await screen.byObjectSwitch.click()
     await expect(screen.object(gite)).toContainText(`on te doit ${euros(20000)}`)
     await expect(screen.object(petrol)).toContainText(`tu dois ${euros(28000)}`)
+
+    // And each says since when: the day the origin transfer was booked (MAG-801)
+    const day = (iso: string): string => iso.split('-').reverse().join('/')
+    await expect(screen.object(gite)).toContainText(`depuis le ${day(seedDate(-7))}`)
+    await expect(screen.object(petrol)).toContainText(`depuis le ${day(seedDate())}`)
   })
   /**
    * « Avancé à des proches » (MAG-454): Julie owes 200 € on a gîte, so a Livret A

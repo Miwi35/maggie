@@ -380,7 +380,7 @@ class ContactViewModelTest {
         val owed = viewModel.uiState.value.detail!!.openDebts
         assertEquals(listOf("Gîte des Cimes", "Resto"), owed.map { it.subject })
         assertEquals(listOf(20000, 3000), owed.map { it.remainingCents })
-        assertEquals("2026-10-10", owed.first().createdOn)
+        assertEquals("2026-10-10", owed.first().since)
     }
 
     @Test

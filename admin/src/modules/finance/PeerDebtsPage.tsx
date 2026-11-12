@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import { Link, Title } from 'react-admin'
 import { formatCents } from './accountTypes'
+import { formatDay } from './recurringOperations'
 import { contactLines, compensationSentence, netSentence, openDebts, owedSentence, peopleSentence } from './peerDebtsView'
 import { fetchPeerDebtsOverview, fetchPeerDebtSummary } from './peerDebtsApi'
 import type { PeerDebtSummary, PeerDebtWithHistory } from './peerDebtsApi'
@@ -55,7 +56,12 @@ const PersonRow = ({
         <List dense disablePadding sx={{ pl: 4 }} aria-label={`Détail de ${balance.name}`}>
           {lines.map((line) => (
             <Box component="li" key={line.key} sx={{ listStyle: 'none', display: 'flex', justifyContent: 'space-between', py: 0.5, pr: 2 }}>
-              <Typography variant="body2">{line.object}</Typography>
+              <Typography variant="body2">
+                {line.object}
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  depuis le {formatDay(line.since)}
+                </Typography>
+              </Typography>
               <Typography variant="body2" color="text.secondary">
                 {line.direction === 'owed_to_me' ? 'te doit' : 'tu lui dois'} {formatCents(line.remainingCents)}
               </Typography>
@@ -81,7 +87,7 @@ const ObjectRow = ({ debt }: { debt: PeerDebtWithHistory }) => (
       </Typography>
     </Stack>
     <Typography variant="body2" color="text.secondary">
-      {peopleSentence(debt)}
+      {peopleSentence(debt)} · depuis le {formatDay(debt.since)}
     </Typography>
     {debt.notes && (
       <Typography variant="caption" color="text.secondary">

@@ -39,7 +39,7 @@ export const ContactPeerDebtsSection = ({ contactId }: { contactId: string }) =>
             .map((share) => ({
               key: `${debt.id}-${share.id}`,
               object: debt.object,
-              createdAt: debt.createdAt,
+              since: debt.since,
               remainingCents: share.remainingCents,
               direction: debt.direction,
             })),
@@ -68,7 +68,7 @@ export const ContactPeerDebtsSection = ({ contactId }: { contactId: string }) =>
             <List dense disablePadding aria-label="Créances en cours">
               {open.map((debt) => (
                 <ListItem key={debt.key} disableGutters>
-                  <ListItemText primary={debt.object} secondary={formatDay(debt.createdAt)} />
+                  <ListItemText primary={debt.object} secondary={`depuis le ${formatDay(debt.since)}`} />
                   <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {debtSentence(debt.direction, debt.remainingCents)}
                   </Typography>
