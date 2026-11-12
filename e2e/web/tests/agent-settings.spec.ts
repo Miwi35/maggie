@@ -27,21 +27,28 @@ test('the Réglages menu lists Maggie and opens her settings', async ({ page }) 
  *
  * Given the e2e seed, when the digest is switched off and the review set to 22:15,
  * then after a reload both cards show those values.
+ *
+ * An account of its own: the shared one is read by every parallel journey, and the digest and the
+ * review hours are its settings.
  */
-test('the morning digest and the evening review are saved and survive a reload', async ({ page }) => {
-  const shell = new AdminShell(page)
+test.describe('the daily rendezvous', () => {
+  test.use({ journeyAccount: 'empty' })
 
-  await shell.goto(ROUTES.home)
-  await shell.expectLoaded()
-  await shell.navigateTo('Maggie', 'Réglages')
+  test('the morning digest and the evening review are saved and survive a reload', async ({ page }) => {
+    const shell = new AdminShell(page)
 
-  await page.getByLabel('Digest du matin', { exact: true }).uncheck()
-  await expect(page.getByLabel('Heure — Digest du matin')).toBeDisabled()
-  await page.getByLabel('Heure — Bilan du soir').fill('22:15')
-  await expect(page.getByText('Enregistré')).toBeVisible()
+    await shell.goto(ROUTES.home)
+    await shell.expectLoaded()
+    await shell.navigateTo('Maggie', 'Réglages')
 
-  await page.reload()
+    await page.getByLabel('Digest du matin', { exact: true }).uncheck()
+    await expect(page.getByLabel('Heure — Digest du matin')).toBeDisabled()
+    await page.getByLabel('Heure — Bilan du soir').fill('22:15')
+    await expect(page.getByText('Enregistré')).toBeVisible()
 
-  await expect(page.getByLabel('Digest du matin', { exact: true })).not.toBeChecked()
-  await expect(page.getByLabel('Heure — Bilan du soir')).toHaveValue('22:15')
+    await page.reload()
+
+    await expect(page.getByLabel('Digest du matin', { exact: true })).not.toBeChecked()
+    await expect(page.getByLabel('Heure — Bilan du soir')).toHaveValue('22:15')
+  })
 })
