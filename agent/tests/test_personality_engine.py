@@ -240,7 +240,7 @@ class TestPersonalityEngine:
 
         assert "LIMITES" in prompt
         assert "liste de tes outils et leurs paramètres" in prompt
-        assert "nomme l'outil ou le paramètre qui manque" in prompt
+        assert "jamais en termes d'outil" in prompt
         assert "ANOMALIES" in prompt
         assert "dates, montants, libellés" in prompt
         assert "ce que tu ne sais pas" in prompt
