@@ -6,6 +6,7 @@ export interface ContactLine {
   key: string
   object: string
   direction: PeerDebtWithHistory['direction']
+  since: string
   remainingCents: number
 }
 
@@ -20,6 +21,7 @@ export function contactLines(debts: PeerDebtWithHistory[], contactId: string): C
             key: `${debt.id}-${share.id}`,
             object: debt.object,
             direction: debt.direction,
+            since: debt.since,
             remainingCents: share.remainingCents,
           })),
   )
