@@ -15,6 +15,9 @@ export const getCalendarThemeSx = (theme: Theme): SxProps<Theme> => {
     fontFamily: theme.typography.fontFamily,
     flex: 1,
     minWidth: 0,
+    // The week's period bands sit above the grid, which takes the rest.
+    display: 'flex',
+    flexDirection: 'column',
 
     // ── FC CSS custom properties ──────────────────────────────────────
     '& .fc': {
