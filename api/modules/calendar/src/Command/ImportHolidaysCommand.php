@@ -51,8 +51,9 @@ class ImportHolidaysCommand extends Command
             return Command::INVALID;
         }
 
-        // France failing leaves France out whole, never half of it: Geneva is still filed,
-        // and the next run adds France's days and turns the shared ones to `both`.
+        // France failing leaves France out whole, never half of it: Geneva's missing days are
+        // still filed, nothing already there is touched, and the next run adds France's days
+        // and turns the shared ones to `both`.
         $france = null;
         try {
             $france = $this->frenchHolidays->forYear($year);
@@ -67,7 +68,7 @@ class ImportHolidaysCommand extends Command
         foreach ($this->userRepository->findAll() as $user) {
             // One user failing must not keep the others without their holidays.
             try {
-                $result = $this->importer->importFor($user, $days);
+                $result = $this->importer->importFor($user, $days, complete: null !== $france);
                 $created += $result['created'];
                 $updated += $result['updated'];
             } catch (\Throwable $e) {
@@ -76,8 +77,14 @@ class ImportHolidaysCommand extends Command
             }
         }
 
-        $io->success(\sprintf('Holidays of %d: %d period(s) created, %d corrected.', $year, $created, $updated));
+        $summary = \sprintf('Holidays of %d: %d period(s) created, %d corrected.', $year, $created, $updated);
+        if (null === $france || 0 !== $failed) {
+            $io->warning($summary);
 
-        return null === $france || 0 !== $failed ? Command::FAILURE : Command::SUCCESS;
+            return Command::FAILURE;
+        }
+        $io->success($summary);
+
+        return Command::SUCCESS;
     }
 }

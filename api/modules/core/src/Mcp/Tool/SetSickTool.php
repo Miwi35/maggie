@@ -9,6 +9,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Message\SetSickCommand;
 use Mcp\Capability\Attribute\McpTool;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
@@ -29,7 +30,17 @@ final class SetSickTool
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         }
 
-        $envelope = $this->bus->dispatch(new SetSickCommand((string) $user->getId(), $sick));
+        try {
+            $envelope = $this->bus->dispatch(new SetSickCommand((string) $user->getId(), $sick));
+        } catch (HandlerFailedException $e) {
+            // A refusal is Maggie's to read; anything else is ours.
+            $cause = $e->getPrevious() ?? $e;
+            if (!$cause instanceof \DomainException) {
+                throw $e;
+            }
+
+            return json_encode(['error' => $cause->getMessage()], JSON_THROW_ON_ERROR);
+        }
         /** @var UserPreference $preference */
         $preference = $envelope->last(HandledStamp::class)?->getResult();
         $sickSince = $preference->getSickSince()?->format('Y-m-d');

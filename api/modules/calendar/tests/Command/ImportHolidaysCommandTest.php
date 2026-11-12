@@ -222,6 +222,19 @@ final class ImportHolidaysCommandTest extends KernelTestCase
         self::assertSame(PeriodHoliday::Both, $holidays['2027-01-01']->getHoliday());
     }
 
+    public function testTheFrenchApiDownNeverTurnsABothBackToGeneva(): void
+    {
+        $this->import();
+        $this->franceDown = true;
+
+        self::assertSame(Command::FAILURE, $this->import()->getStatusCode());
+
+        $holidays = $this->holidaysOf('test_user');
+        self::assertCount(self::DAYS_2027, $holidays);
+        self::assertSame(PeriodHoliday::Both, $holidays['2027-01-01']->getHoliday());
+        self::assertSame(PeriodHoliday::Both, $holidays['2027-12-25']->getHoliday());
+    }
+
     public function testTheDefaultYearIsNextYear(): void
     {
         Clock::set(new MockClock('2026-12-01 04:12:00 UTC'));
@@ -247,5 +260,8 @@ final class ImportHolidaysCommandTest extends KernelTestCase
 
         $this->assertMercureUpdatePublished(Period::COLLECTION);
         $this->assertElasticsearchIndexDispatched(Period::class);
+        // The « Fériés » agenda is new: announced too, or /api/agendas (served by Elasticsearch) never lists it.
+        $this->assertElasticsearchIndexDispatchedFor(Agenda::class, (string) $this->holidaysAgendaOf('test_user')?->getId());
+        $this->assertMercureUpdatePublished('/api/agendas');
     }
 }

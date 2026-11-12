@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Holiday;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Enum\PeriodHoliday;
 use Maggie\Calendar\Message\CreatePeriodCommand;
@@ -30,7 +29,6 @@ class HolidayImporter
     public function __construct(
         private readonly ModuleAgendas $moduleAgendas,
         private readonly PeriodRepository $periodRepository,
-        private readonly EntityManagerInterface $em,
         private readonly MessageBusInterface $bus,
     ) {
     }
@@ -59,20 +57,22 @@ class HolidayImporter
     }
 
     /**
-     * @param array<string, array{name: string, holiday: PeriodHoliday}> $days what {@see merge()} gives
+     * @param array<string, array{name: string, holiday: PeriodHoliday}> $days     what {@see merge()} gives
+     * @param bool                                                       $complete false when France could not be read: the
+     *                                                                             missing days are created, but no `holiday` is
+     *                                                                             corrected — a `both` must not fall back to `geneve`
      *
      * @return array{created: int, updated: int}
      */
-    public function importFor(User $user, array $days): array
+    public function importFor(User $user, array $days, bool $complete = true): array
     {
         if ([] === $days) {
             return ['created' => 0, 'updated' => 0];
         }
 
-        [$agenda, $new] = $this->moduleAgendas->forUser($user, Agenda::MODULE_HOLIDAYS, self::AGENDA_NAME, self::AGENDA_COLOR, adoptLegacy: false);
-        if ($new) {
-            $this->em->flush();
-        }
+        // A new agenda is persisted, not flushed: the first period's command flushes it, so it is
+        // indexed and published with it — a flush outside a message announces nothing.
+        [$agenda] = $this->moduleAgendas->forUser($user, Agenda::MODULE_HOLIDAYS, self::AGENDA_NAME, self::AGENDA_COLOR, adoptLegacy: false);
 
         $existing = [];
         foreach ($this->periodRepository->findHolidaysIn($agenda, (string) array_key_first($days), (string) array_key_last($days)) as $period) {
@@ -97,7 +97,7 @@ class HolidayImporter
                     holiday: $holiday->value,
                 ));
                 ++$created;
-            } elseif ($period->getHoliday() !== $holiday) {
+            } elseif ($complete && $period->getHoliday() !== $holiday) {
                 $this->bus->dispatch(new UpdatePeriodCommand(userId: $userId, periodId: (string) $period->getId(), holiday: $holiday->value));
                 ++$updated;
             }
