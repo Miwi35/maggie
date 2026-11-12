@@ -74,7 +74,13 @@ tags:
       below: "Réserver le camion"
     timeout: 20000
 
-# Deleting the first subtask from its parent's sheet leaves only the second (MAG-797).
+# Deleting the first subtask from its parent's form (the sheet's pencil) leaves only the second (MAG-797).
+- tapOn:
+    id: "task_detail_edit"
+- scrollUntilVisible:
+    element:
+      id: "subtask_delete"
+    timeout: 20000
 - tapOn:
     id: "subtask_delete"
     index: 0
