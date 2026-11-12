@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AgentSettings } from './AgentSettings'
 
@@ -334,6 +334,56 @@ describe('AgentSettings — Mémoire tab (MAG-20)', () => {
     memoryStreams[0].onmessage?.({ data: JSON.stringify({ paths: ['Famille/Roses.md'] }) } as MessageEvent)
 
     expect(await screen.findByRole('button', { name: /Famille/ })).toBeInTheDocument()
+    vi.unstubAllGlobals()
+    vi.stubGlobal('EventSource', SilentEventSource)
+  })
+
+  test('follows the preferences changed on the phone through the same connection', async () => {
+    const sources: { url: string; onmessage: ((event: MessageEvent) => void) | null }[] = []
+    vi.stubGlobal(
+      'EventSource',
+      class {
+        onmessage: ((event: MessageEvent) => void) | null = null
+        close = vi.fn()
+        constructor(public url: string) {
+          sources.push(this)
+        }
+      },
+    )
+    localStorage.setItem('user', JSON.stringify({ id: 'u1' }))
+    let digestEnabled = true
+    const base = stubAgentApi([])
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === '/api/user_preferences/me') {
+          return new Response(
+            JSON.stringify({
+              id: 'p1',
+              theme: 'system',
+              morningDigestEnabled: digestEnabled,
+              morningDigestTime: '07:00',
+              eveningReviewEnabled: true,
+              eveningReviewTime: '21:30',
+            }),
+          )
+        }
+        return base(input, init)
+      }),
+    )
+    render(<AgentSettings />)
+    expect(await screen.findByLabelText('Digest du matin')).toBeChecked()
+
+    const streams = sources.filter((s) => decodeURIComponent(s.url).includes('match=/memory/u1'))
+    expect(streams).toHaveLength(1)
+    expect(decodeURIComponent(streams[0].url)).toContain('/users/u1/api/user_preferences/:id')
+
+    digestEnabled = false
+    act(() => {
+      streams[0].onmessage?.({ data: JSON.stringify({ id: 'p1', theme: 'system', morningDigestEnabled: false }) } as MessageEvent)
+    })
+
+    await waitFor(() => expect(screen.getByLabelText('Digest du matin')).not.toBeChecked())
     vi.unstubAllGlobals()
     vi.stubGlobal('EventSource', SilentEventSource)
   })
