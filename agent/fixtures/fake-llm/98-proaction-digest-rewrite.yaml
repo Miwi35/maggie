@@ -1,0 +1,11 @@
+# The code's read-back of a digest that misses a fact (MAG-807): the rewrite call has no tools and a system
+# prompt that opens with « RELECTURE DU DIGEST ». The answer deliberately names nothing of what is missing, so a
+# journey sees the sentence the code appends for each fact still absent.
+name: proaction-digest-rewrite
+description: The rewrite of a digest, which still misses the day's appointment.
+
+match:
+  system_contains: ["RELECTURE DU DIGEST"]
+
+turns:
+  - text: "Bonjour monsieur. Il fera entre 9,5 et 18,5 degrés, avec de la pluie probable. Ce soir, la préparation du weekend. (digest MAG-709)"

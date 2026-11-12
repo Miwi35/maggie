@@ -1,13 +1,14 @@
-# The digest of 06-planning-digest.yaml, come due (MAG-709, extends MAG-99): the run loads the digest
-# skill, reads the day through MCP — the weather from the simulated Open-Meteo (70 % of rain), the
-# agenda, the trips, the tasks, the meals — then sends the vocal with `screen: "digest"` and answers
-# the written digest. The consumer stores that answer on the digest too, and its notification opens it.
-# Its tasks name the one scheduled « ce soir » (MAG-718): `get_tasks` today carries the day's programmation.
+# The digest of 06-planning-digest.yaml, come due (MAG-709, rewritten by MAG-807, extends MAG-99): the run loads
+# the digest skill, reads the day through MCP — the weather from the simulated Open-Meteo (70 % of rain), the
+# agenda, the tasks, the meals — and answers the digest as one text. The code voices it, reads it back
+# (`app.digest`) and stores one message on the digest screen: no `send_voice_message`, no trips, no finance.
+# The text names neither the day's appointment nor its hour on purpose: the rewrite
+# (98-proaction-digest-rewrite.yaml) does not either, so the code appends « Vous avez aussi … à … ».
 #
 # The figures are the Open-Meteo stub's (.docker/e2e/wiremock/mappings/open-meteo.json): the fake
 # reads no tool result, so a weather in error still gets this text — the journal is where it shows.
 name: proaction-digest-due
-description: The morning digest, delivered as a written message and a vocal on the digest screen.
+description: The morning digest, answered as one text that misses the day's appointment.
 
 match:
   user_contains: ["[Proaction due maintenant]", "digest MAG-709"]
@@ -21,15 +22,10 @@ turns:
         input: {date: '${today}'}
       - name: get_events_by_date
         input: {date: '${today}'}
-      - name: list_trips
-        input: {date: '${today}'}
       - name: get_tasks
         input: {view: today}
       - name: manage_meals
         input: {action: list, fromDate: '${today}', toDate: '${today}'}
-  - tools:
-      - name: send_voice_message
-        input:
-          text: "Bonjour monsieur. Il pleuvra probablement aujourd'hui, prenez de quoi vous couvrir. Je vous ai écrit le détail de la journée. (digest MAG-709)"
-          screen: digest
-  - text: "**Météo** : entre 9,5 et 18,5 °C, pluie probable (70 %) : prenez de quoi vous couvrir.\n\n**Agenda** : votre journée est dans le fil, je vous ai aussi envoyé un vocal.\n\n**Tâches** : ce soir, la préparation du weekend. (digest MAG-709)"
+      - name: get_grocery_list
+        input: {}
+  - text: "Bonjour monsieur. Il fera entre 9,5 et 18,5 degrés, avec de la pluie probable. Ce soir, la préparation du weekend. (digest MAG-709)"

@@ -2,9 +2,10 @@
 
 « Tous les matins à 7 h, fais-moi le digest de ma journée, par écrit et en vocal » is a planning
 instruction; the planning reads it and schedules the day's digest, the digest run reads the day,
-sends the vocal on the digest screen and answers the written digest. What this proves is the run —
-the tools it reaches, the screen it sets, and that a weather service in error stops nothing. The
-wording is the real model's, judged by the prompt-lab scenario `93-digest-du-matin.yaml`.
+answers one text, and the code reads it back, voices it and stores one message on the digest screen
+(MAG-807). What this proves is the run — the tools it reaches, the one message, and that a weather
+service in error or a voice down stops nothing. The wording is the real model's, judged by the
+prompt-lab scenarios `93-digest-du-matin.yaml` and its neighbours.
 """
 
 import json
@@ -16,11 +17,12 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.db.journal_repository import journal_tool_calls
+from app.digest import run_digest
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import PROACTION_MAX_ITERATIONS
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
-from app.queue.proaction_consumer import voice_screen
+from app.tts.voice_message import VoiceMessageError
 from app.queue.scheduler import daily_planning_prompt
 from tests.fake_proaction_api import FakeProactionApi
 
@@ -38,11 +40,9 @@ OFFERED = [
         "date_time",
         "get_skill",
         "get_weather",
-        "list_trips",
         "get_tasks",
         "manage_meals",
-        "send_voice_message",
-        "get_activity_status",
+        "get_grocery_list",
     )
 ]
 
@@ -55,7 +55,7 @@ class DigestApi(FakeProactionApi):
     def _get_weather(self, arguments: dict, user_id: str | None) -> dict:
         if self.weather_down:
             return {"error": WEATHER_DOWN}
-        return {"days": [{"date": arguments.get("date"), "precipitationProbability": 70}]}
+        return {"days": [{"date": arguments.get("date"), "temperature_min_c": 9.5, "temperature_max_c": 18.5}]}
 
     def _get_tasks(self, arguments: dict, user_id: str | None) -> dict:
         evening = {"id": "t-1", "title": "Préparation du weekend", "scheduledDate": "2030-11-14", "scheduledMoment": "evening"}
@@ -63,6 +63,9 @@ class DigestApi(FakeProactionApi):
 
     def _manage_meals(self, arguments: dict, user_id: str | None) -> dict:
         return {"meals": []}
+
+    def _get_grocery_list(self, arguments: dict, user_id: str | None) -> dict:
+        return {"stores": []}
 
 
 class _Frozen(datetime):
@@ -85,14 +88,6 @@ def api():
         patch("app.llm.fake.datetime", _Frozen),
     ):
         yield fake
-
-
-@pytest.fixture()
-def vocal():
-    """The voice tool's own work — speech, bucket, thread — is test_voice_message's: here, what it is asked."""
-    sent = AsyncMock(return_value=MagicMock(id="voc-1", audio={"durationMs": 900}, screen="digest"))
-    with patch("app.tts.voice_message.send_voice_message", sent):
-        yield sent
 
 
 async def run(prompt: str) -> dict:
@@ -129,41 +124,104 @@ class TestTheMorningDigest:
             ("Digest du matin", "2030-11-14T07:02:00+01:00")
         ]
 
-    async def test_the_digest_reads_the_day_then_sends_the_vocal_on_the_digest_screen(self, api, vocal):
+    async def test_the_digest_reads_the_day_and_answers_one_text_without_calling_the_voice_tool(self, api):
         result = await plan_and_run(api)
 
         assert tools_called(result)[:3] == ["get_skill", "get_weather", "get_events_by_date"]
         assert ("get_weather", {"date": "2030-11-14"}, USER) in api.calls
         assert ("get_tasks", {"view": "today"}, USER) in api.calls
-        assert vocal.await_args.kwargs["screen"] == "digest"
-        assert voice_screen(result["tool_calls"]) == "digest"
-        assert result["response"].startswith("**Météo**")
-        assert "ce soir, la préparation du weekend" in result["response"]
+        assert not {"send_voice_message", "list_trips", "get_finance_scores"} & set(tools_called(result))
+        assert "degrés" in result["response"]
+        assert "ce soir, la préparation du weekend" in result["response"].lower()
 
-    async def test_a_weather_service_in_error_stops_nothing_and_the_journal_keeps_the_error(self, api, vocal):
+    async def test_a_weather_service_in_error_stops_nothing_and_the_journal_keeps_the_error(self, api):
         api.weather_down = True
 
         result = await plan_and_run(api)
 
-        vocal.assert_awaited_once()
         assert result["response"]
         [weather] = [call for call in journal_tool_calls(result["tool_calls"]) if call["name"] == "get_weather"]
         assert weather["error"] == WEATHER_DOWN
         assert json.loads(weather["result"]) == {"error": WEATHER_DOWN}
 
 
-class TestTheConsignesOfLastNight:
-    async def test_the_digest_reads_the_bilan_and_opens_with_its_consignes_section(self, api):
-        api._get_activity_status = lambda arguments, user_id: {
-            "activity": "bilan",
-            "origin": {"kind": "day", "id": "2030-11-13"},
-            "state": {"step": "demain", "instructions": [{"id": "c1", "text": "Appeler le garage", "kind": "reminder"}]},
-        }
+class _Gateway:
+    """What `run_digest` asks of the gateway: the proaction run, a client and the tools."""
 
-        result = await run("[Proaction due maintenant] Fais le digest du matin (digest MAG-753).")
+    client = None
+    tool_router = ToolRouter()
 
-        assert ("get_activity_status", {"activity": "bilan"}, USER) in api.calls
-        assert "Tes consignes d'hier soir" in result["response"]
+    async def proaction(self, prompt: str, user_id: str, *, summary: str | None = None) -> dict:
+        result = await run(f"[Proaction due maintenant] {prompt}")
+        return result | {"context_id": "ctx-1", "model": "fake"}
+
+
+KINE = {
+    "id": "ev-kine",
+    "summary": "Kiné",
+    "startAt": "2030-11-14T09:15:00+01:00",
+    "endAt": "2030-11-14T10:00:00+01:00",
+    "allDay": False,
+    "status": "confirmed",
+    "agenda": "Défaut",
+}
+DIGEST = SimpleNamespace(prompt="Fais le digest du matin (digest MAG-709).", user_id=USER, summary="Digest du matin")
+
+
+@pytest.fixture()
+def storage():
+    """The voice and the thread: their own work is test_voice_message's, here what the digest asks of them."""
+    voice = AsyncMock(return_value=MagicMock(id="voc-1", audio={"durationMs": 900}, screen="digest"))
+    thread = MagicMock()
+    thread.create = AsyncMock(return_value=MagicMock(id="msg-1", audio=None, screen="digest"))
+    with (
+        patch("app.digest.send_voice_message", voice),
+        patch("app.digest.message_repo", thread),
+        patch("app.digest.client_for", AsyncMock(return_value=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR))),
+        patch("app.digest.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
+        patch("app.digest.datetime", _Frozen),
+        patch("app.llm.runner.record_llm_usage"),
+    ):
+        yield SimpleNamespace(voice=voice, thread=thread)
+
+
+class TestRunDigest:
+    async def test_run_digest_stores_one_message_on_the_digest_screen_with_its_vocal(self, api, storage):
+        result, stored = await run_digest(_Gateway(), DIGEST)
+
+        storage.voice.assert_awaited_once()
+        args, kwargs = storage.voice.await_args
+        assert args[0] == USER and args[2] == "ctx-1" and kwargs == {"screen": "digest"}
+        assert args[1] == result["response"]
+        storage.thread.create.assert_not_called()
+        assert stored is storage.voice.return_value
+        assert "send_voice_message" not in tools_called(result)
+
+    async def test_a_missing_appointment_is_rewritten_once_then_appended(self, api, storage):
+        api.agenda["2030-11-14"] = [KINE]
+
+        result, _ = await run_digest(_Gateway(), DIGEST)
+
+        assert result["response"].endswith("Vous avez aussi Kiné à 9 h 15.")
+        assert result["response"].count("Vous avez aussi") == 1
+        assert "RELECTURE DU DIGEST" not in result["response"]
+
+    async def test_an_appointment_the_text_already_names_is_neither_rewritten_nor_appended(self, api, storage):
+        api.agenda["2030-11-14"] = [SESSION]
+        api._get_tasks = lambda arguments, user_id: {"tasks": [], "reminders": []}
+
+        result, _ = await run_digest(_Gateway(), SimpleNamespace(**(vars(DIGEST) | {"prompt": "Digest (digest MAG-777)."})))
+
+        assert "Vous avez aussi" not in result["response"]
+
+    async def test_a_voice_down_still_stores_the_text_on_the_digest_screen(self, api, storage):
+        storage.voice.side_effect = VoiceMessageError("down")
+
+        result, stored = await run_digest(_Gateway(), DIGEST)
+
+        kwargs = storage.thread.create.await_args.kwargs
+        assert (kwargs["content"], kwargs["screen"], kwargs["role"]) == (result["response"], "digest", "assistant")
+        assert stored is storage.thread.create.return_value
 
 
 # The day's planned session, an event of the « Santé » agenda (MAG-777).
@@ -177,14 +235,14 @@ SESSION = {
 
 
 class TestTheDaysSession:
-    async def test_the_digest_reads_the_agenda_and_cites_the_session_with_its_hour_and_length(self, api, vocal):
+    async def test_the_digest_reads_the_agenda_and_cites_the_session_with_its_hour_and_length(self, api):
         api.agenda["2030-11-14"] = [SESSION]
 
         result = await run("[Proaction due maintenant] Fais le digest du matin (digest MAG-777).")
 
         assert ("get_events_by_date", {"date": "2030-11-14"}, USER) in api.calls
-        assert "Séance A à 18 h 30, 30 min" in result["response"]
-        assert vocal.await_args.kwargs["screen"] == "digest"
+        assert "séance A à 18 h 30, 30 min" in result["response"]
+        assert "send_voice_message" not in tools_called(result)
 
     def test_the_shipped_skill_says_how_to_cite_it(self):
         skill = (DEFAULT_FIXTURES_DIR.parent.parent / "app" / "skills" / "digest.md").read_text(encoding="utf-8")

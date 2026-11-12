@@ -1,6 +1,6 @@
 # The morning digest on a day with a planned training session (MAG-777): `get_events_by_date` reads
 # « Séance A », an event `activity: "sport"` of the « Santé » agenda, and the written digest cites it with
-# its hour and its length, in its place among the appointments. Matched by its own tag « digest MAG-777 »,
+# its hour and its length, in its place among the appointments — one text, no vocal tool (MAG-807). Matched by its own tag « digest MAG-777 »,
 # so the digest of MAG-709's journey (98-proaction-digest-due.yaml) is untouched.
 #
 # The fake reads no tool result: the session's words are the scenario's own, the data is the API's.
@@ -19,13 +19,6 @@ turns:
         input: {date: '${today}'}
       - name: get_events_by_date
         input: {date: '${today}'}
-      - name: list_trips
-        input: {date: '${today}'}
       - name: get_tasks
         input: {view: today}
-  - tools:
-      - name: send_voice_message
-        input:
-          text: "Bonjour monsieur. Ce soir, à dix-huit heures trente, votre séance A, trente minutes. (digest MAG-777)"
-          screen: digest
-  - text: "**Agenda** : Séance A à 18 h 30, 30 min. (digest MAG-777)"
+  - text: "Bonjour monsieur. Il fera 12 degrés. Ce soir, séance A à 18 h 30, 30 min. (digest MAG-777)"
