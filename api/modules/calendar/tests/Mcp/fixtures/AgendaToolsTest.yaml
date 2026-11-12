@@ -31,3 +31,12 @@ Maggie\Calendar\Entity\Event:
     startAt: '<(new \DateTimeImmutable("2026-03-15 20:00"))>'
     endAt: '<(new \DateTimeImmutable("2026-03-15 22:00"))>'
     agenda: '@concerts_agenda'
+
+# MAG-809: a period of the agenda, gone with it by the database cascade.
+Maggie\Calendar\Entity\Period:
+  concert_tour:
+    name: Tournée
+    agenda: '@concerts_agenda'
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2026-03-14"))>'
+    endDate: '<(new \DateTimeImmutable("2026-03-17"))>'
