@@ -7,6 +7,7 @@ namespace Maggie\Finance\MessageHandler;
 use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\PeerDebtDirection;
 use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
@@ -99,6 +100,7 @@ class UpdateTransactionHandler
         // After the marking: a line made a transfer in the same update is no spend to attribute.
         $this->applyOneOffEnvelope($transaction, $command);
         $this->applyRepays($transaction, $command);
+        $this->applyAdvanceSource($transaction, $command);
         $this->applyRecurring($transaction, $command);
 
         // A line a marking made neutral settles no occurrence any more, on
@@ -272,6 +274,36 @@ class UpdateTransactionHandler
         }
 
         $transaction->setRepays($advance);
+    }
+
+    /**
+     * Names the savings account a single-legged advance or repayment comes
+     * from or goes back to — a livret no bank sync gives a debit leg (MAG-806).
+     * After the marking: a new marking has dropped the former source.
+     */
+    private function applyAdvanceSource(Transaction $transaction, UpdateTransactionCommand $command): void
+    {
+        if (null === $command->advanceSourceAccountId) {
+            if ($command->clears('advanceSource')) {
+                $transaction->setAdvanceSource(null);
+            }
+
+            return;
+        }
+
+        if (!\in_array($transaction->getTransferKind(), [TransferKind::Advance, TransferKind::Repayment], true)) {
+            throw new \DomainException('advanceSourceAccountId goes with transferKind advance or repayment.');
+        }
+        if (null !== $transaction->getCounterpart()) {
+            throw new \DomainException('This line has its other leg: its source is the account of that leg.');
+        }
+
+        $source = $this->references->account($command->advanceSourceAccountId, $transaction->getUser());
+        if (!\in_array($source->getType(), [AccountType::Savings, AccountType::Investment], true)) {
+            throw new \DomainException('advanceSourceAccountId must name a savings or investment account.');
+        }
+
+        $transaction->setAdvanceSource($source);
     }
 
     /**

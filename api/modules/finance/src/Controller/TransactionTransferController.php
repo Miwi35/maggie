@@ -28,6 +28,7 @@ use Symfony\Component\Uid\Ulid;
  * could unpair one leg and leave the other pointing at it. This one dispatches
  * the command `manage_transactions` dispatches, and what it writes is always
  * the owner's own decision (`manual`), which the detection never overwrites.
+ * The savings account a single-legged advance comes from is set here too.
  */
 final class TransactionTransferController
 {
@@ -158,6 +159,55 @@ final class TransactionTransferController
         return new JsonResponse(['success' => true] + $this->serializeTransfer($transaction));
     }
 
+    /**
+     * The savings account a single-legged advance or repayment comes from or
+     * goes back to (MAG-806): `{"accountId": "…"}` names it, `{"accountId": null}`
+     * removes it.
+     */
+    #[Route('/api/finance/transactions/{id}/advance-source', name: 'api_finance_transaction_advance_source_update', methods: ['PUT'])]
+    public function updateAdvanceSource(string $id, Request $request): JsonResponse
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $transaction = $this->findOwned($user, $id);
+        if (null === $transaction) {
+            return new JsonResponse(['error' => 'Transaction not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $body = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            $body = null;
+        }
+
+        if (!\is_array($body) || !\array_key_exists('accountId', $body)) {
+            return new JsonResponse(['error' => 'The body must be a JSON object with accountId'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $accountId = $body['accountId'];
+        if (null !== $accountId && (!\is_string($accountId) || !Ulid::isValid($accountId))) {
+            return new JsonResponse(['error' => 'accountId must be an account id or null'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $this->bus->dispatch(new UpdateTransactionCommand(
+                userId: (string) $user->getId(),
+                transactionId: $id,
+                advanceSourceAccountId: $accountId,
+                clearFields: null === $accountId ? ['advanceSource'] : [],
+            ));
+        } catch (HandlerFailedException $e) {
+            $cause = $e->getPrevious() ?? $e;
+
+            return new JsonResponse(['error' => $cause->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new JsonResponse(['success' => true] + $this->serializeTransfer($transaction));
+    }
+
     private function findOwned(User $user, string $id): ?Transaction
     {
         if (!Ulid::isValid($id)) {
@@ -171,11 +221,13 @@ final class TransactionTransferController
     private function serializeTransfer(Transaction $transaction): array
     {
         $counterpart = $transaction->getCounterpart();
+        $source = $transaction->getAdvanceSource();
 
         return [
             'transferKind' => $transaction->getTransferKind()->value,
             'transferSource' => $transaction->getTransferSource()->value,
             'counterpart' => null === $counterpart ? null : $this->summarize($counterpart),
+            'advanceSource' => null === $source ? null : ['id' => (string) $source->getId(), 'name' => $source->getName()],
         ];
     }
 
