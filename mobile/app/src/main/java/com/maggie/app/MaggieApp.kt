@@ -169,6 +169,7 @@ import com.maggie.app.ui.screens.bilan.BilanActivityViewModel
 import com.maggie.app.ui.screens.bilan.BilanJourneeViewModel
 import com.maggie.app.ui.screens.bilan.BilanTomorrowViewModel
 import com.maggie.app.ui.screens.bilan.BilanResumeViewModel
+import com.maggie.app.ui.screens.home.DigestTileViewModel
 import com.maggie.app.ui.screens.bilan.BilanSanteViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingResumeViewModel
 import com.maggie.app.ui.screens.grocery.run.GroceryRunResumeViewModel
@@ -596,6 +597,7 @@ class MaggieApp : Application() {
             viewModel { BilanSanteViewModel(get(), get(), get()) }
             viewModel { BilanTomorrowViewModel(get(), get(), get(), get(), get()) }
             viewModel { BilanResumeViewModel(get(), get(), get()) }
+            viewModel { DigestTileViewModel(get(), get(), get()) }
             viewModel { GroceryRunViewModel(get(), get(), get(), get(), get()) }
             viewModel { GroceryRunResumeViewModel(get(), get(), get()) }
             viewModel { SportResumeViewModel(get(), get(), get()) }

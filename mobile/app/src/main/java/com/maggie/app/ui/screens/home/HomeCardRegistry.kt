@@ -14,6 +14,7 @@ object HomeModules {
     const val FINANCE = "finance"
     const val LEISURE = "leisure"
     const val BILAN = "bilan"
+    const val DIGEST = "digest"
 }
 
 /**
@@ -38,6 +39,8 @@ val LocalHomeNavigation = staticCompositionLocalOf<(String) -> Unit> { {} }
  */
 object HomeCardRegistry {
     val entries: List<HomeCardEntry> = listOf(
+        // MAG-808: the morning digest, announced until it is opened or 14:00.
+        HomeCardEntry(HomeModules.DIGEST) { day -> DigestHomeCard(day) },
         // MAG-751: « Reprendre » the evening review left open, until the next morning.
         HomeCardEntry(HomeModules.BILAN) { day -> BilanHomeCard(day) },
         HomeCardEntry(HomeModules.GROCERY) { GroceryHomeCard() },
