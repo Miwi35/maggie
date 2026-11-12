@@ -2263,6 +2263,14 @@ class MaggieApiService(
         client.delete("$baseUrl/api/stores/$id")
     }
 
+    suspend fun updateStore(id: String, name: String): Store {
+        return client.patch("$baseUrl/api/stores/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("name", name) })
+        }.orRefusal().body()
+    }
+
     // Aisles of a store, in the order of the way through it (MAG-493). Not paginated.
     suspend fun getAisles(storeId: String): List<Aisle> {
         return client.get("$baseUrl/api/aisles") {
@@ -2310,6 +2318,14 @@ class MaggieApiService(
 
     suspend fun deleteAccount(id: String) {
         client.delete("$baseUrl/api/accounts/$id")
+    }
+
+    suspend fun updateAccountName(id: String, name: String): Account {
+        return client.patch("$baseUrl/api/accounts/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("name", name) })
+        }.orRefusal().body()
     }
 
     /** « Corriger le solde » of a hand-kept account: a merge-patch of the one field. */
@@ -3468,6 +3484,11 @@ class MaggieApiService(
     /** Hands back the URL to send the user to, at their bank. */
     suspend fun reconnectBankConnection(id: String): BankAuthorization {
         return client.post("$baseUrl/api/finance/bank-connections/$id/reconnect").body()
+    }
+
+    /** Unhooks the link: its accounts and their transactions are kept, the sync stops. */
+    suspend fun forgetBankConnection(id: String) {
+        client.delete("$baseUrl/api/finance/bank-connections/$id").orRefusal()
     }
 
     // Finance — Safety cushion

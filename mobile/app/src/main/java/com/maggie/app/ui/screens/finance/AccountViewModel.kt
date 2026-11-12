@@ -149,6 +149,20 @@ class AccountViewModel(
         }
     }
 
+    fun renameAccount(id: String, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            accountRepository.renameAccount(id, trimmed)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        accounts = _uiState.value.accounts.map { if (it.id == id) updated else it }.sortedBy { it.name },
+                    )
+                }
+                .onFailure { e -> _uiState.value = _uiState.value.copy(error = e.message ?: "Impossible de renommer le compte") }
+        }
+    }
+
     /** The pager settled on an account, or a row was touched: its timeline is read if it was not yet. */
     fun selectAccount(accountId: String) {
         if (_uiState.value.selectedAccountId != accountId) {

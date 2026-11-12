@@ -52,6 +52,21 @@ class StoreViewModel(
         }
     }
 
+    fun renameStore(id: String, name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                val updated = storeRepository.renameStore(id, trimmed).getOrThrow()
+                _uiState.value = _uiState.value.copy(
+                    stores = _uiState.value.stores.map { if (it.id == id) updated else it },
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+            }
+        }
+    }
+
     fun deleteStore(id: String) {
         viewModelScope.launch {
             try {

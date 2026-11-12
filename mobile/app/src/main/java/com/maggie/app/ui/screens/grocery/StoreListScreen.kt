@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.grocery
 import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,7 +45,7 @@ import com.maggie.app.data.model.Store
 import com.maggie.app.ui.components.GroceryTopBar
 import com.maggie.app.ui.navigation.GrocerySection
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun StoreListScreen(
     viewModel: StoreViewModel,
@@ -52,6 +55,7 @@ fun StoreListScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var deletingStore by remember { mutableStateOf<Store?>(null) }
+    var renamingStore by remember { mutableStateOf<Store?>(null) }
 
     Scaffold(
         topBar = {
@@ -85,7 +89,14 @@ fun StoreListScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(uiState.stores, key = { it.id }) { store ->
-                        Card(onClick = { onOpenAisles(store) }, modifier = Modifier.fillMaxWidth()) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = { onOpenAisles(store) },
+                                    onLongClick = { renamingStore = store },
+                                ),
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -103,6 +114,9 @@ fun StoreListScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                }
+                                IconButton(onClick = { renamingStore = store }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Renommer")
                                 }
                                 IconButton(onClick = { deletingStore = store }) {
                                     Icon(
@@ -127,6 +141,17 @@ fun StoreListScreen(
                 deletingStore = null
             },
             onDismiss = { deletingStore = null },
+        )
+    }
+
+    renamingStore?.let { store ->
+        StoreRenameDialog(
+            initialName = store.name,
+            onConfirm = { name ->
+                if (name.trim() != store.name) viewModel.renameStore(store.id, name)
+                renamingStore = null
+            },
+            onDismiss = { renamingStore = null },
         )
     }
 
@@ -186,6 +211,39 @@ private fun StoreCreateDialog(
                 enabled = name.isNotBlank(),
             ) {
                 Text("Créer")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Annuler")
+            }
+        },
+    )
+}
+
+@Composable
+private fun StoreRenameDialog(
+    initialName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Renommer le magasin") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nom") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) {
+                Text("Enregistrer")
             }
         },
         dismissButton = {

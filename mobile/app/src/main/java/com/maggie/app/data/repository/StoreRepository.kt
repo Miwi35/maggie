@@ -23,6 +23,10 @@ class StoreRepository(
         apiService.deleteStore(id)
     }
 
+    suspend fun renameStore(id: String, name: String): Result<Store> = runCatching {
+        apiService.updateStore(id, name)
+    }
+
     /** The store's aisles, in the order of the way through it (MAG-493). */
     suspend fun getAisles(storeId: String): Result<List<Aisle>> = runCatching {
         apiService.getAisles(storeId).sortedBy { it.position }

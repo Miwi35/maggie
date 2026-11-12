@@ -15,6 +15,7 @@ fun ConfirmDeleteDialog(
     title: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    message: String? = null,
     confirmLabel: String = "Confirmer",
     confirmTag: String = UiTags.CONFIRM_DELETE,
     cancelTag: String = UiTags.CONFIRM_DELETE_CANCEL,
@@ -23,6 +24,7 @@ fun ConfirmDeleteDialog(
         modifier = Modifier.uiTagRoot(),
         onDismissRequest = onDismiss,
         title = { Text(title) },
+        text = message?.let { { Text(it) } },
         confirmButton = {
             TextButton(onClick = onConfirm, modifier = Modifier.testTag(confirmTag)) {
                 Text(confirmLabel, color = MaterialTheme.colorScheme.error)
