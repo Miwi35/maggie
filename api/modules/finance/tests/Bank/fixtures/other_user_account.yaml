@@ -1,0 +1,15 @@
+Maggie\Core\Entity\User:
+  other_user:
+    email: finance-bank-other@example.com
+    googleId: google-finance-bank-other
+    name: Finance Bank Other User
+
+Maggie\Finance\Entity\Account:
+  other_account:
+    name: Compte de quelqu'un d'autre
+    bank: N26
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 0
+    isCushion: false
+    user: '@other_user'

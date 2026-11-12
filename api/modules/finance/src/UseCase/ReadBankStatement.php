@@ -42,6 +42,7 @@ class ReadBankStatement
      * @return array{account: Account, rows: list<StatementRow>, status: string, message: ?string, truncated: bool}
      *
      * @throws \InvalidArgumentException when the account is not one the user can read from the bank
+     * @throws BankRefusedException      when the bank refuses for a reason that is not the period
      */
     public function read(User $user, string $accountId, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
@@ -143,6 +144,42 @@ class ReadBankStatement
         }
 
         return ['rows' => $rows, 'received' => $received, 'ignored' => $ignored, 'pages' => $pages, 'moreToRead' => null !== $continuationKey];
+    }
+
+    /**
+     * The identifier a statement row goes by from one read to the next: the
+     * bank's own reference, else the fingerprint the import deduplicates on.
+     */
+    public static function refOf(StatementRow $row): string
+    {
+        return $row->externalId ?? $row->fingerprint();
+    }
+
+    /**
+     * @return array{0: \DateTimeImmutable, 1: \DateTimeImmutable}
+     *
+     * @throws \InvalidArgumentException on a malformed date or a period that ends before it starts
+     */
+    public static function parsePeriod(string $from, ?string $to): array
+    {
+        $start = self::parseDay($from, 'from');
+        $end = null === $to || '' === $to ? new \DateTimeImmutable('today') : self::parseDay($to, 'to');
+
+        if ($start > $end) {
+            throw new \InvalidArgumentException('from must not be after to.');
+        }
+
+        return [$start, $end];
+    }
+
+    private static function parseDay(string $day, string $name): \DateTimeImmutable
+    {
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $day);
+        if (false === $parsed || $parsed->format('Y-m-d') !== $day) {
+            throw new \InvalidArgumentException(sprintf('%s must be a date as YYYY-MM-DD.', $name));
+        }
+
+        return $parsed;
     }
 
     private function readableAccount(User $user, string $accountId): Account
