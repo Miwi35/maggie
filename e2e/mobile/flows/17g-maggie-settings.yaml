@@ -3,7 +3,8 @@ name: 17g-maggie-settings
 tags:
   - settings
 ---
-# Réglages › Maggie (MAG-787): the morning digest and the evening review, on or off and at what hour.
+# Réglages › Maggie (MAG-787): the morning digest and the evening review, on or off and at what hour;
+# then the working hours (MAG-790): the end set to 17:00 and Friday taken off.
 # Every change is saved as it is made.
 #
 # Both start on, at 07:00 and 21:30 (`scripts/rendezvous-api.js` reset). The user opens Réglages ›
@@ -76,12 +77,53 @@ tags:
       id: "settings_rendezvous_saved"
     timeout: 20000
 
+# The working hours (MAG-790): the end from 18:00 to 17:00 (the minutes stay at 00), then Friday off.
+- scrollUntilVisible:
+    element:
+      id: "settings_work_end"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "settings_work_end"
+- extendedWaitUntil:
+    visible:
+      id: "picker_confirm"
+    timeout: 20000
+- tapOn:
+    text: "17\\Wheures"
+- tapOn:
+    id: "picker_confirm"
+- extendedWaitUntil:
+    visible:
+      text: "17:00"
+      childOf:
+        id: "settings_work_end"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "settings_work_day_5"
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: "settings_work_day_5"
+- extendedWaitUntil:
+    visible:
+      id: "settings_work_day_5"
+      checked: false
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "settings_rendezvous_saved"
+    timeout: 20000
+
 - runScript:
     file: ../scripts/rendezvous-api.js
     env:
       ACTION: expect
       DIGEST_ENABLED: "false"
       REVIEW_TIME: "22:15"
+      WORK_END: "17:00"
+      WORK_DAYS: "1,2,3,4"
 
 # Read back from the server, not from the screen that changed it: the app starts again,
 # still signed in, and opens Réglages › Maggie fresh.
@@ -113,6 +155,23 @@ tags:
     text: "22:15"
     childOf:
       id: "settings_review_time"
+- scrollUntilVisible:
+    element:
+      id: "settings_work_day_5"
+    centerElement: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "17:00"
+      childOf:
+        id: "settings_work_end"
+    timeout: 20000
+- assertVisible:
+    id: "settings_work_day_5"
+    checked: false
+- assertVisible:
+    id: "settings_work_day_4"
+    checked: true
 
 # Back to the defaults: the agent journeys plan on them.
 - runScript:

@@ -1249,7 +1249,8 @@ object UiTags {
     /** Réglages › Maggie (MAG-790): « Horaires de travail », its start, its end and a day's pill (ISO 1 = lundi … 7). */
     const val SETTINGS_WORK_START = "settings_work_start"
     const val SETTINGS_WORK_END = "settings_work_end"
-    fun settingsWorkDay(day: Int) = "settings_work_day_$day"
+    const val SETTINGS_WORK_DAY_PREFIX = "settings_work_day_"
+    fun settingsWorkDay(day: Int) = "$SETTINGS_WORK_DAY_PREFIX$day"
 
     /**
      * Settings > Tâches > Rappels (MAG-407, MAG-718): the row of the list, « Réglages › Tâches » over the title,
