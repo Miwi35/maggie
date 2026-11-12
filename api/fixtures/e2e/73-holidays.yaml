@@ -1,0 +1,36 @@
+# The public holidays (MAG-810), on the owner's account: what the yearly import
+# files in the « Fériés » module agenda, a few days of the seed's year — no call
+# to the French API here. 11 November is France's alone, Christmas both sides',
+# 1 August Geneva's.
+
+Maggie\Calendar\Entity\Agenda:
+  e2e_agenda_holidays:
+    name: Fériés
+    module: holidays
+    isDefault: false
+    color: '#B39DDB'
+    timeZone: 'Europe/Paris'
+    user: '@e2e_user'
+
+Maggie\Calendar\Entity\Period:
+  e2e_holiday_armistice:
+    name: 11 novembre
+    agenda: '@e2e_agenda_holidays'
+    allDay: true
+    startDate: '<e2eDate("11 november")>'
+    endDate: '<e2eDate("12 november")>'
+    holiday: '<(Maggie\Calendar\Enum\PeriodHoliday::France)>'
+  e2e_holiday_christmas:
+    name: Jour de Noël
+    agenda: '@e2e_agenda_holidays'
+    allDay: true
+    startDate: '<e2eDate("25 december")>'
+    endDate: '<e2eDate("26 december")>'
+    holiday: '<(Maggie\Calendar\Enum\PeriodHoliday::Both)>'
+  e2e_holiday_fete_nationale:
+    name: Fête nationale
+    agenda: '@e2e_agenda_holidays'
+    allDay: true
+    startDate: '<e2eDate("1 august")>'
+    endDate: '<e2eDate("2 august")>'
+    holiday: '<(Maggie\Calendar\Enum\PeriodHoliday::Geneve)>'

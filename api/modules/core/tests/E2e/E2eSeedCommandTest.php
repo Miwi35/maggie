@@ -182,7 +182,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // cards journey deletes an event from an agenda of its own. Seven since
         // MAG-570: the « Il manque » account's « Repas ». Eight since MAG-564: the
         // Cuisine card's. Ten since MAG-745: the trip estimate's and the replan's.
-        self::assertSame(10, $this->rowsOf(Agenda::class));
+        // Eleven since MAG-810: the owner's « Fériés ».
+        self::assertSame(11, $this->rowsOf(Agenda::class));
         // Events include the meals, which extend Event: 18 events + 5 meals. Four
         // of the original fifteen are the habits the deduction reads (MAG-150), one the
         // day on the 1st of the month (MAG-382). Two more since MAG-562: the done and the
@@ -236,8 +237,9 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(6, $this->rowsOf(Notification::class));
         // MAG-652: the owner's « Maison » and « Dentiste », read by the trips, and the neighbour's « Maison ».
         self::assertSame(7, $this->rowsOf(Place::class));
-        // MAG-809: the owner's custody under way and holidays to come.
-        self::assertSame(2, $this->rowsOf(Period::class));
+        // MAG-809: the owner's custody under way and holidays to come. Five since
+        // MAG-810: three public holidays of the seed's year in « Fériés ».
+        self::assertSame(5, $this->rowsOf(Period::class));
 
         // MAG-705: the three sessions of the Santé › Sport journey, on the owner's account.
         // Four since MAG-775: « Séance A », planned, with its six exercises.
@@ -272,7 +274,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // MCP tools and API collections filter by user. A fixture attached to
         // nobody would simply be invisible, and the journey would report an
         // empty list without saying why.
-        self::assertSame(4, $this->rowsOf(Agenda::class, ['user' => $user]));
+        // Five since MAG-810: the « Fériés » module agenda.
+        self::assertSame(5, $this->rowsOf(Agenda::class, ['user' => $user]));
         self::assertSame(10, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(3, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(3, $this->rowsOf(Errand::class, ['user' => $user]));

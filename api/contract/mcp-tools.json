@@ -1175,7 +1175,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Read the IANA timezone (e.g. Europe/Paris) the user chose in their preferences. Use it to reason about the user's local time. Also gives their working hours (HH:MM start and end, ISO days 1 = Monday … 7)."
+        "description": "Read the IANA timezone (e.g. Europe/Paris) the user chose in their preferences. Use it to reason about the user's local time. Also gives their working hours (HH:MM start and end, ISO days 1 = Monday … 7) and sickSince: the day they fell sick, YYYY-MM-DD, null when they are not sick (set_sick)."
     },
     "get_weather": {
         "name": "get_weather",
@@ -4903,6 +4903,21 @@
             ]
         },
         "description": "Set the user's day: taskIds is the whole list of the day's tasks, in order, 5 at most — it replaces the slots, so to add one keep the others, and to put a task in place of another list it where the other was (the other goes back to the reserve). A task appears once. date is YYYY-MM-DD, today when left out; a future day can be written. confirm=false writes a proposal the user has not settled yet (confirmedAt stays null). Returns the day as get_day_plan does."
+    },
+    "set_sick": {
+        "name": "set_sick",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "sick": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "sick"
+            ]
+        },
+        "description": "Record that the user is sick (sick: true) or that it is over (sick: false). Sick, the state holds until they say it is over: call it with true when they tell you they are ill, with false when they are better. Called again with true while sick, the first day is kept. Returns {sick, sickSince}: sickSince is the first day, YYYY-MM-DD in their timezone, null when not sick."
     },
     "set_trip": {
         "name": "set_trip",

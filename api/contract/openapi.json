@@ -33028,6 +33028,15 @@
                             "type": "integer"
                         }
                     },
+                    "sickSince": {
+                        "description": "The day the user said they fell sick (MAG-810), in their timezone; null when they are not sick. Kept until they say it is over.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
+                    },
                     "createdAt": {
                         "readOnly": true,
                         "type": "string",
@@ -33136,6 +33145,15 @@
                         "items": {
                             "type": "integer"
                         }
+                    },
+                    "sickSince": {
+                        "description": "The day the user said they fell sick (MAG-810), in their timezone; null when they are not sick. Kept until they say it is over.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date",
+                        "example": "2037-01-01"
                     },
                     "createdAt": {
                         "readOnly": true,
@@ -33250,6 +33268,15 @@
                                 "items": {
                                     "type": "integer"
                                 }
+                            },
+                            "sickSince": {
+                                "description": "The day the user said they fell sick (MAG-810), in their timezone; null when they are not sick. Kept until they say it is over.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date",
+                                "example": "2037-01-01"
                             },
                             "createdAt": {
                                 "readOnly": true,

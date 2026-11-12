@@ -2,6 +2,7 @@
 
 namespace Maggie\Core\Entity;
 
+use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use Doctrine\DBAL\Types\Types;
@@ -90,6 +91,7 @@ class UserPreference implements MercurePublishable, OwnedByUserInterface
 
     /** The day the user said they fell sick (MAG-810), in their timezone; null when they are not sick. Kept until they say it is over. */
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[ApiProperty(openapiContext: ['type' => ['string', 'null'], 'format' => 'date', 'example' => '2037-01-01'])]
     #[Context(normalizationContext: [DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
     private ?\DateTimeImmutable $sickSince = null;
 

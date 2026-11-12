@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, parisDay } from '../fixtures/index.js'
 import { getCollection } from '../helpers/api.js'
 
 /**
@@ -6,7 +6,7 @@ import { getCollection } from '../helpers/api.js'
  * only. Parts 2 to 4 extend this file; the screen's steps (part 6) go to
  * `agenda-periods-page.spec.ts`.
  *
- * The account is created for the test: its only period is the one written here, so the
+ * The custody's account is created for the test: its only period is the one written here, so the
  * occurrences counted are this series' and a retry starts on an account of its own.
  */
 
@@ -17,6 +17,10 @@ interface StoredPeriod {
   name: string
   startAt?: string
   endAt?: string
+  allDay?: boolean
+  startDate?: string | null
+  endDate?: string | null
+  holiday?: string | null
 }
 
 const JSON_LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -67,4 +71,34 @@ test('a fortnightly custody unfolds into its three occurrences over six weeks, e
     '2037-04-03 18:00',
   ])
   expect(occurrences.every((occurrence) => GARDE.name === occurrence.name)).toBe(true)
+})
+
+test.describe('public holidays', () => {
+  // The seed's holidays are on the owner's account (MAG-810): fixtures, no call to the French API.
+  test.use({ journeyAccount: 'shared' })
+
+  test('the seed\'s 11 November is a one-day France holiday on /api/periods?expand=true', async ({ api }) => {
+    const year = parisDay().slice(0, 4)
+    const week = `/api/periods?${new URLSearchParams({
+      expand: 'true',
+      'endAt[after]': `${year}-11-09T00:00:00+01:00`,
+      'startAt[before]': `${year}-11-16T00:00:00+01:00`,
+    })}`
+
+    let armistice: StoredPeriod | undefined
+    await expect
+      .poll(async () => {
+        armistice = (await getCollection<StoredPeriod>(api, week)).find((period) => null != period.holiday)
+
+        return armistice?.name
+      }, { timeout: 30_000, message: 'the seeded 11 November never showed on /api/periods' })
+      .toBe('11 novembre')
+
+    expect(armistice).toMatchObject({
+      holiday: 'france',
+      allDay: true,
+      startDate: `${year}-11-11`,
+      endDate: `${year}-11-12`,
+    })
+  })
 })
