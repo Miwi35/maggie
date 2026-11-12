@@ -233,7 +233,7 @@ test('a missed recall becomes a case: the night finds why, enriches the carte, t
 
     // Then the case exists: logged by the tool, a readable file, not in the index.
     expect(answer.tools).toEqual(['memory_log_miss'])
-    expect(answer.text).toContain('Cette nuit')
+    expect(answer.text).toContain('je le retiens')
     const files = (await state()).local
     const casePath = files.find((file) => CASE_PATH.test(file))
     expect(casePath, 'a case file in Rappels manqués/').toBeDefined()
