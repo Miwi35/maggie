@@ -12,7 +12,7 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from app.auth import TECHNICAL_ACCOUNT_EMAILS
-from app.bilan import BILAN_PROMPT, BILAN_RELANCE_SUMMARY, BILAN_SUMMARY, RELANCE_DELAY_MINUTES
+from app.bilan import BILAN_PROMPT, BILAN_SUMMARY, RETIRED_RELANCE_SUMMARY
 from app.config import settings
 from app.proactions import api as proactions_api
 from app.proactions.api import Proaction
@@ -51,7 +51,7 @@ def _timezone(name: object) -> ZoneInfo:
 
 
 def wanted_rendezvous(user: dict, day: date, tz: ZoneInfo) -> list[Rendezvous]:
-    """The digest, the review and its nudge `RELANCE_DELAY_MINUTES` later, on `day`'s wall clock."""
+    """The digest and the review, on `day`'s wall clock."""
     digest_at = datetime.combine(day, _hour(user.get("morningDigestTime"), DEFAULT_DIGEST_TIME), tzinfo=tz)
     review_at = datetime.combine(day, _hour(user.get("eveningReviewTime"), DEFAULT_REVIEW_TIME), tzinfo=tz)
     digest = user.get("morningDigestEnabled") is not False
@@ -59,7 +59,6 @@ def wanted_rendezvous(user: dict, day: date, tz: ZoneInfo) -> list[Rendezvous]:
     return [
         Rendezvous(DIGEST_SUMMARY, DIGEST_PROMPT, digest_at, digest),
         Rendezvous(BILAN_SUMMARY, BILAN_PROMPT, review_at, review),
-        Rendezvous(BILAN_RELANCE_SUMMARY, BILAN_PROMPT, review_at + timedelta(minutes=RELANCE_DELAY_MINUTES), review),
     ]
 
 
@@ -71,13 +70,8 @@ def _instant(proaction: Proaction) -> datetime | None:
 
 
 def _day_of(proaction: Proaction, tz: ZoneInfo) -> date | None:
-    """The day a rendezvous belongs to: a nudge that falls after midnight is the evening before's."""
     at = _instant(proaction)
-    if at is None:
-        return None
-    if proaction.summary == BILAN_RELANCE_SUMMARY:
-        at -= timedelta(minutes=RELANCE_DELAY_MINUTES)
-    return at.astimezone(tz).date()
+    return at.astimezone(tz).date() if at else None
 
 
 async def sync_user(user: dict, now: datetime) -> dict[str, int]:
@@ -91,10 +85,15 @@ async def sync_user(user: dict, now: datetime) -> dict[str, int]:
     tz = _timezone(user.get("timezone"))
     day = now.astimezone(tz).date()
     start = datetime.combine(day, time(), tzinfo=tz)
-    # Up to the end of the next day: a nudge set after midnight belongs to today's review.
+    # Up to the end of the next day: a retired nudge set after midnight is still to be cancelled.
     found = await proactions_api.list_for_user(user_id, start, start + timedelta(days=2))
 
     done = {"scheduled": 0, "cancelled": 0}
+    # The review's nudge is gone (MAG-826): one laid down before is no longer wanted.
+    for proaction in found:
+        if proaction.summary == RETIRED_RELANCE_SUMMARY and proaction.status == "pending":
+            await proactions_api.cancel(user_id, proaction.id)
+            done["cancelled"] += 1
     for rendezvous in wanted_rendezvous(user, day, tz):
         mine = [p for p in found if p.summary == rendezvous.summary and _day_of(p, tz) == day]
         ran = any(p.status != "pending" for p in mine)

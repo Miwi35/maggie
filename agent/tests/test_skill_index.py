@@ -297,6 +297,7 @@ class TestSupersededShippedSkills:
         [
             "865ed7bb25d31d55f85997030f664206cf77025ec70ce468b508b8af08779911",
             "8264ba9b4dadac5cb127765ad977ced1f6ec3ea459ff139a60f4d64ceb96ddc7",
+            "a45371e2e7e7625c650317f86aca6cb2ad613d3333c24c8f978a342984520684",
         ],
     )
     def test_the_versions_deployed_by_mag_753_are_listed(self, deployed):

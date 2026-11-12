@@ -1,4 +1,4 @@
-"""The evening review on the agent's side (MAG-749): out of the planning prompt (MAG-787), the single nudge, and the on-demand run scripted by the fake model against the simulated API."""
+"""The evening review on the agent's side (MAG-749): out of the planning prompt (MAG-787), and the on-demand run scripted by the fake model against the simulated API."""
 
 import json
 from datetime import UTC, date, datetime
@@ -43,7 +43,7 @@ OFFERED = [
 ]
 
 
-def relance(summary: str = bilan.BILAN_RELANCE_SUMMARY) -> Proaction:
+def proaction(summary: str = bilan.BILAN_SUMMARY) -> Proaction:
     return Proaction(id="p-1", user_id=USER, prompt="Fais le bilan", status="running", summary=summary, scheduled_at=None)
 
 
@@ -57,69 +57,44 @@ class TestThePlanningPrompt:
         assert "heure de coucher" not in prompt
 
 
-class TestTheReviewDay:
-    def test_a_nudge_after_midnight_belongs_to_the_evening_before(self):
-        paris = ZoneInfo("Europe/Paris")
-
-        day = bilan.relance_review_day("2030-11-07T00:15:00+01:00", datetime(2030, 11, 7, tzinfo=UTC), paris)
-
-        assert day == "2030-11-06"
-
-    def test_without_a_time_it_falls_back_to_now(self):
-        assert bilan.relance_review_day(None, datetime(2030, 11, 7, 12, tzinfo=UTC), ZoneInfo("UTC")) == "2030-11-07"
-
-
-class TestTheSingleNudge:
+class TestTheReviewMessage:
     @pytest.fixture()
     def run(self, monkeypatch):
         monkeypatch.setattr(proaction_consumer, "resolve_user_timezone", AsyncMock(return_value=ZoneInfo("UTC")))
-        record = AsyncMock()
-        monkeypatch.setattr(proaction_consumer, "_record", record)
+        monkeypatch.setattr(proaction_consumer, "_record", AsyncMock())
+        monkeypatch.setattr(proaction_consumer, "_journal", AsyncMock())
+        monkeypatch.setattr(proaction_consumer, "notify_message", AsyncMock())
+        create = AsyncMock(return_value=SimpleNamespace(id="m"))
+        monkeypatch.setattr(proaction_consumer.message_repo, "create", create)
         gateway = AsyncMock()
         gateway.proaction.return_value = {"response": "On fait le point ?", "tool_calls": [], "context_id": None}
-        return gateway, record
+        return gateway, create
 
-    async def test_no_nudge_once_the_user_has_answered(self, run, monkeypatch):
-        gateway, record = run
+    async def test_the_review_message_carries_a_bilan_block(self, run):
+        gateway, create = run
+
+        await proaction_consumer.execute_proaction(gateway, proaction())
+
         today = datetime.now(UTC).date().isoformat()
-        status = {"activity": "bilan", "origin": {"kind": "day", "id": today}, "state": {"step": "finance"}}
-        monkeypatch.setattr(bilan.mcp_client, "call_tool", AsyncMock(return_value=json.dumps(status)))
+        assert create.await_args.kwargs["ui_blocks"] == [
+            {"type": "bilan", "day": today, "route": "maggie://activity/bilan"}
+        ]
 
-        outcome = await proaction_consumer.execute_proaction(gateway, relance())
+    async def test_another_proaction_carries_no_bilan_block(self, run):
+        gateway, create = run
+
+        await proaction_consumer.execute_proaction(gateway, proaction("Rappel"))
+
+        assert create.await_args.kwargs["ui_blocks"] is None
+
+    async def test_a_nudge_laid_down_before_says_nothing(self, run):
+        gateway, create = run
+
+        outcome = await proaction_consumer.execute_proaction(gateway, proaction(bilan.RETIRED_RELANCE_SUMMARY))
 
         assert outcome == {"status": "completed", "message": None, "toolCalls": []}
         gateway.proaction.assert_not_awaited()
-        record.assert_awaited_once()
-
-    @pytest.mark.parametrize("answer", ["null", json.dumps({"origin": {"kind": "day", "id": "2000-01-01"}})])
-    async def test_the_nudge_goes_when_nothing_is_in_progress_for_today(self, run, monkeypatch, answer):
-        gateway, _ = run
-        monkeypatch.setattr(bilan.mcp_client, "call_tool", AsyncMock(return_value=answer))
-        monkeypatch.setattr(proaction_consumer, "_journal", AsyncMock())
-        monkeypatch.setattr(proaction_consumer.message_repo, "create", AsyncMock(return_value=SimpleNamespace(id="m")))
-        monkeypatch.setattr(proaction_consumer, "notify_message", AsyncMock())
-
-        outcome = await proaction_consumer.execute_proaction(gateway, relance())
-
-        assert outcome["message"] == "On fait le point ?"
-
-    async def test_the_first_proaction_never_reads_the_status(self, run, monkeypatch):
-        gateway, _ = run
-        read = AsyncMock()
-        monkeypatch.setattr(bilan.mcp_client, "call_tool", read)
-        monkeypatch.setattr(proaction_consumer, "_journal", AsyncMock())
-        monkeypatch.setattr(proaction_consumer.message_repo, "create", AsyncMock(return_value=SimpleNamespace(id="m")))
-        monkeypatch.setattr(proaction_consumer, "notify_message", AsyncMock())
-
-        await proaction_consumer.execute_proaction(gateway, relance(bilan.BILAN_SUMMARY))
-
-        read.assert_not_awaited()
-        gateway.proaction.assert_awaited_once()
-
-    async def test_an_unreadable_status_counts_as_not_answered(self, monkeypatch):
-        monkeypatch.setattr(bilan.mcp_client, "call_tool", AsyncMock(side_effect=RuntimeError("down")))
-
-        assert await bilan.bilan_answered(USER, "2030-11-14") is False
+        create.assert_not_awaited()
 
 
 class BilanApi(FakeProactionApi):
