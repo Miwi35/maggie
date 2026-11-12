@@ -612,6 +612,15 @@ async def answer_question(
     return block
 
 
+@router.post("/messages/{message_id}/digest/opened")
+async def digest_opened(message_id: str, user_id: str = Depends(get_current_user_id)):
+    """The owner opened the digest screen: `openedAt` is set on the first call, later ones change nothing (MAG-808)."""
+    status = await message_repo.mark_digest_opened(user_id, message_id)
+    if status == "unknown":
+        raise HTTPException(status_code=404, detail="Digest not found")
+    return {"status": status}
+
+
 @router.get("/approvals")
 async def get_approvals(
     status: Literal["pending", "decided"] = Query(default="pending"),

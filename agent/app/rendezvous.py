@@ -23,6 +23,7 @@ DIGEST_SUMMARY = "Digest du matin"
 DIGEST_PROMPT = "Fais le digest du matin (compétence digest)."
 DEFAULT_DIGEST_TIME = "07:00"
 DEFAULT_REVIEW_TIME = "21:30"
+DEFAULT_AFTERNOON_POINT_TIME = "14:00"
 
 
 @dataclass(frozen=True)

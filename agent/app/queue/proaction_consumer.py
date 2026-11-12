@@ -135,7 +135,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 await notify_message(
                     proaction.user_id,
                     stored.id,
-                    result["response"],
+                    stored.content,
                     has_audio=bool(getattr(stored, "audio", None)),
                     screen=SCREEN_DIGEST,
                 )

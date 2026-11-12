@@ -6,7 +6,7 @@ vocal from the final text: one `agent_message` on the digest screen, with its au
 """
 
 import logging
-from datetime import datetime
+from datetime import date, datetime, time, tzinfo
 
 from app.db.message_repository import message_repo
 from app.db.models import SCREEN_DIGEST, Message
@@ -14,11 +14,13 @@ from app.digest_facts import Fact, missing_facts, required_facts
 from app.error_tracking import DIGEST_FACTS_MISSING, capture_signal
 from app.llm.client import client_for
 from app.llm.runner import run_tool_loop
-from app.rendezvous import DIGEST_SUMMARY
+from app.rendezvous import DEFAULT_AFTERNOON_POINT_TIME, DIGEST_SUMMARY
 from app.tts.voice_message import VoiceMessageError, send_voice_message
 from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
+
+DIGEST_AVAILABLE = "Votre digest du matin est disponible."
 
 REWRITE_SYSTEM = (
     "RELECTURE DU DIGEST : tu relis le digest du matin que tu viens d'écrire. Il oublie des faits obligatoires. "
@@ -30,6 +32,12 @@ REWRITE_SYSTEM = (
 
 def is_digest(summary: str | None) -> bool:
     return summary == DIGEST_SUMMARY
+
+
+def digest_block(text: str, day: date, tz: tzinfo) -> dict:
+    """The block that lets a client draw the digest card: it expires at the afternoon point, local time."""
+    expires = datetime.combine(day, time.fromisoformat(DEFAULT_AFTERNOON_POINT_TIME), tzinfo=tz)
+    return {"type": "digest", "day": day.isoformat(), "text": text, "expiresAt": expires.isoformat(), "openedAt": None}
 
 
 def _rewrite_request(text: str, missing: list[Fact]) -> str:
@@ -60,7 +68,8 @@ async def run_digest(gateway, proaction) -> tuple[dict, Message | None]:
     if not text or result.get("error"):
         return result, None
 
-    day = datetime.now(await resolve_user_timezone(user_id)).date()
+    tz = await resolve_user_timezone(user_id)
+    day = datetime.now(tz).date()
     facts = required_facts(result.get("tool_calls") or [], day)
     missing = missing_facts(text, facts)
     if missing:
@@ -77,17 +86,20 @@ async def run_digest(gateway, proaction) -> tuple[dict, Message | None]:
     result["response"] = text
 
     context_id = result.get("context_id")
+    blocks = [digest_block(text, day, tz)]
     try:
-        stored = await send_voice_message(user_id, text, context_id, screen=SCREEN_DIGEST)
+        stored = await send_voice_message(
+            user_id, text, context_id, screen=SCREEN_DIGEST, content=DIGEST_AVAILABLE, ui_blocks=blocks
+        )
     except VoiceMessageError as e:
         logger.warning(f"Digest of {user_id} without its vocal: {e}")
         stored = await message_repo.create(
             user_id=user_id,
             role="assistant",
-            content=text,
+            content=DIGEST_AVAILABLE,
             context_id=context_id,
             blocks=result.get("blocks"),
-            ui_blocks=result.get("ui_blocks"),
+            ui_blocks=blocks,
             screen=SCREEN_DIGEST,
         )
     return result, stored
