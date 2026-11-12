@@ -1,33 +1,30 @@
-# The morning digest, written and said (MAG-709, the digest skill). Played by hand on the real model
-# (`task e2e:eval -- --only digest-du-matin`), never in CI.
+# The morning digest, one text read or heard (MAG-709, rewritten by MAG-807, the digest skill). Played by hand
+# on the real model (`task e2e:eval -- --only digest-du-matin`), never in CI.
 #
-# The proaction of the planning comes due: she loads the digest skill, reads the day, sends the vocal
-# with `screen: "digest"` and answers the written digest. The simulated Open-Meteo of the e2e stack
-# says 70 % of rain; with a departure by bike (the mocks below, for /prompt-lab), the rain is tied to
-# that departure.
+# The proaction of the planning comes due: she loads the digest skill, reads the day and answers one text —
+# the code makes the vocal, so she never calls `send_voice_message`. The order is weather, the day in
+# chronological order (appointments with their hour, tasks with an hour, meals, the session), the tasks
+# without an hour, then a decision if there is one. No finance, no trips, no question, nothing on what is empty.
 name: digest-du-matin
-description: The morning digest reads the day, ties a probable rain to a bike departure, sends a vocal on the digest screen and writes the detail, with vous.
+description: The morning digest answers one text in the order of the day, without trips, finance, question or empty part, with vous.
 channel: chat
 
 mock_tool_results:
-  get_weather: '{"days": [{"date": "2026-10-30", "temperatureMin": 9.5, "temperatureMax": 18.5, "precipitationProbability": 70, "precipitationSum": 3.4, "alerts": []}]}'
-  get_events_by_date: '{"events": [{"id": "01JKINE", "summary": "Kiné", "startAt": "2026-10-30T09:30:00+01:00", "location": "12 rue de Brest, Rennes"}]}'
-  list_trips: '{"date": "2026-10-30", "trips": [{"eventId": "01JKINE", "mode": "bicycle", "departAt": "2026-10-30T09:05:00+01:00", "durationMinutes": 20}]}'
-  get_tasks: '{"tasks": [{"title": "Renvoyer le dossier de la mutuelle", "overdueDays": 2, "urgency": "high"}], "counts": {"today": 1}}'
-  manage_meals: '{"meals": [{"date": "2026-10-30", "slot": "dinner", "recipes": [{"title": "Soupe de potiron"}]}]}'
+  get_weather: '{"days": [{"date": "2026-10-30", "temperature_min_c": 9.5, "temperature_max_c": 18.5, "rain_probability_percent": 70, "rain_mm": 3.4, "alerts": []}]}'
+  get_events_by_date: '{"events": [{"id": "01JKINE", "summary": "Kiné", "startAt": "2026-10-30T09:15:00+01:00", "allDay": false, "status": "confirmed", "agenda": "Défaut", "location": "12 rue de Brest, Rennes"}], "count": 1}'
+  get_tasks: '{"tasks": [{"title": "Appeler le garage", "scheduledDate": "2026-10-30", "scheduledMoment": "time", "scheduledTime": "18:00", "isDone": false}, {"title": "Renvoyer le dossier de la mutuelle", "scheduledDate": null, "overdueDays": 2, "urgency": "high", "isDone": false}], "counts": {"today": 1}}'
+  manage_meals: '{"meals": [{"date": "2026-10-30", "slot": "dinner", "recipes": [{"name": "Soupe de potiron"}]}]}'
   get_grocery_list: '{"stores": []}'
-  get_finance_scores: '{"week": {"score": "neutral", "label": "Dans les clous", "spentCents": 18200, "expectedSpentCents": 21000}}'
 
 steps:
   - user_message: >
-      [Proaction due maintenant] Fais le digest de la journée de l'utilisateur, par écrit et en vocal,
-      avec la compétence digest.
-    expected_tools: [get_skill, get_weather, get_events_by_date, send_voice_message]
-    expected_absent: ["voulez-vous que"]
+      [Proaction due maintenant] Fais le digest du matin (compétence digest).
+    expected_tools: [get_skill, get_weather, get_events_by_date, get_tasks, manage_meals]
+    forbidden_tools: [send_voice_message, list_trips, get_finance_scores, ask_owner]
+    expected_absent: ["?", "**", "Aucun", "Rien n'", "demain", "départ"]
     expected_behavior: >
-      Elle appelle send_voice_message avec screen « digest » et un texte fait pour l'oral (phrases, sans
-      liste ni markdown). Le message écrit suit l'ordre météo, agenda, tâches, repas, finance, sans rien
-      sur ce qui est vide (pas de rubrique courses quand la liste est vide). La météo tient en une phrase
-      (minimale, maximale, pluie) et, s'il y a un départ à vélo ou à pied un jour de pluie probable, elle
-      relie la pluie à ce départ (« prenez de quoi vous couvrir pour le kiné »). Elle vouvoie l'utilisateur,
-      cite l'heure de départ du trajet et la tâche en retard en premier, sans demander de confirmation.
+      Un seul texte, sans Markdown, fait pour être lu ou écouté. Il suit l'ordre : la météo en une phrase
+      (une information, pas un conseil), puis la journée dans l'ordre (Kiné à 9 h 15, la soupe de potiron le
+      soir, l'appel au garage à 18 h), puis la tâche sans heure (le dossier de la mutuelle). Il ne parle ni
+      de finance, ni de départ, ni de demain, ne pose aucune question. Une idée par phrase, « monsieur »
+      une seule fois, vouvoiement, une pointe d'humour permise.

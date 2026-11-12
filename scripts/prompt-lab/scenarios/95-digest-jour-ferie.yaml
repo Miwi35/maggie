@@ -1,0 +1,25 @@
+# The morning digest on a bank holiday with a grocery list waiting (MAG-807): the 11 November (11 Nov. 2026,
+# the owner drove 32 km to closed shops). She says it is a holiday, ties it to the list without reciting it,
+# and warns about the restaurant. Played by hand on the real model (`task e2e:eval -- --only digest-jour-ferie`),
+# never in CI.
+name: digest-jour-ferie
+description: On the 11 November the digest says it is a holiday, that the shops are closed with the grocery list waiting, and to check the restaurant is open.
+channel: chat
+
+mock_tool_results:
+  get_weather: '{"days": [{"date": "2026-11-11", "temperature_min_c": 6, "temperature_max_c": 12, "rain_probability_percent": 10, "alerts": []}]}'
+  get_events_by_date: '{"events": [{"id": "01JRESTO", "summary": "Déjeuner au restaurant Chez Marcel", "startAt": "2026-11-11T12:30:00+01:00", "allDay": false, "status": "confirmed", "agenda": "Défaut", "location": "Rennes"}], "count": 1}'
+  get_tasks: '{"tasks": [], "counts": {"today": 0}}'
+  manage_meals: '{"meals": []}'
+  get_grocery_list: '{"stores": [{"name": "Supermarché", "items": [{"name": "Lait"}, {"name": "Pain"}, {"name": "Pâtes"}]}]}'
+
+steps:
+  - user_message: >
+      [Proaction due maintenant] Fais le digest du matin (compétence digest). Nous sommes le mercredi 11 novembre 2026.
+    expected_tools: [get_weather, get_events_by_date, get_grocery_list]
+    forbidden_tools: [send_voice_message, list_trips, get_finance_scores, ask_owner]
+    expected_absent: ["?", "**", "Lait", "Pâtes", "Pain"]
+    expected_behavior: >
+      Elle dit que le 11 novembre est férié, avec sa conséquence. Elle fait le lien avec la liste de courses
+      qui attend : les magasins sont fermés aujourd'hui, sans réciter les articles. Elle cite le déjeuner de
+      12 h 30 au restaurant et conseille de vérifier que le lieu est ouvert. Aucune question.
