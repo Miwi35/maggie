@@ -155,6 +155,23 @@ class AdvanceSourceToolTest extends KernelTestCase
         self::assertNull($paired->getAdvanceSource());
     }
 
+    /** The debit leg of an advance is read as such already: a source on it would count it twice. */
+    public function testAdvanceSourceOnlyOnTheLegOnTheCheckingAccount(): void
+    {
+        $this->loginFixtureUser();
+        $debit = $this->add('livret', -30000, 'today -9 days', label: 'VIR VERS COURANT');
+        $debit->setTransferKind(TransferKind::Advance);
+        $credit = $this->singleLeggedAdvance(60000);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        $onDebit = $this->update((string) $debit->getId(), advanceSourceAccountId: $this->accountId('pea'));
+        $ownAccount = $this->update((string) $credit->getId(), advanceSourceAccountId: $this->accountId('checking'));
+
+        self::assertArrayHasKey('error', $onDebit);
+        self::assertArrayHasKey('error', $ownAccount);
+        self::assertSame(30000, self::getContainer()->get(GetSavingsAdvances::class)->execute($this->user())['totalOutstandingCents']);
+    }
+
     public function testANewMarkingDropsTheSource(): void
     {
         $this->loginFixtureUser();

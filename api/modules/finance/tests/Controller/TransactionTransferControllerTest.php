@@ -391,10 +391,10 @@ class TransactionTransferControllerTest extends WebTestCase
         return $this->call('PUT', sprintf('/api/finance/transactions/%s/advance-source', $this->id($ref)), $body);
     }
 
-    public function testTheSourceOfASingleLeggedAdvanceIsChosenAndRemoved(): void
+    public function testTheSourceOfASingleLeggedRepaymentIsChosenAndRemoved(): void
     {
         $this->login();
-        $this->mark('groceries', ['transferKind' => 'advance']);
+        $this->mark('groceries', ['transferKind' => 'repayment']);
         $this->resetMercure();
 
         $data = $this->source('groceries', ['accountId' => $this->accountId('savings')]);
@@ -416,7 +416,7 @@ class TransactionTransferControllerTest extends WebTestCase
     public function testASourceThatCannotBeOneReturns400AndWritesNothing(): void
     {
         $this->login();
-        $this->mark('groceries', ['transferKind' => 'advance']);
+        $this->mark('groceries', ['transferKind' => 'repayment']);
         $this->resetMercure();
 
         foreach ([

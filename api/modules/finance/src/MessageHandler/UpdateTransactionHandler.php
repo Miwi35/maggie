@@ -297,9 +297,15 @@ class UpdateTransactionHandler
         if (null !== $transaction->getCounterpart()) {
             throw new \DomainException('This line has its other leg: its source is the account of that leg.');
         }
+        // The line is the leg on the checking account: an advance lands there, a repayment leaves it.
+        // The debit leg of an advance on the source itself is read as such already.
+        if ((TransferKind::Advance === $transaction->getTransferKind()) !== ($transaction->getAmountCents() > 0)) {
+            throw new \DomainException('A source goes on the credit of an advance or the debit of a repayment, the leg on the checking account.');
+        }
 
         $source = $this->references->account($command->advanceSourceAccountId, $transaction->getUser());
-        if (!\in_array($source->getType(), [AccountType::Savings, AccountType::Investment], true)) {
+        if ($source->getId()->equals($transaction->getAccount()->getId())
+            || !\in_array($source->getType(), [AccountType::Savings, AccountType::Investment], true)) {
             throw new \DomainException('advanceSourceAccountId must name a savings or investment account.');
         }
 

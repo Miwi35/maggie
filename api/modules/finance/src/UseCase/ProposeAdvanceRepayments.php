@@ -55,6 +55,10 @@ class ProposeAdvanceRepayments
 
         foreach ($open as $advance) {
             $advanceTransaction = $this->transactionRepository->find($advance['id']);
+            // A livret typed by hand (MAG-806): the transfer back is tied to it by hand, never reconciled — nothing to propose.
+            if (null !== $advanceTransaction?->getAdvanceSource()) {
+                continue;
+            }
             $checking = null === $advanceTransaction ? null : $this->checkingFor($user, $advanceTransaction);
 
             if (null === $checking) {

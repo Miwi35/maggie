@@ -48,6 +48,21 @@ class ProposeAdvanceRepaymentsTest extends KernelTestCase
         );
     }
 
+    /** A livret typed by hand (MAG-806): the transfer back is tied by hand, never reconciled. */
+    public function testAnAdvanceFromALivretTypedByHandIsNotProposed(): void
+    {
+        $livret = $this->getFixture('livret');
+        \assert($livret instanceof Account);
+        $credit = $this->add('checking', 50000, '2026-10-01', label: 'VIR LIVRET A');
+        $credit->setTransferKind(TransferKind::Advance)->setAdvanceSource($livret);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        $data = $this->propose->execute($this->user());
+
+        self::assertSame([], $data['proposals']);
+        self::assertSame([], $data['unproposed']);
+    }
+
     public function testASettledAdvanceProposesNothing(): void
     {
         [$advance] = $this->transfer('livret', 'checking', 30000, '2026-10-01', TransferKind::Advance);
