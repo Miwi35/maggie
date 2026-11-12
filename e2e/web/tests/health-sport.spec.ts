@@ -5,8 +5,6 @@ import { ChatPanel } from '../pages/ChatPanel.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { HealthSportPage } from '../pages/HealthSportPage.js'
 import { HomePage } from '../pages/HomePage.js'
-import { ChatPanel } from '../pages/ChatPanel.js'
-import { getCollection } from '../helpers/api.js'
 import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
 
 /**
@@ -25,17 +23,15 @@ import { openSubscribed, publishOnHub } from '../helpers/mercure.js'
  * « Séance A » est à 18:30 dans l'agenda « Santé » ; When je la déplace à 19:00, Then Santé › Sport
  * la montre à 19:00.
  *
-<<<<<<< HEAD
  * MAG-772 extends it: Given une séance prévue hier à 18:00 et non faite, et la proposition de
  * rattrapage de Maggie (seed `71-workout-makeup.yaml`), When Maggie interrompt, Then trois
  * choix empilés « 30 min, plus doux », « 20 min, même intensité », « Demain » puis « Plus tard » ;
  * When je clique « Demain », Then l'interruption se ferme et Santé › Sport montre une séance
  * prévue demain.
-=======
+ *
  * MAG-778 extends it: Given le faux modèle et le scénario « Prépare ma semaine de sport », When je l'écris
  * dans le chat, Then Maggie répond avec les séances écrites, et Santé › Sport montre trois séances « Prévue »
  * la semaine suivante, dans l'agenda « Santé ».
->>>>>>> 5b109da25 (Add the coach sub-agent that prepares the sports week (MAG-778))
  */
 
 interface WorkoutRow {
@@ -184,7 +180,6 @@ test.describe('A planned session in the « Santé » agenda — MAG-777', () => 
   })
 })
 
-<<<<<<< HEAD
 test.describe('Maggie proposes to make up the missed session — MAG-772', () => {
   // Its own seeded account: answering settles the proposal and plans a session.
   test.describe.configure({ mode: 'serial', retries: 0 })
@@ -228,7 +223,9 @@ test.describe('Maggie proposes to make up the missed session — MAG-772', () =>
     const sport = new HealthSportPage(page)
     await sport.open()
     await expect(page.getByText('Prévue').first()).toBeVisible()
-=======
+  })
+})
+
 test.describe('The coach prepares the week — MAG-778', () => {
   test('« Prépare ma semaine de sport » writes three planned sessions next week, calibration first', async ({ page, api }) => {
     test.setTimeout(120_000)
@@ -274,6 +271,5 @@ test.describe('The coach prepares the week — MAG-778', () => {
       const id = row.id.split('/').pop() ?? row.id
       await expect(sport.row(id)).toContainText('Prévue')
     }
->>>>>>> 5b109da25 (Add the coach sub-agent that prepares the sports week (MAG-778))
   })
 })
