@@ -7,6 +7,8 @@
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
 //   EMAIL   the journey's user (`${output.journeyEmail}`)
 //   TODAY   the stack's day, YYYY-MM-DD (`${TODAY}`)
+//   MINI    optional, any value: also writes « Séance B » (one push-up set, planned 25 h later, the schedule guard asking 24 h between two sessions, so the card keeps
+//           « Séance A ») and sets `output.miniId` for the deep link that launches it (MAG-781)
 
 (function () {
 const base = E2E_BASE_URL
@@ -58,5 +60,25 @@ const created = http.post(base + '/api/workouts', {
 })
 if (!created.ok) {
   fail('POST /api/workouts answered ' + created.status + ': ' + created.body)
+}
+
+if (typeof MINI !== 'undefined' && MINI) {
+  const mini = {
+    type: 'strength',
+    title: 'Séance B',
+    startedAt: new Date(today + 25 * 3600 * 1000).toISOString(),
+    durationMinutes: 10,
+    source: 'planned',
+    variant: 'normal',
+    exercises: [exercise('push-up', 4, 1, 8, 6, 10, 60)],
+  }
+  const second = http.post(base + '/api/workouts', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify(mini),
+  })
+  if (!second.ok) {
+    fail('POST /api/workouts (mini) answered ' + second.status + ': ' + second.body)
+  }
+  output.miniId = JSON.parse(second.body).id
 }
 })()

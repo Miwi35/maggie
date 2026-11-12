@@ -57,7 +57,7 @@ fun distanceInput(meters: Int): String =
     BigDecimal(meters).movePointLeft(3).stripTrailingZeros().toPlainString().replace('.', ',')
 
 /** « 12,5 », « 10 »: kilograms in French decimals, a whole number without them. */
-private fun formatLoadKg(kg: Double): String =
+internal fun formatLoadKg(kg: Double): String =
     BigDecimal.valueOf(kg).stripTrailingZeros().toPlainString().replace('.', ',')
 
 private fun unitSuffix(unit: String): String = when (unit) {
