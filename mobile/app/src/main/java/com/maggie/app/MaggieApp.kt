@@ -511,7 +511,7 @@ class MaggieApp : Application() {
             viewModel { HealthHomeViewModel(get()) }
             viewModel { FinanceHomeViewModel(get()) }
             viewModel { AgendaHomeViewModel(get()) }
-            viewModel { params -> DigestViewModel(params.getOrNull<String>(), get(), get(), get(), get(), get(), get(), get()) }
+            viewModel { params -> DigestViewModel(params.getOrNull<String>(), get(), get(), get(), get(), get(), get()) }
             viewModel { SubtasksViewModel(get()) }
             viewModel { TasksViewModel(get(), get(), get(), get(), get()) }
             viewModel { FocusViewModel(get()) }

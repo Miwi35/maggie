@@ -7,7 +7,7 @@ import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.CuisineHomeMeal
 import com.maggie.app.data.model.CuisineHomeSlot
 import com.maggie.app.data.model.CuisineHomeState
-import com.maggie.app.data.model.FinanceHomeState
+import com.maggie.app.data.model.DigestBlock
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.HomeTask
 import com.maggie.app.data.model.HomeTasks
@@ -15,11 +15,11 @@ import com.maggie.app.data.model.Weather
 import com.maggie.app.data.repository.AgendaCardRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.CuisineCardRepository
-import com.maggie.app.data.repository.FinanceCardRepository
 import com.maggie.app.data.repository.TasksCardRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.WeatherRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -49,7 +49,6 @@ class DigestViewModelTest {
     private val trips = mockk<TripRepository>()
     private val tasks = mockk<TasksCardRepository>()
     private val cuisine = mockk<CuisineCardRepository>()
-    private val finance = mockk<FinanceCardRepository>()
 
     private val day = LocalDate.of(2026, 10, 27)
     private val clock = { Instant.parse("2026-10-27T06:30:00Z") }
@@ -71,7 +70,7 @@ class DigestViewModelTest {
         coEvery { cuisine.read(day) } returns Result.success(
             CuisineHomeState(listOf(CuisineHomeSlot("lunch", listOf(CuisineHomeMeal("ml", "Soupe", 2, listOf("Soupe")))), CuisineHomeSlot("dinner"))),
         )
-        coEvery { finance.read() } returns Result.success(FinanceHomeState(accountCount = 1))
+        coEvery { chat.markDigestOpened(any()) } returns Unit
     }
 
     @After
@@ -79,7 +78,7 @@ class DigestViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(id: String? = "m1") = DigestViewModel(id, chat, weather, agenda, trips, tasks, cuisine, finance, clock)
+    private fun viewModel(id: String? = "m1") = DigestViewModel(id, chat, weather, agenda, trips, tasks, cuisine, clock)
 
     @Test
     fun `everything loads in one read and every card has something to say`() = runTest(dispatcher) {
@@ -93,7 +92,7 @@ class DigestViewModelTest {
         assertEquals(day, ui.date)
         assertEquals(message, ui.message)
         assertNull(ui.voice)
-        assertTrue(ui.showsWeather && ui.showsAgenda && ui.showsTasks && ui.showsCuisine && ui.showsFinance)
+        assertTrue(ui.showsWeather && ui.showsAgenda && ui.showsTasks && ui.showsCuisine)
     }
 
     @Test
@@ -114,14 +113,13 @@ class DigestViewModelTest {
         coEvery { agenda.read(HomeDay.TODAY, day) } returns Result.success(AgendaHomeState("2026-10-27"))
         coEvery { tasks.read(HomeDay.TODAY, day, LocalTime.of(7, 30)) } returns Result.success(HomeTasks())
         coEvery { cuisine.read(day) } returns Result.success(CuisineHomeState(listOf(CuisineHomeSlot("lunch"), CuisineHomeSlot("dinner"))))
-        coEvery { finance.read() } returns Result.success(FinanceHomeState())
         val viewModel = viewModel()
 
         advanceUntilIdle()
 
         val ui = viewModel.uiState.value
         assertTrue(ui.showsWeather)
-        assertFalse(ui.showsAgenda || ui.showsTasks || ui.showsCuisine || ui.showsFinance)
+        assertFalse(ui.showsAgenda || ui.showsTasks || ui.showsCuisine)
     }
 
     @Test
@@ -136,7 +134,7 @@ class DigestViewModelTest {
         assertFalse(ui.isLoading)
         assertFalse(ui.showsTasks)
         assertTrue(ui.trips.isEmpty())
-        assertTrue(ui.showsAgenda && ui.showsCuisine && ui.showsFinance && ui.showsWeather)
+        assertTrue(ui.showsAgenda && ui.showsCuisine && ui.showsWeather)
     }
 
     @Test
@@ -177,6 +175,65 @@ class DigestViewModelTest {
 
         assertEquals(single, viewModel.uiState.value.message)
         assertEquals(single, viewModel.uiState.value.voice)
+    }
+
+    private val block = DigestBlock(day = "2026-10-27", text = "Voici votre journée, monsieur.", expiresAt = "2026-10-27T14:00:00+01:00")
+    private val announcement = ChatMessage(
+        id = "m1",
+        role = "assistant",
+        content = "Votre digest du matin est disponible.",
+        audio = AudioAttachment(durationMs = 72_000),
+        blocks = listOf(block),
+    )
+
+    @Test
+    fun `the text comes from the block, the vocal is the message, and the first opening plays and marks`() = runTest(dispatcher) {
+        coEvery { chat.loadMessageContext("m1") } returns listOf(other, announcement)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val ui = viewModel.uiState.value
+        assertEquals("Voici votre journée, monsieur.", ui.text)
+        assertEquals(announcement, ui.voice)
+        assertTrue(ui.autoPlay)
+        coVerify(exactly = 1) { chat.markDigestOpened("m1") }
+    }
+
+    @Test
+    fun `a later opening neither plays nor marks again`() = runTest(dispatcher) {
+        val opened = announcement.copy(blocks = listOf(block.copy(openedAt = "2026-10-27T06:31:00Z")))
+        coEvery { chat.loadMessageContext("m1") } returns listOf(other, opened)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.autoPlay)
+        assertEquals("Voici votre journée, monsieur.", viewModel.uiState.value.text)
+        coVerify(exactly = 0) { chat.markDigestOpened(any()) }
+    }
+
+    @Test
+    fun `a marking that fails keeps the screen`() = runTest(dispatcher) {
+        coEvery { chat.loadMessageContext("m1") } returns listOf(other, announcement)
+        coEvery { chat.markDigestOpened("m1") } throws RuntimeException("offline")
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals("Voici votre journée, monsieur.", viewModel.uiState.value.text)
+        assertTrue(viewModel.uiState.value.autoPlay)
+    }
+
+    @Test
+    fun `a digest from before the block reads its content and does not play by itself`() = runTest(dispatcher) {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals("[warmly] Bonjour, voici votre journée.", viewModel.uiState.value.text)
+        assertFalse(viewModel.uiState.value.autoPlay)
+        coVerify(exactly = 0) { chat.markDigestOpened(any()) }
     }
 
     @Test

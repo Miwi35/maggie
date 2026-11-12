@@ -22,6 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -33,10 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.CuisineHomeState
-import com.maggie.app.data.model.FinanceHomeRing
 import com.maggie.app.data.model.HomeTask
 import com.maggie.app.data.model.Trip
-import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.label
 import com.maggie.app.data.model.missingLabel
 import com.maggie.app.data.model.recipesLabel
@@ -49,7 +48,6 @@ import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.home.HomeCard
 import com.maggie.app.ui.screens.home.HomeModules
-import com.maggie.app.ui.screens.home.homeModuleColor
 import com.maggie.app.ui.screens.home.rowTimeLabel
 import com.maggie.app.ui.screens.tasks.lateLabel
 import com.maggie.app.util.DateRanges
@@ -126,8 +124,18 @@ private fun Greeting(ui: DigestUiState) {
         MaggieAvatar(size = 40.dp)
         Text("Bonjour monsieur", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag(UiTags.DIGEST_GREETING))
     }
-    ui.voice?.let { voice -> voice.audio?.let { VoiceBubble(messageId = voice.id, audio = it, playback = rememberVoicePlayback()) } }
-    val text = ui.message?.let { stripDeliveryTags(it.content) }.orEmpty()
+    val playback = rememberVoicePlayback()
+    ui.voice?.let { voice ->
+        voice.audio?.let { audio ->
+            VoiceBubble(messageId = voice.id, audio = audio, playback = playback)
+            if (ui.autoPlay) {
+                LaunchedEffect(voice.id) {
+                    if (playback != null && playback.state.value.messageId != voice.id) playback.toggle(voice.id, audio.durationMs)
+                }
+            }
+        }
+    }
+    val text = stripDeliveryTags(ui.text)
     if (text.isNotEmpty()) {
         Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.testTag(UiTags.DIGEST_MESSAGE_TEXT))
     }
@@ -138,7 +146,6 @@ private fun digestCards(ui: DigestUiState, onNavigate: (String) -> Unit): List<@
     if (ui.showsAgenda) add { AgendaDigestCard(ui, onOpen = { onNavigate(Screen.Calendar.route) }) }
     if (ui.showsTasks) add { TasksDigestCard(ui.tasks!!.tasks.filter { !it.isSubtask }, onOpen = { onNavigate(Screen.Tasks.route) }) }
     if (ui.showsCuisine) add { CuisineDigestCard(ui.cuisine!!, onOpen = { onNavigate(Screen.Cookbook.route) }) }
-    if (ui.showsFinance) add { FinanceDigestCard(ui.finance!!.week, onOpen = { onNavigate(Screen.FinanceDashboard.route) }) }
 }
 
 @Composable
@@ -215,41 +222,3 @@ private fun CuisineDigestCard(state: CuisineHomeState, onOpen: () -> Unit) {
         }
     }
 }
-
-@Composable
-private fun FinanceDigestCard(week: FinanceHomeRing, onOpen: () -> Unit) {
-    HomeCard(title = "Finance", module = HomeModules.FINANCE, onOpen = onOpen) {
-        val planned = week.plannedCents.coerceAtLeast(1).toFloat()
-        val spent = (week.spentCents / planned).coerceIn(0f, 1f)
-        val expected = (week.expectedSpentCents / planned).coerceIn(0f, 1f)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Semaine", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                text = "${formatCentsRounded(week.spentCents)} / ${formatCentsRounded(week.plannedCents)}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        WeekBar(spent = spent, expected = expected)
-    }
-}
-
-/** The week as a bar: what was spent, and a tick at where the day stands (what was expected by now). */
-@Composable
-private fun WeekBar(spent: Float, expected: Float) {
-    val tick = MaterialTheme.colorScheme.onSurface
-    val track = tick.copy(alpha = 0.15f)
-    val fill = homeModuleColor(HomeModules.FINANCE)
-    Box(modifier = Modifier.fillMaxWidth().height(12.dp).testTag(UiTags.DIGEST_FINANCE_WEEK)) {
-        Box(Modifier.fillMaxSize().clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(track))
-        Box(Modifier.fillMaxWidth(spent).fillMaxSize().clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(fill))
-        Row(Modifier.fillMaxSize()) {
-            if (expected > 0f) Spacer(Modifier.weight(expected))
-            Box(Modifier.width(2.dp).fillMaxSize().background(tick))
-            if (expected < 1f) Spacer(Modifier.weight(1f - expected))
-        }
-    }
-}
-
-

@@ -60,7 +60,6 @@ object UiTags {
     const val DIGEST_WEATHER_QUANTITY = "digest_weather_quantity"
     const val DIGEST_WEATHER_ALERT = "digest_weather_alert"
     const val DIGEST_TRIP = "digest_trip"
-    const val DIGEST_FINANCE_WEEK = "digest_finance_week"
 
     /** Accueil — a card (suffixed by its module: `tasks`, `agenda`…) and the header that opens its module. */
     const val HOME_CARD_PREFIX = "home_card_"
@@ -1505,6 +1504,10 @@ object UiTags {
     const val BILAN_SANTE_ERROR = "bilan_sante_error"
     const val BILAN_TOMORROW_CARD = "bilan_tomorrow_card"
     const val HOME_BILAN_RESUME = "home_bilan_resume"
+
+    /** The digest's tile at the head of the Accueil, and its card in the chat (MAG-808). */
+    const val HOME_DIGEST = "home_digest"
+    const val CHAT_DIGEST_CARD = "chat_digest_card"
 
     // The frame every activity shares (MAG-580): the activity itself, Maggie and ✕.
     const val ACTIVITY_SCAFFOLD = "activity_scaffold"
