@@ -19,7 +19,7 @@ tags:
 #
 # Then the gestures: a task added in « À venir » gets tomorrow, ticking it takes it out
 # of the view and into « Faites », and its detail (a sheet on a phone, the pane on a
-# tablet) is read and edited through the pencil, and its form deletes it, so the shared server is left as it was.
+# tablet) is read and edited through the pencil, and its bin deletes it after a confirmation, so the shared server is left as it was.
 
 - launchApp:
     clearState: true
@@ -124,12 +124,13 @@ tags:
 - assertNotVisible: "low|medium|high|critical"
 
 # Its fiche is read only (MAG-721): the pencil opens « Modifier la tâche », a new title and « Enregistrer »
-# show on the fiche, and « Supprimer » at the foot of the form deletes it, which leaves the seeded server as it was.
+# show on the fiche, and the bin deletes it.
 - tapOn: "Tâche MAG-408"
 - extendedWaitUntil:
     visible: ".*Priorité.*"
     timeout: 20000
-- assertNotVisible: "Supprimer"
+- assertVisible:
+    id: "task_detail_delete"
 - tapOn:
     id: "task_detail_edit"
 - extendedWaitUntil:
@@ -145,17 +146,21 @@ tags:
     visible:
       id: "task_detail_edit"
     timeout: 20000
+# The bin beside the pencil (MAG-796): « Annuler » keeps the task, « Supprimer » deletes it from the fiche, which
+# leaves the seeded server as it was.
 - tapOn:
-    id: "task_detail_edit"
-# « Supprimer » is the form's last row, and since the « Programmée » field (MAG-718) it starts under the
-# phone's gesture bar: `scrollUntilVisible` takes it as visible without scrolling and the tap lands on the
-# bar. Scroll the form to its end first (`scroll-list-end` says why), then tap.
+    id: "task_detail_delete"
 - extendedWaitUntil:
-    visible: "Modifier la tâche"
+    visible: "Supprimer la tâche « Tâche MAG-408 éditée » ?"
     timeout: 20000
-- runFlow: ../subflows/scroll-list-end.yaml
 - tapOn:
-    id: "task_form_delete"
+    id: "task_delete_cancel"
+- assertVisible:
+    id: "task_detail_delete"
+- tapOn:
+    id: "task_detail_delete"
+- tapOn:
+    id: "task_delete_confirm"
 - extendedWaitUntil:
     notVisible: "Tâche MAG-408 éditée"
     timeout: 20000

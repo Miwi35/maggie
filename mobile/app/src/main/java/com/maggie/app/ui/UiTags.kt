@@ -2001,6 +2001,9 @@ object UiTags {
     const val TASK_FORM_DELETE = "task_form_delete"
     const val TASK_DETAIL_EDIT = "task_detail_edit"
     const val TASK_DETAIL_DONE = "task_detail_done"
+    const val TASK_DETAIL_DELETE = "task_detail_delete"
+    const val TASK_DELETE_CONFIRM = "task_delete_confirm"
+    const val TASK_DELETE_CANCEL = "task_delete_cancel"
 
     /** The dates card of the task form (MAG-718): « Échéance », « Programmée », its « Moment » and its menu items, « Rappels ». */
     const val TASK_FORM_DUE = "task_form_due"

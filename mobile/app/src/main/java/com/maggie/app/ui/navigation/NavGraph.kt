@@ -245,6 +245,7 @@ import com.maggie.app.ui.screens.shared.cancelledOccurrence
 import com.maggie.app.ui.screens.shared.occurrenceStartKey
 import com.maggie.app.ui.screens.shared.SubtaskActions
 import com.maggie.app.ui.screens.shared.SubtasksViewModel
+import com.maggie.app.ui.screens.shared.TaskDeleteDialog
 import com.maggie.app.ui.screens.shared.TaskDetailContent
 import com.maggie.app.ui.screens.shared.TaskDetailSheet
 import com.maggie.app.ui.screens.shared.TaskFormScreen
@@ -978,6 +979,7 @@ fun NavGraph() {
     // restored over a forgotten selection would be a blank screen.
     var selectedEvent by rememberSavedSelection<ExpandedEvent>()
     var selectedTask by rememberSavedSelection<Task>()
+    var deletingTask by remember { mutableStateOf<Task?>(null) }
     // One of Maggie's runs: kept by id and read from the calendar's list, so it follows a move and closes on a delete.
     var selectedProactionId by rememberSaveable { mutableStateOf<String?>(null) }
     var recurrenceConfirm by remember { mutableStateOf<Pair<ExpandedEvent, Boolean>?>(null) }
@@ -1188,6 +1190,25 @@ fun NavGraph() {
     fun createTask(dueDay: String? = null) {
         newTaskDueDay = dueDay
         navController.navigate(Screen.TaskCreate.route)
+    }
+
+    fun deleteTask(task: Task) {
+        deletingTask = null
+        scope.launch {
+            taskRepository.deleteTask(task.id)
+                .onSuccess {
+                    selectedTask = null
+                    if (editingTask?.id == task.id) {
+                        editingTask = null
+                        navController.popBackStack()
+                    }
+                    refreshAll()
+                    calendarViewModel.refresh()
+                }
+                .onFailure {
+                    Toast.makeText(context, it.message ?: "Impossible de supprimer la tâche.", Toast.LENGTH_LONG).show()
+                }
+        }
     }
 
     fun toggleTaskDone(task: Task, done: Boolean) {
@@ -1659,6 +1680,7 @@ fun NavGraph() {
                                         task = task,
                                         subtasks = subtasksState,
                                         onEdit = { editTask(task) },
+                                        onDelete = { deletingTask = task },
                                         onToggleDone = { done -> toggleTaskDone(task, done) },
                                         onDescriptionChange = { updateTaskDescription(task, it) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -1702,6 +1724,7 @@ fun NavGraph() {
                                         task = open,
                                         subtasks = subtasksState,
                                         onEdit = { editTask(open) },
+                                        onDelete = { deletingTask = open },
                                         onToggleDone = { done -> toggleTaskDone(open, done) },
                                         onDescriptionChange = { updateTaskDescription(open, it) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -1822,14 +1845,7 @@ fun NavGraph() {
                                         refreshAll()
                                     }
                                 },
-                                onDelete = {
-                                    scope.launch {
-                                        taskRepository.deleteTask(task.id)
-                                        editingTask = null
-                                        navController.popBackStack()
-                                        refreshAll()
-                                    }
-                                },
+                                onDelete = { deletingTask = task },
                                 onBack = {
                                     editingTask = null
                                     navController.popBackStack()
@@ -2618,10 +2634,20 @@ fun NavGraph() {
                 subtasks = subtasksState,
                 onDismiss = { selectedTask = null },
                 onEdit = { editTask(task) },
+                onDelete = { deletingTask = task },
                 onToggleDone = { done -> toggleTaskDone(task, done) },
                 onDescriptionChange = { updateTaskDescription(task, it) },
             )
         }
+    }
+
+    deletingTask?.let { task ->
+        TaskDeleteDialog(
+            title = task.title,
+            subtaskCount = if (subtasksState.parentId == task.id) subtasksState.subtasks.size else 0,
+            onConfirm = { deleteTask(task) },
+            onDismiss = { deletingTask = null },
+        )
     }
 
     // Recurrence confirm dialog (stays as dialog — it's a quick choice)

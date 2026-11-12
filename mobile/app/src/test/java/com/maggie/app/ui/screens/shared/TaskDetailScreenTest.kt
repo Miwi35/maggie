@@ -45,12 +45,13 @@ class TaskDetailScreenTest {
     private val truck = Task(id = "s1", title = "Réserver le camion", parent = "/api/tasks/p1", position = "0")
     private val bank = Task(id = "s2", title = "Changer d'adresse à la banque", parent = "/api/tasks/p1", position = "1")
 
-    private fun show(task: Task, onEdit: () -> Unit = {}, onToggleDone: (Boolean) -> Unit = {}) {
+    private fun show(task: Task, onEdit: () -> Unit = {}, onDelete: () -> Unit = {}, onToggleDone: (Boolean) -> Unit = {}) {
         compose.setContent {
             TaskDetailContent(
                 task = task,
                 subtasks = SubtasksUiState(parentId = "p1", subtasks = listOf(truck, bank)),
                 onEdit = onEdit,
+                onDelete = onDelete,
                 onToggleDone = onToggleDone,
                 modifier = Modifier.verticalScroll(rememberScrollState()),
             )
@@ -74,16 +75,32 @@ class TaskDetailScreenTest {
 
     /** MAG-721: a fiche is read; every change goes through the pencil. */
     @Test
-    fun `the fiche has no field, no delete, no add-subtask, and a pencil`() {
+    fun `the fiche has no field, no add-subtask, and a pencil`() {
         var edited = 0
         show(parent, onEdit = { edited++ })
 
         compose.onNode(hasSetTextAction()).assertDoesNotExist()
-        compose.onNodeWithContentDescription("Supprimer").assertDoesNotExist()
         compose.onNodeWithContentDescription("Ajouter la sous-tâche").assertDoesNotExist()
         compose.onNodeWithText("Ajouter une sous-tâche").assertDoesNotExist()
         compose.onNodeWithTag(UiTags.TASK_DETAIL_EDIT).assertIsDisplayed().performClick()
         assertEquals(1, edited)
+    }
+
+    @Test
+    fun `deleteIconIsShownNextToEdit`() {
+        show(parent)
+
+        compose.onNodeWithTag(UiTags.TASK_DETAIL_EDIT).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TASK_DETAIL_DELETE).assertIsDisplayed()
+    }
+
+    @Test
+    fun `tappingDeleteCallsOnDelete`() {
+        var deleted = 0
+        show(parent, onDelete = { deleted++ })
+
+        compose.onNodeWithTag(UiTags.TASK_DETAIL_DELETE).performClick()
+        assertEquals(1, deleted)
     }
 
     @Test
