@@ -31,3 +31,9 @@ services:
         arguments:
             $geocodingUrl: '%env(GOOGLE_GEOCODING_URL)%'
             $googleMapsApiKey: '%env(GOOGLE_MAPS_API_KEY)%'
+
+    # The public holidays of metropolitan France (MAG-810), read once a year by
+    # maggie:calendar:import-holidays.
+    Maggie\Calendar\Holiday\FrenchHolidaysClient:
+        arguments:
+            $frenchHolidaysUrl: '%env(FRENCH_HOLIDAYS_URL)%'

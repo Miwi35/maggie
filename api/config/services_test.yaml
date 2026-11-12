@@ -32,3 +32,11 @@ services:
     App\Tests\Support\SqlRecorder:
         tags:
             - { name: doctrine.middleware }
+
+    # Public so the holidays import tests hand it a MockHttpClient (MAG-810):
+    # only the command reads it, and a private service read once is inlined.
+    Maggie\Calendar\Holiday\FrenchHolidaysClient:
+        public: true
+        arguments:
+            $httpClient: '@http_client'
+            $frenchHolidaysUrl: '%env(FRENCH_HOLIDAYS_URL)%'
