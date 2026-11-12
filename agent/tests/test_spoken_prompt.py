@@ -50,11 +50,13 @@ class TestTheSpokenInstruction:
         assert SPOKEN_MARKER in prompt
         assert "[warmly]" in prompt and "[softly]" in prompt and "[reassuring]" in prompt
 
-    async def test_it_carries_the_tone_the_owner_chose(self, agent_db):
+    async def test_it_holds_only_what_is_specific_to_speech(self, agent_db):
+        """MAG-791: the register lives in the written prompt's first section, not in the spoken block."""
         prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming", spoken=True))
 
-        for expected in ("Bonjour monsieur", "vouvoie", "je vous propose", "je me suis permis", "jamais familière"):
-            assert expected in prompt
+        for absent in ("vouvoie", "Bonjour monsieur", "jamais familière", "Ton :"):
+            assert absent not in prompt
+        assert "Texte parlé" in prompt
 
     async def test_a_written_reply_does_not_get_it(self, agent_db):
         blocks = await _prompt(_gateway(StreamingGateway), "app.llm.streaming")
