@@ -26,8 +26,9 @@ ASK_OWNER_TOOL = {
     "name": ASK_OWNER,
     "description": (
         "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next "
-        "message. Use it when his request does not say what he expects (« je dois penser à prendre… » : a task "
-        "with the list, planned, or just a note?), never to ask a free-text question and never for a clear "
+        "message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à "
+        "prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to "
+        "go ahead with something irreversible — never to ask a free-text question and never for a clear "
         "request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; "
         "'multiple' is true when several can be ticked together."
     ),

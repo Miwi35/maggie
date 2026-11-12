@@ -21,7 +21,8 @@ PROFILE_HEAD = (
     "Ton profil : ce que tu sais d'essentiel, toujours là (une fiche par ligne). Ouvre la fiche qui concerne "
     "la question avec memory_open avant d'affirmer quoi que ce soit, et cherche avec memory_search — en "
     "choisissant des termes associés — ce qui n'est pas dans cette liste. Une fiche marquée ❓ porte un doute "
-    "que tu poses au propriétaire quand le sujet s'y prête, puis tu la réécris avec sa réponse :"
+    "que tu poses au propriétaire quand la fiche sert à la réponse en cours, ou au bilan du soir ; jamais en "
+    "ouverture ni sur un autre sujet. Tu la réécris ensuite avec sa réponse :"
 )
 RECALLED_HEAD = (
     "Souvenirs revenus à propos de ce que dit le propriétaire (la carte seule : ouvre la fiche avec "

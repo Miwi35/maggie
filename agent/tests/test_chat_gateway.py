@@ -320,3 +320,12 @@ class TestTheWorkingHoursLine:
         system = await self._system(saturday, {"workStartTime": "09:00", "workEndTime": "18:00", "workDays": [6]})
 
         assert "Horaires de travail : en cours" in system[-1]["text"]
+
+
+def test_the_proaction_preamble_acts_in_her_own_register_without_naming_the_channel():
+    from app.llm.gateway import EXECUTION_PREAMBLE
+
+    assert "agis" in EXECUTION_PREAMBLE
+    assert "pose une tâche à confirmer plutôt que de deviner" in EXECUTION_PREAMBLE
+    assert "Même registre qu'en conversation" in EXECUTION_PREAMBLE
+    assert "ne nomme jamais le canal" in EXECUTION_PREAMBLE
