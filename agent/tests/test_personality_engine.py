@@ -193,13 +193,13 @@ class TestPersonalityEngine:
             mock_repo.get = AsyncMock(return_value=None)
             prompt = await engine.get_system_prompt("user-1")
 
-        by_name = next(line for line in prompt.splitlines() if "UN ÉVÉNEMENT PAR SON NOM" in line)
+        by_name = next(line for line in prompt.splitlines() if "Agenda, un événement par son nom" in line)
         assert "tous les agendas" in by_name and "Repas" in by_name
-        assert "ne passe PAS agendas" in by_name and "même si une règle" in by_name
+        assert "Ne passe pas agendas" in by_name and "même si une règle" in by_name
         assert "dans CE message" in by_name
         assert "manage_meals" in by_name and "n'est pas un événement" in by_name
-        limit = next(line for line in prompt.splitlines() if "SE LIMITER À CERTAINS AGENDAS" in line)
-        assert "jamais à une recherche par nom" in limit
+        limit = next(line for line in prompt.splitlines() if "Agenda, se limiter à certains agendas" in line)
+        assert "jamais une recherche par nom" in limit
 
     @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_file_a_tone_preference(self):
@@ -240,7 +240,7 @@ class TestPersonalityEngine:
 
         assert "LIMITES" in prompt
         assert "liste de tes outils et leurs paramètres" in prompt
-        assert "nomme l'outil ou le paramètre qui manque" in prompt
+        assert "jamais en termes d'outil" in prompt
         assert "ANOMALIES" in prompt
         assert "dates, montants, libellés" in prompt
         assert "ce que tu ne sais pas" in prompt
@@ -270,8 +270,8 @@ class TestPersonalityEngine:
             mock_repo.get = AsyncMock(return_value=None)
             prompt = await engine.get_system_prompt("user-1")
 
-        assert "RECETTE À STRUCTURER" in prompt
-        assert "AVANT tout create_recipe" in prompt
+        assert "Recette à structurer" in prompt
+        assert "avant tout create_recipe" in prompt
         assert "search_ingredients" in prompt and "search_ciqual_foods" in prompt
         assert "non rapproché" in prompt and "jamais deviné" in prompt
         assert "waitsFor" in prompt and "background true" in prompt
@@ -437,3 +437,29 @@ async def test_the_shipped_prompt_tells_a_timed_task_from_an_estimate():
     rule = next(line for line in prompt.splitlines() if "TÂCHES, CHRONOMÉTRÉE :" in line)
     assert "timed true" in rule and "estimatedMinutes" in rule
     assert "méditer 20 min" in rule and "appeler le garage, 10 min" in rule and "jamais timed" in rule
+
+
+class TestShippedPromptRules:
+    """MAG-792: the defensive rules, rewritten once, stay without alarm capitals and with one way to ask."""
+
+    @pytest.fixture
+    async def prompt(self):
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            return await PersonalityEngine().get_system_prompt("user-1")
+
+    async def test_no_alarm_capitals(self, prompt):
+        for word in ("JAMAIS", "TOUJOURS", "OBLIGATOIRE", "DOIS"):
+            assert word not in prompt
+
+    async def test_one_rule_decides_or_asks(self, prompt):
+        assert prompt.count("DÉCIDER OU DEMANDER") == 1
+        assert "EXÉCUTER OU DEMANDER" not in prompt
+        assert "Tu demandes seulement quand deux réponses plausibles" in prompt
+        assert "ask_owner" in prompt
+
+    async def test_module_rules_come_last_in_their_own_section(self, prompt):
+        section = prompt.index("SELON LE MODULE")
+        assert section > prompt.index("Style de communication")
+        for label in ("Trajectoire :", "Internet :", "Agenda :", "Identifiants et lecture :", "Recette à structurer :"):
+            assert prompt.index(label) > section

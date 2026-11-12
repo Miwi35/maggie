@@ -211,3 +211,10 @@ class TestTheAnswer:
 
         assert response.status_code == 409
         gateway.chat.assert_not_awaited()
+
+
+def test_ask_owner_is_for_any_hesitation_that_fits_options():
+    from app.llm.questions import ASK_OWNER_TOOL
+
+    assert "any hesitation" in ASK_OWNER_TOOL["description"]
+    assert "irreversible" in ASK_OWNER_TOOL["description"]

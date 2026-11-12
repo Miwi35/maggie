@@ -373,6 +373,7 @@ class TestDegradedMode:
         notice = await env.service.notice(USER_A)
 
         assert "peut-être en retard" in notice and "écriture(s) attendent" in notice
+        assert "Je n'ai pas tous mes papiers sous la main" in notice and "si ta réponse en dépend" in notice
         assert await env.service.notice(USER_B) == ""
 
     async def test_the_writes_made_during_the_outage_are_pushed_on_return_without_loss(self, env):

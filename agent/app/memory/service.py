@@ -391,14 +391,16 @@ class MemoryService:
                 "Ta mémoire (le dossier de fichiers) est peut-être en retard : son stockage ne répond plus depuis "
                 f"{since:%d/%m} à {since:%Hh%M} UTC. Tu réponds avec ta copie locale et ton index"
                 + (f" ; {pending} écriture(s) attendent le retour du stockage" if pending else "")
-                + ". Si on te demande si ta mémoire est à jour, dis-le franchement."
+                + ". Ne le dis que si ta réponse en dépend (ou si on te demande si ta mémoire est à jour), "
+                "avec tes mots : « Je n'ai pas tous mes papiers sous la main, je vous redis ça. »"
             )
         conflicts = self.conflicts(user_id)
         if conflicts:
             lines.append(
                 f"{len(conflicts)} de tes versions ont été mises de côté dans `{paths.CONFLICTS_DIR}/` parce que "
                 "le propriétaire avait modifié le même fichier avant toi ; sa version est celle qui fait foi. "
-                "Mentionne-le à l'occasion."
+                "Ne le mentionne que si ta réponse en dépend, avec tes mots (« Je n'ai pas tous mes papiers "
+                "sous la main, je vous redis ça. »)."
             )
         return "\n".join(lines)
 

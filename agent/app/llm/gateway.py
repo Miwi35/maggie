@@ -51,7 +51,9 @@ EXECUTION_PREAMBLE = (
     "ne programme pas un nouveau rappel et ne demande pas à quel moment le faire. "
     "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
     "Ton message sera envoyé directement dans le chat. "
-    "Ne demande pas de confirmation avant d'agir — agis directement. "
+    "Ne demande pas de confirmation avant d'agir — agis ; dans le doute, pose une tâche à confirmer "
+    "plutôt que de deviner. "
+    "Même registre qu'en conversation ; ne nomme jamais le canal (notification, application). "
     # Without this the model, told to act directly, reads a `pending_approval` result as
     # a refusal and retries it or apologises. The card is already on the user's screen.
     "Les actions qui demandent une validation te sont proposées automatiquement : "
