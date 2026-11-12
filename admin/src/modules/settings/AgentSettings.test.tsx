@@ -365,6 +365,9 @@ describe('AgentSettings — Mémoire tab (MAG-20)', () => {
               morningDigestTime: '07:00',
               eveningReviewEnabled: true,
               eveningReviewTime: '21:30',
+              workStartTime: '09:00',
+              workEndTime: '18:00',
+              workDays: [1, 2, 3, 4, 5],
             }),
           )
         }

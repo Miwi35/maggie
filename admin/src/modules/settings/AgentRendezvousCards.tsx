@@ -6,11 +6,22 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import type { UserPreference } from '../../hooks/useUserPreferences'
 
 type RendezvousPatch = Partial<
-  Pick<UserPreference, 'morningDigestEnabled' | 'morningDigestTime' | 'eveningReviewEnabled' | 'eveningReviewTime'>
+  Pick<
+    UserPreference,
+    | 'morningDigestEnabled'
+    | 'morningDigestTime'
+    | 'eveningReviewEnabled'
+    | 'eveningReviewTime'
+    | 'workStartTime'
+    | 'workEndTime'
+    | 'workDays'
+  >
 >
 
 const RendezvousCard = ({
@@ -72,7 +83,114 @@ const RendezvousCard = ({
   )
 }
 
-/** Réglages › Maggie (MAG-788): the morning digest and the evening review, each a switch and an hour, saved as they change. */
+// ISO day, letter on the pill, name read out.
+const WORK_DAYS: [number, string, string][] = [
+  [1, 'L', 'lundi'],
+  [2, 'M', 'mardi'],
+  [3, 'M', 'mercredi'],
+  [4, 'J', 'jeudi'],
+  [5, 'V', 'vendredi'],
+  [6, 'S', 'samedi'],
+  [7, 'D', 'dimanche'],
+]
+
+/** « Horaires de travail » (MAG-790): start, end and a pill per day. Maggie's tone follows them. */
+const WorkHoursCard = ({
+  start,
+  end,
+  days,
+  onSave,
+  onRefuse,
+}: {
+  start: string
+  end: string
+  days: number[]
+  onSave: (patch: RendezvousPatch) => Promise<boolean>
+  onRefuse: () => void
+}) => {
+  const [startDraft, setStartDraft] = useState(start)
+  useEffect(() => setStartDraft(start), [start])
+  const [endDraft, setEndDraft] = useState(end)
+  useEffect(() => setEndDraft(end), [end])
+  const [dayDraft, setDayDraft] = useState(days)
+  useEffect(() => setDayDraft(days), [days])
+
+  const handleStart = async (value: string) => {
+    setStartDraft(value)
+    if (!value || value === start) return
+    if (end <= value) {
+      setStartDraft(start)
+      return onRefuse()
+    }
+    if (!(await onSave({ workStartTime: value }))) setStartDraft(start)
+  }
+
+  const handleEnd = async (value: string) => {
+    setEndDraft(value)
+    if (!value || value === end) return
+    if (value <= start) {
+      setEndDraft(end)
+      return onRefuse()
+    }
+    if (!(await onSave({ workEndTime: value }))) setEndDraft(end)
+  }
+
+  const handleDays = async (value: number[]) => {
+    const next = [...value].sort((a, b) => a - b)
+    setDayDraft(next)
+    if (!(await onSave({ workDays: next }))) setDayDraft(days)
+  }
+
+  return (
+    <Card sx={{ mb: 2 }}>
+      <CardContent>
+        <Stack spacing={1.5}>
+          <Typography variant="subtitle1">Horaires de travail</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Maggie reste professionnelle pendant, plus familière en dehors.
+          </Typography>
+          <Stack direction="row" spacing={2}>
+            <TextField
+              type="time"
+              label="Début du travail"
+              value={startDraft}
+              onChange={(e) => handleStart(e.target.value)}
+              size="small"
+              sx={{ maxWidth: 160 }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              type="time"
+              label="Fin du travail"
+              value={endDraft}
+              onChange={(e) => handleEnd(e.target.value)}
+              size="small"
+              sx={{ maxWidth: 160 }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Stack>
+          <ToggleButtonGroup
+            value={dayDraft}
+            onChange={(_, value: number[]) => handleDays(value)}
+            aria-label="Jours de travail"
+            size="small"
+          >
+            {WORK_DAYS.map(([day, letter, name]) => (
+              <ToggleButton key={day} value={day} aria-label={name}>
+                {letter}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Stack>
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * Réglages › Maggie (MAG-788): the morning digest and the evening review, each a switch and an hour, saved as they
+ * change; then the working hours (MAG-790).
+ */
 export const AgentRendezvousCards = ({
   preferences,
   updatePreference,
@@ -113,6 +231,13 @@ export const AgentRendezvousCards = ({
         enabledKey="eveningReviewEnabled"
         timeKey="eveningReviewTime"
         onSave={save}
+      />
+      <WorkHoursCard
+        start={preferences.workStartTime}
+        end={preferences.workEndTime}
+        days={preferences.workDays}
+        onSave={save}
+        onRefuse={() => notify('La fin doit suivre le début', { type: 'error' })}
       />
     </>
   )
