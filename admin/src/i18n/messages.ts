@@ -23,6 +23,7 @@ const resources = {
   ingredients: { name: 'Ingrédient |||| Ingrédients' },
   agendas: { name: 'Agenda |||| Agendas' },
   events: { name: 'Événement |||| Événements' },
+  periods: { name: 'Période |||| Périodes' },
   tasks: { name: 'Tâche |||| Tâches' },
   workouts: { name: 'Séance |||| Séances' },
   'body-measurements': { name: 'Pesée |||| Pesées' },
