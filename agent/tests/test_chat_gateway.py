@@ -322,6 +322,45 @@ class TestTheWorkingHoursLine:
         assert "Horaires de travail : en cours" in system[-1]["text"]
 
 
+class TestTheDayContextLine:
+    """Today's and tomorrow's context goes next to the date, never into the cached prefix (MAG-811)."""
+
+    LINE = "Contexte du jour : aujourd'hui mercredi 11 novembre ; période : Garde. Demain jeudi 12 novembre : période : Garde."
+
+    async def _system(self, line: str) -> list[dict]:
+        systems: list = []
+
+        async def run(system, _messages, _tools, **_kwargs):
+            systems.append(system)
+            return {"response": "C'est noté.", "tool_calls": []}
+
+        async def history(_user_id, **_rest):
+            return [{"role": "user", "content": "Bonjour"}]
+
+        with (
+            _stubs(_Run(), history),
+            patch("app.llm.gateway.run_tool_loop", run),
+            patch("app.llm.gateway.resolve_day_context", AsyncMock(return_value=line)),
+        ):
+            await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
+        return systems[0]
+
+    async def test_the_day_context_line_is_in_the_volatile_block(self):
+        system = await self._system(self.LINE)
+
+        assert self.LINE in system[-1]["text"]
+
+    async def test_the_day_context_line_is_never_in_the_cached_prefix(self):
+        system = await self._system(self.LINE)
+
+        assert "Contexte du jour" not in system[0]["text"]
+
+    async def test_no_line_when_the_api_is_silent(self):
+        system = await self._system("")
+
+        assert "Contexte du jour" not in system[-1]["text"]
+
+
 def test_the_proaction_preamble_acts_in_her_own_register_without_naming_the_channel():
     from app.llm.gateway import EXECUTION_PREAMBLE
 
