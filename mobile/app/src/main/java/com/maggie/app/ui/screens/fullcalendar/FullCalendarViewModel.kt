@@ -20,6 +20,7 @@ import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Task
+import com.maggie.app.data.model.Period
 import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.model.endDateAfter
@@ -28,6 +29,7 @@ import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProactionRepository
 import com.maggie.app.data.repository.TaskRepository
+import com.maggie.app.data.repository.PeriodRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
 import com.maggie.app.util.DateRanges
@@ -75,6 +77,8 @@ data class FullCalendarUiState(
     val proactionsEnabled: Boolean = true,
     // The trips Maggie chose for the events of the day on screen (MAG-658): read for the day view only.
     val trips: List<Trip> = emptyList(),
+    // The periods of the day or week on screen, series unfolded (MAG-815): chips under the date, never rows of the grid.
+    val periods: List<Period> = emptyList(),
 )
 
 /** Before the module's agenda exists: the id the meals carry, and the colour they take. */
@@ -95,6 +99,7 @@ class FullCalendarViewModel(
     private val mealRepository: MealRepository,
     private val proactionRepository: ProactionRepository,
     private val tripRepository: TripRepository,
+    private val periodRepository: PeriodRepository,
     // A module's own view (MAG-354): only what that module files, nothing of the user's
     // agendas, events or tasks. `null` is the general calendar.
     private val module: String? = null,
@@ -114,6 +119,7 @@ class FullCalendarViewModel(
     private var forceNext = false
     private var periodJob: Job? = null
     private var tripsJob: Job? = null
+    private var periodsJob: Job? = null
 
     // Saved preferences only seed the initial state (MAG-120): once the user has picked a view or
     // toggled an agenda, or the seed was applied, they are not consulted again.
@@ -157,6 +163,7 @@ class FullCalendarViewModel(
         }
         subscribeToMercure()
         subscribeToTrips()
+        subscribeToPeriods()
     }
 
     // The request can fail or be slow: the defaults stay until (and unless) it lands.
@@ -310,6 +317,7 @@ class FullCalendarViewModel(
             val mealsFailure = loadMeals()
             val proactionsFailure = loadProactions()
             loadTrips()
+            loadPeriods()
 
             _uiState.value = _uiState.value.copy(
                 tasks = tasks,
@@ -443,10 +451,28 @@ class FullCalendarViewModel(
         _uiState.value = _uiState.value.copy(trips = trips)
     }
 
+    // Best effort and silent, like the trips: the chips are an extra under the date. Only the day and week views
+    // draw them; an answer for a range the user has left is dropped.
+    private suspend fun loadPeriods() {
+        val viewType = _uiState.value.viewType
+        if (module != null || viewType == CalendarViewType.MONTH) {
+            if (_uiState.value.periods.isNotEmpty()) _uiState.value = _uiState.value.copy(periods = emptyList())
+            return
+        }
+        val period = visiblePeriod()
+        val range = period.asRange()
+        val result = periodRepository.getPeriodsExpanded(range.start.toString(), range.end.toString())
+        if (visiblePeriod() != period || _uiState.value.viewType != viewType) return
+        val periods = result.getOrNull() ?: return
+        _uiState.value = _uiState.value.copy(periods = periods)
+    }
+
     private fun onRangeChanged() {
         expandForCurrentRange()
         tripsJob?.cancel()
         tripsJob = viewModelScope.launch { loadTrips() }
+        periodsJob?.cancel()
+        periodsJob = viewModelScope.launch { loadPeriods() }
         loadVisiblePeriod()
         viewModelScope.launch {
             val failure = loadMeals()
@@ -649,6 +675,23 @@ class FullCalendarViewModel(
                         .catch { /* SSE reconnects automatically */ }
                         .coalesced()
                         .collect { loadTrips() }
+                }
+        }
+    }
+
+    // A period is written by the owner or by Maggie: the chips on screen are read again.
+    private fun subscribeToPeriods() {
+        viewModelScope.launch {
+            authRepository.token
+                .map { it != null }
+                .distinctUntilChanged()
+                .collectLatest { authenticated ->
+                    if (!authenticated) return@collectLatest
+                    val userId = authRepository.getUserId() ?: return@collectLatest
+                    mercureService.subscribe(MercureTopics.userScoped(userId, MercureTopics.PERIODS))
+                        .catch { /* SSE reconnects automatically */ }
+                        .coalescedAndRechecked()
+                        .collect { loadPeriods() }
                 }
         }
     }

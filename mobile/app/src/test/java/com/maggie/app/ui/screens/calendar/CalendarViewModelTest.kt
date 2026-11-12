@@ -17,6 +17,7 @@ import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.TripStep
 import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.PeriodRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
@@ -61,6 +62,7 @@ class CalendarViewModelTest {
     private lateinit var mealRepository: MealRepository
     private lateinit var proactionRepository: ProactionRepository
     private lateinit var tripRepository: TripRepository
+    private lateinit var periodRepository: PeriodRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private lateinit var userPreferenceRepository: UserPreferenceRepository
@@ -83,6 +85,8 @@ class CalendarViewModelTest {
         coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(emptyList())
         tripRepository = mockk()
         coEvery { tripRepository.getTrips(any()) } returns Result.success(emptyList())
+        periodRepository = mockk()
+        coEvery { periodRepository.getPeriodsExpanded(any(), any()) } returns Result.success(emptyList())
         every { eventRepository.observeEvents() } returns cachedEvents
         every { agendaRepository.observeAgendas() } returns cachedAgendas
         every { agendaRepository.moduleAgendas } returns cachedModuleAgendas
@@ -107,6 +111,7 @@ class CalendarViewModelTest {
         mealRepository,
         proactionRepository,
         tripRepository,
+        periodRepository,
         module,
         clock,
     )

@@ -94,6 +94,7 @@ import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.PeriodRepository
 import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.WorkoutRepository
 import com.maggie.app.data.repository.BodyMeasurementRepository
@@ -465,6 +466,7 @@ class MaggieApp : Application() {
             single { ProjectRepository(get()) }
             single { ScenarioRepository(get()) }
             single { PlacementRepository(get()) }
+            single { PeriodRepository(get()) }
             single { WorkoutRepository(get()) }
             single { BodyMeasurementRepository(get()) }
             single { HealthProfileRepository(get()) }
@@ -521,7 +523,7 @@ class MaggieApp : Application() {
             viewModel { FocusViewModel(get()) }
             viewModel { BravoViewModel(get(), get()) }
             viewModel { RoutinesViewModel(get(), get(), get(), get(), get()) }
-            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
+            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel {
                 val car = get<SharedCarConnection>()
                 ChatViewModel(get(), get(), get(), get(), get(), get(), inCar = car::isConnected, tasks = get())

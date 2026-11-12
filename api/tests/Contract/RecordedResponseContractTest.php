@@ -91,6 +91,7 @@ final class RecordedResponseContractTest extends WebTestCase
      */
     private const RECORDINGS = [
         'events.collection' => '/api/events',
+        'periods.collection' => '/api/periods',
         'tasks.collection' => '/api/tasks',
         'tasks.view_today' => '/api/tasks/view/today',
         'tasks.view_done' => '/api/tasks/view/done',

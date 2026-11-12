@@ -257,6 +257,19 @@ class DtoContractTest {
         assertCollectionContract("proactions", serializer<Proaction>(), "Proaction")
 
     @Test
+    fun `periods deserialise from the recorded response`() =
+        assertCollectionContract("periods", serializer<Period>(), "Period")
+
+    @Test
+    fun `a period reads its days with the end excluded and shows it included`() {
+        val period = json.decodeFromJsonElement(serializer<ApiCollection<Period>>(), readRecording("periods.collection")).member.single()
+
+        assertEquals("2026-03-14", period.startDate)
+        assertEquals(java.time.LocalDate.of(2026, 3, 20), period.lastDay)
+        assertEquals("FREQ=WEEKLY;INTERVAL=2", period.rrule)
+    }
+
+    @Test
     fun `trips deserialise from the recorded response`() =
         assertCollectionContract("trips", serializer<Trip>(), "Trip")
 
