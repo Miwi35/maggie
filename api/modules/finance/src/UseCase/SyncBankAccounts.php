@@ -79,6 +79,7 @@ class SyncBankAccounts
                 continue;
             }
 
+            $allRead = true;
             foreach ($this->accountsOf($connection) as $account) {
                 try {
                     $outcome = $this->syncAccount($connection, $account, $dryRun, $psuHeaders);
@@ -93,6 +94,7 @@ class SyncBankAccounts
                     ];
                     break 2;
                 } catch (\RuntimeException $e) {
+                    $allRead = false;
                     $results[] = [
                         'bankName' => $connection->getBankName(),
                         'accountName' => $account->getName(),
@@ -115,7 +117,9 @@ class SyncBankAccounts
                 ];
             }
 
-            if (!$dryRun) {
+            // Only when every account was read: the days of a failed one must
+            // be asked for again next time.
+            if (!$dryRun && $allRead) {
                 $connection->setLastSyncedAt(new \DateTimeImmutable());
             }
         }
@@ -300,7 +304,9 @@ class SyncBankAccounts
             return (new \DateTimeImmutable())->modify(sprintf('-%d days', self::FIRST_SYNC_DAYS));
         }
 
-        return $lastSynced->modify(sprintf('-%d days', self::OVERLAP_DAYS));
+        $floor = (new \DateTimeImmutable())->modify(sprintf('-%d days', self::FIRST_SYNC_DAYS));
+
+        return max($lastSynced->modify(sprintf('-%d days', self::OVERLAP_DAYS)), $floor);
     }
 
     /**

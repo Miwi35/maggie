@@ -5,6 +5,7 @@ namespace Maggie\Finance\Tests\Bank;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Maggie\Core\Entity\User;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\BankConnection;
@@ -19,6 +20,7 @@ use Maggie\Finance\UseCase\SyncBankAccounts;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\Uid\Ulid;
 
 /**
  * A sync spends the bank's daily allowance, so what matters as much as the
@@ -671,6 +673,128 @@ class SyncBankAccountsTest extends KernelTestCase
 
         self::assertNotNull($refreshed->getLastSyncedAt());
         self::assertSame(BankConnectionStatus::Active, $refreshed->getStatus());
+    }
+
+    private function connectTwoAccounts(\DateTimeImmutable $lastSynced): BankConnection
+    {
+        $this->loadFixtures('two_accounts.yaml');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+
+        $connection = new BankConnection();
+        $connection->setUser($this->getFixture('test_user'));
+        $connection->setBankName('N26');
+        $connection->activate('session-1', new \DateTimeImmutable('+60 days'));
+        $connection->setLastSyncedAt($lastSynced);
+        $em->persist($connection);
+        foreach (['checking' => 'remote-checking', 'savings' => 'remote-savings'] as $fixture => $uid) {
+            $this->getFixture($fixture)->setExternalAccountId($uid)->setBankConnection($connection);
+        }
+        $em->flush();
+
+        return $connection;
+    }
+
+    /** Accounts linked long ago: ULIDs carry their creation time, which the window reads. */
+    private function ageAccounts(): User
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $userId = $this->getFixture('test_user')->getId();
+        $db = $em->getConnection();
+        foreach ($db->fetchFirstColumn('SELECT id FROM account') as $id) {
+            $db->executeStatement('UPDATE account SET id = :new WHERE id = :id', [
+                'new' => Ulid::fromString(Ulid::generate(new \DateTimeImmutable('-400 days')))->toRfc4122(),
+                'id' => $id,
+            ]);
+        }
+        $em->clear();
+
+        return $em->find(User::class, $userId);
+    }
+
+    private function lastSyncedAt(BankConnection $connection): ?\DateTimeImmutable
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->find(BankConnection::class, $connection->getId())->getLastSyncedAt();
+    }
+
+    public function testAFailedAccountKeepsLastSyncedAt(): void
+    {
+        $previous = new \DateTimeImmutable('-10 days');
+        $connection = $this->connectTwoAccounts($previous);
+        $user = $this->ageAccounts();
+
+        $http = $this->provider(fn (string $method, string $url) => str_contains($url, 'remote-savings')
+            ? new MockResponse('{}', ['http_code' => 500])
+            : new MockResponse($this->page([$this->movement('2026-09-13', '5.00', 'DBIT', 'CAFE')])));
+
+        $result = $this->sync($http)->execute($user);
+
+        self::assertSame(1, $result['imported']);
+        self::assertSame($previous->getTimestamp(), $this->lastSyncedAt($connection)?->getTimestamp());
+    }
+
+    public function testTheNextSyncRereadsFromTheOldPoint(): void
+    {
+        $previous = new \DateTimeImmutable('-10 days');
+        $connection = $this->connectTwoAccounts($previous);
+        $user = $this->ageAccounts();
+
+        $failing = true;
+        $urls = [];
+        $http = $this->provider(function (string $method, string $url) use (&$failing, &$urls) {
+            $urls[] = $url;
+
+            return $failing && str_contains($url, 'remote-savings')
+                ? new MockResponse('{}', ['http_code' => 500])
+                : new MockResponse($this->page([]));
+        });
+
+        $this->sync($http)->execute($user);
+
+        $failing = false;
+        $urls = [];
+        $this->sync($http)->execute($user);
+
+        $from = 'date_from='.$previous->modify('-3 days')->format('Y-m-d');
+        $transactionUrls = array_values(array_filter($urls, static fn (string $url) => !str_contains($url, '/balances')));
+        self::assertCount(2, $transactionUrls);
+        foreach ($transactionUrls as $url) {
+            self::assertStringContainsString($from, $url);
+        }
+        self::assertGreaterThan($previous->getTimestamp(), $this->lastSyncedAt($connection)?->getTimestamp());
+    }
+
+    public function testRateLimitedKeepsLastSyncedAt(): void
+    {
+        $previous = new \DateTimeImmutable('-10 days');
+        $connection = $this->connectTwoAccounts($previous);
+        $user = $this->ageAccounts();
+
+        $http = new MockHttpClient(fn () => new MockResponse(json_encode(['error' => 'ASPSP_RATE_LIMIT_EXCEEDED']), ['http_code' => 429]));
+
+        $result = $this->sync($http)->execute($user);
+
+        self::assertSame('rate_limited', $result['accounts'][0]['status']);
+        self::assertSame($previous->getTimestamp(), $this->lastSyncedAt($connection)?->getTimestamp());
+    }
+
+    public function testTheWindowNeverReachesBeyondNinetyDays(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $urls = [];
+        $http = $this->provider(function (string $method, string $url) use (&$urls) {
+            $urls[] = $url;
+
+            return new MockResponse($this->page([]));
+        });
+
+        $this->connectAccount(new \DateTimeImmutable('-200 days'));
+        $user = $this->ageAccounts();
+        $this->sync($http)->execute($user);
+
+        self::assertStringContainsString('date_from='.(new \DateTimeImmutable('-90 days'))->format('Y-m-d'), $urls[0]);
     }
 
     public function testAMovementTheBankGivesNoCurrencyIsStoredInTheAccountsOwn(): void
