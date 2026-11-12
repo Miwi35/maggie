@@ -8,6 +8,8 @@ import aio_pika
 from app.bilan import bilan_answered, is_bilan_relance, relance_review_day
 from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
+from app.db.models import SCREEN_DIGEST
+from app.digest import is_digest, run_digest
 from app.error_tracking import PROACTION_FAILED, capture_signal
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
@@ -126,9 +128,23 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             await _record(proaction, "completed")
             logger.info(f"Proaction {proaction_id} skipped: the bilan was already answered")
             return {"status": "completed", "message": None, "toolCalls": []}
-        result = await gateway.proaction(proaction.prompt, proaction.user_id, summary=proaction.summary)
+        if is_digest(proaction.summary):
+            # One message, read back by the code and voiced by it (MAG-807).
+            result, stored = await run_digest(gateway, proaction)
+            if stored is not None:
+                await notify_message(
+                    proaction.user_id,
+                    stored.id,
+                    result["response"],
+                    has_audio=bool(getattr(stored, "audio", None)),
+                    screen=SCREEN_DIGEST,
+                )
+            result_is_digest = True
+        else:
+            result_is_digest = False
+            result = await gateway.proaction(proaction.prompt, proaction.user_id, summary=proaction.summary)
         # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
-        if result["response"] and not is_silent_trip_run(proaction.summary):
+        if result["response"] and not result_is_digest and not is_silent_trip_run(proaction.summary):
             # Stored in the thread the gateway routed it to. Without a thread the
             # message is an orphan: the reply it invites is routed against a
             # conversation that never mentions it, and the summary of the thread

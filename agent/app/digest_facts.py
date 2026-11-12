@@ -21,8 +21,40 @@ IGNORED_AGENDAS = frozenset({"maggie", "repas"})
 MEAL_SLOTS = {"lunch": "Au déjeuner", "dinner": "Au dîner"}
 
 STOPWORDS = frozenset(
-    "les des une aux que qui pour par sur avec dans chez vos mes ses est pas son sa mon ton nos leur "
-    "the and aussi tout tous plus mais donc car".split()
+    {
+        "les",
+        "des",
+        "une",
+        "aux",
+        "que",
+        "qui",
+        "pour",
+        "par",
+        "sur",
+        "avec",
+        "dans",
+        "chez",
+        "vos",
+        "mes",
+        "ses",
+        "est",
+        "pas",
+        "son",
+        "sa",
+        "mon",
+        "ton",
+        "nos",
+        "leur",
+        "the",
+        "and",
+        "aussi",
+        "tout",
+        "tous",
+        "plus",
+        "mais",
+        "donc",
+        "car",
+    }
 )
 HALF = 0.5
 
@@ -39,7 +71,7 @@ class Fact:
 
 
 def format_hour(hour: str) -> str:
-    """"09:15" -> "9 h 15", "18:00" -> "18 h"."""
+    """ "09:15" -> "9 h 15", "18:00" -> "18 h"."""
     hours, _, minutes = hour.partition(":")
     spoken = f"{int(hours)} h"
     return spoken if int(minutes[:2] or 0) == 0 else f"{spoken} {int(minutes[:2]):02d}"
@@ -79,7 +111,8 @@ def _task_facts(payload: dict, day: str) -> list[Fact]:
         if task.get("scheduledDate") != day or task.get("isDone") or not task.get("title"):
             continue
         label = str(task["title"])
-        hour = str(task["scheduledTime"])[:5] if task.get("scheduledMoment") == "time" and task.get("scheduledTime") else None
+        timed = task.get("scheduledMoment") == "time" and task.get("scheduledTime")
+        hour = str(task["scheduledTime"])[:5] if timed else None
         fallback = f"Vous avez aussi {label} à {format_hour(hour)}." if hour else f"Il reste aussi : {label}."
         facts.append(Fact("task", label, hour, fallback))
     return facts
