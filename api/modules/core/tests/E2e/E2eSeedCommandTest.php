@@ -10,6 +10,7 @@ use Fidry\AliceDataFixtures\LoaderInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\DayPlan;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Period;
 use Maggie\Calendar\Entity\Place;
 use Maggie\Calendar\Entity\Reward;
 use Maggie\Calendar\Entity\Task;
@@ -235,6 +236,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         self::assertSame(6, $this->rowsOf(Notification::class));
         // MAG-652: the owner's « Maison » and « Dentiste », read by the trips, and the neighbour's « Maison ».
         self::assertSame(7, $this->rowsOf(Place::class));
+        // MAG-809: the owner's custody under way and holidays to come.
+        self::assertSame(2, $this->rowsOf(Period::class));
 
         // MAG-705: the three sessions of the Santé › Sport journey, on the owner's account.
         // Four since MAG-775: « Séance A », planned, with its six exercises.

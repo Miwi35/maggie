@@ -3059,6 +3059,105 @@
         },
         "description": "Write one element of the plan of a period, once the owner has decided it (read the plan first with plan_annual_budget, which takes the same period). period is a year (2027), a quarter (2027-Q2) or a semester (2027-S1). One call writes one element; repeat the call for the next one. Actions: set_annual_envelope (categoryId, amountCents; the period must be a year) sets the annual envelope of a category; set_monthly_envelope (categoryId, amountCents) sets the same monthly envelope on every month of the period, and seasonFromMonth + seasonToMonth + seasonAmountCents together (1-12) give those months of the year another amount — one season per call, which replaces the seasons of those envelopes; set_one_off_envelope (name, amountCents) sets the envelope of an event with no category, found by its name; set_event (categoryId, label, amountCents, month as YYYY-MM inside the period, optional accountId) plans an expense, booked on the 15th of that month on the first checking account unless accountId says otherwise. amountCents is positive, in cents; currency defaults to EUR. Replaying a call updates what it wrote and never duplicates; an expense the owner already committed is left alone. The envelopes and planned expenses written are the plan: nothing else is stored, and the calendar is never touched."
     },
+    "manage_periods": {
+        "name": "manage_periods",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "period_id": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "agenda_id": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "start_date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "start_time": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "end_date": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "end_time": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "all_day": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "rrule": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "holiday": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "from": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "to": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "List, create, update or delete the user's periods: stretches of their life that say what kind of days these are — the custody of their son, holidays, a trip, a public holiday. A period holds no slot in the agenda and is never synced with Google; it is not an event. Its meaning is in its name, there is no type: name it « Garde … », « Vacances … », « Déplacement à … ». A period has a name, an agenda (agenda_id: its id or its name as the user said it; it gives the colour) and a schedule given whole, as for create_event: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date where end_date is EXCLUDED — the day after the last day: « vacances du 20 au 27 » is start_date the 20th and end_date the 28th. rrule (RFC 5545 without the RRULE: prefix) repeats it: « une semaine sur deux, du vendredi 18:00 au vendredi suivant 18:00 » is one week-long timed period with rrule FREQ=WEEKLY;INTERVAL=2. holiday (france, geneve, both) is set by the import of the public holidays only: never pass it yourself. list with from and to (YYYY-MM-DD, to included) answers each period meeting those days, the repeating ones unfolded into their occurrences (each with the id of its series); list without them answers every period once, as stored. create needs name, agenda_id and the whole schedule; update needs period_id and changes only what is given (the schedule whole again; rrule \"\" stops the repetition); delete needs period_id and removes the whole series. Nothing is ever deduced: a refused request answers error plus current (what was given, or the period as it is now) — ask the user for what is missing. The result gives what was saved, in the period's own zone, with the day of the week of each date (startWeekday, endWeekday or lastDayWeekday) and, for days, lastDay: announce that, « du 20 au 27 », never the excluded end."
+    },
     "manage_placements": {
         "name": "manage_placements",
         "inputSchema": {

@@ -1,0 +1,47 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: periods@example.com
+    googleId: google-periods
+    name: Periods User
+  other_user:
+    email: periods-other@example.com
+    googleId: google-periods-other
+    name: Periods Other
+
+Maggie\Calendar\Entity\Agenda:
+  perso:
+    name: Perso
+    color: '#4285F4'
+    isDefault: true
+    user: '@test_user'
+  famille:
+    name: Famille
+    color: '#0B8043'
+    user: '@test_user'
+  other_agenda:
+    name: Autre
+    isDefault: true
+    user: '@other_user'
+
+# Friday 2037-03-06 18:00 Paris to the next Friday, every other week; the clocks change on Sunday 2037-03-29.
+Maggie\Calendar\Entity\Period:
+  garde:
+    name: Garde de Léo
+    agenda: '@famille'
+    startAt: '<(new \DateTimeImmutable("2037-03-06T18:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-13T18:00:00+01:00"))>'
+    rrule: 'FREQ=WEEKLY;INTERVAL=2'
+
+  # From Saturday the 11th to Sunday the 19th of April, the 20th excluded.
+  vacances:
+    name: Vacances de printemps
+    agenda: '@perso'
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2037-04-11"))>'
+    endDate: '<(new \DateTimeImmutable("2037-04-20"))>'
+
+  secret:
+    name: Période secrète
+    agenda: '@other_agenda'
+    startAt: '<(new \DateTimeImmutable("2037-03-10T09:00:00+01:00"))>'
+    endAt: '<(new \DateTimeImmutable("2037-03-12T09:00:00+01:00"))>'

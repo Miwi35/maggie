@@ -177,7 +177,7 @@ When adding a new entity to the API:
 
 | Module | CRUD tools | Domain tools |
 |---|---|---|
-| calendar | `manage_agendas`, `create_event`/`update_event`/`delete_event`, `create_task`/`update_task`/`delete_task` | `get_events_by_date`, `get_upcoming_events`, `get_tasks`, `check_conflicts` |
+| calendar | `manage_agendas`, `manage_periods`, `create_event`/`update_event`/`delete_event`, `create_task`/`update_task`/`delete_task` | `get_events_by_date`, `get_upcoming_events`, `get_tasks`, `check_conflicts` |
 | cookbook | `manage_meals`, `manage_ingredients`, `create_recipe`/`update_recipe`/`delete_recipe` | `get_recipe`, `search_recipes`, `search_ingredients`, `search_ciqual_foods`, `generate_grocery_list` |
 | grocery | `manage_stores`, `manage_products`, `manage_recurring_groceries` | `get_grocery_list`, `add_grocery_item`, `check_grocery_item`, `remove_grocery_item`, `reorder_grocery_items`, `search_products`, `assign_product_store`, `move_to_fallback`, `end_errand` |
 | finance | `manage_accounts`, `manage_categories`, `manage_transactions` | — |

@@ -138,6 +138,7 @@ class AgendaToolsTest extends KernelTestCase
 
         $agenda = $this->getFixture('concerts_agenda');
         $eventId = (string) $this->getFixture('concert_event')->getId();
+        $periodId = (string) $this->getFixture('concert_tour')->getId();
 
         $data = json_decode(($this->tool())('delete', agendaId: (string) $agenda->getId()), true, 512, JSON_THROW_ON_ERROR);
         self::assertTrue($data['success']);
@@ -150,6 +151,7 @@ class AgendaToolsTest extends KernelTestCase
             }
         }
         self::assertContains(['events', $eventId], $deleted);
+        self::assertContains(['periods', $periodId], $deleted);
         self::assertContains(['agendas', (string) $agenda->getId()], $deleted);
     }
 }
