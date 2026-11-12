@@ -2263,6 +2263,14 @@ class MaggieApiService(
         client.delete("$baseUrl/api/stores/$id")
     }
 
+    suspend fun updateStore(id: String, name: String): Store {
+        return client.patch("$baseUrl/api/stores/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(buildJsonObject { put("name", name) })
+        }.orRefusal().body()
+    }
+
     // Aisles of a store, in the order of the way through it (MAG-493). Not paginated.
     suspend fun getAisles(storeId: String): List<Aisle> {
         return client.get("$baseUrl/api/aisles") {
