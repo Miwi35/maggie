@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Agenda;
-use Maggie\Calendar\Enum\PeriodHoliday;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Symfony\Component\Uid\Ulid;
 
@@ -26,15 +25,5 @@ class PeriodRules
         }
 
         return $agenda;
-    }
-
-    public function holiday(?string $holiday): ?PeriodHoliday
-    {
-        if (null === $holiday) {
-            return null;
-        }
-
-        return PeriodHoliday::tryFrom($holiday)
-            ?? throw new \DomainException("holiday is france, geneve, both or null, got \"{$holiday}\".");
     }
 }

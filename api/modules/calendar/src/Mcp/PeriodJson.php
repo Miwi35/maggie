@@ -49,7 +49,6 @@ final class PeriodJson
         return $json + [
             'timeZone' => $zone->getName(),
             'rrule' => $period->getRrule(),
-            'holiday' => $period->getHoliday()?->value,
         ];
     }
 }

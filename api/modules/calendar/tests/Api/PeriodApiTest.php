@@ -8,7 +8,6 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Period;
-use Maggie\Calendar\Enum\PeriodHoliday;
 use Maggie\Core\Entity\User;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -135,7 +134,6 @@ class PeriodApiTest extends WebTestCase
         self::assertEquals(new \DateTimeImmutable('2037-05-06T20:00:00+02:00'), $period->getEndAt());
         self::assertNull($period->getStartDate());
         self::assertSame('FREQ=MONTHLY', $period->getRrule());
-        self::assertNull($period->getHoliday());
         self::assertSame($this->id('perso'), (string) $period->getAgenda()->getId());
     }
 
@@ -149,14 +147,12 @@ class PeriodApiTest extends WebTestCase
             'allDay' => true,
             'startDate' => '2037-07-20',
             'endDate' => '2037-08-01',
-            'holiday' => 'france',
         ]);
 
         self::assertResponseStatusCodeSame(201);
         $data = $this->response();
         self::assertSame('2037-07-20', $data['startDate']);
         self::assertSame('2037-08-01', $data['endDate']);
-        self::assertSame('france', $data['holiday']);
         self::assertArrayNotHasKey('startAt', $data);
 
         $period = $this->em()->getRepository(Period::class)->findOneBy(['name' => 'Vacances d\'été']);
@@ -165,7 +161,6 @@ class PeriodApiTest extends WebTestCase
         self::assertSame('2037-07-20', $period->getStartDate()?->format('Y-m-d'));
         self::assertSame('2037-08-01', $period->getEndDate()?->format('Y-m-d'));
         self::assertNull($period->getStartAt());
-        self::assertSame(PeriodHoliday::France, $period->getHoliday());
     }
 
     public function testAMixOfInstantsAndDaysIs422(): void
@@ -214,15 +209,16 @@ class PeriodApiTest extends WebTestCase
         self::assertSame(3, $this->rows());
     }
 
-    public function testAnUnknownHolidayIsRefused(): void
+    public function testAPeriodHasNoHolidayField(): void
     {
         $this->login();
 
-        // A backed enum: API Platform refuses the value before validation, as it does a placement's frequency.
-        $this->send('POST', '/api/periods', $this->timed(['holiday' => 'belgique']));
+        // MAG-824: a period has no type, public holiday included — the field is gone, a client sending it is ignored.
+        $this->send('POST', '/api/periods', $this->timed(['name' => 'Toussaint', 'holiday' => 'france']));
 
-        self::assertResponseStatusCodeSame(400);
-        self::assertSame(3, $this->rows());
+        self::assertResponseStatusCodeSame(201);
+        self::assertArrayNotHasKey('holiday', $this->response());
+        self::assertSame(4, $this->rows());
     }
 
     public function testAnotherUsersAgendaIsRefused(): void
