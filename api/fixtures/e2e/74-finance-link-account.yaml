@@ -1,0 +1,74 @@
+# Link a hand-typed account to the bank's from its page (MAG-823, extends MAG-102):
+# `e2e/mobile/flows/13b-finance-link-account.yaml` and `e2e/web/tests/finance-accounts.spec.ts`.
+#
+# Two pairs, one per front, none read by another journey: a hand-typed account and an
+# account of the bank connection, in EUR, the bank's carrying two movements. Linking
+# folds the bank's account into the hand-typed one.
+
+Maggie\Finance\Entity\Account:
+  e2e_link_mobile_manual:
+    name: E2E Compte à rattacher
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 50000
+    isCushion: false
+    user: '@e2e_user'
+  e2e_link_mobile_bank:
+    name: E2E Compte bancaire à rattacher
+    bank: Mock Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 115520
+    isCushion: false
+    bankConnection: '@e2e_bank_connection'
+    user: '@e2e_user'
+  e2e_link_web_manual:
+    name: E2E Web compte à rattacher
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 50000
+    isCushion: false
+    user: '@e2e_user'
+  e2e_link_web_bank:
+    name: E2E Web compte bancaire à rattacher
+    bank: Mock Bank
+    type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
+    currency: EUR
+    balanceCents: 115520
+    isCushion: false
+    bankConnection: '@e2e_bank_connection'
+    user: '@e2e_user'
+
+Maggie\Finance\Entity\Transaction:
+  e2e_link_mobile_tx_1:
+    account: '@e2e_link_mobile_bank'
+    amountCents: -1500
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'CB LINK MOBILE 1'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@e2e_user'
+  e2e_link_mobile_tx_2:
+    account: '@e2e_link_mobile_bank'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'CB LINK MOBILE 2'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@e2e_user'
+  e2e_link_web_tx_1:
+    account: '@e2e_link_web_bank'
+    amountCents: -1500
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'CB LINK WEB 1'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@e2e_user'
+  e2e_link_web_tx_2:
+    account: '@e2e_link_web_bank'
+    amountCents: -2500
+    currency: EUR
+    bookedAt: '<e2eDate("first day of this month")>'
+    label: 'CB LINK WEB 2'
+    status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
+    user: '@e2e_user'
