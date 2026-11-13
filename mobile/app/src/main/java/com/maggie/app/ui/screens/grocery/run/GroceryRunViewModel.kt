@@ -174,7 +174,7 @@ data class GroceryRunUiState(
     }
 
     /** The session order is not the habitual one: « ordre du jour ». */
-    val reordered: Boolean get() = tour.map { it.id } != stores.map { it.id }.filter { it in run.tour }
+    val reordered: Boolean get() = sessionOrder != stores.map { it.id }
 
     val current: RunStore? get() = run.current?.let(byId::get)
 
