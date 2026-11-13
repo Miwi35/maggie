@@ -28,7 +28,7 @@ const val BILAN_CARD_TITLE = "Bilan de la journée"
 @Composable
 fun BilanCard(block: BilanBlock, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.fillMaxWidth().testTag(UiTags.CHAT_BILAN_CARD),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Row(
@@ -38,7 +38,8 @@ fun BilanCard(block: BilanBlock, onOpen: () -> Unit, modifier: Modifier = Modifi
         ) {
             Icon(Icons.Filled.NightsStay, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(BILAN_CARD_TITLE, style = MaterialTheme.typography.titleSmall)
+                // Tagged on the title: a Card that is not clickable is not in the accessibility tree Maestro reads.
+                Text(BILAN_CARD_TITLE, style = MaterialTheme.typography.titleSmall, modifier = Modifier.testTag(UiTags.CHAT_BILAN_CARD))
             }
             Button(onClick = onOpen, modifier = Modifier.testTag(UiTags.CHAT_BILAN_CARD_OPEN)) { Text("Ouvrir") }
         }
