@@ -232,6 +232,8 @@ task id). The fake cannot compute a date, so any text or argument of a scenario 
 le canapé en premier » reads the list (`91-projects-reorder-read.yaml`), and « Oui, le canapé d'abord »
 reorders with the ids the replayed list gave (`91-projects-reorder.yaml`).
 
+**Accounts** (MAG-819). `91-accounts-link-preview.yaml` answers « Le compte N26 que la banque a créé, c'est mon compte joint » by listing the accounts then calling `manage_accounts` link without `confirm` (the preview); `91-accounts-link-confirm.yaml` answers « Oui » by calling it again with `confirm: true`.
+
 **Placements** (MAG-555). `91-placements-create.yaml` creates « Livret », 100 € a month at 5 % over 10 years,
 through `manage_placements`; `91-placements-simulate.yaml` answers the same what-if without saving it. The
 figures said are PlacementSimulator's: the fake does not read the tool's result.

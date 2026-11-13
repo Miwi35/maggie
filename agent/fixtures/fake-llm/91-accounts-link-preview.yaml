@@ -1,0 +1,23 @@
+# « Le compte N26 que la banque a créé, c'est mon compte joint » (MAG-819): she reads the accounts,
+# then asks `manage_accounts` link without `confirm` for the preview (nothing written). The ids come
+# from this run's list: the hand-typed « Compte joint » first, the bank's « N26 » after.
+# Confirmed by `91-accounts-link-confirm.yaml`. Facts only: the fake does not read the preview.
+name: accounts-link-preview
+description: Preview folding a bank-created account into a hand-typed one through MCP.
+
+match:
+  user_matches: 'compte n26 que la banque a cr[ée][ée].*compte joint'
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+Compte joint\W[\s\S]*?id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+N26\W'
+
+turns:
+  - tools:
+      - name: manage_accounts
+        input: {action: list}
+  - tools:
+      - name: manage_accounts
+        input:
+          action: link
+          accountId: '\1'
+          bankAccountId: '\2'
+  - text: "Je peux rattacher le compte N26 créé par la banque à votre Compte joint : il garde son nom et ses références, reprend la connexion et le solde de la banque. Je le fais ?"

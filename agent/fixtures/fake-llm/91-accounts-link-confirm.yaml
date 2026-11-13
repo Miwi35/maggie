@@ -1,0 +1,24 @@
+# « Oui » after the preview of `91-accounts-link-preview.yaml` (MAG-819): she reads the accounts
+# again and calls `manage_accounts` link with `confirm: true`. The history needle is the sentence
+# of the first message, which no other scenario's conversation holds.
+name: accounts-link-confirm
+description: Confirm folding a bank-created account into a hand-typed one through MCP.
+
+match:
+  user_matches: '^oui\W*$'
+  history_contains: "que la banque a créé"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+Compte joint\W[\s\S]*?id\W+([0-9A-HJKMNP-TV-Z]{26})\W+name\W+N26\W'
+
+turns:
+  - tools:
+      - name: manage_accounts
+        input: {action: list}
+  - tools:
+      - name: manage_accounts
+        input:
+          action: link
+          accountId: '\1'
+          bankAccountId: '\2'
+          confirm: true
+  - text: "C'est fait : votre Compte joint est rattaché à la banque, avec son historique et ses références."
