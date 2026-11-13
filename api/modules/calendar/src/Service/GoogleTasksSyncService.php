@@ -5,9 +5,11 @@ namespace Maggie\Calendar\Service;
 use Doctrine\ORM\EntityManagerInterface;
 use Google\Service\Exception as GoogleServiceException;
 use Google\Service\Tasks\Task as GoogleTask;
+use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\MercureTopic;
 use Psr\Log\LoggerInterface;
@@ -68,7 +70,7 @@ class GoogleTasksSyncService
         }
 
         // The flush below files it; an owner whose tasks predate the agenda gets it at the next pull.
-        $this->moduleAgendas->forUser($user, Task::AGENDA_MODULE, Task::AGENDA_NAME, Task::AGENDA_COLOR, adoptLegacy: false);
+        [$tasksAgenda, $tasksAgendaCreated] = $this->moduleAgendas->forUser($user, Task::AGENDA_MODULE, Task::AGENDA_NAME, Task::AGENDA_COLOR, adoptLegacy: false);
 
         // Index existing local tasks by their Google Task ID
         $existingTasks = $this->taskRepository->findBy([
@@ -155,6 +157,8 @@ class GoogleTasksSyncService
         }
 
         $this->entityManager->flush();
+
+        $this->announceTasksAgenda($tasksAgenda, $tasksAgendaCreated, (string) $user->getId());
 
         foreach ($removedTaskIds as $taskId) {
             $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'tasks', documentId: $taskId));
@@ -342,6 +346,29 @@ class GoogleTasksSyncService
         $updatedAt = $result->getUpdated();
         if ($updatedAt) {
             $task->setGoogleTaskUpdatedAt(new \DateTimeImmutable($updatedAt));
+        }
+    }
+
+    /**
+     * This service runs outside a message, so nothing projects the agenda for it. It is
+     * indexed at every pull, not only when created: an agenda filed by an earlier pull
+     * that was never indexed heals itself, and the index write is idempotent.
+     */
+    private function announceTasksAgenda(Agenda $agenda, bool $created, string $userId): void
+    {
+        try {
+            $this->messageBus->dispatch(new IndexDocumentCommand(entityClass: Agenda::class, entityId: (string) $agenda->getId()));
+
+            if ($created) {
+                $iri = MercureTopic::item(MercureTopic::collection($agenda), (string) $agenda->getId());
+                $this->hub->publish(new Update(
+                    topics: [MercureTopic::scoped($userId, $iri)],
+                    data: json_encode(['@id' => $iri] + $agenda->toMercurePayload(), JSON_THROW_ON_ERROR),
+                    private: true,
+                ));
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to announce the Tasks module agenda: {error}', ['error' => $e->getMessage()]);
         }
     }
 
