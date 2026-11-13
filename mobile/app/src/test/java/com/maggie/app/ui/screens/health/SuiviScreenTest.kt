@@ -231,6 +231,34 @@ class SuiviScreenTest {
     }
 
     @Test
+    fun `Supprimer asks first, and cancelling changes nothing`() {
+        coEvery { repository.deleteBodyMeasurement("today") } returns Result.success(Unit)
+        compose.setContent { SuiviScreen(viewModel()) }
+        waitForCard()
+
+        compose.onNodeWithTag(UiTags.weightColumn(29)).performTouchInput { longClick() }
+        compose.onNodeWithTag(UiTags.WEIGHT_DELETE).performClick()
+        compose.onNodeWithText("Supprimer cette pesée ?").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CONFIRM_DELETE_CANCEL).performClick()
+
+        coVerify(exactly = 0) { repository.deleteBodyMeasurement(any()) }
+    }
+
+    @Test
+    fun `confirming Supprimer deletes the weighing`() {
+        coEvery { repository.deleteBodyMeasurement("today") } returns Result.success(Unit)
+        compose.setContent { SuiviScreen(viewModel()) }
+        waitForCard()
+
+        compose.onNodeWithTag(UiTags.weightColumn(29)).performTouchInput { longClick() }
+        compose.onNodeWithTag(UiTags.WEIGHT_DELETE).performClick()
+        compose.onNodeWithTag(UiTags.CONFIRM_DELETE).performClick()
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Pesée supprimée").fetchSemanticsNodes().isNotEmpty() }
+        coVerify { repository.deleteBodyMeasurement("today") }
+    }
+
+    @Test
     fun `a failed load offers to try again`() {
         coEvery { repository.getBodyMeasurements(any()) } returns Result.failure(RuntimeException("offline"))
         coEvery { energyRepository.getDailyEnergy(any(), any()) } returns Result.success(emptyList())

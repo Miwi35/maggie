@@ -65,6 +65,7 @@ import java.time.LocalDate
 import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.model.HealthDay
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.MaggieCard
@@ -177,7 +178,7 @@ private fun SuiviContent(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-                    WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = true)
+                    WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, viewModel::delete, large = true)
                     Spacer(Modifier.height(14.dp))
                     MoodCard(moods, uiState, today, viewModel::selectDay, large = true)
                 }
@@ -197,7 +198,7 @@ private fun SuiviContent(
             ) {
                 bilan()
                 PeriodSelector(uiState.period, viewModel::selectPeriod, segmentWidth = null, height = 36.dp)
-                WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, large = false)
+                WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, viewModel::delete, large = false)
                 StepsCard(energy, day, uiState, today, viewModel::selectDay, large = false)
                 EnergyCard(energy, day, uiState, today, viewModel::selectDay, large = false)
                 MoodCard(moods, uiState, today, viewModel::selectDay, large = false)
@@ -253,6 +254,7 @@ private fun WeightCard(
     selectedIndex: Int?,
     onSelect: (Int) -> Unit,
     onExclude: (String) -> Unit,
+    onDelete: (String) -> Unit,
     large: Boolean,
 ) {
     val columns = chart.columns
@@ -261,6 +263,19 @@ private fun WeightCard(
     val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
     val accent = MaterialTheme.colorScheme.primary
     var menuFor by remember(chart) { mutableStateOf<Int?>(null) }
+    var deleteId by remember { mutableStateOf<String?>(null) }
+
+    deleteId?.let { id ->
+        ConfirmDeleteDialog(
+            title = "Supprimer cette pesée ?",
+            onConfirm = {
+                deleteId = null
+                onDelete(id)
+            },
+            onDismiss = { deleteId = null },
+            confirmLabel = "Supprimer",
+        )
+    }
 
     MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Poids" }.testTag(UiTags.WEIGHT_CARD)) {
         Column(
@@ -317,7 +332,7 @@ private fun WeightCard(
                                 }
                                 .combinedClickable(
                                     onClick = { onSelect(index) },
-                                    onLongClickLabel = if (canExclude) "Écarter la pesée" else null,
+                                    onLongClickLabel = if (canExclude) "Écarter ou supprimer la pesée" else null,
                                     onLongClick = if (canExclude) {
                                         {
                                             onSelect(index)
@@ -338,6 +353,14 @@ private fun WeightCard(
                                             onExclude(retained.id)
                                         },
                                         modifier = Modifier.testTag(UiTags.WEIGHT_EXCLUDE),
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Supprimer") },
+                                        onClick = {
+                                            menuFor = null
+                                            deleteId = retained.id
+                                        },
+                                        modifier = Modifier.testTag(UiTags.WEIGHT_DELETE),
                                     )
                                 }
                             }

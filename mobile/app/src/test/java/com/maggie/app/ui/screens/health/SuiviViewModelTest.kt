@@ -174,6 +174,36 @@ class SuiviViewModelTest {
     }
 
     @Test
+    fun `deleteRemovesTheMeasurement`() = runTest {
+        coEvery { repository.deleteBodyMeasurement("today") } returns Result.success(Unit)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.delete("today")
+        assertEquals(listOf("monday"), viewModel.uiState.value.measurements.map { it.id })
+        coEvery { repository.getBodyMeasurements(any()) } returns Result.success(listOf(monday))
+        advanceUntilIdle()
+
+        coVerify { repository.deleteBodyMeasurement("today") }
+        assertEquals(SuiviViewModel.MESSAGE_DELETED, viewModel.uiState.value.message)
+        assertTrue(viewModel.uiState.value.measurements.none { it.id == "today" })
+    }
+
+    @Test
+    fun `deleteFailureKeepsIt`() = runTest {
+        coEvery { repository.deleteBodyMeasurement("today") } returns Result.failure(RuntimeException("500"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val before = viewModel.uiState.value.measurements
+
+        viewModel.delete("today")
+        advanceUntilIdle()
+
+        assertEquals(before, viewModel.uiState.value.measurements)
+        assertEquals(SuiviViewModel.MESSAGE_DELETE, viewModel.uiState.value.error)
+    }
+
+    @Test
     fun `the energy is read once for the last 365 days, today included`() = runTest {
         val viewModel = viewModel()
         assertFalse(viewModel.uiState.value.energyLoaded)
