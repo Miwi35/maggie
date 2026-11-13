@@ -151,7 +151,10 @@ class _Gateway:
     client = None
     tool_router = ToolRouter()
 
-    async def proaction(self, prompt: str, user_id: str, *, summary: str | None = None) -> dict:
+    async def proaction(
+        self, prompt: str, user_id: str, *, summary: str | None = None, blocked_tools: frozenset[str] = frozenset()
+    ) -> dict:
+        self.blocked_tools = blocked_tools
         result = await run(f"[Proaction due maintenant] {prompt}")
         return result | {"context_id": "ctx-1", "model": "fake"}
 
@@ -228,6 +231,13 @@ class TestRunDigest:
         result, _ = await run_digest(_Gateway(), SimpleNamespace(**(vars(DIGEST) | {"prompt": "Digest (digest MAG-777)."})))
 
         assert "Vous avez aussi" not in result["response"]
+
+    async def test_the_digest_run_blocks_the_voice_tool_whatever_the_skill_says(self, api, storage):
+        gateway = _Gateway()
+
+        await run_digest(gateway, DIGEST)
+
+        assert "send_voice_message" in gateway.blocked_tools
 
     async def test_a_voice_down_still_stores_the_text_on_the_digest_screen(self, api, storage):
         storage.voice.side_effect = VoiceMessageError("down")
