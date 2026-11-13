@@ -3,6 +3,7 @@ from datetime import datetime
 
 import anthropic
 
+from app.day_context import resolve_day_context
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section, resolve_context, route_message
@@ -119,7 +120,13 @@ class LLMGateway:
             preamble = f"{preamble}\n\n{self.personality.get_spoken_prompt()}"
         if in_car:
             preamble = f"{preamble}\n\n{self.personality.get_driving_prompt()}"
-        volatile = f"{memory.notice}{directives}{context_section}\n\n{now}\n{work_hours}{last_exchange}{preamble}"
+        # What today and tomorrow are — weekend, periods — on its own line (MAG-811); none when the API is silent.
+        day_context = await resolve_day_context(user_id, datetime.now(tz).date())
+        day_context_block = f"\n{day_context}" if day_context else ""
+        volatile = (
+            f"{memory.notice}{directives}{context_section}\n\n{now}\n{work_hours}"
+            f"{day_context_block}{last_exchange}{preamble}"
+        )
         moment_skills = skill_index.skills_for_moment(moment) if moment else ""
         return build_system(base + skill_context, volatile, moment_skills, memory.profile, memory.recalled)
 

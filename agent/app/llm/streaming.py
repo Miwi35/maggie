@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 import anthropic
 from sqlalchemy.exc import IntegrityError
 
+from app.day_context import resolve_day_context
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
@@ -140,7 +141,13 @@ class StreamingGateway:
         date_line = current_datetime_line(tz=tz)
         # Whether the user is at work, next to the date: the tone follows it (MAG-790).
         work_hours = work_hours_line(await resolve_work_hours(user_id), datetime.now(tz))
-        volatile = f"{memory.notice}{directives}{context_section}\n\n{date_line}\n{work_hours}{last_exchange}"
+        # What today and tomorrow are — weekend, periods — on its own line (MAG-811); none when the API is silent.
+        day_context = await resolve_day_context(user_id, datetime.now(tz).date())
+        day_context_block = f"\n{day_context}" if day_context else ""
+        volatile = (
+            f"{memory.notice}{directives}{context_section}\n\n{date_line}\n{work_hours}"
+            f"{day_context_block}{last_exchange}"
+        )
         if spoken:
             volatile = f"{volatile}\n\n{self.personality.get_spoken_prompt()}"
         if in_car:

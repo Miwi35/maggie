@@ -1849,6 +1849,22 @@ class TestAQuestionWithAPicture:
         assert text_of(answer) == "Sur votre écran, je vois une cafetière italienne."
 
 
+class TestTheDayContextScenario:
+    async def test_the_day_context_line_reaches_the_model(self):
+        client = build_client(DEFAULT_FIXTURES_DIR)
+        system = "Tu es Maggie.\nContexte du jour : aujourd'hui mercredi 11 novembre ; période : Garde."
+
+        answer = await client.messages.create(
+            model="fake", max_tokens=1024, system=system, messages=[{"role": "user", "content": "Quel est le contexte du jour ?"}]
+        )
+        without = await client.messages.create(
+            model="fake", max_tokens=1024, system="Tu es Maggie.", messages=[{"role": "user", "content": "Quel est le contexte du jour ?"}]
+        )
+
+        assert text_of(answer) == "Contexte lu."
+        assert text_of(without) != "Contexte lu."
+
+
 class TestTheShippedFixturesSpeakInHerVoice:
     """MAG-791: the scripted answers keep the register of the prompt — vouvoiement, no « C'est noté : » mould."""
 
