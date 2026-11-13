@@ -52,4 +52,23 @@ class ConfirmDeleteDialogTest {
         compose.onNodeWithTag(UiTags.CONFIRM_DELETE).performClick()
         assertEquals(1, confirmed)
     }
+
+    @Test
+    fun `shows the text and a non destructive confirm`() {
+        compose.setContent {
+            ConfirmDeleteDialog(
+                title = "Rattacher ?",
+                message = "2 mouvements rejoignent le compte.",
+                confirmLabel = "Rattacher",
+                destructive = false,
+                onConfirm = { confirmed++ },
+                onDismiss = { dismissed++ },
+            )
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("2 mouvements rejoignent le compte.").assertIsDisplayed()
+        compose.onNodeWithText("Rattacher").performClick()
+        assertEquals(1, confirmed)
+    }
 }

@@ -9,6 +9,8 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.LinkCandidate
+import com.maggie.app.data.model.LinkPreview
 import com.maggie.app.data.model.AccountTimeline
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.TimelineAccount
@@ -33,6 +35,8 @@ data class AccountTimelineState(
     // Why the first read failed: the page shows it with « Réessayer ». A failed older month only
     // raises the screen's [AccountUiState.error].
     val error: String? = null,
+    // The bank's accounts this hand-kept account can be linked to; read only for a hand-kept one (MAG-823).
+    val linkCandidates: List<LinkCandidate> = emptyList(),
 ) {
     /** Every day read, most recent first: the months are already in that order, and so are their days. */
     val days: List<TimelineDay> get() = pages.flatMap { it.days }
@@ -55,9 +59,21 @@ data class AccountUiState(
     val timelines: Map<String, AccountTimelineState> = emptyMap(),
     // Only feed the picker of « Ajouter une transaction »: the timelines work without them.
     val categories: List<Category> = emptyList(),
+    // « Rattacher »: the candidate whose figures the dialog shows, the answer to say (« Compte rattaché. ») or the refusal.
+    val link: LinkState = LinkState(),
 ) {
     val selectedIndex: Int get() = accounts.indexOfFirst { it.id == selectedAccountId }.coerceAtLeast(0)
 }
+
+/** The link dialog of one account: the candidate chosen, its preview once read, and what to tell the owner. */
+data class LinkState(
+    val accountId: String? = null,
+    val candidate: LinkCandidate? = null,
+    val preview: LinkPreview? = null,
+    val isWorking: Boolean = false,
+    val notice: String? = null,
+    val error: String? = null,
+)
 
 class AccountViewModel(
     private val accountRepository: AccountRepository,
@@ -183,6 +199,7 @@ class AccountViewModel(
             accountRepository.accountTimeline(accountId)
                 .onSuccess { page ->
                     updateTimeline(accountId) { it.copy(pages = listOf(page), isLoading = false, error = null) }
+                    if (page.account.isManual) loadLinkCandidates(accountId)
                 }
                 .onFailure { e ->
                     updateTimeline(accountId) { it.copy(isLoading = false, error = e.message ?: TIMELINE_ERROR) }
@@ -240,6 +257,57 @@ class AccountViewModel(
         }
     }
 
+    private fun loadLinkCandidates(accountId: String) {
+        viewModelScope.launch {
+            accountRepository.linkCandidates(accountId)
+                .onSuccess { candidates -> updateTimeline(accountId) { it.copy(linkCandidates = candidates) } }
+        }
+    }
+
+    /** A candidate was chosen: its preview is read, nothing is written. A refusal is told as it is. */
+    fun previewLink(accountId: String, candidate: LinkCandidate) {
+        _uiState.value = _uiState.value.copy(link = LinkState(accountId = accountId, candidate = candidate, isWorking = true))
+        viewModelScope.launch {
+            accountRepository.link(accountId, candidate.id, confirm = false)
+                .onSuccess { preview ->
+                    _uiState.value = _uiState.value.copy(link = LinkState(accountId = accountId, candidate = candidate, preview = preview))
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(link = LinkState(error = e.message ?: LINK_ERROR))
+                }
+        }
+    }
+
+    /** « Rattacher »: the link is written, then the page and the list are read again. */
+    fun confirmLink() {
+        val link = _uiState.value.link
+        val accountId = link.accountId ?: return
+        val candidate = link.candidate ?: return
+        _uiState.value = _uiState.value.copy(link = link.copy(isWorking = true))
+        viewModelScope.launch {
+            accountRepository.link(accountId, candidate.id, confirm = true)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(link = LinkState(notice = LINK_DONE))
+                    updateTimeline(accountId) { it.copy(linkCandidates = emptyList()) }
+                    refresh()
+                    reloadTimeline(accountId)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(link = LinkState(error = e.message ?: LINK_ERROR))
+                }
+        }
+    }
+
+    /** « Annuler »: nothing changes. */
+    fun cancelLink() {
+        _uiState.value = _uiState.value.copy(link = LinkState())
+    }
+
+    /** The notice or the refusal was shown. */
+    fun clearLinkFeedback() {
+        _uiState.value = _uiState.value.copy(link = _uiState.value.link.copy(notice = null, error = null))
+    }
+
     /** « Ajouter une transaction » on the account of the page; [status] defaults to spent, [bookedAt] (yyyy-MM-dd) to today. */
     fun addTransaction(
         accountId: String,
@@ -279,4 +347,6 @@ class AccountViewModel(
     }
 }
 
+private const val LINK_DONE = "Compte rattaché."
+private const val LINK_ERROR = "Impossible de rattacher le compte"
 private const val TIMELINE_ERROR = "Impossible de lire les transactions de ce compte"

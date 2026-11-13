@@ -1,12 +1,15 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AccountTimeline
+import com.maggie.app.data.model.LinkCandidate
 import com.maggie.app.data.model.RecurringIncrease
 import com.maggie.app.data.model.TimelineAccount
 import com.maggie.app.data.model.TimelineCounterpartAccount
@@ -134,5 +137,39 @@ class AccountTimelineScreenTest {
         org.junit.Assert.assertEquals("1250,00", balanceInput(125000))
         org.junit.Assert.assertEquals("-12,05", balanceInput(-1205))
         org.junit.Assert.assertEquals("0,07", balanceInput(7))
+    }
+
+    private val candidate = LinkCandidate(id = "bank-1", name = "Compte courant", bank = "N26", balanceCents = 115520)
+
+    @Test
+    fun `a link card names the first candidate on a manual account that has one`() {
+        show(ui(timeline(manual = true).let { it.copy(linkCandidates = listOf(candidate)) }))
+
+        compose.onNodeWithTag(UiTags.ACCOUNT_LINK_CARD).assertIsDisplayed()
+        compose.onNodeWithText("Rattacher au compte de la banque").assertIsDisplayed()
+        compose.onNodeWithText("N26 a créé « Compte courant » · 1\u202f155,20\u00a0€", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `touching the card with a single candidate skips the choice and previews it`() {
+        val viewModel = show(ui(timeline(manual = true).copy(linkCandidates = listOf(candidate))))
+
+        compose.onNodeWithTag(UiTags.ACCOUNT_LINK_CARD).performClick()
+
+        verify { viewModel.previewLink("a1", candidate) }
+    }
+
+    @Test
+    fun `no link card on a linked account`() {
+        show(ui(timeline(manual = false)))
+
+        compose.onAllNodesWithTag(UiTags.ACCOUNT_LINK_CARD).assertCountEquals(0)
+    }
+
+    @Test
+    fun `no link card without a candidate`() {
+        show(ui(timeline(manual = true)))
+
+        compose.onAllNodesWithTag(UiTags.ACCOUNT_LINK_CARD).assertCountEquals(0)
     }
 }

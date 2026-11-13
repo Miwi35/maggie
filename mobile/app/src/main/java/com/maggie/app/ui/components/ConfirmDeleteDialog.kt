@@ -17,6 +17,8 @@ fun ConfirmDeleteDialog(
     onDismiss: () -> Unit,
     message: String? = null,
     confirmLabel: String = "Confirmer",
+    // false for a confirmation that deletes nothing (« Rattacher »): the button is not red.
+    destructive: Boolean = true,
     confirmTag: String = UiTags.CONFIRM_DELETE,
     cancelTag: String = UiTags.CONFIRM_DELETE_CANCEL,
 ) {
@@ -27,7 +29,10 @@ fun ConfirmDeleteDialog(
         text = message?.let { { Text(it) } },
         confirmButton = {
             TextButton(onClick = onConfirm, modifier = Modifier.testTag(confirmTag)) {
-                Text(confirmLabel, color = MaterialTheme.colorScheme.error)
+                Text(
+                    confirmLabel,
+                    color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                )
             }
         },
         dismissButton = {

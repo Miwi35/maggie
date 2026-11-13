@@ -7,6 +7,9 @@ import com.maggie.app.data.model.AccountIncident
 import com.maggie.app.data.model.ProviderStatus
 import com.maggie.app.data.model.QuestionBlock
 import com.maggie.app.data.model.AccountIncidents
+import com.maggie.app.data.model.LinkCandidate
+import com.maggie.app.data.model.LinkCandidates
+import com.maggie.app.data.model.LinkPreview
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.ChatMessage
@@ -2477,6 +2480,22 @@ class MaggieApiService(
         return client.get("$baseUrl/api/accounts/$accountId/incidents") {
             if (settled) url.parameters.append("settled", "true")
         }.orRefusal().body<AccountIncidents>().incidents
+    }
+
+    /** The bank's accounts a hand-typed account can be linked to (MAG-823). */
+    suspend fun getLinkCandidates(accountId: String): List<LinkCandidate> {
+        return client.get("$baseUrl/api/accounts/$accountId/link-candidates").orRefusal().body<LinkCandidates>().candidates
+    }
+
+    /** Without [confirm] the preview of the fold, nothing written; with it the link itself (MAG-823). */
+    suspend fun linkAccount(accountId: String, bankAccountId: String, confirm: Boolean): LinkPreview {
+        return client.post("$baseUrl/api/accounts/$accountId/link") {
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("bankAccountId", bankAccountId)
+                put("confirm", confirm)
+            })
+        }.orRefusal().body()
     }
 
     /** « Régularisé »: either leg of the rejection names it, the API settles both (MAG-424). */

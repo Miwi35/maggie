@@ -31,6 +31,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -119,121 +121,132 @@ private fun AccountTimelineContent(
     val balanceCents = read?.balanceCents ?: account.balanceCents
     val currency = read?.currency ?: account.currency
     val isManual = read?.isManual == true
+    val linkOffer = accountLinkOffer(ui, account.id, account.name, viewModel)
+    val snackbarHostState = remember { SnackbarHostState() }
+    AccountLinkFeedback(linkOffer, snackbarHostState)
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().testTag(UiTags.ACCOUNT_PAGE),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item(key = "header") {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(account.name, style = MaterialTheme.typography.headlineSmall)
-                val subtitle = buildString {
-                    account.bank?.takeIf { it.isNotBlank() }?.let { append(it).append(" · ") }
-                    append(accountTypeLabel(account.type))
-                    if (account.isCushion) append(" · Matelas")
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().testTag(UiTags.ACCOUNT_PAGE),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item(key = "header") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(account.name, style = MaterialTheme.typography.headlineSmall)
+                    val subtitle = buildString {
+                        account.bank?.takeIf { it.isNotBlank() }?.let { append(it).append(" · ") }
+                        append(accountTypeLabel(account.type))
+                        if (account.isCushion) append(" · Matelas")
+                    }
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        formatCents(balanceCents, currency),
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.testTag(UiTags.ACCOUNT_BALANCE),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        Button(
+                            onClick = { showAddDialog = true },
+                            modifier = Modifier.testTag(UiTags.ACCOUNT_ADD_TRANSACTION),
+                        ) { Text("Ajouter une transaction") }
+                        if (isManual) {
+                            OutlinedButton(
+                                onClick = { showBalanceDialog = true },
+                                modifier = Modifier.testTag(UiTags.ACCOUNT_CORRECT_BALANCE),
+                            ) { Text("Corriger le solde") }
+                        }
+                    }
+                    TextButton(
+                        onClick = { actions.onOpenTransaction(account.id, account.label(), null) },
+                        modifier = Modifier.testTag(UiTags.ACCOUNT_ALL_TRANSACTIONS),
+                    ) { Text("Toutes les transactions et incidents") }
                 }
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    formatCents(balanceCents, currency),
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.testTag(UiTags.ACCOUNT_BALANCE),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    Button(
-                        onClick = { showAddDialog = true },
-                        modifier = Modifier.testTag(UiTags.ACCOUNT_ADD_TRANSACTION),
-                    ) { Text("Ajouter une transaction") }
-                    if (isManual) {
-                        OutlinedButton(
-                            onClick = { showBalanceDialog = true },
-                            modifier = Modifier.testTag(UiTags.ACCOUNT_CORRECT_BALANCE),
-                        ) { Text("Corriger le solde") }
+            }
+
+            if (isManual && linkOffer.candidates.isNotEmpty()) {
+                item(key = "link") { AccountLinkSection(linkOffer) }
+            }
+
+            when {
+                timeline == null || (timeline.isLoading && !timeline.isLoaded) -> item(key = "loading") {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
                 }
-                TextButton(
-                    onClick = { actions.onOpenTransaction(account.id, account.label(), null) },
-                    modifier = Modifier.testTag(UiTags.ACCOUNT_ALL_TRANSACTIONS),
-                ) { Text("Toutes les transactions et incidents") }
-            }
-        }
 
-        when {
-            timeline == null || (timeline.isLoading && !timeline.isLoaded) -> item(key = "loading") {
-                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                timeline.error != null && !timeline.isLoaded -> item(key = "error") {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            "Impossible de lire les transactions de ce compte.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        OutlinedButton(
+                            onClick = { viewModel.loadTimeline(account.id) },
+                            modifier = Modifier.testTag(UiTags.TIMELINE_RETRY),
+                        ) { Text("Réessayer") }
+                    }
                 }
-            }
 
-            timeline.error != null && !timeline.isLoaded -> item(key = "error") {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                timeline.days.isEmpty() -> item(key = "empty") {
                     Text(
-                        "Impossible de lire les transactions de ce compte.",
-                        color = MaterialTheme.colorScheme.error,
+                        "Aucune transaction sur ce compte ce mois-ci.",
                         style = MaterialTheme.typography.bodyMedium,
-                    )
-                    OutlinedButton(
-                        onClick = { viewModel.loadTimeline(account.id) },
-                        modifier = Modifier.testTag(UiTags.TIMELINE_RETRY),
-                    ) { Text("Réessayer") }
-                }
-            }
-
-            timeline.days.isEmpty() -> item(key = "empty") {
-                Text(
-                    "Aucune transaction sur ce compte ce mois-ci.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 16.dp),
-                )
-            }
-
-            else -> timeline.days.forEach { day ->
-                item(key = "day-${day.date}") {
-                    Text(
-                        timelineDayTitle(day.date),
-                        style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(top = 8.dp)
-                            .testTag(UiTags.timelineDay(day.date))
-                            .semantics { heading() },
+                        modifier = Modifier.padding(vertical = 16.dp),
                     )
                 }
-                items(day.transactions, key = { "line-${it.id}" }) { line ->
-                    TimelineLineRow(line) { actions.onOpenTransaction(account.id, account.label(), line.id) }
-                }
-                items(day.missedOccurrences, key = { "missed-${it.recurringOperationId}-${it.expectedOn}" }) { missed ->
-                    MissedOccurrenceRow(missed)
+
+                else -> timeline.days.forEach { day ->
+                    item(key = "day-${day.date}") {
+                        Text(
+                            timelineDayTitle(day.date),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .testTag(UiTags.timelineDay(day.date))
+                                .semantics { heading() },
+                        )
+                    }
+                    items(day.transactions, key = { "line-${it.id}" }) { line ->
+                        TimelineLineRow(line) { actions.onOpenTransaction(account.id, account.label(), line.id) }
+                    }
+                    items(day.missedOccurrences, key = { "missed-${it.recurringOperationId}-${it.expectedOn}" }) { missed ->
+                        MissedOccurrenceRow(missed)
+                    }
                 }
             }
-        }
 
-        if (timeline != null && timeline.isLoaded) {
-            val previous = timeline.previousMonth
-            if (previous != null) {
-                item(key = "previous") {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        if (timeline.isLoadingPrevious) {
-                            CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-                        } else {
-                            OutlinedButton(
-                                onClick = { viewModel.loadPreviousMonth(account.id) },
-                                modifier = Modifier.testTag(UiTags.TIMELINE_PREVIOUS_MONTH),
-                            ) { Text("Mois précédent (${timelineMonthTitle(previous)})") }
+            if (timeline != null && timeline.isLoaded) {
+                val previous = timeline.previousMonth
+                if (previous != null) {
+                    item(key = "previous") {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            if (timeline.isLoadingPrevious) {
+                                CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+                            } else {
+                                OutlinedButton(
+                                    onClick = { viewModel.loadPreviousMonth(account.id) },
+                                    modifier = Modifier.testTag(UiTags.TIMELINE_PREVIOUS_MONTH),
+                                ) { Text("Mois précédent (${timelineMonthTitle(previous)})") }
+                            }
                         }
                     }
                 }
             }
         }
+
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 
     if (showAddDialog) {

@@ -1200,6 +1200,11 @@ object UiTags {
     const val ACCOUNT_BALANCE = "account_balance"
     const val ACCOUNT_ADD_TRANSACTION = "account_add_transaction"
     const val ACCOUNT_CORRECT_BALANCE = "account_correct_balance"
+    /** « Rattacher au compte de la banque » (MAG-823): the card of a hand-kept account with a candidate, its search, its rows and the dialog's « Rattacher ». */
+    const val ACCOUNT_LINK_CARD = "account_link_card"
+    const val ACCOUNT_LINK_SEARCH = "account_link_search"
+    const val ACCOUNT_LINK_ITEM = "account_link_item"
+    const val ACCOUNT_LINK_CONFIRM = "account_link_confirm"
     /** The ⋮ of the phone's account bar (MAG-632): « Corriger le solde » of a hand-kept account lives in it. */
     const val ACCOUNT_MENU = "account_menu"
     const val ACCOUNT_BALANCE_INPUT = "account_balance_input"

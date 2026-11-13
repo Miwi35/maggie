@@ -4,6 +4,8 @@ import com.maggie.app.data.api.AccountCreateRequest
 import com.maggie.app.data.api.MaggieApiService
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AccountTimeline
+import com.maggie.app.data.model.LinkCandidate
+import com.maggie.app.data.model.LinkPreview
 
 class AccountRepository(
     private val apiService: MaggieApiService,
@@ -32,5 +34,15 @@ class AccountRepository(
     /** « Corriger le solde »: the new balance of a hand-kept account, in cents. */
     suspend fun updateBalance(accountId: String, balanceCents: Int): Result<Account> = runCatching {
         apiService.updateAccountBalance(accountId, balanceCents)
+    }
+
+    /** The bank's accounts a hand-typed account can be linked to (MAG-823). */
+    suspend fun linkCandidates(accountId: String): Result<List<LinkCandidate>> = runCatching {
+        apiService.getLinkCandidates(accountId)
+    }
+
+    /** The preview of linking [accountId] to [bankAccountId], or with [confirm] the link itself. */
+    suspend fun link(accountId: String, bankAccountId: String, confirm: Boolean): Result<LinkPreview> = runCatching {
+        apiService.linkAccount(accountId, bankAccountId, confirm)
     }
 }
