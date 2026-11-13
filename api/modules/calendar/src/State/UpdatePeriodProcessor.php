@@ -38,9 +38,6 @@ class UpdatePeriodProcessor implements ProcessorInterface
         if (null === $data->getRrule()) {
             $clearFields[] = 'rrule';
         }
-        if (null === $data->getHoliday()) {
-            $clearFields[] = 'holiday';
-        }
 
         return $this->dispatchPeriodCommand($this->bus, new UpdatePeriodCommand(
             userId: (string) $user->getId(),
@@ -54,7 +51,6 @@ class UpdatePeriodProcessor implements ProcessorInterface
             endDate: $data->getEndDate(),
             timeZone: $data->getTimeZone(),
             rrule: $data->getRrule(),
-            holiday: $data->getHoliday()?->value,
             clearFields: $clearFields,
         ))->last(HandledStamp::class)->getResult();
     }

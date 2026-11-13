@@ -23,7 +23,6 @@ final readonly class CreatePeriodCommand
         public ?\DateTimeImmutable $endDate = null,
         public string $timeZone = Event::FALLBACK_TIME_ZONE,
         public ?string $rrule = null,
-        public ?string $holiday = null,
     ) {
     }
 }

@@ -15,7 +15,6 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Maggie\Calendar\Enum\PeriodHoliday;
 use Maggie\Calendar\Filter\EventExpandFilter;
 use Maggie\Calendar\Filter\EventPeriodFilter;
 use Maggie\Calendar\Repository\PeriodRepository;
@@ -42,7 +41,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 // A period of the owner's life (MAG-809): the custody of his son, holidays, a
-// trip, a public holiday. Maggie's own, never synced with Google, and it holds
+// trip. Maggie's own, never synced with Google, and it holds
 // no slot: it says what kind of days these are. Its kind is read in its name —
 // « Garde … », « Vacances … » — so there is no type field. The agenda gives
 // the colour and the owner.
@@ -144,11 +143,6 @@ class Period implements MercurePublishable, OwnedThroughInterface, IndexableInte
     #[ORM\Column(length: 500, nullable: true)]
     #[IndexedField(type: 'keyword')]
     private ?string $rrule = null;
-
-    #[ORM\Column(length: 10, nullable: true, enumType: PeriodHoliday::class)]
-    #[IndexedField(type: 'keyword')]
-    #[ApiProperty(description: 'The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.')]
-    private ?PeriodHoliday $holiday = null;
 
     public function __construct()
     {
@@ -389,18 +383,6 @@ class Period implements MercurePublishable, OwnedThroughInterface, IndexableInte
         return null !== $this->rrule;
     }
 
-    public function getHoliday(): ?PeriodHoliday
-    {
-        return $this->holiday;
-    }
-
-    public function setHoliday(?PeriodHoliday $holiday): static
-    {
-        $this->holiday = $holiday;
-
-        return $this;
-    }
-
     /** @return array<string, mixed> */
     public function toSearchDocument(): array
     {
@@ -413,7 +395,6 @@ class Period implements MercurePublishable, OwnedThroughInterface, IndexableInte
             'endDate' => $this->endDate?->format('Y-m-d'),
             'timeZone' => $this->timeZone,
             'rrule' => $this->rrule,
-            'holiday' => $this->holiday?->value,
             'agendaId' => (string) $this->agenda->getId(),
             'userId' => (string) $this->agenda->getUser()->getId(),
         ];
@@ -430,7 +411,6 @@ class Period implements MercurePublishable, OwnedThroughInterface, IndexableInte
             'endDate' => $this->endDate?->format('Y-m-d'),
             'timeZone' => $this->timeZone,
             'rrule' => $this->rrule,
-            'holiday' => $this->holiday?->value,
         ], $changedProperties);
     }
 }

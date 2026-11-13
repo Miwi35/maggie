@@ -26,7 +26,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * `current`, what was given or what the period is, so the next call can be
  * whole.
  */
-#[McpTool(name: 'manage_periods', description: 'List, create, update or delete the user\'s periods: stretches of their life that say what kind of days these are — the custody of their son, holidays, a trip, a public holiday. A period holds no slot in the agenda and is never synced with Google; it is not an event. Its meaning is in its name, there is no type: name it « Garde … », « Vacances … », « Déplacement à … ». A period has a name, an agenda (agenda_id: its id or its name as the user said it; it gives the colour) and a schedule given whole, as for create_event: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date where end_date is EXCLUDED — the day after the last day: « vacances du 20 au 27 » is start_date the 20th and end_date the 28th. rrule (RFC 5545 without the RRULE: prefix) repeats it: « une semaine sur deux, du vendredi 18:00 au vendredi suivant 18:00 » is one week-long timed period with rrule FREQ=WEEKLY;INTERVAL=2. holiday (france, geneve, both) is set by the import of the public holidays only: never pass it yourself. list with from and to (YYYY-MM-DD, to included) answers each period meeting those days, the repeating ones unfolded into their occurrences (each with the id of its series); list without them answers every period once, as stored. create needs name, agenda_id and the whole schedule; update needs period_id and changes only what is given (the schedule whole again; rrule "" stops the repetition); delete needs period_id and removes the whole series. Nothing is ever deduced: a refused request answers error plus current (what was given, or the period as it is now) — ask the user for what is missing. The result gives what was saved, in the period\'s own zone, with the day of the week of each date (startWeekday, endWeekday or lastDayWeekday) and, for days, lastDay: announce that, « du 20 au 27 », never the excluded end.')]
+#[McpTool(name: 'manage_periods', description: 'List, create, update or delete the user\'s periods: stretches of their life that say what kind of days these are — the custody of their son, holidays, a trip, a public holiday. A period holds no slot in the agenda and is never synced with Google; it is not an event. Its meaning is in its name, there is no type: name it « Garde … », « Vacances … », « Déplacement à … ». A period has a name, an agenda (agenda_id: its id or its name as the user said it; it gives the colour) and a schedule given whole, as for create_event: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date where end_date is EXCLUDED — the day after the last day: « vacances du 20 au 27 » is start_date the 20th and end_date the 28th. rrule (RFC 5545 without the RRULE: prefix) repeats it: « une semaine sur deux, du vendredi 18:00 au vendredi suivant 18:00 » is one week-long timed period with rrule FREQ=WEEKLY;INTERVAL=2. list with from and to (YYYY-MM-DD, to included) answers each period meeting those days, the repeating ones unfolded into their occurrences (each with the id of its series); list without them answers every period once, as stored. create needs name, agenda_id and the whole schedule; update needs period_id and changes only what is given (the schedule whole again; rrule "" stops the repetition); delete needs period_id and removes the whole series. Nothing is ever deduced: a refused request answers error plus current (what was given, or the period as it is now) — ask the user for what is missing. The result gives what was saved, in the period\'s own zone, with the day of the week of each date (startWeekday, endWeekday or lastDayWeekday) and, for days, lastDay: announce that, « du 20 au 27 », never the excluded end.')]
 class ManagePeriodsTool
 {
     public function __construct(
@@ -49,7 +49,6 @@ class ManagePeriodsTool
         ?string $end_time = null,
         ?bool $all_day = null,
         ?string $rrule = null,
-        ?string $holiday = null,
         ?string $from = null,
         ?string $to = null,
     ): string {
@@ -58,8 +57,8 @@ class ManagePeriodsTool
         try {
             return match ($action) {
                 'list' => $this->list($from, $to),
-                'create' => $this->create($name, $agenda_id, $schedule, $rrule, $holiday),
-                'update' => $this->update($period_id, $name, $agenda_id, $schedule, $rrule, $holiday),
+                'create' => $this->create($name, $agenda_id, $schedule, $rrule),
+                'update' => $this->update($period_id, $name, $agenda_id, $schedule, $rrule),
                 'delete' => $this->delete($period_id),
                 default => self::json(['error' => "Unknown action: {$action}. Use list, create, update, or delete."]),
             };
@@ -98,10 +97,10 @@ class ManagePeriodsTool
     }
 
     /** @param array{start_date: ?string, start_time: ?string, end_date: ?string, end_time: ?string, all_day: ?bool} $schedule */
-    private function create(?string $name, ?string $agendaId, array $schedule, ?string $rrule, ?string $holiday): string
+    private function create(?string $name, ?string $agendaId, array $schedule, ?string $rrule): string
     {
         $user = $this->userContext->requireUser();
-        $given = self::given(compact('name') + ['agenda_id' => $agendaId] + $schedule + compact('rrule', 'holiday'));
+        $given = self::given(compact('name') + ['agenda_id' => $agendaId] + $schedule + compact('rrule'));
 
         $missing = array_keys(array_filter(['name' => $name, 'agenda_id' => $agendaId], static fn (?string $value): bool => null === $value || '' === trim($value)));
         if ([] !== $missing) {
@@ -123,7 +122,6 @@ class ManagePeriodsTool
                 startDate: $parsed->startDate,
                 endDate: $parsed->endDate,
                 rrule: '' === $rrule ? null : $rrule,
-                holiday: '' === $holiday ? null : $holiday,
             ))->last(HandledStamp::class)?->getResult();
         } catch (\DomainException $e) {
             return self::json(['error' => $e->getMessage(), 'current' => $given]);
@@ -135,7 +133,7 @@ class ManagePeriodsTool
     }
 
     /** @param array{start_date: ?string, start_time: ?string, end_date: ?string, end_time: ?string, all_day: ?bool} $schedule */
-    private function update(?string $periodId, ?string $name, ?string $agendaId, array $schedule, ?string $rrule, ?string $holiday): string
+    private function update(?string $periodId, ?string $name, ?string $agendaId, array $schedule, ?string $rrule): string
     {
         $user = $this->userContext->requireUser();
         if (null === $periodId) {
@@ -168,8 +166,7 @@ class ManagePeriodsTool
                 startDate: $parsed?->startDate,
                 endDate: $parsed?->endDate,
                 rrule: '' === $rrule ? null : $rrule,
-                holiday: '' === $holiday ? null : $holiday,
-                clearFields: array_keys(array_filter(['rrule' => $rrule, 'holiday' => $holiday], static fn (?string $value): bool => '' === $value)),
+                clearFields: '' === $rrule ? ['rrule'] : [],
             ))->last(HandledStamp::class)?->getResult();
         } catch (\DomainException $e) {
             return self::json(['error' => $e->getMessage(), 'current' => $current]);

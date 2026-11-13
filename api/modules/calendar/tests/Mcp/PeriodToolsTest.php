@@ -196,4 +196,13 @@ class PeriodToolsTest extends KernelTestCase
         self::assertSame(3, $this->rows());
         self::assertNotContains('Période secrète', array_column($this->call('list')['periods'], 'name'));
     }
+
+    public function testManagePeriodsTakesNoHoliday(): void
+    {
+        // MAG-824: a public holiday is a period named like any other.
+        $tools = json_decode((string) file_get_contents(\dirname(__DIR__, 4).'/contract/mcp-tools.json'), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayNotHasKey('holiday', $tools['manage_periods']['inputSchema']['properties']);
+        self::assertStringNotContainsString('import', $tools['manage_periods']['description']);
+    }
 }

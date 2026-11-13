@@ -86,7 +86,6 @@ Maggie\Calendar\Entity\Period:
     startDate: '<(new \DateTimeImmutable("2026-03-14"))>'
     endDate: '<(new \DateTimeImmutable("2026-03-21"))>'
     rrule: 'FREQ=WEEKLY;INTERVAL=2'
-    holiday: '<(Maggie\Calendar\Enum\PeriodHoliday::France)>'
     agenda: '@recorded_agenda'
 
   # A timed one, so the clients read startAt/endAt too (MAG-815).

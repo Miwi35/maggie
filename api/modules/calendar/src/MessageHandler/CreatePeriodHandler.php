@@ -26,7 +26,6 @@ class CreatePeriodHandler
         $period->setAgenda($this->rules->agendaOf($command->userId, $command->agendaId));
         $period->setTimeZone($command->timeZone);
         $period->setRrule($command->rrule);
-        $period->setHoliday($this->rules->holiday($command->holiday));
         if ($command->allDay) {
             if (null === $command->startDate) {
                 throw new \DomainException('An all-day period needs a startDate.');
