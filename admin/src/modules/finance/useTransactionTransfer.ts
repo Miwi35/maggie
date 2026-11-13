@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { RaRecord } from 'react-admin'
+import { accountLabel } from './accountLabel'
+import type { LabelledAccount } from './accountLabel'
 
 /** The other leg of a transfer, with what the owner needs to recognise it. */
 export interface TransferLeg {
@@ -31,10 +34,39 @@ export interface TransferState {
   transferKind: TransferKind
   transferSource: 'auto' | 'manual'
   counterpart: TransferLeg | null
+  /**
+   * The savings account a single-legged advance or repayment comes from or
+   * goes back to (MAG-806); null when none is named, or the line has a counterpart.
+   */
+  advanceSource?: { id: string; name: string } | null
 }
+
+/** The « Source » field applies to an advance or a repayment that has no other leg here. */
+export const takesAdvanceSource = (transfer: TransferState | null | undefined): boolean =>
+  !!transfer && (transfer.transferKind === 'advance' || transfer.transferKind === 'repayment') && transfer.counterpart === null
 
 /** React-admin hands back records keyed by their IRI; the endpoints want the bare ULID. */
 export const transactionIdOf = (iriOrId: string) => iriOrId.split('/').pop() ?? iriOrId
+
+/** The account types an advance can come from (the API refuses any other). */
+const SOURCE_ACCOUNT_TYPES = ['savings', 'investment']
+
+/**
+ * The accounts offered as the source of an advance: the savings and
+ * investment ones, by bare ULID. The source already named stays offered, even
+ * when the list has not answered yet.
+ */
+export const advanceSourceChoices = (
+  accounts: RaRecord[],
+  current: { id: string; name: string } | null | undefined,
+): Array<{ id: string; name: string }> => {
+  const choices = accounts
+    .filter((account) => SOURCE_ACCOUNT_TYPES.includes(account.type as string))
+    .map((account) => ({ id: transactionIdOf(String(account.id)), name: accountLabel(account as LabelledAccount) || String(account.name ?? account.id) }))
+  if (current && !choices.some((choice) => choice.id === current.id)) choices.unshift(current)
+
+  return choices
+}
 
 const request = async (path: string, init: RequestInit = {}) => {
   const token = localStorage.getItem('token')
@@ -149,7 +181,36 @@ export function useTransactionTransfer(transactionId: string | undefined) {
 
   const release = useCallback(() => write({ transferKind: 'none' }), [write])
 
-  return { transfer, candidates, error, saving, load, loadCandidates, mark, release }
+  /** Names the savings account of a single-legged advance or repayment; `null` takes it off. */
+  const setAdvanceSource = useCallback(
+    async (accountId: string | null): Promise<boolean> => {
+      if (id === undefined) return false
+      setSaving(true)
+      try {
+        const res = await request(`/api/finance/transactions/${id}/advance-source`, {
+          method: 'PUT',
+          body: JSON.stringify({ accountId: accountId === null ? null : transactionIdOf(accountId) }),
+        })
+        if (!res.ok) {
+          const detail = (await res.json().catch(() => ({}))) as { error?: string }
+          setError(detail.error ?? 'La source n’a pas pu être enregistrée')
+          return false
+        }
+        setTransfer((await res.json()) as TransferState)
+        setError(null)
+
+        return true
+      } catch {
+        setError('La source n’a pas pu être enregistrée')
+        return false
+      } finally {
+        setSaving(false)
+      }
+    },
+    [id],
+  )
+
+  return { transfer, candidates, error, saving, load, loadCandidates, mark, release, setAdvanceSource }
 }
 
 export type TransactionTransfer = ReturnType<typeof useTransactionTransfer>

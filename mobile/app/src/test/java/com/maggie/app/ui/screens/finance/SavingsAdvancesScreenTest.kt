@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -52,7 +53,7 @@ class SavingsAdvancesScreenTest {
             SavingsAdvance("adv-1", "acc-livret", "Livret A", 150000, "2026-10-11", 100000, 50000, false),
             SavingsAdvance("adv-0", "acc-livret", "Livret A", 20000, "2026-08-02", 20000, 0, true),
         ),
-        bySource = listOf(SavingsSource("acc-livret", "Livret A", 50000, 1)),
+        bySource = listOf(SavingsSource("acc-livret", "Livret A", 50000, 1, advancedCents = 170000, repaidCents = 120000)),
         totalOutstandingCents = 50000,
         salaryDelay = SalaryDelay(isConfigured = true, salaryExpectedDay = 5, referenceCents = 250000, isLate = true, delayDays = 6),
         proposals = listOf(proposal),
@@ -84,6 +85,16 @@ class SavingsAdvancesScreenTest {
         compose.onAllNodesWithText("Reste à rendre").onFirst().assertIsDisplayed()
         scrollTo("Avances soldées")
         compose.onNodeWithText("Avances soldées").assertIsDisplayed()
+    }
+
+    @Test
+    fun `each source of the total says what it lent, what came back and what is left (MAG-806)`() {
+        show(FakeSavingsAdvances(withAdvances))
+
+        compose.onNodeWithTag(UiTags.savingsAdvancesSource("acc-livret")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.savingsAdvancesSourceAdvanced("acc-livret")).assertTextEquals(formatCents(170000))
+        compose.onNodeWithTag(UiTags.savingsAdvancesSourceRepaid("acc-livret")).assertTextEquals(formatCents(120000))
+        compose.onNodeWithTag(UiTags.savingsAdvancesSourceOutstanding("acc-livret")).assertTextEquals(formatCents(50000))
     }
 
     @Test

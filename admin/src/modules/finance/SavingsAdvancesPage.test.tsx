@@ -45,7 +45,16 @@ const DELAY = {
 
 const WITH_ADVANCES: SavingsAdvancesData = {
   advances: [OPEN, CLOSED],
-  bySource: [{ sourceAccountId: 'livret', sourceAccountName: 'Livret', outstandingCents: 100000, openCount: 1 }],
+  bySource: [
+    {
+      sourceAccountId: 'livret',
+      sourceAccountName: 'Livret',
+      advancedCents: 150000,
+      repaidCents: 50000,
+      outstandingCents: 100000,
+      openCount: 1,
+    },
+  ],
   totalOutstandingCents: 100000,
   salaryDelay: DELAY,
   proposals: [
@@ -120,11 +129,35 @@ describe('SavingsAdvancesPage', () => {
     expect(open).toHaveTextContent('1 500,00')
     expect(open).toHaveTextContent('500,00')
     expect(open).toHaveTextContent('1 000,00')
-    expect(screen.getByRole('columnheader', { name: 'Avancé' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Rendu' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Reste à rendre' })).toBeInTheDocument()
+    expect(screen.getAllByRole('columnheader', { name: 'Avancé' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('columnheader', { name: 'Rendu' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('columnheader', { name: 'Reste à rendre' }).length).toBeGreaterThan(0)
     expect(within(closed).getByText('PEL')).toBeInTheDocument()
     expect(screen.queryByText('Avances soldées')).not.toBeInTheDocument()
+  })
+
+  test('each source with something left shows what was advanced, given back and is left (MAG-806)', async () => {
+    serve(WITH_ADVANCES)
+    renderPage()
+
+    const sources = await screen.findAllByTestId('savings-source')
+    expect(sources).toHaveLength(1)
+    const [livret] = sources
+    expect(livret).toHaveAttribute('data-source', 'Livret')
+    expect(within(livret).getByTestId('savings-source-advanced')).toHaveTextContent('1 500,00')
+    expect(within(livret).getByTestId('savings-source-repaid')).toHaveTextContent('500,00')
+    expect(within(livret).getByTestId('savings-source-outstanding')).toHaveTextContent('1 000,00')
+    const table = screen.getByRole('table', { name: 'Par source' })
+    expect(within(table).getByRole('columnheader', { name: 'Avancé' })).toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: 'Rendu' })).toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: 'Reste à rendre' })).toBeInTheDocument()
+  })
+
+  test('with nothing left to give back, no source table', async () => {
+    serve({ ...WITH_ADVANCES, bySource: [] })
+    renderPage()
+
+    await screen.findAllByTestId('savings-advance')
     expect(screen.queryByTestId('savings-source')).not.toBeInTheDocument()
   })
 

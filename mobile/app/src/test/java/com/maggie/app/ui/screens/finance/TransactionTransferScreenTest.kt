@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -7,7 +8,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.screentest.FakeTransactionTransfers
 import com.maggie.app.screentest.ScreenRule
@@ -176,5 +179,58 @@ class TransactionTransferScreenTest {
         compose.onNodeWithText("PRELEVEMENT EDF").assertIsDisplayed()
         compose.onNodeWithText("REJET PRLV SEPA").assertIsDisplayed()
         compose.onNodeWithText("Incidents (0)").assertIsDisplayed()
+    }
+
+    // « Source » of an advance with no counterpart (MAG-806): a credit drawn from a livret typed by hand.
+    private fun advances() = FakeTransactionTransfers(
+        transactions = listOf(
+            Transaction(id = "tx-adv", label = "VIR LIVRET MAISON", amountCents = 30000, bookedAt = "2026-09-12", transferKind = "advance", transferSource = "manual"),
+        ),
+        accounts = listOf(
+            Account(id = "acc-courant", name = "Courant", type = "checking"),
+            Account(id = "acc-livret", name = "Livret maison", type = "savings"),
+        ),
+        singleLegged = setOf("tx-adv"),
+    )
+
+    @Test
+    fun `an advance with no counterpart takes its source from the full-screen choice, and gives it back`() {
+        val server = advances()
+        show(server)
+
+        compose.onNodeWithText("VIR LIVRET MAISON").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE).performScrollTo().assertContentDescriptionEquals("Source, aucune")
+
+        compose.onNodeWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE_SEARCH).assertIsDisplayed()
+        // Only a savings or an investment account can lend; nothing is named yet, so nothing to remove.
+        compose.onNodeWithText("Courant").assertDoesNotExist()
+        compose.onAllNodesWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE_NONE).assertCountEquals(0)
+        compose.onNodeWithText("Livret maison").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<Pair<String, String?>>("tx-adv" to "acc-livret"), server.sourcesSent)
+        compose.onNodeWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE).performScrollTo().assertContentDescriptionEquals("Source, Livret maison")
+
+        compose.onNodeWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE_NONE).performClick()
+        compose.waitForIdle()
+
+        assertEquals("tx-adv" to null, server.sourcesSent.last())
+        compose.onNodeWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE).performScrollTo().assertContentDescriptionEquals("Source, aucune")
+    }
+
+    @Test
+    fun `a paired transfer has no source field`() {
+        show(FakeTransactionTransfers())
+
+        compose.onNodeWithText("Virement vers Courant").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Contrepartie : Courant · 2026-09-13 · Virement du Livret").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.TRANSACTION_ADVANCE_SOURCE).assertCountEquals(0)
     }
 }

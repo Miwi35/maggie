@@ -45,6 +45,9 @@ data class Transaction(
     // What a transfer to or from someone close is (MAG-453): "income", "repayment", "new_debt"
     // for money received, "repayment", "new_claim", "other" for money sent; null until answered.
     val peerKind: String? = null,
+    // The savings account an "advance" or a "repayment" with no counterpart comes from or goes
+    // back to, named by the owner (MAG-806): a bare ULID, null while none is named.
+    val advanceSourceAccountId: String? = null,
 ) {
     val categoryId: String? get() = category?.substringAfterLast('/')
 
@@ -96,7 +99,33 @@ data class TransferInfo(
     val transferKind: String = "none",
     val transferSource: String = "auto",
     val counterpart: TransferLeg? = null,
+    // The savings account named as the source of a single-legged advance or repayment (MAG-806).
+    val advanceSource: AdvanceSource? = null,
 )
+
+/**
+ * The savings account an advance with no counterpart comes from (MAG-806); null on [TransferInfo]
+ * while the owner has named none, or when the line has a counterpart, which says it already.
+ */
+@Serializable
+data class AdvanceSource(
+    val id: String,
+    val name: String,
+)
+
+/** `PUT …/advance-source`: a null [accountId] takes the source away; the key is always sent. */
+@Serializable
+data class AdvanceSourceRequest(val accountId: String?)
+
+/** Account types an advance can be drawn from: the API refuses any other. */
+val ADVANCE_SOURCE_ACCOUNT_TYPES = setOf("savings", "investment")
+
+/**
+ * Whether the sheet offers « Source »: only an advance or a repayment without a counterpart — one
+ * with a counterpart names its savings account through it. Hidden until the transfer state is read.
+ */
+fun showsAdvanceSource(transferKind: String, info: TransferInfo?): Boolean =
+    transferKind in setOf("advance", "repayment") && info != null && info.counterpart == null
 
 @Serializable
 data class TransferCandidates(

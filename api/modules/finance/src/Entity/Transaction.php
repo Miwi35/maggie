@@ -256,6 +256,18 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
     private ?self $repays = null;
 
     /**
+     * The savings account an advance came from, or a repayment goes back to,
+     * when that account is not synced and the line has no other leg (MAG-806):
+     * a livret typed by hand. Only on a single-legged `advance` or `repayment`;
+     * a new marking drops it. Served as `advanceSourceAccountId`.
+     */
+    #[ORM\ManyToOne(targetEntity: Account::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[ApiProperty(readable: false, writable: false)]
+    #[IndexedRelation(targetEntity: Account::class, sourceField: 'advanceSourceAccountId')]
+    private ?Account $advanceSource = null;
+
+    /**
      * The recurring operation this line is one occurrence of. Written over
      * REST by a PATCH that names it with `recurringOccurrenceOn`, which the
      * processor turns into a manual attachment: the setters below only exist
@@ -689,6 +701,24 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         return $this;
     }
 
+    #[ApiProperty(readable: false)]
+    public function getAdvanceSource(): ?Account
+    {
+        return $this->advanceSource;
+    }
+
+    public function getAdvanceSourceAccountId(): ?string
+    {
+        return null !== $this->advanceSource ? (string) $this->advanceSource->getId() : null;
+    }
+
+    public function setAdvanceSource(?Account $advanceSource): static
+    {
+        $this->advanceSource = $advanceSource;
+
+        return $this;
+    }
+
     /** Not serialized: `transferKind` is the one truth a client reads. */
     #[ApiProperty(readable: false)]
     public function isInternalTransfer(): bool
@@ -785,12 +815,14 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
         // A line that is no longer a repayment gives nothing back, nor a rejection anything settled.
         $this->repays = null;
         $this->rejectionSettledAt = null;
+        $this->advanceSource = null;
 
         if (null !== $former && $former->counterpart === $this) {
             $former->transferKind = TransferKind::None;
             $former->transferSource = TransferSource::Auto;
             $former->counterpart = null;
             $former->repays = null;
+            $former->advanceSource = null;
             $former->rejectionSettledAt = null;
         }
     }
@@ -1040,6 +1072,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
             'rejectionSettledAt' => $this->rejectionSettledAt?->format(\DateTimeInterface::ATOM),
             'repaysId' => null !== $this->repays ? (string) $this->repays->getId() : null,
+            'advanceSourceAccountId' => $this->getAdvanceSourceAccountId(),
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
@@ -1078,6 +1111,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'counterpartId' => null !== $this->counterpart ? (string) $this->counterpart->getId() : null,
             'rejectionSettledAt' => $this->rejectionSettledAt?->format(\DateTimeInterface::ATOM),
             'repaysId' => null !== $this->repays ? (string) $this->repays->getId() : null,
+            'advanceSourceAccountId' => $this->getAdvanceSourceAccountId(),
             'recurringOperationId' => null !== $this->recurringOperation ? (string) $this->recurringOperation->getId() : null,
             'recurringOccurrenceOn' => $this->recurringOccurrenceOn?->format('Y-m-d'),
             'recurringSource' => $this->recurringSource->value,
@@ -1095,6 +1129,7 @@ class Transaction implements MercurePublishable, OwnedByUserInterface, Indexable
             'category' => 'categoryId',
             'counterpart' => 'counterpartId',
             'repays' => 'repaysId',
+            'advanceSource' => 'advanceSourceAccountId',
             'recurringOperation' => 'recurringOperationId',
             'oneOffEnvelope' => 'oneOffEnvelopeId',
             'contact' => 'contactId',

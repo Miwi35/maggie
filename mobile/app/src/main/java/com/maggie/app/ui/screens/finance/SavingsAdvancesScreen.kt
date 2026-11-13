@@ -256,10 +256,20 @@ private fun TotalCard(advances: SavingsAdvances) {
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.testTag(UiTags.SAVINGS_ADVANCES_TOTAL),
             )
+            // Each source says what it lent, what came back and what is left (MAG-806).
             advances.bySource.forEach { source ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag(UiTags.savingsAdvancesSource(source.sourceAccountId)),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     Text(source.sourceAccountName, style = MaterialTheme.typography.bodyMedium)
-                    Text(formatCents(source.outstandingCents), style = MaterialTheme.typography.bodyMedium)
+                    AmountLine("Avancé", source.advancedCents, UiTags.savingsAdvancesSourceAdvanced(source.sourceAccountId))
+                    AmountLine("Rendu", source.repaidCents, UiTags.savingsAdvancesSourceRepaid(source.sourceAccountId))
+                    AmountLine(
+                        "Reste à rendre",
+                        source.outstandingCents,
+                        UiTags.savingsAdvancesSourceOutstanding(source.sourceAccountId),
+                    )
                 }
             }
         }
@@ -323,9 +333,13 @@ private fun AdvanceCard(advance: SavingsAdvance) {
 }
 
 @Composable
-private fun AmountLine(label: String, cents: Int) {
+private fun AmountLine(label: String, cents: Int, tag: String? = null) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(formatCents(cents), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            formatCents(cents),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
+        )
     }
 }

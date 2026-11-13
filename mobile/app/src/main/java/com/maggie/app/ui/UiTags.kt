@@ -349,6 +349,11 @@ object UiTags {
     const val TRANSACTION_ONE_OFF_ENVELOPE = "transaction_one_off_envelope"
     const val TRANSACTION_ONE_OFF_ENVELOPE_SEARCH = "transaction_one_off_envelope_search"
 
+    /** « Source » of an advance or a repayment with no counterpart, the full-screen choice it opens and its « Aucune source » (MAG-806). */
+    const val TRANSACTION_ADVANCE_SOURCE = "transaction_advance_source"
+    const val TRANSACTION_ADVANCE_SOURCE_SEARCH = "transaction_advance_source_search"
+    const val TRANSACTION_ADVANCE_SOURCE_NONE = "transaction_advance_source_none"
+
     /** A transaction's category on its detail screen, and the full-screen search it opens (MAG-411). */
     const val TRANSACTION_CATEGORY = "transaction_category"
     const val TRANSACTION_CATEGORY_SEARCH = "transaction_category_search"
@@ -382,6 +387,11 @@ object UiTags {
     const val SAVINGS_ADVANCES_SALARY_DAY = "savings_advances_salary_day"
     const val SAVINGS_ADVANCES_SAVE_DAY = "savings_advances_save_day"
     const val SAVINGS_ADVANCE_DONE_PREFIX = "savings_advance_done_"
+    /** Savings advances — one source of the total, and its « Avancé », « Rendu », « Reste à rendre » amounts, suffixed by the account id (MAG-806). */
+    const val SAVINGS_ADVANCES_SOURCE_PREFIX = "savings_advances_source_"
+    const val SAVINGS_ADVANCES_SOURCE_ADVANCED_PREFIX = "savings_advances_source_advanced_"
+    const val SAVINGS_ADVANCES_SOURCE_REPAID_PREFIX = "savings_advances_source_repaid_"
+    const val SAVINGS_ADVANCES_SOURCE_OUTSTANDING_PREFIX = "savings_advances_source_outstanding_"
 
     /**
      * The breadcrumb of a module (MAG-537): its name, the section button, the menu of the sections (one
@@ -859,6 +869,10 @@ object UiTags {
     fun monthBalanceEnvelope(envelopeId: String) = MONTH_BALANCE_ENVELOPE_PREFIX + envelopeId
 
     fun savingsAdvanceDone(advanceId: String) = SAVINGS_ADVANCE_DONE_PREFIX + advanceId
+    fun savingsAdvancesSource(accountId: String) = SAVINGS_ADVANCES_SOURCE_PREFIX + accountId
+    fun savingsAdvancesSourceAdvanced(accountId: String) = SAVINGS_ADVANCES_SOURCE_ADVANCED_PREFIX + accountId
+    fun savingsAdvancesSourceRepaid(accountId: String) = SAVINGS_ADVANCES_SOURCE_REPAID_PREFIX + accountId
+    fun savingsAdvancesSourceOutstanding(accountId: String) = SAVINGS_ADVANCES_SOURCE_OUTSTANDING_PREFIX + accountId
 
     fun googleImport(calendarId: String) = GOOGLE_IMPORT_PREFIX + calendarId
 

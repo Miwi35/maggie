@@ -23,7 +23,7 @@ const DATA: SavingsAdvancesData = {
       isClosed: false,
     },
   ],
-  bySource: [{ sourceAccountId: 'livret', sourceAccountName: 'Livret', outstandingCents: 150000, openCount: 1 }],
+  bySource: [{ sourceAccountId: 'livret', sourceAccountName: 'Livret', advancedCents: 150000, repaidCents: 0, outstandingCents: 150000, openCount: 1 }],
   totalOutstandingCents: 150000,
   salaryDelay: {
     isConfigured: true,

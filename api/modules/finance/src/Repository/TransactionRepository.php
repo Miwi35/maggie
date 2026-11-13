@@ -1554,6 +1554,31 @@ class TransactionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The single-legged advances and repayments tied to a savings account no
+     * bank sync gives a debit leg (MAG-806), oldest first.
+     *
+     * @return Transaction[]
+     */
+    public function findSourcedAdvanceLines(User $user): array
+    {
+        return $this->createQueryBuilder('t')
+            ->innerJoin('t.advanceSource', 's')
+            ->addSelect('s')
+            ->andWhere('t.user = :user')
+            ->andWhere('s.user = :user')
+            ->andWhere('t.counterpart IS NULL')
+            // A repayment pointing at a legged advance is counted on that advance.
+            ->andWhere('t.repays IS NULL')
+            ->andWhere('t.transferKind IN (:kinds)')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('kinds', [TransferKind::Advance->value, TransferKind::Repayment->value])
+            ->orderBy('t.bookedAt', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * What has been given back on each advance: the debit legs pointing at it
      * with `repays`, as positive cents, keyed by the advance's id.
      *

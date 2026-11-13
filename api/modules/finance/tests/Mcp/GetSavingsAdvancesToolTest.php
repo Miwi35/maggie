@@ -60,7 +60,7 @@ class GetSavingsAdvancesToolTest extends KernelTestCase
         $data = $this->read();
 
         self::assertSame(150000, $data['totalOutstandingCents']);
-        self::assertSame([['sourceAccountId' => (string) $this->getFixture('livret')->getId(), 'sourceAccountName' => 'Livret A', 'outstandingCents' => 150000, 'openCount' => 1]], $data['bySource']);
+        self::assertSame([['sourceAccountId' => (string) $this->getFixture('livret')->getId(), 'sourceAccountName' => 'Livret A', 'advancedCents' => 150000, 'repaidCents' => 0, 'outstandingCents' => 150000, 'openCount' => 1]], $data['bySource']);
         self::assertSame(150000, $data['advances'][0]['outstandingCents']);
         // No salary ever came in: the previous month is late, whatever the day.
         self::assertTrue($data['salaryDelay']['isLate']);

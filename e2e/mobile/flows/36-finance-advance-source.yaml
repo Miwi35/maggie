@@ -1,0 +1,106 @@
+appId: com.maggie.app.e2e
+name: 36-finance-advance-source
+tags:
+  - finance
+---
+# « Source » of a single-legged advance, from the phone (MAG-806, extends MAG-102).
+#
+# Étant donné un livret saisi à la main (épargne, sans connexion bancaire) et deux crédits
+#   « Avance d'épargne » de 300,00 € et 200,00 € sur le compte courant, sans contrepartie
+# Quand je choisis ce livret comme Source sur la fiche de chaque crédit
+# Alors l'écran des avances d'épargne montre le livret avec « Reste à rendre » 500,00 €
+#
+# An account of its own (`api/fixtures/e2e/73-finance-advance-source.yaml`): no other journey
+# moves its total. Naming the same source twice changes nothing, so a rerun finds the same
+# figure. The refusals, the removal and the field hidden on a paired line are
+# `TransactionViewModelTest` and `TransactionTransferScreenTest`; the « Avancé » and « Rendu »
+# of a source `SavingsAdvancesScreenTest`; the admin's side `finance-treasury.spec.ts`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/36-finance-advance-source.yaml
+      e2e_email: e2e-advance-source-mobile@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible: "EUR · Courant MAG-806"
+    timeout: 30000
+- tapOn: "EUR · Courant MAG-806"
+
+# On a phone the account opens on its full list; on a tablet it opens in the pane, one button from the list (MAG-632).
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "account_all_transactions"
+          timeout: 20000
+      - tapOn:
+          id: "account_all_transactions"
+
+# Each credit: its sheet, « Source », the livret in the full-screen choice, back to the list.
+- extendedWaitUntil:
+    visible: "AVANCE LIVRET UN"
+    timeout: 30000
+- tapOn: "AVANCE LIVRET UN"
+- scrollUntilVisible:
+    element:
+      id: "transaction_advance_source"
+    timeout: 20000
+- tapOn:
+    id: "transaction_advance_source"
+- extendedWaitUntil:
+    visible:
+      id: "transaction_advance_source_search"
+    timeout: 20000
+# « ✓ » follows the name once it is the source: a rerun picks it again.
+- tapOn: "Livret maison MAG-806.*"
+- extendedWaitUntil:
+    visible: "Source, Livret maison MAG-806"
+    timeout: 20000
+- back
+- extendedWaitUntil:
+    visible: "AVANCE LIVRET DEUX"
+    timeout: 30000
+- tapOn: "AVANCE LIVRET DEUX"
+- scrollUntilVisible:
+    element:
+      id: "transaction_advance_source"
+    timeout: 20000
+- tapOn:
+    id: "transaction_advance_source"
+- extendedWaitUntil:
+    visible:
+      id: "transaction_advance_source_search"
+    timeout: 20000
+# « ✓ » follows the name once it is the source: a rerun picks it again.
+- tapOn: "Livret maison MAG-806.*"
+- extendedWaitUntil:
+    visible: "Source, Livret maison MAG-806"
+    timeout: 20000
+- back
+
+# The savings advances screen: the livret, with what is left to give back of both credits.
+- openLink: "maggie-e2e://finance/savings-advances"
+- extendedWaitUntil:
+    visible:
+      id: "savings_advances_total"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "savings_advances_source_.*"
+    timeout: 20000
+- assertVisible: "Livret maison MAG-806"
+- assertVisible:
+    id: "savings_advances_source_advanced_.*"
+    text: "500,00.€"
+- assertVisible:
+    id: "savings_advances_source_outstanding_.*"
+    text: "500,00.€"

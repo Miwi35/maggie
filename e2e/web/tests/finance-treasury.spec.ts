@@ -5,6 +5,7 @@ import { waitForIndexed } from '../helpers/api.js'
 import { euros } from '../helpers/money.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
+import { FinanceTransactionSheetPage } from '../pages/FinanceTransactionSheetPage.js'
 import { FinanceTreasuryPage } from '../pages/FinanceTreasuryPage.js'
 import { ROUTES, adminUrl } from '../pages/routes.js'
 
@@ -32,6 +33,11 @@ import { ROUTES, adminUrl } from '../pages/routes.js'
  *
  * Third journey (MAG-632): the treasury is one page, with no tabs — curve, cushion, advances,
  * créances et dettes, movements — and its settings sit behind « Régler ».
+ *
+ * Fourth journey (MAG-806): a livret typed by hand, which no bank sync gives a debit leg.
+ *   Étant donné un livret saisi à la main et deux crédits `advance` sans contrepartie sur le Courant
+ *   Quand je choisis ce livret comme « Source » sur la fiche de chaque crédit
+ *   Alors l'écran des avances montre le livret avec « Reste à rendre » égal à la somme des deux
  *
  * The expected day is today's, so the current month is not due yet and the
  * previous one is the whole delay, whatever the day the suite runs. The two
@@ -71,7 +77,7 @@ interface SavingsAdvances {
   }>
   proposals: Array<{ fromAccountId: string; toAccountId: string; amountCents: number; advanceId: string }>
   proposalsTotalCents: number
-  bySource: Array<{ sourceAccountName: string; outstandingCents: number }>
+  bySource: Array<{ sourceAccountName: string; advancedCents: number; repaidCents: number; outstandingCents: number }>
   totalOutstandingCents: number
   salaryDelay: {
     isConfigured: boolean
@@ -139,6 +145,26 @@ async function line(
     data: { account: `/api/accounts/${accountId}`, label, amountCents, currency: 'EUR', bookedAt, status },
   })
   expect(response.status(), await response.text()).toBe(201)
+}
+
+/** A credit on `accountId` marked by hand as an advance with no other leg: its source account is not synced. */
+async function singleLeggedAdvance(
+  api: APIRequestContext,
+  accountId: string,
+  amountCents: number,
+  bookedAt: string,
+  label: string,
+): Promise<string> {
+  const created = await api.post('/api/transactions', {
+    headers: LD,
+    data: { account: `/api/accounts/${accountId}`, label, amountCents, currency: 'EUR', bookedAt, status: 'spent' },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const id = String(((await created.json()) as { id: string }).id)
+  const marked = await api.put(`/api/finance/transactions/${id}/transfer`, { data: { transferKind: 'advance' } })
+  expect(marked.status(), await marked.text()).toBe(200)
+
+  return id
 }
 
 async function savingsAdvances(api: APIRequestContext): Promise<SavingsAdvances> {
@@ -468,6 +494,44 @@ test("the savings advances screen lists the advance and « Remettre » settles i
     expect.objectContaining({ sourceAccountName: 'Livret MAG-276', repaidCents: 150000, outstandingCents: 0, isClosed: true }),
   ])
   expect(settled.proposals).toEqual([])
+})
+
+test('a livret typed by hand is named as the source of its advances, and the screen counts what is left', async ({
+  treasuryUser,
+}) => {
+  const { api, page } = treasuryUser
+  const today = parisDay()
+  const livret = 'Livret A Hugo MAG-806'
+
+  // Given a livret typed by hand — no bank connection, so no debit leg ever arrives…
+  const checkingId = await account(api, 'Courant MAG-806', 'checking', 100000)
+  await account(api, livret, 'savings', 0)
+  // …and two credits on the Courant marked as advances, with no counterpart.
+  const credits = [
+    await singleLeggedAdvance(api, checkingId, 120000, shiftDay(today, -10), 'VIR LIVRET A HUGO MAG-806 1'),
+    await singleLeggedAdvance(api, checkingId, 80000, shiftDay(today, -3), 'VIR LIVRET A HUGO MAG-806 2'),
+  ]
+
+  // When I choose the livret as « Source » on the sheet of each credit.
+  const sheet = new FinanceTransactionSheetPage(page)
+  for (const credit of credits) {
+    await sheet.openSingleLeggedAdvance(credit)
+    await sheet.chooseAdvanceSource(livret)
+  }
+
+  // Then the savings advances screen shows the livret, 2 000,00 € advanced, nothing given back, 2 000,00 € left.
+  await page.goto(adminUrl(ROUTES.financeSavingsAdvances))
+  const source = page.getByTestId('savings-source').filter({ hasText: livret })
+  await expect(source.getByTestId('savings-source-advanced')).toHaveText(euros(200000))
+  await expect(source.getByTestId('savings-source-repaid')).toHaveText(euros(0))
+  await expect(source.getByTestId('savings-source-outstanding')).toHaveText(euros(200000))
+  await expect(page.getByTestId('savings-total-outstanding')).toHaveText(euros(200000))
+
+  // And the API agrees: one source, the sum of both credits.
+  const data = await savingsAdvances(api)
+  expect(data.bySource).toEqual([
+    expect.objectContaining({ sourceAccountName: livret, advancedCents: 200000, repaidCents: 0, outstandingCents: 200000 }),
+  ])
 })
 
 /**

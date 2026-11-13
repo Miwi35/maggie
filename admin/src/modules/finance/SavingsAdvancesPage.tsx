@@ -17,7 +17,7 @@ import { formatCents } from './accountTypes'
 import { Amount } from './AmountField'
 import { formatDay } from './recurringOperations'
 import { useSavingsAdvances } from './useSavingsAdvances'
-import type { RepaymentProposal, SavingsAdvance, SavingsAdvancesData } from './useSavingsAdvances'
+import type { RepaymentProposal, SavingsAdvance, SavingsAdvancesData, SavingsSource } from './useSavingsAdvances'
 
 const UNPROPOSED_REASONS: Record<string, string> = {
   insufficient_balance: 'Le solde du compte courant ne suffit pas.',
@@ -29,6 +29,36 @@ const openFirst = (advances: SavingsAdvance[]): SavingsAdvance[] => [
   ...advances.filter((advance) => !advance.isClosed),
   ...advances.filter((advance) => advance.isClosed),
 ]
+
+/** Each savings account with something left to give back: advanced, given back, left (MAG-806). */
+const SourcesTable = ({ sources }: { sources: SavingsSource[] }) => (
+  <Table size="small" aria-label="Par source" sx={{ mb: 2 }}>
+    <TableHead>
+      <TableRow>
+        <TableCell>Source</TableCell>
+        <TableCell align="right">Avancé</TableCell>
+        <TableCell align="right">Rendu</TableCell>
+        <TableCell align="right">Reste à rendre</TableCell>
+      </TableRow>
+    </TableHead>
+    <TableBody>
+      {sources.map((source) => (
+        <TableRow key={source.sourceAccountId} data-testid="savings-source" data-source={source.sourceAccountName}>
+          <TableCell>{source.sourceAccountName}</TableCell>
+          <TableCell align="right" data-testid="savings-source-advanced">
+            <Amount cents={source.advancedCents ?? 0} />
+          </TableCell>
+          <TableCell align="right" data-testid="savings-source-repaid">
+            <Amount cents={source.repaidCents ?? 0} />
+          </TableCell>
+          <TableCell align="right" data-testid="savings-source-outstanding">
+            <Amount cents={source.outstandingCents} bold />
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+)
 
 /**
  * What the proposal for an advance lets the owner do: « Remettre » records the
@@ -77,7 +107,7 @@ const AdvanceAction = ({
 
 /**
  * « Avances d'épargne »: what was taken from the savings while the salary was late,
- * what is left to give back, and a « Remettre » on each open advance the API proposes
+ * what is left to give back — by source, then advance by advance — and a « Remettre » on each open advance the API proposes
  * a counter-transfer for. Reads, and re-reads whenever a transaction moves.
  */
 export const SavingsAdvancesSection = () => {
@@ -130,6 +160,8 @@ export const SavingsAdvancesSection = () => {
             {error}
           </Alert>
         )}
+
+        {data && data.bySource.length > 0 && <SourcesTable sources={data.bySource} />}
 
         {data &&
           (data.advances.length === 0 ? (

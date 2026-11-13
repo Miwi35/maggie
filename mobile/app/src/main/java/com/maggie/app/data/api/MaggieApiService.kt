@@ -151,6 +151,7 @@ import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.model.TransferCandidates
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.model.AdvanceSourceRequest
 import com.maggie.app.data.model.TransferUpdateRequest
 import com.maggie.app.data.model.TtsVoice
 import com.maggie.app.data.model.RecurringFrequency
@@ -2515,6 +2516,17 @@ class MaggieApiService(
             contentType(ContentType.Application.Json)
             setBody(request)
         }.body()
+    }
+
+    /**
+     * Names (or with a null [AdvanceSourceRequest.accountId] takes away) the savings account a
+     * single-legged advance or repayment comes from (MAG-806); a 400 carries the API's reason.
+     */
+    suspend fun setAdvanceSource(id: String, request: AdvanceSourceRequest): TransferInfo {
+        return client.put("$baseUrl/api/finance/transactions/$id/advance-source") {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.orRefusal().body()
     }
 
     // Finance — The « À qualifier » pile

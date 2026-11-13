@@ -15,7 +15,9 @@ final readonly class UpdateTransactionCommand
      * or to the occurrence nearest its booking day; `recurringOccurrenceOn`
      * alone moves it within its series; clearing `recurringOperation` detaches it.
      * `repaysTransactionId` points the debit leg of a `repayment` at the advance
-     * it gives back. `oneOffEnvelopeId` attributes the spend to a one-off
+     * it gives back. `advanceSourceAccountId` names the savings account a
+     * single-legged `advance` or `repayment` comes from or goes back to;
+     * clearing `advanceSource` removes it. `oneOffEnvelopeId` attributes the spend to a one-off
      * envelope; clearing `oneOffEnvelope` takes it back to its category's envelopes.
      *
      * `qualification` is the owner's own, whole (`Qualification::toArray()`),
@@ -23,8 +25,8 @@ final readonly class UpdateTransactionCommand
      * `qualifiedByRuleId` instead files the line with the whole qualification
      * of that rule.
      *
-     * @param array<string, mixed>|null                                                      $qualification
-     * @param list<'categoryId'|'transferKind'|'recurringOperation'|'note'|'oneOffEnvelope'> $clearFields
+     * @param array<string, mixed>|null                                                                      $qualification
+     * @param list<'categoryId'|'transferKind'|'recurringOperation'|'note'|'oneOffEnvelope'|'advanceSource'> $clearFields
      */
     public function __construct(
         public string $userId,
@@ -44,6 +46,7 @@ final readonly class UpdateTransactionCommand
         public ?string $transferSource = null,
         public ?string $counterpartId = null,
         public ?string $repaysTransactionId = null,
+        public ?string $advanceSourceAccountId = null,
         public ?string $recurringOperationId = null,
         public ?string $recurringOccurrenceOn = null,
         public ?string $note = null,

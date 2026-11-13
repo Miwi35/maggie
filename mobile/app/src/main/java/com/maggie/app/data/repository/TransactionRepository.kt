@@ -14,6 +14,7 @@ import com.maggie.app.data.model.SortResult
 import com.maggie.app.data.model.ToSortPile
 import com.maggie.app.data.model.TransferInfo
 import com.maggie.app.data.model.TransferLeg
+import com.maggie.app.data.model.AdvanceSourceRequest
 import com.maggie.app.data.model.TransferUpdateRequest
 import com.maggie.app.data.model.categoryIri
 import com.maggie.app.data.model.bookedDate
@@ -115,6 +116,11 @@ class TransactionRepository(
             TransferUpdateRequest(transferKind = if (internal) "internal" else "none", counterpartId = counterpartId),
         )
     }
+
+    /** Names the savings account an advance with no counterpart comes from; null takes it away (MAG-806). */
+    suspend fun setAdvanceSource(id: String, accountId: String?): Result<TransferInfo> = runCatching {
+        apiService.setAdvanceSource(id, AdvanceSourceRequest(accountId))
+    }.rethrowCancellation()
 
     /** [oldestFirst] walks the pile from its oldest line; [limit] bounds the page, the totals still count the whole pile. */
     suspend fun getToSort(limit: Int? = null, oldestFirst: Boolean = false): Result<ToSortPile> = runCatching {

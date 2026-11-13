@@ -57,6 +57,10 @@ import com.maggie.app.data.model.TransactionDebt
 import com.maggie.app.data.model.TransactionDebtRequest
 import com.maggie.app.data.model.splitEqually
 import com.maggie.app.data.model.TransferInfo
+import com.maggie.app.data.model.Account
+import com.maggie.app.data.model.AdvanceSource
+import com.maggie.app.data.model.ADVANCE_SOURCE_ACCOUNT_TYPES
+import com.maggie.app.data.repository.AccountRepository
 import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.TreasuryOutlook
@@ -498,7 +502,17 @@ class FakeTransactionTransfers(
     allocations: Map<String, TransactionAllocation> = emptyMap(),
     /** Lines the first page does not hold (an older day): the API still serves each one on its own. */
     private val unlistedIds: Set<String> = emptySet(),
+    /** The owner's accounts « Source » chooses among (MAG-806); the API refuses all but savings and investment. */
+    private val accounts: List<Account> = emptyList(),
+    /** Marked lines with no counterpart, such as an advance from a livret no bank sync follows (MAG-806). */
+    singleLegged: Set<String> = emptySet(),
 ) {
+    /** The source named on each single-legged advance, by line id (MAG-806). */
+    private val sources = mutableMapOf<String, AdvanceSource>()
+
+    /** The `PUT …/advance-source` account ids the sheet sent, with the line; null takes the source away. */
+    val sourcesSent = mutableListOf<Pair<String, String?>>()
+
     private val allocationOf = allocations.toMutableMap()
 
     /** The `PUT …/allocation` bodies the sheet sent, with the line. */
@@ -512,7 +526,7 @@ class FakeTransactionTransfers(
     /** The `PUT …/my-share` bodies the sheet sent, and the lines whose share it took back. */
     val sharesSent = mutableListOf<MyShareRequest>()
     val sharesRemoved = mutableListOf<String>()
-    private val paired = lines.filter { it.isInternalTransfer }.map { it.id }.toMutableSet()
+    private val paired = lines.filter { it.isInternalTransfer && it.id !in singleLegged }.map { it.id }.toMutableSet()
 
     /** The counterpart ids the screen asked to mark with, `null` for « none ». */
     val marked = mutableListOf<String?>()
@@ -549,8 +563,22 @@ class FakeTransactionTransfers(
                     } else {
                         counterpart.takeIf { line.isInternalTransfer && line.id in paired }
                     },
+                    advanceSource = sources[line.id],
                 ),
             )
+        }
+        coEvery { repository.setAdvanceSource(any(), any()) } answers {
+            val id = firstArg<String>()
+            val accountId = secondArg<String?>()
+            sourcesSent += id to accountId
+            val account = accountId?.let { wanted -> accounts.firstOrNull { it.id == wanted } }
+            if (accountId != null && (account == null || account.type !in ADVANCE_SOURCE_ACCOUNT_TYPES)) {
+                return@answers Result.failure(ApiRefusalException(400, "La source doit être un compte d'épargne ou d'investissement."))
+            }
+            if (account == null) sources -= id else sources[id] = AdvanceSource(account.id, account.name)
+            val index = lines.indexOfFirst { it.id == id }
+            lines[index] = lines[index].copy(advanceSourceAccountId = account?.id)
+            Result.success(TransferInfo(lines[index].transferKind, lines[index].transferSource, advanceSource = sources[id]))
         }
         coEvery { repository.getTransferCandidates(any()) } returns Result.success(candidates)
         coEvery { repository.setTransfer(any(), any(), any()) } answers {
@@ -741,9 +769,12 @@ class FakeTransactionTransfers(
             Result.success(contact)
         }
 
+        val accountRepository = mockk<AccountRepository>()
+        coEvery { accountRepository.getAccounts() } returns Result.success(accounts)
+
         TransactionViewModel(
             repository, categoryRepository, "acc-savings", mercure, auth, recurringRepository, ruleRepository,
-            peerDebtRepository, contactRepository,
+            peerDebtRepository, contactRepository, accountRepository,
         )
     }
 

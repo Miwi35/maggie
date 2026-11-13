@@ -14,6 +14,7 @@ use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\RecurringOperation;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\AccountType;
 use Maggie\Finance\Enum\PeerKind;
 use Maggie\Finance\Enum\QualificationKind;
 use Maggie\Finance\Enum\RecurrencePeriod;
@@ -83,6 +84,17 @@ final class TransactionListNormalizerTest extends KernelTestCase
         $line->markAsInternalTransfer($this->line()->setAmountCents(30000), TransferSource::Auto);
 
         self::assertSame($this->generic($line), $this->fast($line));
+    }
+
+    public function testTheAdvanceSourceIsWrittenAsTheGenericNormalizerWritesIt(): void
+    {
+        $user = $this->getFixture('test_user');
+        \assert($user instanceof User);
+        $livret = (new Account())->setUser($user)->setName('Livret')->setType(AccountType::Savings)->setCurrency('EUR');
+        $line = $this->line()->setAmountCents(30000)->setAdvanceSource($livret);
+
+        self::assertSame($this->generic($line), $this->fast($line));
+        self::assertSame((string) $livret->getId(), $this->fast($line)['advanceSourceAccountId']);
     }
 
     public function testNullFieldsAreKeptOrSkippedAsTheContextAsks(): void

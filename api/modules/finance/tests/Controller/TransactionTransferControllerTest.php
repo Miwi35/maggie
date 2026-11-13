@@ -6,6 +6,7 @@ use App\Tests\Support\AuthenticatedTestTrait;
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
+use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\Transaction;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -85,6 +86,7 @@ class TransactionTransferControllerTest extends WebTestCase
             ['GET', "/api/finance/transactions/$id/transfer"],
             ['GET', "/api/finance/transactions/$id/transfer-candidates"],
             ['PUT', "/api/finance/transactions/$id/transfer"],
+            ['PUT', "/api/finance/transactions/$id/advance-source"],
         ] as [$method, $path]) {
             $this->client->request($method, $path);
             self::assertResponseStatusCodeSame(401, "$method $path");
@@ -264,7 +266,7 @@ class TransactionTransferControllerTest extends WebTestCase
 
         $plain = $this->call('GET', '/api/finance/transactions/'.$this->id('groceries').'/transfer');
         self::assertResponseIsSuccessful();
-        self::assertSame(['transferKind' => 'none', 'transferSource' => 'auto', 'counterpart' => null], $plain);
+        self::assertSame(['transferKind' => 'none', 'transferSource' => 'auto', 'counterpart' => null, 'advanceSource' => null], $plain);
 
         $this->mark('close_out', ['transferKind' => 'internal', 'counterpartId' => $this->id('close_in')]);
         $paired = $this->call('GET', '/api/finance/transactions/'.$this->id('close_in').'/transfer');
@@ -373,5 +375,64 @@ class TransactionTransferControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(TransferKind::None, $this->stored('transfer_out')->getTransferKind());
         self::assertSame(TransferKind::None, $this->stored('same_account')->getTransferKind());
+    }
+
+    private function accountId(string $ref): string
+    {
+        $account = $this->getFixture($ref);
+        \assert($account instanceof Account);
+
+        return (string) $account->getId();
+    }
+
+    /** @return array<string, mixed> */
+    private function source(string $ref, array $body): array
+    {
+        return $this->call('PUT', sprintf('/api/finance/transactions/%s/advance-source', $this->id($ref)), $body);
+    }
+
+    public function testTheSourceOfASingleLeggedRepaymentIsChosenAndRemoved(): void
+    {
+        $this->login();
+        $this->mark('groceries', ['transferKind' => 'repayment']);
+        $this->resetMercure();
+
+        $data = $this->source('groceries', ['accountId' => $this->accountId('savings')]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['id' => $this->accountId('savings'), 'name' => 'Livret'], $data['advanceSource']);
+        self::assertSame($this->accountId('savings'), $this->stored('groceries')->getAdvanceSourceAccountId());
+        $this->assertMercureUpdatePublished('/transactions/');
+        $this->assertElasticsearchIndexDispatched(Transaction::class);
+
+        $shown = $this->call('GET', '/api/finance/transactions/'.$this->id('groceries').'/transfer');
+        self::assertSame('Livret', $shown['advanceSource']['name']);
+
+        $removed = $this->source('groceries', ['accountId' => null]);
+        self::assertNull($removed['advanceSource']);
+        self::assertNull($this->stored('groceries')->getAdvanceSource());
+    }
+
+    public function testASourceThatCannotBeOneReturns400AndWritesNothing(): void
+    {
+        $this->login();
+        $this->mark('groceries', ['transferKind' => 'repayment']);
+        $this->resetMercure();
+
+        foreach ([
+            [],
+            ['accountId' => 'not-an-id'],
+            ['accountId' => $this->accountId('checking')],
+            ['accountId' => $this->accountId('stranger_account')],
+        ] as $body) {
+            $this->source('groceries', $body);
+            self::assertResponseStatusCodeSame(400, json_encode($body, JSON_THROW_ON_ERROR));
+        }
+
+        $this->source('same_account', ['accountId' => $this->accountId('savings')]);
+        self::assertResponseStatusCodeSame(400);
+
+        self::assertNull($this->stored('groceries')->getAdvanceSource());
+        $this->assertMercureUpdateCount(0);
     }
 }

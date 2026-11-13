@@ -24,6 +24,10 @@ data class SavingsSource(
     val sourceAccountName: String = "",
     val outstandingCents: Int = 0,
     val openCount: Int = 0,
+    // « Avancé » and « Rendu » over every advance of the source, open or closed (MAG-806); last,
+    // so the positional calls of the fields above keep their meaning.
+    val advancedCents: Int = 0,
+    val repaidCents: Int = 0,
 )
 
 /** Where the salary stands against the day the owner expects it. */
