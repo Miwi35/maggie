@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, parisDay } from '../fixtures/index.js'
 import { getCollection } from '../helpers/api.js'
 import { CalendarPage } from '../pages/CalendarPage.js'
 import { PeriodsPage } from '../pages/PeriodsPage.js'
@@ -14,9 +14,9 @@ test.use({ journeyAccount: 'empty' })
 
 const JSON_LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
 
-/** Monday of the week Paris is in now, and the Saturday after it, as `YYYY-MM-DD`. */
+/** Monday of the week Paris is in at the stack's clock, and the Saturday after it, as `YYYY-MM-DD`. */
 function thisWeek(): { monday: string; saturday: string } {
-  const today = new Date().toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
+  const today = parisDay()
   const date = new Date(`${today}T00:00:00Z`)
   date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7))
   const monday = date.toISOString().slice(0, 10)
