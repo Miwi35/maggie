@@ -559,6 +559,51 @@ class TestMatching:
         assert second.content[0].input["mealId"] == meal
         assert second.content[0].input["slot"] == "lunch"
 
+    async def test_the_link_scenarios_preview_then_confirm_with_the_ids_the_list_gave(self):
+        """91-accounts-link-*.yaml (MAG-819): `manage_accounts link` without `confirm`, then on « Oui » with `confirm: true`."""
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        kept = "01JBQF3KQXW8Z7P4M5R6T9VNCE"
+        bank = "01JBQF3KQXW8Z7P4M5R6T9VNCF"
+        listing = json.dumps(
+            {
+                "accounts": [
+                    {"id": kept, "name": "Compte joint", "type": "checking"},
+                    {"id": bank, "name": "N26", "type": "checking"},
+                ]
+            }
+        )
+        first_question = "Le compte N26 que la banque a créé, c'est mon compte joint"
+
+        async def turn(messages: list[dict]):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Ael",
+                tools=[{"name": "manage_accounts"}],
+                messages=messages,
+            )
+
+        def listed(question: str) -> list[dict]:
+            return [
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "t0", "name": "manage_accounts", "input": {}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t0", "content": listing}]},
+            ]
+
+        preview_first = await turn([{"role": "user", "content": first_question}])
+        preview = await turn(listed(first_question))
+        history = [
+            {"role": "user", "content": first_question},
+            {"role": "assistant", "content": "Je peux rattacher… Je le fais ?"},
+        ]
+        confirm_first = await turn([*history, {"role": "user", "content": "Oui"}])
+        confirm = await turn([*history, *listed("Oui")])
+
+        assert preview_first.content[0].input == {"action": "list"}
+        assert preview.content[0].input == {"action": "link", "accountId": kept, "bankAccountId": bank}
+        assert confirm_first.content[0].input == {"action": "list"}
+        assert confirm.content[0].input == {"action": "link", "accountId": kept, "bankAccountId": bank, "confirm": True}
+
     async def test_the_bank_statement_scenarios_read_with_a_tight_filter_then_import_only_the_chosen_refs(self):
         """89-bank-statement-*.yaml (MAG-802): `read_bank_statement` on the month with `search`, then `import_bank_transactions` on two refs."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)

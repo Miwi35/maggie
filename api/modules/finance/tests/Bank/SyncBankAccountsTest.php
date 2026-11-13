@@ -347,6 +347,38 @@ class SyncBankAccountsTest extends KernelTestCase
         self::assertSame(1, $second['skipped']);
     }
 
+    public function testASyncAfterALinkReadsTheKeptAccountWithoutACopy(): void
+    {
+        $this->loadFixtures('account.yaml');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $kept = $this->getFixture('checking');
+        $keptId = (string) $kept->getId();
+        $connection = $this->connectAccount();
+        $connection->setBankName('N26');
+
+        $this->getFixture('checking')->setBankConnection(null)->setExternalAccountId(null);
+        $bankAccount = (new Account())
+            ->setUser($this->getFixture('test_user'))
+            ->setName('N26 Main')
+            ->setCurrency('EUR')
+            ->setBalanceCents(0)
+            ->setExternalAccountId('remote-1')
+            ->setBankConnection($connection);
+        $em->persist($bankAccount);
+        $em->flush();
+
+        self::getContainer()->get(MergeDuplicateAccounts::class)->fold($kept, $bankAccount, false);
+
+        $http = $this->provider([$this->page([$this->movement('2026-09-02', '45.99', 'DBIT', 'CARREFOUR')])]);
+        $this->sync($http)->execute($this->getFixture('test_user'));
+
+        $em->clear();
+        $accounts = $em->getRepository(Account::class)->findAll();
+        self::assertCount(1, $accounts);
+        self::assertSame($keptId, (string) $accounts[0]->getId());
+        self::assertSame(1, $em->getRepository(Transaction::class)->count(['account' => $accounts[0]]));
+    }
+
     /**
      * @param array<string, mixed> $extra
      *

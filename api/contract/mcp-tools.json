@@ -1393,13 +1393,27 @@
                         "null"
                     ],
                     "default": null
+                },
+                "bankAccountId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "confirm": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "List, create, update, or delete bank accounts. An account has a name, bank, type (checking, savings, investment, cash), currency (ISO 4217), a balance in cents, and an optional cushion flag (emergency-fund account). Amounts are always in integer cents. On update, only provided fields change; to empty the optional bank, list it in clear."
+        "description": "List, create, update, delete, or link bank accounts. An account has a name, bank, type (checking, savings, investment, cash), currency (ISO 4217), a balance in cents, and an optional cushion flag (emergency-fund account). Amounts are always in integer cents. On update, only provided fields change; to empty the optional bank, list it in clear. Action link folds the account a bank created into the one the user typed by hand (accountId: the hand-typed account, kept; bankAccountId: the bank-created one, absorbed): the kept account keeps its name, type, cushion flag and references (envelopes, advances) and takes the bank connection, identification and balance; the movements of the absorbed one move onto it, twins already there are dropped after their category is carried over, then the absorbed account is deleted. Without confirm nothing is written: it returns the preview (kept, moved, dropped) — summarise it and ask the user; call again with confirm true once they agree. It refuses when the kept account is already linked to a bank, the other is not, the currencies differ, or an account is not the user's."
     },
     "manage_agendas": {
         "name": "manage_agendas",
