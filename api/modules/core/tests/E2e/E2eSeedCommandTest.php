@@ -136,8 +136,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // (MAG-573): its « Riz basmati » would match the stock journey's « Riz ». The thirty-first and
         // thirty-second are the cushion share's (MAG-669), web and mobile: both journeys write the share
         // the planning reads. The thirty-third to thirty-fifth are the trip estimate's, the replan's and the dictation's (MAG-745): each
-        // sets a state a neighbour in its Playwright lot read. The thirty-sixth and thirty-seventh are the make-up's (MAG-772), web and mobile: answering settles the proposal and plans a session. The thirty-eighth is the bank statement's (MAG-802): it counts exactly what it imports from a simulated September. The thirty-ninth is the advance source's (MAG-806), mobile: it names the source of its advances and reads the total they make. A fortieth would mean somebody added an account without saying why.
-        self::assertSame(39, $this->rowsOf(User::class));
+        // sets a state a neighbour in its Playwright lot read. The thirty-sixth and thirty-seventh are the make-up's (MAG-772), web and mobile: answering settles the proposal and plans a session. The thirty-eighth is the bank statement's (MAG-802): it counts exactly what it imports from a simulated September. The thirty-ninth is the advance source's (MAG-806), mobile: it names the source of its advances and reads the total they make. The fortieth and forty-first are the account link's (MAG-823), web and mobile: linking folds an account into another and changes the totals. A forty-second would mean somebody added an account without saying why.
+        self::assertSame(41, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
@@ -215,7 +215,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Sixteen since MAG-631: the balance account's Livret A, behind its project.
         // Twenty since MAG-669: each cushion share account's current account and Livret A. Twenty-one since MAG-802: the bank statement account's current account.
         // Twenty-three since MAG-806: the advance source account's current account and hand-typed livret.
-        self::assertSame(23, $this->rowsOf(Account::class));
+        // Twenty-seven since MAG-823: each account link user's hand-typed account and the bank's.
+        self::assertSame(27, $this->rowsOf(Account::class));
         // Thirteen and not twelve since MAG-46: the rent received last month is
         // what the independence counter reads as a rente, and the journey
         // asserts the 60 % it makes of the measured train de vie. Sixteen since
@@ -227,7 +228,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // Twenty-six since MAG-529: the next project account's restaurants and Obsydian overruns. Twenty-seven since MAG-565: the Accueil account's bakery. Twenty-eight since MAG-643: the scores account's unclassified debit. Twenty-nine since MAG-631: the balance account's unrated line of last month.
         // Thirty-five since MAG-669: each cushion share account's three months of spending.
         // Thirty-seven since MAG-806: the advance source account's two single-legged advances.
-        self::assertSame(37, $this->rowsOf(Transaction::class));
+        // Forty-one since MAG-823: the two movements each bank account of the account link users carries.
+        self::assertSame(41, $this->rowsOf(Transaction::class));
         // Four since MAG-49: each envelope alert account's « Loisirs ». Six since
         // MAG-417: the scores account's « Logement » and « Alimentation ». Nine
         // since MAG-463: the « À venir » account's current and next month's.
@@ -558,11 +560,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(40, $this->rowsOf(User::class));
+        self::assertSame(42, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(39, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(41, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void
