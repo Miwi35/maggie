@@ -2,6 +2,14 @@
 
 Personal AI agent platform. Tickets live in Linear (workspace Meven, team **Maggie**, key `MAG`).
 
+## Cornerstone — simple, generic tools; Maggie uses them like a human assistant would
+
+Owner, 12 Nov. 2026. **Tools stay simple and generic: a capability (read, create, update, search), never a use case. Maggie uses them intelligently, the way a human assistant would** — with web search, her prompt, the owner's remarks, her procedures and her memory.
+
+- A case the owner tells (a public holiday with the shops closed, being ill, a holiday for his son during a custody week) is an **example of what Maggie must handle**, not a feature to code. Ask: would a human assistant with these generic tools manage? If yes, no field, type, enum, import, dedicated tool or coded rule — at most one generic prompt rule.
+- Public data Maggie can look up (holidays, opening hours, school calendars) is looked up by her, never imported by the code.
+- Shaping and Plans follow this first; a ticket that codes a special case is redesigned before it is coded. Counter-example: the Periods spec (MAG-810, 813, 814 cancelled; MAG-824 drops the holiday field).
+
 | Directory | Stack |
 |---|---|
 | `api/` | Symfony 7, API Platform 4, Doctrine, Mercure, MCP bundle — modular bundles in `api/modules/` (calendar, core, cookbook, grocery, notification, finance) |
