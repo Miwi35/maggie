@@ -63,6 +63,7 @@ final class QueryParameterContractTest extends WebTestCase
      */
     private const PROVIDER_PARAMETERS = [
         '/api/events' => ['expand'],
+        '/api/periods' => ['expand'],
     ];
 
     /**
@@ -84,6 +85,11 @@ final class QueryParameterContractTest extends WebTestCase
             'exists[rrule]' => 'admin recurring-event lookup, mobile getRecurringEvents',
             'order[startAt]' => 'admin CalendarView, Dashboard and MealsWeekView',
             'order[id]' => 'admin raw-data list (react-admin sorts by id when a list names no sort)',
+        ],
+        '/api/periods' => [
+            'expand' => 'mobile getPeriodsExpanded, the periods of the Day and Week views (MAG-815)',
+            'endAt[after]' => 'mobile getPeriodsExpanded, periods ending after the visible range starts',
+            'startAt[before]' => 'mobile getPeriodsExpanded, periods starting before the visible range ends',
         ],
         '/api/tasks' => [
             'exists[completedAt]' => 'admin Dashboard, mobile getOpenTasks',
