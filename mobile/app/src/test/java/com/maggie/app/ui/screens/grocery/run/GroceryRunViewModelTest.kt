@@ -307,6 +307,20 @@ class GroceryRunViewModelTest {
     }
 
     @Test
+    fun `the pill stays when the dragged store is left out and the stores still visited are in their habitual order`() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.move(0, 2)
+        assertEquals(listOf("Biocoop", "Marché", "Super U"), vm.uiState.value.rows.map { it.store.name })
+        assertTrue(vm.uiState.value.reordered)
+
+        vm.setVisited("s-u", false)
+
+        assertEquals(listOf("Biocoop", "Marché", "Super U"), vm.uiState.value.rows.map { it.store.name })
+        assertTrue(vm.uiState.value.reordered)
+    }
+
+    @Test
     fun `the ordre du jour pill shows once the session order differs from the habitual one`() = runTest {
         val vm = viewModel()
         advanceUntilIdle()
