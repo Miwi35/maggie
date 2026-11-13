@@ -351,6 +351,26 @@ class MergeDuplicateAccounts
     }
 
     /**
+     * Folds the account a bank created into the one the owner typed by hand
+     * (MAG-819): `$kept` survives with its name, type and references, and takes
+     * the connection, the bank identification and the balance of `$absorbed`.
+     *
+     * @return array{survivor: string, name: string, merged: list<string>, moved: int, dropped: int}
+     */
+    public function fold(Account $kept, Account $absorbed, bool $dryRun): array
+    {
+        $this->movementDays = [];
+        $id = (string) $absorbed->getId();
+
+        return $this->merge(
+            [$kept, $absorbed],
+            null !== $absorbed->getExternalKey() ? [$id => $absorbed->getExternalKey()] : [],
+            [$id => true],
+            $dryRun,
+        );
+    }
+
+    /**
      * @param list<Account>         $group oldest first
      * @param array<string, string> $keys
      * @param array<string, true>   $live
@@ -397,6 +417,11 @@ class MergeDuplicateAccounts
             }
 
             if (!$dryRun) {
+                // The advances of a livret typed by hand name it as their source.
+                foreach ($this->transactionRepository->findBy(['advanceSource' => $copy]) as $advance) {
+                    $advance->setAdvanceSource($survivor);
+                    $touched[(string) $advance->getId()] = $advance;
+                }
                 $removed[] = $copy;
             }
         }
