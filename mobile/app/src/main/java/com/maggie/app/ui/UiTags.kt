@@ -1513,6 +1513,8 @@ object UiTags {
     /** The digest's tile at the head of the Accueil, and its card in the chat (MAG-808). */
     const val HOME_DIGEST = "home_digest"
     const val CHAT_DIGEST_CARD = "chat_digest_card"
+    const val CHAT_BILAN_CARD = "chat_bilan_card"
+    const val CHAT_BILAN_CARD_OPEN = "chat_bilan_card_open"
 
     // The frame every activity shares (MAG-580): the activity itself, Maggie and ✕.
     const val ACTIVITY_SCAFFOLD = "activity_scaffold"

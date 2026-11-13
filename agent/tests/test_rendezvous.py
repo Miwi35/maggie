@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from app import e2e, rendezvous
 from app.auth import RECETTE_ACCOUNT_EMAIL, SMOKE_ACCOUNT_EMAIL
-from app.bilan import BILAN_PROMPT, BILAN_RELANCE_SUMMARY, BILAN_SUMMARY
+from app.bilan import BILAN_PROMPT, BILAN_SUMMARY, RETIRED_RELANCE_SUMMARY
 from app.proactions import api as proactions_api_module
 from app.rendezvous import DIGEST_PROMPT, DIGEST_SUMMARY, sync_rendezvous
 from tests.fake_proaction_api import FakeProactionApi
@@ -51,22 +51,21 @@ async def at(api: FakeProactionApi, now: datetime) -> dict:
 
 
 class TestTheDefaults:
-    async def test_a_user_without_any_instruction_gets_the_digest_and_both_review_proactions(self, api):
+    async def test_a_user_without_any_instruction_gets_the_digest_and_the_review(self, api):
         await at(api, EARLY)
 
         assert day_of(api) == [
             (DIGEST_SUMMARY, "2030-11-14T07:00:00+01:00"),
             (BILAN_SUMMARY, "2030-11-14T21:30:00+01:00"),
-            (BILAN_RELANCE_SUMMARY, "2030-11-14T22:00:00+01:00"),
         ]
         prompts = {p["summary"]: p["prompt"] for p in api.of(USER)}
         assert prompts[DIGEST_SUMMARY] == DIGEST_PROMPT == "Fais le digest du matin (compétence digest)."
-        assert prompts[BILAN_SUMMARY] == prompts[BILAN_RELANCE_SUMMARY] == BILAN_PROMPT
+        assert prompts[BILAN_SUMMARY] == BILAN_PROMPT
 
     async def test_past_the_digest_s_hour_only_the_review_is_laid_down(self, api):
         await at(api, datetime(2030, 11, 14, 9, 0, tzinfo=UTC))
 
-        assert [summary for summary, _ in day_of(api)] == [BILAN_SUMMARY, BILAN_RELANCE_SUMMARY]
+        assert [summary for summary, _ in day_of(api)] == [BILAN_SUMMARY]
 
     async def test_the_hours_are_the_user_s_wall_clock(self, api):
         api.rendezvous = [settings(timezone="America/New_York")]
@@ -83,7 +82,7 @@ class TestIdempotence:
 
         second = await at(api, datetime(2030, 11, 14, 4, 15, tzinfo=UTC))
 
-        assert first == {"scheduled": 3, "cancelled": 0}
+        assert first == {"scheduled": 2, "cancelled": 0}
         assert second == {"scheduled": 0, "cancelled": 0}
         assert api.snapshot() == before
 
@@ -99,26 +98,27 @@ class TestIdempotence:
 
 
 class TestAChangedHour:
-    async def test_the_review_set_to_22_15_moves_with_its_nudge(self, api):
+    async def test_the_review_set_to_22_15_moves(self, api):
         await at(api, EARLY)
         api.rendezvous = [settings(eveningReviewTime="22:15")]
 
         done = await at(api, datetime(2030, 11, 14, 20, 0, tzinfo=UTC))
 
-        assert done == {"scheduled": 2, "cancelled": 2}
-        assert day_of(api)[1:] == [
-            (BILAN_SUMMARY, "2030-11-14T22:15:00+01:00"),
-            (BILAN_RELANCE_SUMMARY, "2030-11-14T22:45:00+01:00"),
-        ]
+        assert done == {"scheduled": 1, "cancelled": 1}
+        assert day_of(api)[1:] == [(BILAN_SUMMARY, "2030-11-14T22:15:00+01:00")]
 
-    async def test_a_nudge_after_midnight_still_belongs_to_the_evening(self, api):
-        api.rendezvous = [settings(eveningReviewTime="23:45")]
-
+    async def test_the_review_has_no_nudge(self, api):
         await at(api, EARLY)
-        again = await at(api, datetime(2030, 11, 14, 12, 0, tzinfo=UTC))
 
-        assert (BILAN_RELANCE_SUMMARY, "2030-11-15T00:15:00+01:00") in day_of(api)
-        assert again == {"scheduled": 0, "cancelled": 0}
+        assert RETIRED_RELANCE_SUMMARY not in [summary for summary, _ in day_of(api)]
+
+    async def test_a_nudge_laid_down_before_is_cancelled(self, api):
+        api.seed(USER, prompt=BILAN_PROMPT, at="2030-11-14T22:00:00+01:00", summary=RETIRED_RELANCE_SUMMARY)
+
+        done = await at(api, EARLY)
+
+        assert done == {"scheduled": 2, "cancelled": 1}
+        assert RETIRED_RELANCE_SUMMARY not in [p["summary"] for p in api.of(USER) if p["status"] == "pending"]
 
     async def test_a_digest_the_model_laid_down_from_an_instruction_is_moved_not_doubled(self, api):
         api.seed(USER, prompt="Digest", at="2030-11-14T07:02:00+01:00", summary=DIGEST_SUMMARY)
@@ -166,7 +166,7 @@ class TestWhoGetsThem:
 
         await at(api, EARLY)
 
-        assert len(api.of(other)) == 3
+        assert len(api.of(other)) == 2
 
     async def test_an_api_that_does_not_answer_raises_nothing(self, api):
         api.down = True
@@ -181,25 +181,25 @@ class TestOnDemand:
 
         await sync_rendezvous(EARLY, USER)
 
-        assert len(api.of(USER)) == 3
+        assert len(api.of(USER)) == 2
         assert api.of(other) == []
         assert ("list_daily_rendezvous", {}, USER) in api.calls
 
     def test_the_e2e_route_lays_down_the_user_s_rendezvous(self, api, monkeypatch):
         monkeypatch.setattr("app.e2e.settings.tts_provider", "fake")
         monkeypatch.setattr("app.e2e.settings.e2e_login_token", "token")
-        monkeypatch.setattr(e2e, "sync_rendezvous", AsyncMock(return_value={"scheduled": 3, "cancelled": 0}))
+        monkeypatch.setattr(e2e, "sync_rendezvous", AsyncMock(return_value={"scheduled": 2, "cancelled": 0}))
         app = FastAPI()
         e2e.setup_e2e(app)
 
         response = TestClient(app).post(f"/e2e/rendezvous/{USER}/sync", headers={"X-E2E-Token": "token"})
 
-        assert response.json() == {"scheduled": 3, "cancelled": 0}
+        assert response.json() == {"scheduled": 2, "cancelled": 0}
         assert e2e.sync_rendezvous.await_args.args[1] == USER
 
 
 def test_an_unreadable_hour_falls_back_to_the_default():
-    [digest, review, _] = rendezvous.wanted_rendezvous(
+    [digest, review] = rendezvous.wanted_rendezvous(
         settings(morningDigestTime="7h", eveningReviewTime=None), EARLY.date(), rendezvous._timezone("Europe/Paris")
     )
 

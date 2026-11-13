@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.BilanBlock
 import com.maggie.app.data.model.DigestBlock
 import com.maggie.app.data.model.QuestionBlock
 import com.maggie.app.data.model.Task
@@ -67,6 +68,7 @@ fun ChatMessageList(
     loadTask: suspend (String) -> Task? = { null },
     onOpenTask: (String) -> Unit = {},
     onOpenDigest: (String) -> Unit = {},
+    onOpenBilan: () -> Unit = {},
 ) {
     val lazy = listState.lazy
     val scope = rememberCoroutineScope()
@@ -208,6 +210,7 @@ fun ChatMessageList(
                                     audio = item.message.audio,
                                     onOpen = { onOpenDigest(item.message.id) },
                                 )
+                                is BilanBlock -> BilanCard(block, onOpen = onOpenBilan)
                                 else -> Unit
                             }
                         }

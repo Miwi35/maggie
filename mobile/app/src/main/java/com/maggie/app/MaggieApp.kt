@@ -166,6 +166,8 @@ import com.maggie.app.ui.screens.finance.TreasuryViewModel
 import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.cookbook.cooking.CookingGroceryViewModel
 import com.maggie.app.ui.screens.bilan.BilanActivityViewModel
+import com.maggie.app.ui.screens.bilan.BilanDoneStore
+import com.maggie.app.ui.screens.bilan.DataStoreBilanDoneStore
 import com.maggie.app.ui.screens.bilan.BilanJourneeViewModel
 import com.maggie.app.ui.screens.bilan.BilanTomorrowViewModel
 import com.maggie.app.ui.screens.bilan.BilanResumeViewModel
@@ -374,6 +376,7 @@ class MaggieApp : Application() {
 
             // Partir à l'heure (MAG-651): the position every 30 minutes and the car's place
             single { LocationPreferences(androidContext()) }
+            single<BilanDoneStore> { DataStoreBilanDoneStore(androidContext()) }
             single<LocationPermissions> { AndroidLocationPermissions(androidContext()) }
             single<PositionSource> { FusedPositionSource(androidContext()) }
             single<TransitionRegistrar> { ActivityTransitionRegistrar(androidContext()) }
@@ -592,11 +595,11 @@ class MaggieApp : Application() {
             viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { CookingGroceryViewModel(get(), get(), get(), get()) }
             viewModel { CookingResumeViewModel(get(), get(), get(), get()) }
-            viewModel { BilanActivityViewModel(get(), get(), get()) }
+            viewModel { BilanActivityViewModel(get(), get(), get(), get()) }
             viewModel { BilanJourneeViewModel(get(), get()) }
             viewModel { BilanSanteViewModel(get(), get(), get()) }
             viewModel { BilanTomorrowViewModel(get(), get(), get(), get(), get()) }
-            viewModel { BilanResumeViewModel(get(), get(), get()) }
+            viewModel { BilanResumeViewModel(get(), get(), get(), get(), get()) }
             viewModel { DigestTileViewModel(get(), get(), get()) }
             viewModel { GroceryRunViewModel(get(), get(), get(), get(), get()) }
             viewModel { GroceryRunResumeViewModel(get(), get(), get()) }

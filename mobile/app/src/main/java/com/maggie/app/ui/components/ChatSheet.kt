@@ -91,6 +91,7 @@ fun ChatSheet(
     onMicClick: () -> Unit = {},
     onOpenTask: (String) -> Unit = {},
     onOpenDigest: (String) -> Unit = {},
+    onOpenBilan: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberChatListState(viewModel)
@@ -124,6 +125,7 @@ fun ChatSheet(
                     modifier = Modifier.weight(1f),
                     onOpenTask = onOpenTask,
                     onOpenDigest = onOpenDigest,
+                    onOpenBilan = onOpenBilan,
                 )
 
                 ChatSnackbarHost(viewModel)
@@ -199,6 +201,7 @@ fun ChatSheet(
                             modifier = Modifier.weight(1f),
                             onOpenTask = onOpenTask,
                             onOpenDigest = onOpenDigest,
+                            onOpenBilan = onOpenBilan,
                         )
 
                         ChatSnackbarHost(viewModel)
@@ -235,6 +238,7 @@ fun ChatPanel(
     onClosePanel: (() -> Unit)? = null,
     onOpenTask: (String) -> Unit = {},
     onOpenDigest: (String) -> Unit = {},
+    onOpenBilan: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -268,6 +272,7 @@ fun ChatPanel(
                 modifier = Modifier.weight(1f),
                 onOpenTask = onOpenTask,
                 onOpenDigest = onOpenDigest,
+                onOpenBilan = onOpenBilan,
             )
 
             ChatSnackbarHost(viewModel)
@@ -294,6 +299,7 @@ private fun ChatTabbedBody(
     modifier: Modifier = Modifier,
     onOpenTask: (String) -> Unit = {},
     onOpenDigest: (String) -> Unit = {},
+    onOpenBilan: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var tab by rememberSaveable { mutableStateOf(ChatTab.CHAT) }
@@ -302,7 +308,7 @@ private fun ChatTabbedBody(
         ChatTabs(selected = tab, onSelect = { tab = it }, awaitingCount = uiState.awaitingApprovalCount)
         Box(modifier = Modifier.weight(1f)) {
             when (tab) {
-                ChatTab.CHAT -> ChatHistory(viewModel = viewModel, listState = listState, modifier = Modifier.fillMaxSize(), onOpenTask = onOpenTask, onOpenDigest = onOpenDigest)
+                ChatTab.CHAT -> ChatHistory(viewModel = viewModel, listState = listState, modifier = Modifier.fillMaxSize(), onOpenTask = onOpenTask, onOpenDigest = onOpenDigest, onOpenBilan = onOpenBilan)
                 ChatTab.MIND -> MindContent(
                     agentState = uiState.agentState,
                     toolCalls = uiState.toolCalls,
@@ -323,6 +329,7 @@ private fun ChatHistory(
     modifier: Modifier = Modifier,
     onOpenTask: (String) -> Unit = {},
     onOpenDigest: (String) -> Unit = {},
+    onOpenBilan: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -350,6 +357,7 @@ private fun ChatHistory(
         loadTask = viewModel::loadTask,
         onOpenTask = onOpenTask,
         onOpenDigest = onOpenDigest,
+        onOpenBilan = onOpenBilan,
     )
 
     // Keyed on the answer: a new thumb down opens an empty field.

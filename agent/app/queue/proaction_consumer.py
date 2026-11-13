@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 import aio_pika
 
-from app.bilan import bilan_answered, is_bilan_relance, relance_review_day
+from app.bilan import bilan_block, is_bilan, is_retired_relance
 from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.db.models import SCREEN_DIGEST
@@ -84,11 +84,6 @@ def voice_screen(tool_calls: list[dict]) -> str | None:
     return None
 
 
-async def bilan_day(proaction: Proaction, started_at: datetime) -> str:
-    """The day of the review a nudge belongs to: that of the bedtime it follows, which may be the evening before."""
-    return relance_review_day(proaction.scheduled_at, started_at, await resolve_user_timezone(proaction.user_id))
-
-
 async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_run: bool = False) -> dict:
     """Run one claimed proaction to its message — the queue consumer's and the manual trigger's one path.
 
@@ -121,12 +116,9 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     clock = time.monotonic()
     result: dict | None = None
     try:
-        # The evening review's one nudge (MAG-749) goes only to a user who has not taken the review up.
-        if is_bilan_relance(proaction.summary) and await bilan_answered(
-            proaction.user_id, await bilan_day(proaction, started_at)
-        ):
+        if is_retired_relance(proaction.summary):
+            # Laid down before MAG-826 removed the nudge: nothing left to say.
             await _record(proaction, "completed")
-            logger.info(f"Proaction {proaction_id} skipped: the bilan was already answered")
             return {"status": "completed", "message": None, "toolCalls": []}
         if is_digest(proaction.summary):
             # One message, read back by the code and voiced by it (MAG-807).
@@ -151,6 +143,10 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             # it belonged to never learns Maggie spoke (MAG-14).
             context_id = result.get("context_id")
             screen = voice_screen(result.get("tool_calls") or [])
+            ui_blocks = result.get("ui_blocks")
+            if is_bilan(proaction.summary):
+                tz = await resolve_user_timezone(proaction.user_id)
+                ui_blocks = [*(ui_blocks or []), bilan_block(started_at.astimezone(tz).date())]
             stored = await message_repo.create(
                 user_id=proaction.user_id,
                 role="assistant",
@@ -160,7 +156,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 # into the same thread — so what it looked up is replayed there too
                 # (MAG-211).
                 blocks=result.get("blocks"),
-                ui_blocks=result.get("ui_blocks"),
+                ui_blocks=ui_blocks,
                 screen=screen,
             )
             # Out of any conversation: the user is told, never failing a proaction already delivered.

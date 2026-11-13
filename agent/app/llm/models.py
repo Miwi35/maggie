@@ -5,7 +5,7 @@ ordinary proactions, utilities) to Haiku. Every call asks `model_for`; reading `
 directly is refused by `tests/test_model_by_run.py`.
 """
 
-from app.bilan import BILAN_RELANCE_SUMMARY, BILAN_SUMMARY
+from app.bilan import BILAN_SUMMARY, RETIRED_RELANCE_SUMMARY
 from app.config import settings
 from app.trips import is_silent_trip_run
 
@@ -38,6 +38,6 @@ def proaction_run(*, silent: bool, summary: str | None, prompt: str) -> str:
         return PLANNING
     if is_silent_trip_run(summary):
         return TRIP
-    if summary in (BILAN_SUMMARY, BILAN_RELANCE_SUMMARY) or "digest" in f"{summary or ''} {prompt}".lower():
+    if summary in (BILAN_SUMMARY, RETIRED_RELANCE_SUMMARY) or "digest" in f"{summary or ''} {prompt}".lower():
         return DIGEST
     return PROACTION

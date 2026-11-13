@@ -32,7 +32,7 @@ data class ChatMessage(
 ) {
     val isDecision: Boolean get() = role == DECISION_ROLE
 
-    val shownBlocks: List<ChatBlock> get() = blocks.filter { it is QuestionBlock || it is TaskBlock || it is DigestBlock }
+    val shownBlocks: List<ChatBlock> get() = blocks.filter { it is QuestionBlock || it is TaskBlock || it is DigestBlock || it is BilanBlock }
 
     /** The digest this message announces (MAG-808), `null` for any other message. */
     val digest: DigestBlock? get() = blocks.filterIsInstance<DigestBlock>().firstOrNull()

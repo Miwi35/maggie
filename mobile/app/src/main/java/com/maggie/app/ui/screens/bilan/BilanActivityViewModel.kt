@@ -40,6 +40,7 @@ class BilanActivityViewModel(
     private val statusRepository: ActivityStatusRepository,
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
+    private val doneStore: BilanDoneStore,
     private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BilanUiState())
@@ -116,7 +117,10 @@ class BilanActivityViewModel(
     }
 
     private fun goodNight() {
-        statusRepository.delete(BILAN_ACTIVITY)
+        viewModelScope.launch {
+            doneStore.markDone(today())
+            statusRepository.delete(BILAN_ACTIVITY)
+        }
         _uiState.update { it.copy(finished = true) }
     }
 
