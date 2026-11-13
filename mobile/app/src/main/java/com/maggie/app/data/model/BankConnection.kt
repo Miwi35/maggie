@@ -36,6 +36,28 @@ data class BankAuthorization(
     val connectionId: String? = null,
 )
 
+/** A bank the provider offers, to start a first connection with. */
+@Serializable
+data class Bank(
+    val name: String,
+    val country: String = "FR",
+    val logo: String? = null,
+)
+
+@Serializable
+data class BanksResponse(
+    val banks: List<Bank> = emptyList(),
+)
+
+@Serializable
+data class StartBankConnectionRequest(
+    val bankName: String,
+    val country: String,
+)
+
+/** The countries the provider is asked about, the first being the default. */
+val BANK_COUNTRIES = listOf("FR", "CH", "DE", "BE")
+
 @Serializable
 data class BankSyncAccountResult(
     val bankName: String? = null,

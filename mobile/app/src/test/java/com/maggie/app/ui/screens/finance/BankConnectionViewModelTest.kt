@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.finance
 
+import com.maggie.app.data.model.Bank
 import com.maggie.app.data.model.BankAuthorization
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.BankSyncAccountResult
@@ -188,6 +189,96 @@ class BankConnectionViewModelTest {
         assertNull(state.authorizationUrl)
         assertNull(state.reconnectingId)
         assertEquals("refusé", state.error)
+    }
+
+    @Test
+    fun `connecting hands back the bank's own page to open`() = runTest {
+        coEvery { repository.start("Mock Bank", "FR") } returns Result.success(
+            BankAuthorization(authorizationUrl = "https://bank.example/consent", connectionId = "conn-9"),
+        )
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.connect("Mock Bank", "FR")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("https://bank.example/consent", state.authorizationUrl)
+        assertEquals("Autorisez l'accès chez votre banque, puis revenez et actualisez.", state.message)
+        assertFalse(state.connecting)
+    }
+
+    /** Each journey started is a pending connection stored server-side. */
+    @Test
+    fun `connecting twice starts one journey`() = runTest {
+        coEvery { repository.start("Mock Bank", "FR") } returns Result.success(
+            BankAuthorization(authorizationUrl = "https://bank.example/consent"),
+        )
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.connect("Mock Bank", "FR")
+        viewModel.connect("Mock Bank", "FR")
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.start("Mock Bank", "FR") }
+    }
+
+    @Test
+    fun `a connection that fails opens nothing and says why`() = runTest {
+        coEvery { repository.start("Mock Bank", "FR") } returns Result.failure(RuntimeException("502"))
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.connect("Mock Bank", "FR")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNull(state.authorizationUrl)
+        assertFalse(state.connecting)
+        assertEquals("502", state.error)
+    }
+
+    @Test
+    fun `loading the banks asks for the chosen country`() = runTest {
+        coEvery { repository.banks("CH") } returns Result.success(listOf(Bank(name = "Swiss Bank", country = "CH")))
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.loadBanks("CH")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf("Swiss Bank"), state.banks.map { it.name })
+        assertEquals("CH", state.banksCountry)
+        assertFalse(state.banksLoading)
+    }
+
+    @Test
+    fun `an answer for a country left since is dropped`() = runTest {
+        coEvery { repository.banks("FR") } returns Result.success(listOf(Bank(name = "Mock Bank")))
+        coEvery { repository.banks("DE") } returns Result.success(listOf(Bank(name = "Deutsche", country = "DE")))
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.loadBanks("FR")
+        viewModel.loadBanks("DE")
+        advanceUntilIdle()
+
+        assertEquals(listOf("Deutsche"), viewModel.uiState.value.banks.map { it.name })
+    }
+
+    @Test
+    fun `a bank list that fails says why`() = runTest {
+        coEvery { repository.banks("FR") } returns Result.failure(RuntimeException("502"))
+        viewModel = BankConnectionViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.loadBanks("FR")
+        advanceUntilIdle()
+
+        assertEquals("502", viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.banksLoading)
     }
 
     @Test

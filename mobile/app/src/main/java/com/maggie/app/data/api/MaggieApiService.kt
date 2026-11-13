@@ -74,6 +74,8 @@ import com.maggie.app.data.model.AcceptRuleSuggestionsRequest
 import com.maggie.app.data.model.AcceptRuleSuggestionsResult
 import com.maggie.app.data.model.ApplyRulesResult
 import com.maggie.app.data.model.BankAuthorization
+import com.maggie.app.data.model.BanksResponse
+import com.maggie.app.data.model.StartBankConnectionRequest
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.BankConnectionsResponse
 import com.maggie.app.data.model.BankSyncResult
@@ -3484,6 +3486,21 @@ class MaggieApiService(
     /** Hands back the URL to send the user to, at their bank. */
     suspend fun reconnectBankConnection(id: String): BankAuthorization {
         return client.post("$baseUrl/api/finance/bank-connections/$id/reconnect").body()
+    }
+
+    /** The banks the provider offers in a country. */
+    suspend fun getBanks(country: String): BanksResponse {
+        return client.get("$baseUrl/api/finance/banks") {
+            parameter("country", country)
+        }.orRefusal().body()
+    }
+
+    /** A first journey with a bank: hands back the URL to send the user to. */
+    suspend fun startBankConnection(bankName: String, country: String): BankAuthorization {
+        return client.post("$baseUrl/api/finance/bank-connections/start") {
+            contentType(ContentType.Application.Json)
+            setBody(StartBankConnectionRequest(bankName = bankName, country = country))
+        }.orRefusal().body()
     }
 
     /** Unhooks the link: its accounts and their transactions are kept, the sync stops. */

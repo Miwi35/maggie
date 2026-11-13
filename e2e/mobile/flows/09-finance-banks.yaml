@@ -11,10 +11,9 @@ tags:
 # for Enable Banking (`.docker/e2e/wiremock/mappings/enablebanking.json`), so a
 # request leaving the Docker network would be a bug.
 #
-# What is not here: connecting a bank for the first time. The provider sends the
-# user back to the web admin once the consent is given (`BankCallbackController`),
-# and the consent itself is a page at the bank — a different origin, which the
-# smoke journey drives over HTTP instead (step 12).
+# A first connection goes as far as the browser being opened (MAG-821): the
+# consent itself is a page at the bank — a different origin, which the smoke
+# journey drives over HTTP instead (step 12).
 #
 # The suggestions come first on purpose: the fetch below imports two movements of
 # its own, and the single deterministic suggestion of the pristine seed —
@@ -93,3 +92,21 @@ tags:
 - extendedWaitUntil:
     visible: ".*Dernière synchronisation.*"
     timeout: 60000
+
+# A first connection: the search, the bank of the simulation, and `start` answered
+# by the stand-in (mapping `/enablebanking/auth`). The app then hands the browser
+# the bank's page, so the journey ends there.
+- tapOn: "Connecter une banque"
+
+- extendedWaitUntil:
+    visible: "Choisir une banque"
+    timeout: 20000
+
+- tapOn:
+    id: "bank_picker_search"
+- inputText: "Other Mock"
+- tapOn: "Other Mock Bank"
+
+# The browser takes the foreground with the bank's page, where the journey stops:
+# the app is no longer on screen to assert on, and `start` having answered is
+# what opened it.

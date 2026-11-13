@@ -478,6 +478,11 @@ object UiTags {
      */
     const val BANK_SYNC = "bank_sync"
 
+    /** Banques — the entry that opens the search for a first connection, and that search's field and rows. */
+    const val BANK_CONNECT = "bank_connect"
+    const val BANK_PICKER_SEARCH = "bank_picker_search"
+    const val BANK_PICKER_ITEM = "bank_picker_item"
+
     /** Matelas — the row « Avancé à des proches », which only exists while a créance is open. */
     const val CUSHION_PEER_CLAIMS = "cushion_peer_claims"
 

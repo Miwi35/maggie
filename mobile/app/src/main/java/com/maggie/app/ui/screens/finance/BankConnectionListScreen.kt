@@ -40,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.data.model.BankConnectionTone
 import com.maggie.app.data.model.bankConnectionNeedsAction
@@ -61,21 +63,25 @@ import com.maggie.app.ui.theme.MaggieTokens
 /**
  * The banks Maggie reads, and the one button that reads them.
  *
- * Connecting a bank for the first time is not here: the provider sends the user
- * back to the web admin once the consent is given, so the first link is made
- * there. What the phone owes is the part that comes back every week — where each
- * link stands, when it last brought something, and the fetch itself.
+ * A first link starts here (the search is its own screen), the consent is given
+ * in the browser, and the list is read again when the user comes back. The part
+ * that comes back every week is where each link stands, when it last brought
+ * something, and the fetch itself.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BankConnectionListScreen(
     viewModel: BankConnectionViewModel,
     onBack: () -> Unit,
+    onConnect: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var forgetting by remember { mutableStateOf<BankConnection?>(null) }
+
+    // Back from the bank's page: a consent just given shows without a pull to refresh.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -135,7 +141,9 @@ fun BankConnectionListScreen(
                 uiState.connections.isEmpty() -> {
                     EmptyState(
                         title = "Aucune banque connectée",
-                        description = "Connectez une banque depuis Maggie sur le web : vos transactions arriveront ensuite toutes seules, et cet écran les récupérera.",
+                        description = "Connectez une banque : vos transactions arriveront ensuite toutes seules, et cet écran les récupérera.",
+                        actionLabel = "Connecter une banque",
+                        onAction = onConnect,
                     )
                 }
                 else -> {
@@ -152,6 +160,7 @@ fun BankConnectionListScreen(
                                 onForget = { forgetting = connection },
                             )
                         }
+                        item(key = "connect") { ConnectCard(onConnect = onConnect) }
                     }
                 }
             }
@@ -169,6 +178,20 @@ fun BankConnectionListScreen(
             },
             onDismiss = { forgetting = null },
         )
+    }
+}
+
+@Composable
+private fun ConnectCard(onConnect: () -> Unit, modifier: Modifier = Modifier) {
+    MaggieCard(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Button(onClick = onConnect, modifier = Modifier.testTag(UiTags.BANK_CONNECT)) {
+                Text("Connecter une banque")
+            }
+        }
     }
 }
 

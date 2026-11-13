@@ -119,6 +119,7 @@ import com.maggie.app.ui.screens.finance.AccountTimelineDetail
 import com.maggie.app.ui.screens.finance.AccountViewModel
 import com.maggie.app.ui.screens.finance.BalanceCorrection
 import com.maggie.app.ui.screens.finance.BankConnectionListScreen
+import com.maggie.app.ui.screens.finance.BankPickerScreen
 import com.maggie.app.ui.screens.finance.BankConnectionViewModel
 import com.maggie.app.ui.screens.finance.BudgetScreen
 import com.maggie.app.ui.screens.finance.RecurringOperationListScreen
@@ -341,6 +342,7 @@ sealed class Screen(val route: String, val label: String) {
     data object ReviewList : Screen("finance_review_list", "Revue")
     data object RecurringOperations : Screen("recurring_operations", "Opérations récurrentes")
     data object BankConnectionList : Screen("bank_connections", "Banques")
+    data object BankPicker : Screen("bank_picker", "Choisir une banque")
     data object Cushion : Screen("cushion", "Matelas")
     data object Treasury : Screen("treasury", "Trésorerie")
     data object SavingsAdvances : Screen("savings_advances", "Avances d'épargne")
@@ -2251,6 +2253,16 @@ fun NavGraph() {
                         BankConnectionListScreen(
                             viewModel = bankViewModel,
                             onBack = { navController.backInFinance() },
+                            onConnect = { navController.navigate(Screen.BankPicker.route) { launchSingleTop = true } },
+                        )
+                    }
+                    composable(Screen.BankPicker.route) { entry ->
+                        val listEntry = remember(entry) { navController.previousBackStackEntry }
+                        val bankViewModel: BankConnectionViewModel = koinViewModel(viewModelStoreOwner = listEntry ?: entry)
+                        BankPickerScreen(
+                            viewModel = bankViewModel,
+                            onBack = { navController.popBackStack() },
+                            onPicked = { navController.popBackStack() },
                         )
                     }
                     composable(Screen.Cushion.route, deepLinks = DeepLinks.forRoute(Screen.Cushion.route)) {
