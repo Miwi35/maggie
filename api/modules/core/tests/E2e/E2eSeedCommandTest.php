@@ -545,6 +545,8 @@ final class E2eSeedCommandTest extends KernelTestCase
                 $month = $reward->getEarnedAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format('Y-m');
                 $perMonth[$month] = ($perMonth[$month] ?? 0) + 1;
             }
+            // findBy() has no ORDER BY: Postgres may return the rows in any order.
+            ksort($perMonth);
 
             self::assertSame(['2026-02' => 7, '2026-03' => 4], $perMonth, $email);
         }

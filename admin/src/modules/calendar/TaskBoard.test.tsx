@@ -83,9 +83,7 @@ const UNDATED = dayTask('01UNDATED', 'Apprendre le piano')
 /** The day the mocked API holds; the PUT and the PATCH write it as the real one would. */
 let state: { slots: DayTask[]; reserve: DayTask[] }
 let morningTime: string | null = null
-let eveningTime: string | null = null
 let confirmedAt: string | null = null
-let reviewedAt: string | null = null
 /** The rewards the ticks lay down, by task id (MAG-508); none answers 404. */
 let rewards: Record<string, Reward> = {}
 let cheerSettings: Record<string, boolean> = {}
@@ -128,19 +126,13 @@ const respond = (url: string, init?: RequestInit): Response => {
   if (url.endsWith('/routines/day/2026-10-15')) return json(routinesDay)
 
   if (url.endsWith('/task-settings/me'))
-    return json({ ...(morningTime ? { morningTime } : {}), ...(eveningTime ? { eveningTime } : {}), ...cheerSettings })
+    return json({ ...(morningTime ? { morningTime } : {}), eveningTime: '21:00', ...cheerSettings })
 
   if (/\/stars(\?month=[\d-]+)?$/.test(url))
     return json({ month: '2026-10', count: stars, total: 12, best: null, latestAt: '2026-10-15T09:00:00+00:00' })
 
   const rewarded = /\/rewards\/task\/(\w+)$/.exec(url)
   if (rewarded) return rewards[rewarded[1]] ? json(rewards[rewarded[1]]) : json({ error: 'No reward' }, 404)
-
-  if (url.endsWith('/day-reviews/2026-10-15')) {
-    if (method === 'PUT') reviewedAt = '2026-10-15T19:10:00+00:00'
-
-    return json({ id: '01REVIEW', date: '2026-10-15', helped: [], reviewedAt })
-  }
 
   if (url.endsWith('/day-plans/2026-10-15/proposal')) {
     const entry = (t: DayTask, reason: string) => ({ reason, minutes: t.estimatedMinutes ?? 15, task: t })
@@ -243,9 +235,7 @@ describe('TaskBoard', () => {
     window.location.hash = ''
     boardUrl = '/tasks'
     morningTime = null
-    eveningTime = null
     confirmedAt = null
-    reviewedAt = null
     rewards = {}
     cheerSettings = {}
     stars = 5
@@ -1008,81 +998,33 @@ describe('TaskBoard', () => {
     })
   })
 
-  describe('« Le soir » — the review (MAG-500)', () => {
+  describe('the evening (MAG-825)', () => {
     beforeEach(() => {
-      vi.setSystemTime(new Date(2026, 9, 15, 21, 5))
+      vi.setSystemTime(new Date(2026, 9, 15, 21, 30))
       morningTime = '08:00'
-      eveningTime = '21:00'
       confirmedAt = '2026-10-15T06:40:00+00:00'
       state = { slots: [{ ...BANK, completedAt: '2026-10-15T09:00:00+00:00' }, CANTEEN, WATER], reserve: [BOOK, PHOTOS] }
     })
 
-    test('opens at the first visit after the evening time, done first', async () => {
-      render(<TaskBoard />)
-
-      const evening = await screen.findByRole('region', { name: 'Le soir' })
-      expect(within(evening).getByRole('heading', { name: '1 sur 3' })).toBeInTheDocument()
-      expect(within(evening).getByRole('list', { name: 'Fait' })).toHaveTextContent('Appeler la banque')
-      expect(screen.queryByRole('region', { name: 'Maintenant' })).toBeNull()
-    })
-
-    test('wins over the morning of a day never confirmed', async () => {
-      confirmedAt = null
-      render(<TaskBoard />)
-
-      expect(await screen.findByRole('region', { name: 'Le soir' })).toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Ta journée' })).toBeNull()
-    })
-
-    test('does not open before the evening time', async () => {
-      vi.setSystemTime(new Date(2026, 9, 15, 20, 59))
-      render(<TaskBoard />)
-
-      await screen.findByRole('region', { name: 'Maintenant' })
-      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
-    })
-
-    test('does not open once « Bonne nuit » was said', async () => {
-      reviewedAt = '2026-10-15T19:10:00+00:00'
-      render(<TaskBoard />)
-
-      await screen.findByRole('region', { name: 'Maintenant' })
-      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
-    })
-
-    test('does not open on an empty day', async () => {
-      state = { slots: [], reserve: [BOOK, PHOTOS] }
-      render(<TaskBoard />)
-
-      await screen.findByRole('list', { name: "Aujourd'hui" })
-      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
-    })
-
-    test('« Bonne nuit » records the review and shows the day; it does not open again', async () => {
-      const user = setup()
-      const first = render(<TaskBoard />)
-      await user.click(await screen.findByRole('button', { name: 'Bonne nuit' }))
-
-      await screen.findByRole('region', { name: 'Maintenant' })
-      expect(calls('PUT')).toEqual([expect.stringContaining('/day-reviews/2026-10-15')])
-      first.unmount()
-      resetMorningOffer()
-
-      render(<TaskBoard />)
-      await screen.findByRole('region', { name: 'Maintenant' })
-      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
-    })
-
-    test('« Plus tard » shows the day, writes nothing, and « Le soir » opens it on demand', async () => {
+    test('after the evening time the day list stays, and a task can be ticked', async () => {
       const user = setup()
       render(<TaskBoard />)
-      await user.click(await screen.findByRole('button', { name: 'Plus tard' }))
 
-      await screen.findByRole('region', { name: 'Maintenant' })
-      expect(calls('PUT')).toEqual([])
+      await user.click(await screen.findByRole('checkbox', { name: 'Terminer Arroser' }))
 
-      await user.click(screen.getByRole('button', { name: 'Le soir' }))
-      expect(await screen.findByRole('region', { name: 'Le soir' })).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Rouvrir Arroser' })).toBeChecked())
+      expect(dayList()).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Le soir' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Bonne nuit' })).toBeNull()
+    })
+
+    test('after the evening time a task opens', async () => {
+      const user = setup()
+      render(<TaskBoard />)
+
+      await user.click(await screen.findByRole('button', { name: 'Ouvrir Payer la cantine' }))
+
+      expect(await screen.findByRole('complementary', { name: 'Fiche de la tâche' })).toBeInTheDocument()
     })
   })
 

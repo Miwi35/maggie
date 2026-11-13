@@ -4,10 +4,6 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
-import com.maggie.app.data.model.DayPlan
-import com.maggie.app.data.model.DayReview
-import com.maggie.app.data.model.DaySlot
-import com.maggie.app.data.model.DayTask
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.TaskViewCounts
@@ -16,7 +12,6 @@ import com.maggie.app.data.model.DayRoutine
 import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.RoutineDayView
 import com.maggie.app.data.model.RoutineMoment
-import com.maggie.app.data.model.Stars
 import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.reward.Celebration
@@ -59,7 +54,6 @@ class TasksViewModelTest {
     private lateinit var authRepository: AuthRepository
     private lateinit var feedback: RewardFeedback
     private val pushes = MutableSharedFlow<MercureEvent>()
-    private val dayPushes = MutableSharedFlow<MercureEvent>()
     private val rewardPushes = MutableSharedFlow<MercureEvent>()
     private val routinePushes = MutableSharedFlow<MercureEvent>()
     private val routineCheckPushes = MutableSharedFlow<MercureEvent>()
@@ -68,14 +62,6 @@ class TasksViewModelTest {
     private val late = task("t1", "Renvoyer le formulaire", dueDate = "2026-10-13", overdueDays = 2)
     private val canteen = task("t2", "Payer la cantine", dueDate = "2026-10-15")
     private val today = LocalDate.of(2026, 10, 15)
-
-    private val form = dayTask("d1", "Renvoyer le formulaire", postponedSince = "2026-10-13")
-    private val call = dayTask("d2", "Appeler le garage", minutes = 10)
-    private val bins = dayTask("d3", "Sortir les poubelles")
-    private val plants = dayTask("d4", "Arroser")
-    private val bread = dayTask("d5", "Acheter du pain")
-    private val photos = dayTask("r1", "Trier les photos")
-    private val books = dayTask("r2", "Ranger les livres")
 
     @Before
     fun setup() {
@@ -93,17 +79,13 @@ class TasksViewModelTest {
         every { authRepository.token } returns flowOf("test-jwt")
         coEvery { authRepository.getUserId() } returns "u1"
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.TASKS)) } returns pushes
-        every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.DAY_PLANS)) } returns dayPushes
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.REWARDS)) } returns rewardPushes
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.ROUTINES)) } returns routinePushes
         every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.ROUTINE_CHECKS)) } returns routineCheckPushes
         // No constellation unless a test says so.
         coEvery { taskRepository.getStars(any()) } returns Result.failure(IllegalStateException("offline"))
-        // Unreadable evening time: the evening never opens by itself unless a test says so.
-        coEvery { taskRepository.getEveningTime() } returns Result.failure(IllegalStateException("offline"))
         serve(TaskView.TODAY, late, canteen)
         serveDoneToday()
-        serveDay(day(listOf(form, call), reserve = listOf(photos, books)))
     }
 
     /** The tasks done today, between Paris midnights (MAG-766). */
@@ -124,27 +106,6 @@ class TasksViewModelTest {
     private fun createViewModel(now: LocalTime = LocalTime.of(10, 0)) =
         TasksViewModel(taskRepository, mercureService, authRepository, TaskRewards(taskRepository, feedback), routineRepository, today = { clockDay }, now = { now })
 
-    private fun dayTask(id: String, title: String, minutes: Int? = null, postponedSince: String? = null, completedAt: String? = null) =
-        DayTask(id = id, title = title, estimatedMinutes = minutes, postponedSince = postponedSince, completedAt = completedAt)
-
-    /** The day as the API describes it: positions from 1, `now` the first slot not done. */
-    private fun day(slotted: List<DayTask>, reserve: List<DayTask> = emptyList()): DayPlan {
-        val slots = slotted.mapIndexed { index, task -> DaySlot(position = index + 1, task = task) }
-        return DayPlan(
-            id = "day",
-            date = "2026-10-15",
-            slots = slots,
-            now = slots.firstOrNull { !it.task.isDone },
-            reserve = reserve,
-            done = slots.count { it.task.isDone },
-            total = slots.size,
-        )
-    }
-
-    private fun serveDay(day: DayPlan) {
-        coEvery { taskRepository.getDayPlan(today) } returns Result.success(day)
-    }
-
     /** « Aujourd'hui » opened and read. */
     private fun TestScope.openDay(): TasksViewModel {
         val viewModel = createViewModel()
@@ -152,12 +113,6 @@ class TasksViewModelTest {
         advanceUntilIdle()
         return viewModel
     }
-
-    private val known get() = listOf(form, call, bins, plants, bread, photos, books)
-
-    /** What the API would answer for [ids]: those in the slots, every other known task in the reserve. */
-    private fun dayOf(ids: List<String>): DayPlan =
-        day(ids.map { id -> known.first { it.id == id } }, reserve = known.filter { it.id !in ids })
 
     private fun task(
         id: String,
@@ -181,7 +136,6 @@ class TasksViewModelTest {
 
         assertEquals(TaskView.TODAY, state.view)
         assertTrue(state.isLoading)
-        assertNull(state.day)
         assertNull(state.counts)
     }
 
@@ -228,17 +182,6 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `an unreadable day keeps the tasks of the day`() = runTest {
-        coEvery { taskRepository.getDayPlan(today) } returns Result.failure(RuntimeException("offline"))
-        val viewModel = createViewModel()
-        viewModel.onOpened()
-        advanceUntilIdle()
-
-        assertEquals(listOf("t1", "t2"), viewModel.uiState.value.todayTasks?.map { it.id })
-        assertNull(viewModel.uiState.value.day)
-        assertNull(viewModel.uiState.value.error)
-    }
-    @Test
     fun `the Aujourd'hui tab counts what is left of the tasks of the day, the others their view`() = runTest {
         serveDoneToday(task("t9", "Renvoyer le colis", completedAt = "2026-10-15T07:12:00Z"))
         val viewModel = createViewModel()
@@ -263,7 +206,6 @@ class TasksViewModelTest {
     @Test
     fun `a day with no task is not an empty tab, the day says so itself`() = runTest {
         serve(TaskView.TODAY)
-        serveDay(day(emptyList(), reserve = listOf(photos)))
 
         val viewModel = createViewModel()
         viewModel.onOpened()
@@ -560,19 +502,6 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `a day changed elsewhere is read again`() = runTest {
-        val viewModel = openDay()
-
-        serve(TaskView.TODAY, canteen)
-        serveDay(day(listOf(call)))
-        dayPushes.emit(MercureEvent())
-        advanceUntilIdle()
-
-        assertEquals(listOf("t2"), viewModel.uiState.value.todayTasks?.map { it.id })
-        assertEquals(listOf("d2"), viewModel.uiState.value.day?.taskIds)
-        assertEquals(1, dayPushes.subscriptionCount.value)
-    }
-    @Test
     fun `a task ticked elsewhere reads the tasks of the day again`() = runTest {
         val viewModel = openDay()
 
@@ -641,6 +570,23 @@ class TasksViewModelTest {
         viewModel.onBravoShown()
         assertNull(viewModel.uiState.value.bravo)
     }
+    @Test
+    fun `after the evening time the day stays open, a task ticks as at any hour (MAG-825)`() = runTest {
+        // The evening's review is the « Bilan de la journée » (MAG-825): the day reads no evening time, no review.
+        coEvery { taskRepository.toggleDone("t1", true) } returns Result.success(late)
+        val viewModel = createViewModel(now = LocalTime.of(21, 30))
+        viewModel.onOpened()
+        advanceUntilIdle()
+
+        assertEquals(listOf("t1", "t2"), viewModel.uiState.value.todayTasks?.map { it.id })
+        viewModel.toggleTodayTask(late)
+        advanceUntilIdle()
+
+        assertEquals(BravoRequest("t1", "Renvoyer le formulaire"), viewModel.uiState.value.bravo)
+        coVerify { taskRepository.toggleDone("t1", true) }
+        coVerify(exactly = 0) { taskRepository.getDayPlan(any()) }
+    }
+
     @Test
     fun `a task of the day unticked, or a tick refused, opens no Bravo (MAG-508)`() = runTest {
         val doneLate = late.copy(completedAt = "2026-10-15T08:00:00Z")
@@ -714,345 +660,9 @@ class TasksViewModelTest {
         assertEquals(0, pushes.subscriptionCount.value)
     }
 
-    // « Le soir » (MAG-500)
-
-    private val tomorrow = today.plusDays(1)
-    private val doneAt = "2026-10-15T09:00:00Z"
-
-    /** « 3 sur 5 »: the form, the call and the bins done, the plants and the bread left. */
-    private val evening = day(
-        listOf(
-            form.copy(completedAt = doneAt),
-            plants,
-            call.copy(completedAt = doneAt),
-            bread.copy(dueDate = "2026-10-17"),
-            bins.copy(completedAt = doneAt),
-        ),
-    )
-
-    private val todayPuts = mutableListOf<List<String>>()
-    private val tomorrowPuts = mutableListOf<List<String>>()
-
-    /** The evening opened at 21:05 on [evening], tomorrow holding [tomorrowTasks]; the PUTs of both days captured. */
-    private fun TestScope.openEvening(
-        tomorrowTasks: List<DayTask> = emptyList(),
-        reviewedAt: String? = null,
-        now: LocalTime = LocalTime.of(21, 5),
-    ): TasksViewModel {
-        serveDay(evening)
-        coEvery { taskRepository.getEveningTime() } returns Result.success("21:00")
-        coEvery { taskRepository.getDayReview(today) } returns Result.success(DayReview(id = "rv", date = today.toString(), reviewedAt = reviewedAt))
-        coEvery { taskRepository.getDayPlan(tomorrow) } returns Result.success(day(tomorrowTasks).copy(date = tomorrow.toString()))
-        coEvery { taskRepository.setDaySlots(today, capture(todayPuts), true) } answers { Result.success(dayOf(todayPuts.last())) }
-        coEvery { taskRepository.setDaySlots(tomorrow, capture(tomorrowPuts), false) } answers {
-            Result.success(dayOf(tomorrowPuts.last()).copy(date = tomorrow.toString()))
-        }
-        coEvery { taskRepository.setDueDate(any(), any()) } answers { Result.success(task(firstArg(), "t")) }
-        val viewModel = createViewModel(now = now)
-        viewModel.onOpened()
-        advanceUntilIdle()
-        return viewModel
-    }
-
-    @Test
-    fun `the evening opens by itself after the evening time, what is done first, then what is left`() = runTest {
-        val viewModel = openEvening()
-
-        val state = viewModel.uiState.value.evening
-        assertNotNull(state)
-        assertEquals(listOf("d1", "d2", "d3"), state!!.done.map { it.id })
-        assertEquals(listOf("d4", "d5"), state.left.map { it.id })
-        assertEquals(5, state.day.total)
-        assertEquals(EveningOutcome.LATER, state.outcomeOf("d4"))
-        assertEquals(emptyList<String>(), state.tomorrowIds)
-    }
-
-    @Test
-    fun `a day with no slot written reviews the tasks of the day in the evening (MAG-766)`() = runTest {
-        val doneLate = late.copy(completedAt = doneAt)
-        serve(TaskView.TODAY, canteen)
-        serveDoneToday(doneLate)
-        serveDay(day(emptyList()))
-        coEvery { taskRepository.getEveningTime() } returns Result.success("21:00")
-        coEvery { taskRepository.getDayReview(today) } returns Result.success(DayReview(id = "rv", date = today.toString()))
-        coEvery { taskRepository.getDayPlan(tomorrow) } returns Result.success(day(emptyList()).copy(date = tomorrow.toString()))
-        coEvery { taskRepository.setDueDate("t2", null) } returns Result.success(canteen.copy(dueDate = null))
-        val viewModel = createViewModel(now = LocalTime.of(21, 5))
-        viewModel.onOpened()
-        advanceUntilIdle()
-
-        val evening = viewModel.uiState.value.evening
-        assertNotNull(evening)
-        assertEquals(listOf("t1"), evening!!.done.map { it.id })
-        assertEquals(listOf("t2"), evening.left.map { it.id })
-
-        // Set aside: its due day goes, and no slot of the day is written, there being none.
-        viewModel.chooseOutcome("t2", EveningOutcome.ASIDE)
-        advanceUntilIdle()
-
-        coVerify { taskRepository.setDueDate("t2", null) }
-        coVerify(exactly = 0) { taskRepository.setDaySlots(today, any(), any()) }
-        assertEquals(EveningOutcome.ASIDE, viewModel.uiState.value.evening?.outcomeOf("t2"))
-        assertEquals(listOf("t1"), viewModel.uiState.value.evening?.todayIds)
-    }
-
-    @Test
-    fun `the evening does not open before the evening time`() = runTest {
-        val viewModel = openEvening(now = LocalTime.of(20, 59))
-
-        assertNull(viewModel.uiState.value.evening)
-    }
-
-    @Test
-    fun `the evening does not open once Bonne nuit was said`() = runTest {
-        val viewModel = openEvening(reviewedAt = "2026-10-15T19:10:00Z")
-
-        assertNull(viewModel.uiState.value.evening)
-    }
-
-    @Test
-    fun `past midnight, the gestures and Bonne nuit still write the day reviewed and the next one`() = runTest {
-        coEvery { taskRepository.saveDayReview(today, any()) } returns
-            Result.success(DayReview(id = "rv", date = today.toString(), reviewedAt = "2026-10-15T23:10:00Z"))
-        val viewModel = openEvening()
-        clockDay = today.plusDays(1)
-
-        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
-        advanceUntilIdle()
-        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
-        advanceUntilIdle()
-        viewModel.goodNight()
-        advanceUntilIdle()
-
-        assertEquals(listOf(listOf("d4")), tomorrowPuts)
-        assertEquals(listOf(listOf("d1", "d4", "d2", "d3")), todayPuts)
-        coVerify(exactly = 1) { taskRepository.saveDayReview(today, emptyList()) }
-    }
-
-    @Test
-    fun `a set-aside that fails halfway shows the task in Un jour and says so`() = runTest {
-        val viewModel = openEvening()
-        coEvery { taskRepository.setDaySlots(today, any(), true) } returns Result.failure(IllegalStateException("offline"))
-
-        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(EveningOutcome.ASIDE, state.evening!!.outcomeOf("d5"))
-        assertEquals("Impossible de modifier la tâche.", state.message)
-    }
-
-    @Test
-    fun `Demain writes the task in tomorrow's five without settling it`() = runTest {
-        val viewModel = openEvening(tomorrowTasks = listOf(photos))
-
-        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
-        advanceUntilIdle()
-
-        assertEquals(listOf(listOf("r1", "d4")), tomorrowPuts)
-        val state = viewModel.uiState.value.evening!!
-        assertEquals(EveningOutcome.TOMORROW, state.outcomeOf("d4"))
-        assertEquals(listOf("r1", "d4"), state.tomorrowIds)
-        assertTrue(todayPuts.isEmpty())
-    }
-
-    @Test
-    fun `Plus tard after Demain takes the task out of tomorrow again`() = runTest {
-        val viewModel = openEvening(tomorrowTasks = listOf(photos))
-        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
-        advanceUntilIdle()
-
-        viewModel.chooseOutcome("d4", EveningOutcome.LATER)
-        advanceUntilIdle()
-
-        assertEquals(listOf(listOf("r1", "d4"), listOf("r1")), tomorrowPuts)
-        assertEquals(EveningOutcome.LATER, viewModel.uiState.value.evening!!.outcomeOf("d4"))
-    }
-
-    @Test
-    fun `Demain beyond five is refused - the way out stays Plus tard`() = runTest {
-        val viewModel = openEvening(tomorrowTasks = listOf(form, call, bins, photos, books))
-
-        viewModel.chooseOutcome("d4", EveningOutcome.TOMORROW)
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(EveningOutcome.LATER, state.evening!!.outcomeOf("d4"))
-        assertFalse(state.evening!!.canGoTomorrow("d4"))
-        assertEquals("Demain a déjà 5 tâches.", state.message)
-        assertTrue(tomorrowPuts.isEmpty())
-    }
-
-    @Test
-    fun `a task already in tomorrow's five comes out Demain`() = runTest {
-        val viewModel = openEvening(tomorrowTasks = listOf(plants))
-
-        assertEquals(EveningOutcome.TOMORROW, viewModel.uiState.value.evening!!.outcomeOf("d4"))
-    }
-
-    @Test
-    fun `Mettre de côté clears the due day and takes the task out of today, Annuler puts both back`() = runTest {
-        val viewModel = openEvening()
-
-        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) { taskRepository.setDueDate("d5", null) }
-        assertEquals(listOf(listOf("d1", "d4", "d2", "d3")), todayPuts)
-        var state = viewModel.uiState.value.evening!!
-        assertEquals(EveningOutcome.ASIDE, state.outcomeOf("d5"))
-        assertEquals(5, state.day.total)
-
-        viewModel.chooseOutcome("d5", EveningOutcome.LATER)
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) { taskRepository.setDueDate("d5", "2026-10-17") }
-        assertEquals(listOf("d1", "d4", "d2", "d5", "d3"), todayPuts.last())
-        state = viewModel.uiState.value.evening!!
-        assertEquals(EveningOutcome.LATER, state.outcomeOf("d5"))
-        assertEquals(listOf("d1", "d4", "d2", "d5", "d3"), state.todayIds)
-    }
-
-    @Test
-    fun `a gesture that fails keeps its way out and says so`() = runTest {
-        val viewModel = openEvening()
-        coEvery { taskRepository.setDueDate("d5", null) } returns Result.failure(IllegalStateException("offline"))
-
-        viewModel.chooseOutcome("d5", EveningOutcome.ASIDE)
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(EveningOutcome.LATER, state.evening!!.outcomeOf("d5"))
-        assertFalse(state.evening!!.isSaving)
-        assertEquals("Impossible de modifier la tâche.", state.message)
-        assertTrue(todayPuts.isEmpty())
-    }
-
-    @Test
-    fun `what helped is ticked and unticked, and Bonne nuit records it in the list's order and closes`() = runTest {
-        val viewModel = openEvening()
-        coEvery { taskRepository.saveDayReview(today, any()) } returns
-            Result.success(DayReview(id = "rv", date = today.toString(), reviewedAt = "2026-10-15T19:10:00Z"))
-
-        viewModel.toggleHelped(DayReview.TIMER)
-        viewModel.toggleHelped(DayReview.START_SMALL)
-        viewModel.toggleHelped(DayReview.MORNING)
-        viewModel.toggleHelped(DayReview.MORNING)
-        assertEquals(setOf("timer", "start_small"), viewModel.uiState.value.evening!!.helped)
-
-        viewModel.goodNight()
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) { taskRepository.saveDayReview(today, listOf("start_small", "timer")) }
-        assertNull(viewModel.uiState.value.evening)
-        assertNotNull(viewModel.uiState.value.day)
-    }
-
-    @Test
-    fun `a Bonne nuit that fails keeps the review open and says so`() = runTest {
-        val viewModel = openEvening()
-        coEvery { taskRepository.saveDayReview(today, any()) } returns Result.failure(IllegalStateException("offline"))
-
-        viewModel.goodNight()
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertNotNull(state.evening)
-        assertFalse(state.evening!!.isSaving)
-        assertEquals("Impossible d'enregistrer le bilan.", state.message)
-    }
-
-    @Test
-    fun `Plus tard closes the evening without recording it, and it does not open again by itself`() = runTest {
-        val viewModel = openEvening()
-
-        viewModel.dismissEvening()
-        advanceUntilIdle()
-
-        assertNull(viewModel.uiState.value.evening)
-        coVerify(exactly = 0) { taskRepository.saveDayReview(any(), any()) }
-
-        viewModel.refresh()
-        advanceUntilIdle()
-        assertNull(viewModel.uiState.value.evening)
-
-        viewModel.openEvening()
-        advanceUntilIdle()
-        assertNotNull("« Le soir » on the day opens it on demand", viewModel.uiState.value.evening)
-    }
-
-    @Test
-    fun `restoreAt puts a task back where it stood among those still there`() {
-        val original = listOf("a", "b", "c", "d", "e")
-        assertEquals(listOf("a", "b", "c", "d", "e"), restoreAt(listOf("a", "b", "d", "e"), "c", original))
-        assertEquals(listOf("a", "b"), restoreAt(listOf("b"), "a", original))
-        assertEquals(listOf("a", "d", "e"), restoreAt(listOf("a", "e"), "d", original))
-        assertEquals(listOf("a", "c"), restoreAt(listOf("a", "c"), "c", original))
-    }
-
-    // La constellation et le palier (MAG-509)
-
-    private fun starsOf(month: String, count: Int) = Stars(month = month, count = count, total = 20, best = null, latestAt = null)
-
     private val palierPush = """{"@id":"/api/rewards/rw9","subjectType":"saga_chapter","subjectId":"c1","level":"palier","surprise":null,""" +
         """"messageKey":"palier-doux.1","message":"Un chapitre de bouclé. Prends le temps d'en profiter.","title":"Chapitre 1","star":false,""" +
         """"earnedAt":"2026-10-15T20:00:00+00:00"}"""
-
-    @Test
-    fun `the evening reads the month's constellation, the current month being its limit (MAG-509)`() = runTest {
-        coEvery { taskRepository.getStars(null) } returns Result.success(starsOf("2026-10", 5))
-        val viewModel = openEvening()
-
-        val state = viewModel.uiState.value.evening!!
-        assertEquals(5, state.stars?.count)
-        assertEquals("2026-10", state.currentMonth)
-        assertFalse("nothing after the current month", state.canGoNextMonth)
-
-        viewModel.nextMonth()
-        advanceUntilIdle()
-        coVerify(exactly = 0) { taskRepository.getStars("2026-11") }
-        assertEquals("2026-10", viewModel.uiState.value.evening!!.stars?.month)
-    }
-
-    @Test
-    fun `the previous month shows its constellation, the next one brings the current month back (MAG-509)`() = runTest {
-        coEvery { taskRepository.getStars(null) } returns Result.success(starsOf("2026-10", 5))
-        coEvery { taskRepository.getStars("2026-09") } returns Result.success(starsOf("2026-09", 7))
-        val viewModel = openEvening()
-
-        viewModel.previousMonth()
-        advanceUntilIdle()
-        val back = viewModel.uiState.value.evening!!
-        assertEquals(7, back.stars?.count)
-        assertEquals("Ta constellation de septembre · 7 étoiles", back.stars?.title)
-        assertTrue(back.canGoNextMonth)
-        assertEquals("the current month stays the limit", "2026-10", back.currentMonth)
-
-        coEvery { taskRepository.getStars("2026-10") } returns Result.success(starsOf("2026-10", 5))
-        viewModel.nextMonth()
-        advanceUntilIdle()
-        assertEquals(5, viewModel.uiState.value.evening!!.stars?.count)
-        assertFalse(viewModel.uiState.value.evening!!.canGoNextMonth)
-    }
-
-    @Test
-    fun `a month that cannot be read leaves the constellation shown as it was (MAG-509)`() = runTest {
-        coEvery { taskRepository.getStars(null) } returns Result.success(starsOf("2026-10", 5))
-        val viewModel = openEvening()
-
-        viewModel.previousMonth()
-        advanceUntilIdle()
-
-        assertEquals("2026-10", viewModel.uiState.value.evening!!.stars?.month)
-    }
-
-    @Test
-    fun `an evening whose stars cannot be read opens without a constellation (MAG-509)`() = runTest {
-        val viewModel = openEvening()
-
-        assertNotNull(viewModel.uiState.value.evening)
-        assertNull(viewModel.uiState.value.evening!!.stars)
-    }
 
     @Test
     fun `a palier pushed while the screen is on is shown, and goes away when dismissed (MAG-509)`() = runTest {
@@ -1068,7 +678,7 @@ class TasksViewModelTest {
         assertTrue(palier!!.reward.isPalier)
         assertFalse(palier.reward.star)
         // A palier moves no task: the list was not read again for it.
-        coVerify(exactly = 1) { taskRepository.getDayPlan(today) }
+        coVerify(exactly = 1) { taskRepository.getTaskView(TaskView.TODAY, null) }
 
         viewModel.dismissPalier()
         assertNull(viewModel.uiState.value.palier)

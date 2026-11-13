@@ -11,6 +11,9 @@ tags:
 # Quand je coche la première
 # Alors l'anneau passe à « 1 sur 2 »
 #
+# À toute heure (MAG-825) : le soir ne remplace plus la journée — ni « Qu'est-ce qui t'a aidé ? »
+# ni « Bonne nuit » sur Tâches ; le bilan du soir est l'activité « Bilan de la journée » (`33-bilan-soir`).
+#
 # A new user: the two tasks are its only ones, written by `scripts/today-tasks-api.js`. The tick
 # opens the Bravo (MAG-508); « Retour à ma journée » brings the day back, the ring moved, and the
 # script reads the task done in the database.
@@ -58,6 +61,8 @@ tags:
 - assertVisible:
     id: "tasks_ring"
 - assertVisible: ".*0 sur 2.*"
+- assertNotVisible: ".*Qu'est-ce qui t'a aidé.*"
+- assertNotVisible: "Bonne nuit"
 - assertNotVisible: ".*C'est parti.*"
 
 # « à 10:00 » and « Haute » in the garage task's pills, no timer on it.

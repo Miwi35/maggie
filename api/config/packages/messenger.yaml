@@ -37,8 +37,6 @@ framework:
             'Maggie\Calendar\Message\UpdateTaskSettingsCommand': sync
             'Maggie\Calendar\Message\CreateDayPlanCommand': sync
             'Maggie\Calendar\Message\SetDayPlanCommand': sync
-            'Maggie\Calendar\Message\CreateDayReviewCommand': sync
-            'Maggie\Calendar\Message\SetDayReviewCommand': sync
             'Maggie\Calendar\Message\CreateRoutineCommand': sync
             'Maggie\Calendar\Message\UpdateRoutineCommand': sync
             'Maggie\Calendar\Message\DeleteRoutineCommand': sync
