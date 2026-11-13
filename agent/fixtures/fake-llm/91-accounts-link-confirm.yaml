@@ -21,4 +21,4 @@ turns:
           accountId: '\1'
           bankAccountId: '\2'
           confirm: true
-  - text: "C'est fait : votre Compte joint est rattaché à la banque, avec son historique et ses références."
+  - text: "Votre Compte joint est rattaché à la banque, avec son historique et ses références."
