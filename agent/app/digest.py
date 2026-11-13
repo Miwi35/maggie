@@ -63,7 +63,9 @@ async def _rewrite(gateway, user_id: str, model: str | None, text: str, missing:
 async def run_digest(gateway, proaction) -> tuple[dict, Message | None]:
     """Run the digest proaction: the result, whose `response` is the text as sent, and the one message stored."""
     user_id = proaction.user_id
-    result = await gateway.proaction(proaction.prompt, user_id, summary=proaction.summary)
+    result = await gateway.proaction(
+        proaction.prompt, user_id, summary=proaction.summary, blocked_tools=frozenset({"send_voice_message"})
+    )
     text = (result.get("response") or "").strip()
     if not text or result.get("error"):
         return result, None

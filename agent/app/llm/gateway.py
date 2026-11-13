@@ -3,6 +3,7 @@ from datetime import datetime
 
 import anthropic
 
+from app.llm.blocked_tools import BlockedToolsRouter
 from app.llm.capabilities import generate_capability_summary
 from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.contexts import active_contexts_section, resolve_context, route_message
@@ -133,6 +134,7 @@ class LLMGateway:
         about: str | None = None,
         summary: str | None = None,
         spoken: bool = False,
+        blocked_tools: frozenset[str] = frozenset(),
     ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
@@ -151,6 +153,7 @@ class LLMGateway:
             about: What the memory is asked to recall for (MAG-16). The prompt itself by default; the daily
                    planning gives the day's events, which its prompt only says how to read.
             spoken: The message will be read aloud (the digest's voice message, the car): written for the ear.
+            blocked_tools: Tools hidden from the model and refused if called (the digest makes its own vocal).
             summary: The proaction's summary. A trip check or replan (MAG-657) works on the trips and
                      says nothing in the chat: it runs with its own preamble and gets no thread.
         """
@@ -161,7 +164,8 @@ class LLMGateway:
                 "error": "AI service is not configured.",
             }
 
-        tools = await self.tool_router.get_tool_definitions()
+        tool_router = BlockedToolsRouter(self.tool_router, blocked_tools) if blocked_tools else self.tool_router
+        tools = await tool_router.get_tool_definitions()
 
         trip_run = not silent and summary is not None and is_silent_trip_run(summary)
         preamble = trip_run_rules() if trip_run else PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
@@ -178,7 +182,7 @@ class LLMGateway:
 
         content = prompt if silent else f"[Proaction due maintenant] {prompt}"
         messages = [{"role": "user", "content": content}]
-        tool_router = DryRunToolRouter(self.tool_router) if dry_run else self.tool_router
+        tool_router = DryRunToolRouter(tool_router) if dry_run else tool_router
 
         model = model_for(proaction_run(silent=silent, summary=summary, prompt=prompt))
         try:
