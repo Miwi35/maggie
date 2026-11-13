@@ -21,6 +21,14 @@ Maggie\Calendar\Entity\Agenda:
     color: '#e91e63'
     timeZone: 'Europe/Paris'
     user: '@e2e_user'
+  # The meals' module agenda, as every account that ever had a meal has it: the drawer lists the modules' agendas the API gives (MAG-820).
+  e2e_agenda_meals_module:
+    name: Repas
+    isDefault: false
+    color: '#FF6B35'
+    timeZone: 'Europe/Paris'
+    module: cookbook
+    user: '@e2e_user'
 
   # The two agendas the deduction journeys need (MAG-150). « Concerts » is named by
   # nothing but the event's own title — « un concert de Stromae » — and « Boulot » by

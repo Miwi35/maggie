@@ -182,8 +182,8 @@ final class E2eSeedCommandTest extends KernelTestCase
         // journeys watch an event be filed into. Six since MAG-6: the approval
         // cards journey deletes an event from an agenda of its own. Seven since
         // MAG-570: the « Il manque » account's « Repas ». Eight since MAG-564: the
-        // Cuisine card's. Ten since MAG-745: the trip estimate's and the replan's.
-        self::assertSame(10, $this->rowsOf(Agenda::class));
+        // Cuisine card's. Ten since MAG-745: the trip estimate's and the replan's. Eleven since MAG-820: the meals' module agenda.
+        self::assertSame(11, $this->rowsOf(Agenda::class));
         // Events include the meals, which extend Event: 18 events + 5 meals. Four
         // of the original fifteen are the habits the deduction reads (MAG-150), one the
         // day on the 1st of the month (MAG-382). Two more since MAG-562: the done and the
@@ -273,7 +273,7 @@ final class E2eSeedCommandTest extends KernelTestCase
         // MCP tools and API collections filter by user. A fixture attached to
         // nobody would simply be invisible, and the journey would report an
         // empty list without saying why.
-        self::assertSame(4, $this->rowsOf(Agenda::class, ['user' => $user]));
+        self::assertSame(5, $this->rowsOf(Agenda::class, ['user' => $user]));
         self::assertSame(10, $this->rowsOf(Task::class, ['user' => $user]));
         self::assertSame(3, $this->rowsOf(Recipe::class, ['user' => $user]));
         self::assertSame(3, $this->rowsOf(Errand::class, ['user' => $user]));
