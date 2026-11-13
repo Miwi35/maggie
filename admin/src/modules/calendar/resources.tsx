@@ -4,6 +4,7 @@ import { Route } from 'react-router-dom'
 import { lazyPage } from '../../lazyPage'
 
 const CalendarView = lazyPage(() => import('./CalendarView'), 'CalendarView')
+const PeriodList = lazyPage(() => import('./PeriodList'), 'PeriodList')
 const TaskBoard = lazyPage(() => import('./TaskBoard'), 'TaskBoard')
 
 export const calendarResources = (
@@ -17,6 +18,7 @@ export const calendarResources = (
     </CustomRoutes>
     <ResourceGuesser name="agendas" />
     <ResourceGuesser name="events" />
+    <ResourceGuesser name="periods" list={PeriodList} />
     <ResourceGuesser name="tasks" list={TaskBoard} />
   </>
 )

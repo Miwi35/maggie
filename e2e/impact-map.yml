@@ -535,6 +535,8 @@ web:
       - 'agent/fixtures/fake-llm/06-*.yaml'
   e2e/web/tests/agenda-periods.spec.ts:
     areas: [calendar]
+  e2e/web/tests/agenda-periods-page.spec.ts:
+    areas: [calendar]
   e2e/web/tests/agenda-recurrence.spec.ts:
     areas: [calendar]
   e2e/web/tests/agenda-module-layers.spec.ts:

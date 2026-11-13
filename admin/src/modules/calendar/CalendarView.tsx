@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDataProvider, useNotify } from 'react-admin'
 import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '@mui/material/styles'
@@ -6,6 +6,7 @@ import Box from '@mui/material/Box'
 import { SOURCE_COLORS, TOKENS } from '../../design/tokens'
 import { addDays, daysBetween, localDay, parseDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
+import { lazyPage } from '../../lazyPage'
 import { ALL_LIVE_KINDS, useLiveRead, type LiveKind } from './calendarLive'
 import { useUserPreferences } from '../../hooks/useUserPreferences'
 import Button from '@mui/material/Button'
@@ -60,6 +61,9 @@ import { EventCreateDialog } from './EventCreateDialog'
 import { TaskFormDialog, type TaskData } from './TaskFormDialog'
 import { EventDetailPopover } from './EventDetailPopover'
 import { REVIEW_ACTIVITY, eventTitle } from '../finance/reviewActivity'
+import { WeekPeriodBands } from './WeekPeriodBands'
+import { fetchPeriods, PERIODS_PATH, PERIODS_TOPICS, periodIri } from './periodsApi'
+import type { Period } from './periodsApi'
 import { EventEditDialog } from './EventEditDialog'
 import type { EditableEvent, EventEditValues } from './EventEditDialog'
 import { statusClassNames, toEventStatus } from './eventStatus'
@@ -161,7 +165,6 @@ interface GoogleCalendar {
 const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}', '/api/proactions/{id}', '/api/trips/{id}']
 /** A trip is read for one day at a time: the day view's range is a day, give or take the clock change. */
 const DAY_RANGE_MS = 25 * 3600 * 1000
-const AGENDA_TOPICS = ['/api/agendas/{id}']
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -178,6 +181,9 @@ const VIEW_BUTTONS: { label: string; view: CalendarView }[] = [
   { label: 'Semaine', view: 'timeGridWeek' },
   { label: 'Jour', view: 'timeGridDay' },
 ]
+
+// Loaded when a period is opened: the dialog is the week's only need of react-admin's mutations.
+const PeriodDialog = lazyPage(() => import('./PeriodDialog'), 'PeriodDialog')
 
 interface CalendarEvent {
   id: string
@@ -591,6 +597,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const [rawProactions, setRawProactions] = useState<CalendarProaction[]>([])
   const [rawTrips, setRawTrips] = useState<Trip[]>([])
   const [calendars, setCalendars] = useState<CalendarData[]>([])
+  const [rawPeriods, setRawPeriods] = useState<Period[]>([])
+  const [periodDialog, setPeriodDialog] = useState<{ open: boolean; period: Period | null }>({ open: false, period: null })
+  const periodsSeqRef = useRef(0)
+  const periodsAppliedRef = useRef('')
+  const weekViewRef = useRef(false)
   // The agendas the modules keep: a line each in the filter, whatever the module (MAG-820).
   const [moduleAgendas, setModuleAgendas] = useState<CalendarData[]>([])
   const moduleIdsRef = useRef<string[]>([])
@@ -1268,18 +1279,62 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     [currentView, tripOfEvent],
   )
 
+  // The periods of a short range, read apart from the events: they hold no slot (MAG-816).
+  // Resolves `true` when what it read differs from what the screen holds.
+  const loadPeriods = useCallback(
+    (start: string, end: string): Promise<boolean> => {
+      const seq = ++periodsSeqRef.current
+      if (moduleCalendar || !weekViewRef.current) {
+        periodsAppliedRef.current = ''
+        setRawPeriods((previous) => (previous.length === 0 ? previous : []))
+
+        return Promise.resolve(true)
+      }
+
+      return fetchPeriods(start, end)
+        .then((rows) => {
+          if (seq !== periodsSeqRef.current) return true
+          const json = JSON.stringify(rows)
+          const changed = json !== periodsAppliedRef.current
+          periodsAppliedRef.current = json
+          setRawPeriods(rows)
+
+          return changed
+        })
+        .catch((error) => {
+          console.error(error)
+
+          return true
+        })
+    },
+    [moduleCalendar],
+  )
+
+  const handleOpenPeriod = useCallback(
+    (period: Period) => {
+      // An occurrence carries its own dates: the dialog edits the series.
+      dataProvider
+        .getOne('periods', { id: periodIri(period.id) })
+        .then(({ data }) => setPeriodDialog({ open: true, period: data as unknown as Period }))
+        .catch(() => setPeriodDialog({ open: true, period }))
+    },
+    [dataProvider],
+  )
+
   // --- FullCalendar callbacks ---
   const handleDatesSet = useCallback(
     (arg: DatesSetArg) => {
       const start = arg.start.toISOString()
       const end = arg.end.toISOString()
       dateRangeRef.current = { start, end }
+      weekViewRef.current = arg.view.type === 'timeGridWeek'
       setMiniCalDate(arg.view.currentStart)
       setCurrentView(arg.view.type as CalendarView)
       setActiveRange({ start: arg.view.currentStart, end: arg.view.currentEnd })
       fetchEvents(start, end)
+      void loadPeriods(start, end)
     },
-    [fetchEvents],
+    [fetchEvents, loadPeriods],
   )
 
   const handleSelectAllow = useCallback((info: { start: Date; end: Date }) => {
@@ -1786,9 +1841,18 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   )
   useMercure(CALENDAR_TOPICS, useLiveRead(readTouched))
 
-  // Another window or the mobile app can change which agenda is the default.
-  const readAgendas = useCallback(() => loadCalendars(), [loadCalendars])
-  useMercure(AGENDA_TOPICS, useLiveRead(readAgendas))
+  // Another window or the mobile app can change which agenda is the default; a period or its
+  // agenda changed: the periods are read again. One stream for both: over HTTP/1.1 every open
+  // stream holds one of the browser's six connections per origin (MAG-473).
+  const readAgendasAndPeriods = useCallback(
+    () =>
+      Promise.all([
+        loadCalendars(),
+        dateRangeRef.current ? loadPeriods(dateRangeRef.current.start, dateRangeRef.current.end) : Promise.resolve(true),
+      ]).then(([agendasChanged, periodsChanged]) => agendasChanged || periodsChanged),
+    [loadCalendars, loadPeriods],
+  )
+  useMercure(PERIODS_TOPICS, useLiveRead(readAgendasAndPeriods))
 
   // --- Deep-link: open an event or a meal from search (?eventId=… / ?mealId=…) ---
   const deepLinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -2064,6 +2128,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
               {label}
             </Button>
           ))}
+          {!moduleCalendar && (
+            <Button component="a" href={`#${PERIODS_PATH}`}>
+              Périodes
+            </Button>
+          )}
         </ButtonGroup>
       </Box>
 
@@ -2357,6 +2426,15 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
 
         {/* Main calendar */}
         <Box ref={calendarBoxRef} sx={calendarThemeSx}>
+          {currentView === 'timeGridWeek' && activeRange && (
+            <WeekPeriodBands
+              periods={rawPeriods}
+              weekStart={localDay(activeRange.start)}
+              agendas={calendars}
+              onOpen={handleOpenPeriod}
+            />
+          )}
+          <Box sx={{ flex: 1, minHeight: 0 }}>
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -2383,6 +2461,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             scrollTime="07:00:00"
             slotMaxTime="24:00:00"
           />
+          </Box>
         </Box>
       </Box>
 
@@ -2410,6 +2489,12 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       >
         <AddIcon />
       </Fab>
+      )}
+
+      {periodDialog.open && (
+        <Suspense fallback={null}>
+          <PeriodDialog open period={periodDialog.period} onClose={() => setPeriodDialog((d) => ({ ...d, open: false }))} />
+        </Suspense>
       )}
 
       <EventCreateDialog

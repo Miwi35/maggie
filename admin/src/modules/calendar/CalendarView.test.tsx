@@ -74,6 +74,12 @@ describe('CalendarView', () => {
     expect(screen.getByText('Jour')).toBeInTheDocument()
   })
 
+  test('the week view buttons include Périodes', () => {
+    render(<CalendarView />)
+
+    expect(screen.getByRole('link', { name: 'Périodes' })).toHaveAttribute('href', '#/periods')
+  })
+
   test('fetches agendas and events on mount', async () => {
     render(<CalendarView />)
 
