@@ -93,6 +93,7 @@ final class TransactionListNormalizer implements NormalizerInterface, ResetInter
             'user' => $this->iri($data->getUser()),
             'exceptional' => $data->isExceptional(),
             'qualifiedBy' => $data->getQualifiedBy(),
+            'advanceSourceAccountId' => $data->getAdvanceSourceAccountId(),
         ];
 
         // API Platform skips the null fields unless the operation says otherwise.
