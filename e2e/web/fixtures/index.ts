@@ -20,6 +20,7 @@ import {
   BALANCE_USER_EMAIL,
   BRAVO_USER_EMAIL,
   CUSHION_SHARE_USER_EMAIL,
+  LINK_ACCOUNT_USER_EMAIL,
   TRIP_ESTIMATE_USER_EMAIL,
   REPLAN_USER_EMAIL,
   VOICE_USER_EMAIL,
@@ -82,6 +83,7 @@ export {
   MAKEUP_USER_EMAIL,
   CUISINE_USER_EMAIL,
   CUSHION_SHARE_USER_EMAIL,
+  LINK_ACCOUNT_USER_EMAIL,
   TRIP_ESTIMATE_USER_EMAIL,
   REPLAN_USER_EMAIL,
   VOICE_USER_EMAIL,
@@ -261,6 +263,8 @@ export interface MaggieFixtures {
   cuisineUser: OtherUser
   /** The twenty-ninth seeded account, for the cushion's share of the capacity (MAG-669). */
   cushionShareUser: OtherUser
+  /** The hand-typed account and the bank's of the link journey (MAG-823). */
+  linkAccountUser: OtherUser
   /** The position set by the trip estimate journey (MAG-745). */
   tripEstimateUser: OtherUser
   /** The position set by the replan journey (MAG-745). */
@@ -598,6 +602,10 @@ export const test = base.extend<MaggieFixtures>({
 
   cushionShareUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(CUSHION_SHARE_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+
+  linkAccountUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(LINK_ACCOUNT_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
 
   twoWindows: async ({ browser, baseURL, contextOptions, page, journey, adminCoverage }, use) => {

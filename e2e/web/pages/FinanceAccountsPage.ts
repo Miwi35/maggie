@@ -23,6 +23,10 @@ export class FinanceAccountsPage extends AdminShell {
   readonly previousMonth: Locator
   /** The account selector at the top of the transactions view. */
   readonly accountSelect: Locator
+  /** « Rattacher au compte de la banque », under the header of a hand-typed account (MAG-823). */
+  readonly linkCard: Locator
+  /** The dialog that card opens: the choice, its preview, « Annuler » and « Rattacher ». */
+  readonly linkDialog: Locator
 
   constructor(page: Page) {
     super(page)
@@ -34,6 +38,19 @@ export class FinanceAccountsPage extends AdminShell {
     this.addTransaction = this.content.getByRole('link', { name: 'Ajouter une transaction' })
     this.previousMonth = this.content.getByRole('button', { name: 'Mois précédent' })
     this.accountSelect = this.content.getByRole('combobox', { name: 'Compte' })
+    this.linkCard = this.content.getByText('Rattacher au compte de la banque')
+    this.linkDialog = this.page.getByRole('dialog')
+  }
+
+  /** Opens the link dialog from the card, with the bank's account chosen (a lone candidate is already). */
+  async openLink(bankAccountName: string): Promise<void> {
+    await this.content.getByRole('button', { name: 'Rattacher…' }).click()
+    await expect(this.linkDialog).toBeVisible()
+    const choice = this.linkDialog.getByRole('combobox', { name: 'Compte de la banque' })
+    if ((await choice.inputValue()) === '') {
+      await choice.click()
+      await this.page.getByRole('option', { name: new RegExp(bankAccountName) }).click()
+    }
   }
 
   /**

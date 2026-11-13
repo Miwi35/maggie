@@ -894,6 +894,9 @@ mobile:
   e2e/mobile/flows/29-finance-cushion-share.yaml:
     areas: [finance]
     paths: [e2e/mobile/scripts/cushion-share-api.js, api/fixtures/e2e/69-finance-cushion-share.yaml]
+  e2e/mobile/flows/13b-finance-link-account.yaml:
+    areas: [finance]
+    paths: [api/fixtures/e2e/74-finance-link-account.yaml]
   e2e/mobile/flows/36-finance-advance-source.yaml:
     areas: [finance]
     paths: [api/fixtures/e2e/73-finance-advance-source.yaml]

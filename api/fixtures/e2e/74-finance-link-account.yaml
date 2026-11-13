@@ -1,34 +1,61 @@
 # Link a hand-typed account to the bank's from its page (MAG-823, extends MAG-102):
 # `e2e/mobile/flows/13b-finance-link-account.yaml` and `e2e/web/tests/finance-accounts.spec.ts`.
 #
-# Two pairs, one per front, none read by another journey: a hand-typed account and an
-# account of the bank connection, in EUR, the bank's carrying two movements. Linking
-# folds the bank's account into the hand-typed one.
+# One user per front, so no other journey reads their accounts or totals: a hand-typed
+# account and an account of a bank connection, in EUR, the bank's carrying two movements.
+# Linking folds the bank's account into the hand-typed one. The link is not undone: a
+# stack plays each journey once (every nightly and every CI run starts a fresh one).
+
+Maggie\Core\Entity\User:
+  e2e_link_web_user:
+    email: 'e2e-link-account@maggie.local'
+    googleId: 'e2e-link-account-google-id'
+    name: 'Lina Rattache'
+  e2e_link_mobile_user:
+    email: 'e2e-link-account-mobile@maggie.local'
+    googleId: 'e2e-link-account-mobile-google-id'
+    name: 'Lino Rattache'
+
+Maggie\Finance\Entity\BankConnection:
+  e2e_link_web_connection:
+    bankName: 'Mock Bank'
+    country: 'FR'
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    sessionId: 'e2e-link-web-session-id'
+    consentExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    user: '@e2e_link_web_user'
+  e2e_link_mobile_connection:
+    bankName: 'Mock Bank'
+    country: 'FR'
+    status: '<(Maggie\Finance\Enum\BankConnectionStatus::Active)>'
+    sessionId: 'e2e-link-mobile-session-id'
+    consentExpiresAt: '<(new \DateTimeImmutable("2099-01-01T00:00:00+00:00"))>'
+    user: '@e2e_link_mobile_user'
 
 Maggie\Finance\Entity\Account:
   e2e_link_mobile_manual:
-    name: E2E Compte à rattacher
+    name: E2E compte à rattacher
     type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
     currency: EUR
     balanceCents: 50000
     isCushion: false
-    user: '@e2e_user'
+    user: '@e2e_link_mobile_user'
   e2e_link_mobile_bank:
-    name: E2E Compte bancaire à rattacher
+    name: E2E compte bancaire à rattacher
     bank: Mock Bank
     type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
     currency: EUR
     balanceCents: 115520
     isCushion: false
-    bankConnection: '@e2e_bank_connection'
-    user: '@e2e_user'
+    bankConnection: '@e2e_link_mobile_connection'
+    user: '@e2e_link_mobile_user'
   e2e_link_web_manual:
     name: E2E Web compte à rattacher
     type: '<(Maggie\Finance\Enum\AccountType::Checking)>'
     currency: EUR
     balanceCents: 50000
     isCushion: false
-    user: '@e2e_user'
+    user: '@e2e_link_web_user'
   e2e_link_web_bank:
     name: E2E Web compte bancaire à rattacher
     bank: Mock Bank
@@ -36,8 +63,8 @@ Maggie\Finance\Entity\Account:
     currency: EUR
     balanceCents: 115520
     isCushion: false
-    bankConnection: '@e2e_bank_connection'
-    user: '@e2e_user'
+    bankConnection: '@e2e_link_web_connection'
+    user: '@e2e_link_web_user'
 
 Maggie\Finance\Entity\Transaction:
   e2e_link_mobile_tx_1:
@@ -47,7 +74,7 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<e2eDate("first day of this month")>'
     label: 'CB LINK MOBILE 1'
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
-    user: '@e2e_user'
+    user: '@e2e_link_mobile_user'
   e2e_link_mobile_tx_2:
     account: '@e2e_link_mobile_bank'
     amountCents: -2500
@@ -55,7 +82,7 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<e2eDate("first day of this month")>'
     label: 'CB LINK MOBILE 2'
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
-    user: '@e2e_user'
+    user: '@e2e_link_mobile_user'
   e2e_link_web_tx_1:
     account: '@e2e_link_web_bank'
     amountCents: -1500
@@ -63,7 +90,7 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<e2eDate("first day of this month")>'
     label: 'CB LINK WEB 1'
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
-    user: '@e2e_user'
+    user: '@e2e_link_web_user'
   e2e_link_web_tx_2:
     account: '@e2e_link_web_bank'
     amountCents: -2500
@@ -71,4 +98,4 @@ Maggie\Finance\Entity\Transaction:
     bookedAt: '<e2eDate("first day of this month")>'
     label: 'CB LINK WEB 2'
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
-    user: '@e2e_user'
+    user: '@e2e_link_web_user'

@@ -463,3 +463,44 @@ test('changing account shows the other account\'s days, and a transfer names the
   // And the checking account's own line is not on this one.
   await expect(accounts.row(debit)).toHaveCount(0)
 })
+
+/**
+ * Link a hand-typed account to the bank's, from its page (MAG-823).
+ *
+ * Étant donné un compte saisi à la main et le compte que la banque a créé, avec deux mouvements
+ * Quand j'ouvre la fiche du compte saisi, que je choisis celui de la banque et que je confirme
+ * Alors l'aperçu annonce « 2 mouvements », « Compte rattaché. » s'affiche, la carte disparaît
+ *   et les deux mouvements de la banque sont sur ce compte
+ *
+ * The accounts are the fixtures' (`74-finance-link-account.yaml`), a user of their own: the link
+ * is not undone, and no other journey reads these accounts. The refusals are `AccountLinkControllerTest`
+ * and `AccountLinkCard.test.tsx`.
+ */
+test('a hand-typed account is linked to the bank\'s from its page', async ({ linkAccountUser }) => {
+  const { page, api } = linkAccountUser
+  const manualName = 'E2E Web compte à rattacher'
+  const bankName = 'E2E Web compte bancaire à rattacher'
+
+  // Given the hand-typed account.
+  const stored = await getCollection<StoredAccount>(api, '/api/accounts')
+  const manual = stored.find((account) => account.name === manualName)
+  expect(manual?.id, `${manualName} is seeded`).toBeTruthy()
+
+  // When I open its page, the card offers the bank's account.
+  const accounts = new FinanceAccountsPage(page)
+  await accounts.openTransactions(manual?.id ?? '')
+  await expect(accounts.linkCard).toBeVisible()
+
+  // And I choose it: the preview counts the two movements.
+  await accounts.openLink(bankName)
+  await expect(accounts.linkDialog).toContainText('2 mouvements')
+
+  // And I confirm.
+  await accounts.linkDialog.getByRole('button', { name: 'Rattacher', exact: true }).click()
+
+  // Then the notice shows, the card is gone, and the bank's movements are on this account.
+  await expect(page.getByText('Compte rattaché.')).toBeVisible()
+  await expect(accounts.linkCard).toHaveCount(0)
+  await expect(accounts.row('CB LINK WEB 1')).toBeVisible()
+  await expect(accounts.row('CB LINK WEB 2')).toBeVisible()
+})
