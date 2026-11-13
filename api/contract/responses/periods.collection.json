@@ -1,0 +1,103 @@
+{
+    "@context": "/api/contexts/Period",
+    "@id": "/api/periods",
+    "@type": "Collection",
+    "totalItems": 2,
+    "member": [
+        {
+            "@id": "/api/periods/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Period",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded period",
+            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "allDay": true,
+            "startDate": "2026-03-14",
+            "endDate": "2026-03-21",
+            "timeZone": "Europe/Paris",
+            "rrule": "FREQ=WEEKLY;INTERVAL=2",
+            "holiday": "france",
+            "ownerRelation": "agenda",
+            "recurring": true
+        },
+        {
+            "@id": "/api/periods/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "@type": "Period",
+            "id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "name": "Recorded timed period",
+            "agenda": "/api/agendas/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            "allDay": false,
+            "startAt": "2026-10-23T16:00:00+00:00",
+            "endAt": "2026-10-30T17:00:00+00:00",
+            "timeZone": "Europe/Paris",
+            "ownerRelation": "agenda",
+            "recurring": false
+        }
+    ],
+    "search": {
+        "@type": "IriTemplate",
+        "template": "/api/periods{?expand,startAt[before],startAt[strictly_before],startAt[after],startAt[strictly_after],endAt[before],endAt[strictly_before],endAt[after],endAt[strictly_after],exists[rrule]}",
+        "variableRepresentation": "BasicRepresentation",
+        "mapping": [
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "expand",
+                "property": "expand",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_before]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "startAt[strictly_after]",
+                "property": "startAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[before]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[strictly_before]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[after]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "endAt[strictly_after]",
+                "property": "endAt",
+                "required": false
+            },
+            {
+                "@type": "IriTemplateMapping",
+                "variable": "exists[rrule]",
+                "property": "rrule",
+                "required": false
+            }
+        ]
+    }
+}

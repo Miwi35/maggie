@@ -2238,4 +2238,22 @@ object UiTags {
     fun workoutRow(id: String) = WORKOUT_ROW_PREFIX + id
     fun workoutType(key: String) = WORKOUT_TYPE_PREFIX + key
     fun workoutFeeling(key: String) = WORKOUT_FEELING_PREFIX + key
+
+    // Agenda › Périodes (MAG-815): the list, its tabs and rows, the form and the chips of the day and week views.
+    const val PERIODS = "periods"
+    const val PERIOD_ROW_PREFIX = "period_row_"
+    const val PERIOD_TAB_UPCOMING = "period_tab_upcoming"
+    const val PERIOD_TAB_PAST = "period_tab_past"
+    const val PERIOD_EMPTY = "period_empty"
+    const val PERIOD_ADD = "period_add"
+    const val PERIOD_FORM = "period_form"
+    const val PERIOD_NAME = "period_name"
+    const val PERIOD_SAVE = "period_save"
+    const val PERIOD_CLOSE = "period_close"
+    const val PERIOD_DELETE = "period_delete"
+    const val PERIOD_DELETE_CONFIRM = "period_delete_confirm"
+    const val PERIOD_FORM_ERROR = "period_form_error"
+    const val PERIOD_CHIP_PREFIX = "period_chip_"
+    fun periodRow(id: String) = PERIOD_ROW_PREFIX + id
+    fun periodChip(id: String) = PERIOD_CHIP_PREFIX + id
 }

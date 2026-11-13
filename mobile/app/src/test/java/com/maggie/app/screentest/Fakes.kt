@@ -85,6 +85,7 @@ import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.GroceryListRepository
 import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.PeriodRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.data.repository.ProductRepository
@@ -393,7 +394,9 @@ class FakeCalendar(private val events: List<Event>) {
         coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(emptyList())
         val tripRepository = mockk<TripRepository>()
         coEvery { tripRepository.getTrips(any()) } returns Result.success(emptyList())
-        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository, mealRepository, proactionRepository, tripRepository)
+        val periodRepository = mockk<PeriodRepository>()
+        coEvery { periodRepository.getPeriodsExpanded(any(), any()) } returns Result.success(emptyList())
+        FullCalendarViewModel(eventRepository, taskRepository, agendaRepository, mercure, auth, userPreferenceRepository, mealRepository, proactionRepository, tripRepository, periodRepository)
     }
 }
 

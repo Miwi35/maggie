@@ -969,6 +969,14 @@ mobile:
       - mobile/app/src/main/java/com/maggie/app/ui/screens/fullcalendar/**
       - '.docker/e2e/wiremock/mappings/google-routes.json'
       - '.docker/e2e/wiremock/mappings/google-geocoding.json'
+  e2e/mobile/flows/36-agenda-periods.yaml:
+    areas: [calendar, realtime]
+    paths:
+      - e2e/mobile/scripts/period-api.js
+      - 'api/modules/calendar/src/Routing/**'
+      - mobile/app/src/main/java/com/maggie/app/data/model/Period.kt
+      - mobile/app/src/main/java/com/maggie/app/data/repository/PeriodRepository.kt
+      - mobile/app/src/main/java/com/maggie/app/ui/screens/fullcalendar/**
   e2e/mobile/flows/30-digest.yaml:
     areas: [dashboard, chat, calendar]
     paths:

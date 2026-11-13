@@ -94,6 +94,7 @@ import com.maggie.app.data.repository.CushionRepository
 import com.maggie.app.data.repository.TreasuryRepository
 import com.maggie.app.data.repository.SavingsAdvancesRepository
 import com.maggie.app.data.repository.LoanRepository
+import com.maggie.app.data.repository.PeriodRepository
 import com.maggie.app.data.repository.PlacementRepository
 import com.maggie.app.data.repository.WorkoutRepository
 import com.maggie.app.data.repository.BodyMeasurementRepository
@@ -150,6 +151,7 @@ import com.maggie.app.ui.screens.finance.SavingsAdvancesViewModel
 import com.maggie.app.ui.screens.finance.LoanDetailViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.PlacementViewModel
+import com.maggie.app.ui.screens.fullcalendar.PeriodViewModel
 import com.maggie.app.ui.screens.health.SportViewModel
 import com.maggie.app.ui.screens.health.SuiviViewModel
 import com.maggie.app.ui.screens.health.NutritionViewModel
@@ -465,6 +467,7 @@ class MaggieApp : Application() {
             single { ProjectRepository(get()) }
             single { ScenarioRepository(get()) }
             single { PlacementRepository(get()) }
+            single { PeriodRepository(get()) }
             single { WorkoutRepository(get()) }
             single { BodyMeasurementRepository(get()) }
             single { HealthProfileRepository(get()) }
@@ -521,7 +524,7 @@ class MaggieApp : Application() {
             viewModel { FocusViewModel(get()) }
             viewModel { BravoViewModel(get(), get()) }
             viewModel { RoutinesViewModel(get(), get(), get(), get(), get()) }
-            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
+            viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel {
                 val car = get<SharedCarConnection>()
                 ChatViewModel(get(), get(), get(), get(), get(), get(), inCar = car::isConnected, tasks = get())
@@ -587,6 +590,7 @@ class MaggieApp : Application() {
             viewModel { ScenarioViewModel(get(), get(), get()) }
             viewModel { FinanceTimelineViewModel(get()) }
             viewModel { PlacementViewModel(get(), get(), get()) }
+            viewModel { PeriodViewModel(get(), get(), get(), get()) }
             viewModel { SportViewModel(get(), get(), get()) }
             viewModel { SuiviViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { NutritionViewModel(get(), get(), get()) }

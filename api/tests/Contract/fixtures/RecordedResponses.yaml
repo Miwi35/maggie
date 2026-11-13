@@ -78,6 +78,25 @@ Maggie\Calendar\Entity\Event:
     originalStartAt: '<(new \DateTimeImmutable("2026-03-09 08:00"))>'
     agenda: '@recorded_agenda'
 
+Maggie\Calendar\Entity\Period:
+  # Every optional field filled, all-day: the clients read the days as an event's, the end excluded (MAG-815).
+  recorded_period:
+    name: Recorded period
+    allDay: true
+    startDate: '<(new \DateTimeImmutable("2026-03-14"))>'
+    endDate: '<(new \DateTimeImmutable("2026-03-21"))>'
+    rrule: 'FREQ=WEEKLY;INTERVAL=2'
+    holiday: '<(Maggie\Calendar\Enum\PeriodHoliday::France)>'
+    agenda: '@recorded_agenda'
+
+  # A timed one, so the clients read startAt/endAt too (MAG-815).
+  recorded_timed_period:
+    name: Recorded timed period
+    allDay: false
+    startAt: '<(new \DateTimeImmutable("2026-10-23 16:00:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-10-30 17:00:00"))>'
+    agenda: '@recorded_agenda'
+
 Maggie\Calendar\Entity\Task:
   recorded_open_task:
     title: Recorded open task

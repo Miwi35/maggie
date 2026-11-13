@@ -132,6 +132,7 @@ import com.maggie.app.data.model.EarlyRepayment
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.LoanCurve
 import com.maggie.app.data.model.LoanStep
+import com.maggie.app.data.model.Period
 import com.maggie.app.data.model.Placement
 import com.maggie.app.data.model.PlacementSimulation
 import com.maggie.app.data.model.Project
@@ -3688,6 +3689,45 @@ class MaggieApiService(
             from?.let { url.parameters.append("startAt[after]", it) }
             to?.let { url.parameters.append("startAt[before]", it) }
         }.body<ApiCollection<Proaction>>().member
+    }
+
+    // Periods (MAG-809, MAG-815): the custody, the holidays — a series is one row, `expand` unfolds it over a range.
+    suspend fun getPeriods(): List<Period> {
+        return client.get("$baseUrl/api/periods") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+        }.orRefusal().body<ApiCollection<Period>>().member
+    }
+
+    /** The periods meeting the range, series unfolded into occurrences; [from] and [to] are ISO-8601 instants. */
+    suspend fun getPeriodsExpanded(from: String, to: String): List<Period> {
+        return client.get("$baseUrl/api/periods") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("expand", "true")
+            url.parameters.append("endAt[after]", from)
+            url.parameters.append("startAt[before]", to)
+        }.orRefusal().body<ApiCollection<Period>>().member
+    }
+
+    suspend fun createPeriod(data: JsonObject): Period {
+        return client.post("$baseUrl/api/periods") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.orRefusal().body()
+    }
+
+    suspend fun updatePeriod(id: String, data: JsonObject): Period {
+        return client.patch("$baseUrl/api/periods/$id") {
+            contentType(MERGE_PATCH)
+            accept(ContentType("application", "ld+json"))
+            setBody(data)
+        }.orRefusal().body()
+    }
+
+    suspend fun deletePeriod(id: String) {
+        client.delete("$baseUrl/api/periods/$id").orRefusal()
     }
 
     // Trips — the way Maggie chose to an event (MAG-654); [date] is `YYYY-MM-DD`, read in Paris

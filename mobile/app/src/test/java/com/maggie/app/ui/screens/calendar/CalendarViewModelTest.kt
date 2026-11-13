@@ -7,6 +7,7 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.Meal
+import com.maggie.app.data.model.Period
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.Task
@@ -17,6 +18,7 @@ import com.maggie.app.data.repository.MealRepository
 import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.TripStep
 import com.maggie.app.data.repository.ProactionRepository
+import com.maggie.app.data.repository.PeriodRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
@@ -61,6 +63,7 @@ class CalendarViewModelTest {
     private lateinit var mealRepository: MealRepository
     private lateinit var proactionRepository: ProactionRepository
     private lateinit var tripRepository: TripRepository
+    private lateinit var periodRepository: PeriodRepository
     private lateinit var mercureService: MercureService
     private lateinit var authRepository: AuthRepository
     private lateinit var userPreferenceRepository: UserPreferenceRepository
@@ -83,6 +86,8 @@ class CalendarViewModelTest {
         coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(emptyList())
         tripRepository = mockk()
         coEvery { tripRepository.getTrips(any()) } returns Result.success(emptyList())
+        periodRepository = mockk()
+        coEvery { periodRepository.getPeriodsExpanded(any(), any()) } returns Result.success(emptyList())
         every { eventRepository.observeEvents() } returns cachedEvents
         every { agendaRepository.observeAgendas() } returns cachedAgendas
         every { agendaRepository.moduleAgendas } returns cachedModuleAgendas
@@ -107,6 +112,7 @@ class CalendarViewModelTest {
         mealRepository,
         proactionRepository,
         tripRepository,
+        periodRepository,
         module,
         clock,
     )
@@ -272,6 +278,122 @@ class CalendarViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.trips.isEmpty())
+    }
+
+    private fun period(id: String = "p1", name: String = "Garde") = Period(
+        id = id, name = name, allDay = true, startDate = "2026-06-14", endDate = "2026-06-18",
+    )
+
+    private fun periodsTopic(): MutableSharedFlow<MercureEvent> {
+        coEvery { authRepository.getUserId() } returns "u1"
+        return MutableSharedFlow<MercureEvent>().also {
+            every { mercureService.subscribe(MercureTopics.userScoped("u1", MercureTopics.PERIODS)) } returns it
+        }
+    }
+
+    @Test
+    fun `the day view reads the periods of the day on screen`() = runTest {
+        stubRepositories()
+        val day = DateRanges.periodOfDate(june15).asRange()
+        coEvery { periodRepository.getPeriodsExpanded(day.start.toString(), day.end.toString()) } returns Result.success(listOf(period()))
+
+        val viewModel = openDayView()
+
+        assertEquals(listOf("Garde"), viewModel.uiState.value.periods.map { it.name })
+    }
+
+    @Test
+    fun `the week view reads the periods of its week`() = runTest {
+        stubRepositories()
+        val week = DateRanges.periodOfWeek(june15).asRange()
+        coEvery { periodRepository.getPeriodsExpanded(week.start.toString(), week.end.toString()) } returns Result.success(listOf(period()))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.navigateToDate(june15)
+        viewModel.setViewType(CalendarViewType.WEEK)
+        advanceUntilIdle()
+
+        assertEquals(listOf("Garde"), viewModel.uiState.value.periods.map { it.name })
+    }
+
+    @Test
+    fun `the month view draws and reads no period`() = runTest {
+        stubRepositories()
+        coEvery { periodRepository.getPeriodsExpanded(any(), any()) } returns Result.success(listOf(period()))
+        val viewModel = openDayView()
+        assertEquals(1, viewModel.uiState.value.periods.size)
+
+        viewModel.setViewType(CalendarViewType.MONTH)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.periods.isEmpty())
+    }
+
+    @Test
+    fun `a module view reads no period`() = runTest {
+        val viewModel = createViewModel(module = "cookbook")
+        advanceUntilIdle()
+        viewModel.navigateToDate(june15)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { periodRepository.getPeriodsExpanded(any(), any()) }
+        assertTrue(viewModel.uiState.value.periods.isEmpty())
+    }
+
+    @Test
+    fun `a failing periods read keeps the chips on screen, and reports nothing`() = runTest {
+        stubRepositories()
+        coEvery { periodRepository.getPeriodsExpanded(any(), any()) } returns Result.success(listOf(period()))
+        val viewModel = openDayView()
+
+        coEvery { periodRepository.getPeriodsExpanded(any(), any()) } returns Result.failure(RuntimeException("offline"))
+        viewModel.navigateToDate(june15.plusDays(1))
+        advanceUntilIdle()
+
+        assertEquals(listOf("Garde"), viewModel.uiState.value.periods.map { it.name })
+        assertNull(viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `a slow reply for a range the user has left does not replace the periods on screen`() = runTest {
+        stubRepositories()
+        val juneReplies = CompletableDeferred<Unit>()
+        val june = DateRanges.periodOfDate(june15).asRange()
+        coEvery { periodRepository.getPeriodsExpanded(june.start.toString(), june.end.toString()) } coAnswers {
+            juneReplies.await()
+            Result.success(listOf(period(name = "Juin")))
+        }
+        val july = DateRanges.periodOfDate(java.time.LocalDate.of(2026, 7, 15)).asRange()
+        coEvery { periodRepository.getPeriodsExpanded(july.start.toString(), july.end.toString()) } returns
+            Result.success(listOf(period(id = "p2", name = "Juillet")))
+        val viewModel = createViewModel(clock = juneNoon)
+        advanceUntilIdle()
+        viewModel.setViewType(CalendarViewType.DAY)
+        viewModel.navigateToDate(june15)
+        advanceUntilIdle()
+        viewModel.navigateToDate(java.time.LocalDate.of(2026, 7, 15))
+        advanceUntilIdle()
+        juneReplies.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("Juillet"), viewModel.uiState.value.periods.map { it.name })
+    }
+
+    @Test
+    fun `a period pushed on Mercure reloads the periods`() = runTest {
+        stubRepositories()
+        val topic = periodsTopic()
+        var onServer = emptyList<Period>()
+        coEvery { periodRepository.getPeriodsExpanded(any(), any()) } answers { Result.success(onServer) }
+        val viewModel = openDayView()
+        assertTrue(viewModel.uiState.value.periods.isEmpty())
+
+        onServer = listOf(period())
+        topic.emit(MercureEvent())
+        advanceTimeBy(600)
+
+        assertEquals(listOf("Garde"), viewModel.uiState.value.periods.map { it.name })
     }
 
     @Test
