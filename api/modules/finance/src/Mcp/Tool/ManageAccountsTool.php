@@ -9,6 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Message\CreateAccountCommand;
 use Maggie\Finance\Message\DeleteAccountCommand;
+use Maggie\Finance\Message\LinkAccountToBankCommand;
 use Maggie\Finance\Message\UpdateAccountCommand;
 use Maggie\Finance\Repository\AccountRepository;
 use Mcp\Capability\Attribute\McpTool;
@@ -16,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_accounts', description: 'List, create, update, or delete bank accounts. An account has a name, bank, type (checking, savings, investment, cash), currency (ISO 4217), a balance in cents, and an optional cushion flag (emergency-fund account). Amounts are always in integer cents. On update, only provided fields change; to empty the optional bank, list it in clear.')]
+#[McpTool(name: 'manage_accounts', description: 'List, create, update, delete, or link bank accounts. An account has a name, bank, type (checking, savings, investment, cash), currency (ISO 4217), a balance in cents, and an optional cushion flag (emergency-fund account). Amounts are always in integer cents. On update, only provided fields change; to empty the optional bank, list it in clear. Action link folds the account a bank created into the one the user typed by hand (accountId: the hand-typed account, kept; bankAccountId: the bank-created one, absorbed): the kept account keeps its name, type, cushion flag and references (envelopes, advances) and takes the bank connection, identification and balance; the movements of the absorbed one move onto it, twins already there are dropped after their category is carried over, then the absorbed account is deleted. Without confirm nothing is written: it returns the preview (kept, moved, dropped) — summarise it and ask the user; call again with confirm true once they agree. It refuses when the kept account is already linked to a bank, the other is not, the currencies differ, or an account is not the user\'s.')]
 class ManageAccountsTool
 {
     public function __construct(
@@ -37,6 +38,8 @@ class ManageAccountsTool
         ?int $balanceCents = null,
         ?bool $isCushion = null,
         ?array $clear = null,
+        ?string $bankAccountId = null,
+        ?bool $confirm = null,
     ): string {
         try {
             return match ($action) {
@@ -44,7 +47,8 @@ class ManageAccountsTool
                 'create' => $this->create($name, $type, $bank, $currency, $balanceCents, $isCushion),
                 'update' => $this->update($accountId, $name, $type, $bank, $currency, $balanceCents, $isCushion, $clear),
                 'delete' => $this->delete($accountId),
-                default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, or delete."], JSON_THROW_ON_ERROR),
+                'link' => $this->link($accountId, $bankAccountId, $confirm ?? false),
+                default => json_encode(['error' => "Unknown action: {$action}. Use list, create, update, delete, or link."], JSON_THROW_ON_ERROR),
             };
         } catch (MissingMcpUserException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
@@ -133,6 +137,25 @@ class ManageAccountsTool
         ));
 
         return json_encode(['success' => true], JSON_THROW_ON_ERROR);
+    }
+
+    private function link(?string $accountId, ?string $bankAccountId, bool $confirm): string
+    {
+        if (null === $accountId || null === $bankAccountId) {
+            return json_encode(['error' => 'accountId and bankAccountId are required for link.'], JSON_THROW_ON_ERROR);
+        }
+
+        $envelope = $this->bus->dispatch(new LinkAccountToBankCommand(
+            userId: (string) $this->userContext->requireUser()->getId(),
+            accountId: $accountId,
+            bankAccountId: $bankAccountId,
+            confirm: $confirm,
+        ));
+
+        /** @var array{kept: string, moved: int, dropped: int, linked: bool} $result */
+        $result = $envelope->last(HandledStamp::class)->getResult();
+
+        return json_encode(['success' => true] + $result, JSON_THROW_ON_ERROR);
     }
 
     /** @return array<string, mixed> */
