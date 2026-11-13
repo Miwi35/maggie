@@ -25,8 +25,6 @@ data class Period(
     val endDate: String? = null,
     val timeZone: String = "Europe/Paris",
     val rrule: String? = null,
-    /** `france`, `geneve` or `both` on a public-holiday period, else null. */
-    val holiday: String? = null,
 ) {
     val zone: ZoneId get() = runCatching { ZoneId.of(timeZone) }.getOrDefault(ZoneId.of("Europe/Paris"))
 
