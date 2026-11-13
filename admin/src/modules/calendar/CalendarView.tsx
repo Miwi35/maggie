@@ -165,7 +165,6 @@ interface GoogleCalendar {
 const CALENDAR_TOPICS = ['/api/events/{id}', '/api/tasks/{id}', '/api/meals/{id}', '/api/proactions/{id}', '/api/trips/{id}']
 /** A trip is read for one day at a time: the day view's range is a day, give or take the clock change. */
 const DAY_RANGE_MS = 25 * 3600 * 1000
-const AGENDA_TOPICS = ['/api/agendas/{id}']
 const SIDEBAR_WIDTH = 230
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -1842,16 +1841,18 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   )
   useMercure(CALENDAR_TOPICS, useLiveRead(readTouched))
 
-  // Another window or the mobile app can change which agenda is the default.
-  const readAgendas = useCallback(() => loadCalendars(), [loadCalendars])
-  useMercure(AGENDA_TOPICS, useLiveRead(readAgendas))
-
-  // A period or its agenda changed: only the periods are read again, whatever the message names.
-  const readPeriods = useCallback(
-    () => (dateRangeRef.current ? loadPeriods(dateRangeRef.current.start, dateRangeRef.current.end) : Promise.resolve(true)),
-    [loadPeriods],
+  // Another window or the mobile app can change which agenda is the default; a period or its
+  // agenda changed: the periods are read again. One stream for both: over HTTP/1.1 every open
+  // stream holds one of the browser's six connections per origin (MAG-473).
+  const readAgendasAndPeriods = useCallback(
+    () =>
+      Promise.all([
+        loadCalendars(),
+        dateRangeRef.current ? loadPeriods(dateRangeRef.current.start, dateRangeRef.current.end) : Promise.resolve(true),
+      ]).then(([agendasChanged, periodsChanged]) => agendasChanged || periodsChanged),
+    [loadCalendars, loadPeriods],
   )
-  useMercure(PERIODS_TOPICS, useLiveRead(readPeriods))
+  useMercure(PERIODS_TOPICS, useLiveRead(readAgendasAndPeriods))
 
   // --- Deep-link: open an event or a meal from search (?eventId=… / ?mealId=…) ---
   const deepLinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)

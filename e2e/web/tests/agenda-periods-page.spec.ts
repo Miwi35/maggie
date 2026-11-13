@@ -35,7 +35,7 @@ test('a period shows as a band over the week, and a new one is created from the 
   // Monday to Friday, the end excluded as the API stores it.
   const garde = await api.post('/api/periods', {
     headers: JSON_LD,
-    data: { name: 'Garde', agenda: agendaIri, startDate: monday, endDate: saturday },
+    data: { name: 'Garde', agenda: agendaIri, allDay: true, startDate: monday, endDate: saturday },
   })
   expect(garde.status(), await garde.text()).toBe(201)
 
