@@ -64,6 +64,14 @@ tags:
 
 - runFlow: ../subflows/sign-in.yaml
 
+# The chat loads its history once, when it is created; relaunched signed in, it reads the message the proaction wrote
+# (same as 13-chat-opens-on-latest).
+- stopApp
+- launchApp:
+    arguments:
+      e2e_journey: e2e/mobile/flows/33-bilan-soir.yaml
+      e2e_email: ${output.journeyEmail}
+
 # The review's proaction has been played: the tile offers « Ouvrir » before any answer, and the chat carries the card.
 - extendedWaitUntil:
     visible:
