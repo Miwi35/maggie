@@ -236,6 +236,9 @@ export const CUISINE_USER_EMAIL = 'e2e-cuisine@maggie.local'
  */
 export const CUSHION_SHARE_USER_EMAIL = 'e2e-cushion-share@maggie.local'
 
+/** A hand-typed account and the bank's, for the link from the account's page (MAG-823); `e2e-link-account-mobile@` is the phone's twin. */
+export const LINK_ACCOUNT_USER_EMAIL = 'e2e-link-account@maggie.local'
+
 const LOGIN_TOKEN = process.env.E2E_LOGIN_TOKEN ?? 'e2e-login-token'
 
 export interface SeededUser {

@@ -34,4 +34,30 @@ class AccountRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * The accounts a bank created that a hand-typed account can be linked to:
+     * linked to a bank, same currency, not closed (MAG-823).
+     *
+     * @return Account[]
+     */
+    public function findLinkCandidates(User $user, Account $account): array
+    {
+        if (null !== $account->getBankConnection()) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('a')
+            ->where('a.user = :user')
+            ->andWhere('a.bankConnection IS NOT NULL')
+            ->andWhere('a.currency = :currency')
+            ->andWhere('a.closedAt IS NULL')
+            ->andWhere('a.id != :id')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('currency', $account->getCurrency())
+            ->setParameter('id', $account->getId(), 'ulid')
+            ->orderBy('a.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

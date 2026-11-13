@@ -1,0 +1,75 @@
+appId: com.maggie.app.e2e
+name: 13b-finance-link-account
+tags:
+  - finance
+---
+# Link a hand-typed account to the bank's, from its page on the phone (MAG-823, extends MAG-102).
+#
+# Étant donné un compte saisi à la main et le compte que la banque a créé
+# Quand j'ouvre la fiche du compte saisi, que je touche « Rattacher au compte de la banque »,
+#   que je choisis le compte de la banque et que je confirme
+# Alors « Compte rattaché. » s'affiche, la carte disparaît et le compte de la banque n'est plus
+#   dans la liste des comptes
+#
+# A user of its own (`api/fixtures/e2e/74-finance-link-account.yaml`): the link is not undone and no
+# other journey reads these accounts. A lone candidate skips the choice (`AccountTimelineScreenTest`),
+# the refusal is `AccountViewModelTest`.
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/13b-finance-link-account.yaml
+      e2e_email: e2e-link-account-mobile@maggie.local
+
+- runFlow: ../subflows/sign-in.yaml
+
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible: ".*E2E compte à rattacher.*"
+    timeout: 30000
+- assertVisible: ".*E2E compte bancaire à rattacher.*"
+- tapOn: ".*E2E compte à rattacher.*"
+
+# On a tablet the account opens in the pane, one button from the list (MAG-632).
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: "account_all_transactions"
+          timeout: 20000
+      - tapOn:
+          id: "account_all_transactions"
+
+- extendedWaitUntil:
+    visible:
+      id: "account_link_card"
+    timeout: 30000
+- tapOn:
+    id: "account_link_card"
+
+# The only candidate is offered: the preview is the confirmation box.
+- extendedWaitUntil:
+    visible: "Rattacher"
+    timeout: 20000
+- assertVisible: ".*2 mouvements.*"
+- tapOn:
+    id: "account_link_confirm"
+
+- extendedWaitUntil:
+    visible: "Compte rattaché."
+    timeout: 30000
+- assertNotVisible:
+    id: "account_link_card"
+
+# The bank's account is folded into the hand-typed one.
+- back
+- openLink: "maggie-e2e://finance/accounts"
+- extendedWaitUntil:
+    visible: ".*E2E compte à rattacher.*"
+    timeout: 30000
+- assertNotVisible: ".*E2E compte bancaire à rattacher.*"

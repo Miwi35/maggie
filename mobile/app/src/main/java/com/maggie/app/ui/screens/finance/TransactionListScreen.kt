@@ -107,6 +107,8 @@ fun TransactionListScreen(
     onIncidentsOpened: () -> Unit = {},
     // A hand-kept account's « Corriger le solde » (MAG-632), in the ⋮ of the bar; null = no menu.
     balanceCorrection: BalanceCorrection? = null,
+    // « Rattacher au compte de la banque » of a hand-kept account (MAG-823), above the tabs; null = none.
+    accountLink: AccountLinkOffer? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -292,6 +294,8 @@ fun TransactionListScreen(
         onRetry = viewModel::refresh,
     )
 
+    AccountLinkFeedback(accountLink, snackbarHostState)
+
     ErrorSnackbar(
         error = balanceCorrection?.error,
         snackbarHostState = snackbarHostState,
@@ -360,6 +364,9 @@ fun TransactionListScreen(
         },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            if (accountLink != null && accountLink.candidates.isNotEmpty()) {
+                AccountLinkSection(accountLink, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+            }
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,

@@ -9,6 +9,8 @@ import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.AccountTimeline
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.LinkCandidate
+import com.maggie.app.data.model.LinkPreview
 import com.maggie.app.data.model.TimelineAccount
 import com.maggie.app.data.model.TimelineDay
 import com.maggie.app.data.model.TimelineLine
@@ -367,5 +369,77 @@ class AccountViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(listOf("Compte courant", "Livret A"), state.accounts.map { it.name })
         assertEquals("refusé", state.error)
+    }
+
+    private val bankAccount = LinkCandidate(id = "bank-1", name = "Compte N26", bank = "N26", balanceCents = 115520)
+
+    @Test
+    fun `candidates are loaded only for a manual account`() = runTest {
+        coEvery { accountRepository.accountTimeline("acc-1", null) } returns Result.success(march("acc-1", "Compte courant", previous = null, isManual = true))
+        coEvery { accountRepository.linkCandidates("acc-1") } returns Result.success(listOf(bankAccount))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        assertEquals(listOf(bankAccount), viewModel.uiState.value.timelines.getValue("acc-1").linkCandidates)
+
+        viewModel.selectAccount("acc-2")
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.timelines.getValue("acc-2").linkCandidates.isEmpty())
+        coVerify(exactly = 0) { accountRepository.linkCandidates("acc-2") }
+    }
+
+    @Test
+    fun `previewing a link shows the figures and writes nothing`() = runTest {
+        coEvery { accountRepository.link("acc-1", "bank-1", false) } returns Result.success(LinkPreview(kept = "acc-1", moved = 2, dropped = 1))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.previewLink("acc-1", bankAccount)
+        advanceUntilIdle()
+
+        val link = viewModel.uiState.value.link
+        assertEquals(2, link.preview?.moved)
+        assertEquals(1, link.preview?.dropped)
+        assertEquals(bankAccount, link.candidate)
+        coVerify(exactly = 0) { accountRepository.link(any(), any(), true) }
+    }
+
+    @Test
+    fun `confirming a link says so and reads the list and the page again`() = runTest {
+        coEvery { accountRepository.link("acc-1", "bank-1", false) } returns Result.success(LinkPreview(kept = "acc-1", moved = 2))
+        coEvery { accountRepository.link("acc-1", "bank-1", true) } returns Result.success(LinkPreview(kept = "acc-1", moved = 2, linked = true))
+        coEvery { accountRepository.linkCandidates("acc-1") } returns Result.success(listOf(bankAccount))
+        coEvery { accountRepository.accountTimeline("acc-1", null) } returns Result.success(march("acc-1", "Compte courant", previous = null, isManual = true))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+        viewModel.previewLink("acc-1", bankAccount)
+        advanceUntilIdle()
+        coEvery { accountRepository.accountTimeline("acc-1", null) } returns Result.success(march("acc-1", "Compte courant", previous = null, isManual = false))
+
+        viewModel.confirmLink()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Compte rattaché.", state.link.notice)
+        assertNull(state.link.preview)
+        assertTrue(state.timelines.getValue("acc-1").linkCandidates.isEmpty())
+        assertFalse(state.timelines.getValue("acc-1").account?.isManual == true)
+        coVerify(atLeast = 2) { accountRepository.getAccounts() }
+    }
+
+    @Test
+    fun `a refused link shows the error as it is and changes nothing`() = runTest {
+        coEvery { accountRepository.link("acc-1", "bank-1", false) } returns Result.failure(RuntimeException("Les devises diffèrent."))
+        viewModel = newViewModel()
+        advanceUntilIdle()
+
+        viewModel.previewLink("acc-1", bankAccount)
+        advanceUntilIdle()
+
+        val link = viewModel.uiState.value.link
+        assertEquals("Les devises diffèrent.", link.error)
+        assertNull(link.preview)
+        assertNull(link.notice)
     }
 }

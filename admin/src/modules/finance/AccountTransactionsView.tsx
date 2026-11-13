@@ -18,7 +18,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
-import { CreateButton, ReferenceField, TopToolbar, Title, useCreatePath, useGetList, useGetOne } from 'react-admin'
+import { CreateButton, ReferenceField, TopToolbar, Title, useCreatePath, useGetList, useGetOne, useRefresh } from 'react-admin'
 import type { ReactElement } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMercure } from '../../hooks/useMercure'
@@ -28,6 +28,7 @@ import { Amount } from './AmountField'
 import { TransactionPills } from './TransactionPills'
 import { isBetweenAccounts, transactionIdOf } from './useTransactionTransfer'
 import { AccountIncidents } from './AccountIncidents'
+import { AccountLinkCard } from './AccountLinkCard'
 import { useAccountIncidents } from './useAccountIncidents'
 import { CategoryPathField } from './CategoryPathField'
 import { accountLabel } from './accountLabel'
@@ -197,6 +198,7 @@ export const AccountTransactionsView = () => {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(searchParams.get('tab') === 'incidents' ? 1 : 0)
   const timeline = useAccountTimeline(id)
+  const refresh = useRefresh()
   const {
     incidents,
     settled,
@@ -240,6 +242,15 @@ export const AccountTransactionsView = () => {
           </Box>
         )}
       </Box>
+      <AccountLinkCard
+        accountId={id}
+        accountName={account?.name ?? accountName}
+        manual={account?.isManual === true}
+        onLinked={() => {
+          void timeline.reload()
+          refresh()
+        }}
+      />
       <Tabs value={tab} onChange={(_, value: number) => setTab(value)} sx={{ mb: 1 }}>
         <Tab label="Transactions" />
         <Tab label={`Incidents${incidents === null ? '' : ` (${incidents.length})`}`} />

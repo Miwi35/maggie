@@ -117,6 +117,7 @@ import com.maggie.app.ui.screens.finance.AccountListScreen
 import com.maggie.app.ui.screens.finance.AccountTimelineActions
 import com.maggie.app.ui.screens.finance.AccountTimelineDetail
 import com.maggie.app.ui.screens.finance.AccountViewModel
+import com.maggie.app.ui.screens.finance.accountLinkOffer
 import com.maggie.app.ui.screens.finance.BalanceCorrection
 import com.maggie.app.ui.screens.finance.BankConnectionListScreen
 import com.maggie.app.ui.screens.finance.BankPickerScreen
@@ -2835,6 +2836,7 @@ private fun AccountTransactions(
                 onErrorShown = accountViewModel::clearError,
             )
         },
+        accountLink = accountLinkOffer(accounts, account.first, account.second, accountViewModel),
         onBack = onBack,
         onMakeRecurring = onMakeRecurring,
         prefill = prefill,
