@@ -20,11 +20,17 @@ class GoogleTaskMapper
         $task->setTitle($title ?: '(No title)');
         $task->setDescription($googleTask->getNotes());
 
-        // Google sends the due day as an RFC 3339 midnight UTC; its API
-        // keeps no time of day, so the day is all there is to read.
+        // Google's `due` is the day the task is planned, not a deadline
+        // (MAG-822): it is the scheduled day. Sent as an RFC 3339 midnight
+        // UTC, it keeps no time of day, so the moment and the time stay
+        // Maggie's. The deadline (dueDate) is Maggie's own: left alone.
         /** @var ?string $due */
         $due = $googleTask->getDue();
-        $task->setDueDate($due ? self::day($due) : null);
+        if ($due) {
+            TaskSchedule::apply($task, self::day($due));
+        } elseif (null !== $task->getScheduledDate()) {
+            TaskSchedule::apply($task, clearDay: true);
+        }
 
         // The order among the siblings. The parent is a Google id: the sync
         // resolves it once every task of the list is known.
@@ -88,9 +94,9 @@ class GoogleTaskMapper
         if (isset($fields['description'])) {
             $googleTask->setNotes($task->getDescription());
         }
-        if (isset($fields['dueDate'])) {
+        if (isset($fields['scheduledDate'])) {
             // A plain null is left out of the body: the library's marker sends it.
-            $googleTask->setDue(self::googleDue($task->getDueDate()) ?? GoogleModel::NULL_VALUE);
+            $googleTask->setDue(self::googleDue($task->getScheduledDate()) ?? GoogleModel::NULL_VALUE);
         }
         if (isset($fields['completedAt'])) {
             if (null !== $task->getCompletedAt()) {
@@ -111,7 +117,7 @@ class GoogleTaskMapper
         $googleTask->setTitle($task->getTitle());
         $googleTask->setNotes($task->getDescription());
 
-        $googleTask->setDue(self::googleDue($task->getDueDate()));
+        $googleTask->setDue(self::googleDue($task->getScheduledDate()));
 
         // Completion status
         if (null !== $task->getCompletedAt()) {

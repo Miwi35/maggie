@@ -30410,7 +30410,7 @@
                         ]
                     },
                     "dueDate": {
-                        "description": "The day the task is due, YYYY-MM-DD.",
+                        "description": "The day the task is due, its deadline, YYYY-MM-DD. Maggie's own: Google never sees it.",
                         "type": [
                             "string",
                             "null"
@@ -30419,7 +30419,7 @@
                         "example": "2037-01-01"
                     },
                     "scheduledDate": {
-                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks; also the day Google Tasks shows it on.",
                         "type": [
                             "string",
                             "null"
@@ -30631,7 +30631,7 @@
                         ]
                     },
                     "dueDate": {
-                        "description": "The day the task is due, YYYY-MM-DD.",
+                        "description": "The day the task is due, its deadline, YYYY-MM-DD. Maggie's own: Google never sees it.",
                         "type": [
                             "string",
                             "null"
@@ -30640,7 +30640,7 @@
                         "example": "2037-01-01"
                     },
                     "scheduledDate": {
-                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks; also the day Google Tasks shows it on.",
                         "type": [
                             "string",
                             "null"
@@ -30852,7 +30852,7 @@
                         ]
                     },
                     "dueDate": {
-                        "description": "The day the task is due, YYYY-MM-DD.",
+                        "description": "The day the task is due, its deadline, YYYY-MM-DD. Maggie's own: Google never sees it.",
                         "type": [
                             "string",
                             "null"
@@ -30861,7 +30861,7 @@
                         "example": "2037-01-01"
                     },
                     "scheduledDate": {
-                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                        "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks; also the day Google Tasks shows it on.",
                         "type": [
                             "string",
                             "null"
@@ -31075,7 +31075,7 @@
                                 ]
                             },
                             "dueDate": {
-                                "description": "The day the task is due, YYYY-MM-DD.",
+                                "description": "The day the task is due, its deadline, YYYY-MM-DD. Maggie's own: Google never sees it.",
                                 "type": [
                                     "string",
                                     "null"
@@ -31084,7 +31084,7 @@
                                 "example": "2037-01-01"
                             },
                             "scheduledDate": {
-                                "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks. Maggie's own: Google never sees it.",
+                                "description": "The day the task is planned to be done, YYYY-MM-DD — not its deadline (dueDate). Puts it in that day's agenda and in today's tasks; also the day Google Tasks shows it on.",
                                 "type": [
                                     "string",
                                     "null"

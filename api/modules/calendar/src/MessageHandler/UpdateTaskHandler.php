@@ -61,7 +61,8 @@ class UpdateTaskHandler
             $task->setCompletedAt(null);
         }
 
-        // Maggie's own fields: Google never hears of them, so no push either.
+        // The scheduled day is Google's `due` (MAG-822); the moment, the time
+        // and the reminders are Maggie's own.
         $scheduleChanged = null !== $command->scheduledDate || null !== $command->scheduledMoment || null !== $command->scheduledTime
             || null !== $command->reminders || $command->clears('scheduledDate') || $command->clears('scheduledMoment');
         if ($scheduleChanged) {
@@ -118,8 +119,8 @@ class UpdateTaskHandler
         if (null !== $command->description || $command->clears('description')) {
             $changedFields[] = 'description';
         }
-        if (null !== $command->dueDate || $command->clears('dueDate')) {
-            $changedFields[] = 'dueDate';
+        if (null !== $command->scheduledDate || $command->clears('scheduledDate')) {
+            $changedFields[] = 'scheduledDate';
         }
         if (null !== $command->completedAt || $command->clears('completedAt')) {
             $changedFields[] = 'completedAt';
@@ -131,9 +132,10 @@ class UpdateTaskHandler
 
         $task = $this->updateTask->execute($task);
 
-        // Only Maggie's own fields changed: nothing for Google.
+        // Only Maggie's own fields changed — the deadline among them: nothing for Google.
+        $dueDateChanged = null !== $command->dueDate || $command->clears('dueDate');
         $ownOnly = [] === $changedFields && null === $command->priority && null === $command->criticality
-            && ($scheduleChanged || null !== $command->estimatedMinutes || null !== $command->firstStep || null !== $command->timed
+            && ($scheduleChanged || $dueDateChanged || null !== $command->estimatedMinutes || null !== $command->firstStep || null !== $command->timed
                 || $command->clears('estimatedMinutes') || $command->clears('firstStep'));
 
         if ($task->isGoogleSynced() && !$ownOnly) {

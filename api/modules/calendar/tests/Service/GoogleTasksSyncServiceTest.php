@@ -379,6 +379,27 @@ class GoogleTasksSyncServiceTest extends TestCase
         self::assertSame(['Réserver le camion', 'Changer d\'adresse'], array_map(static fn (Task $task) => $task->getTitle(), $subtasks));
     }
 
+    /** A task dated on Google arrives planned that day, with no deadline (MAG-822). */
+    public function testPullMakesGooglesDueTheScheduledDay(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->taskMapper = new GoogleTaskMapper();
+        $dated = $this->googleTask('g-dated', 'Appeler le garage');
+        $dated->setDue('2026-11-20T00:00:00.000Z');
+
+        $this->apiClient->method('listTasks')->willReturn([$dated]);
+        $this->taskRepository->method('findBy')->willReturn([]);
+        $persisted = [];
+        $this->entityManager->method('persist')->willReturnCallback(function (Task $task) use (&$persisted): void {
+            $persisted[$task->getGoogleTaskId()] = $task;
+        });
+
+        $this->createService()->pullFromGoogle($user);
+
+        self::assertSame('2026-11-20', $persisted['g-dated']->getScheduledDate()?->format('Y-m-d'));
+        self::assertNull($persisted['g-dated']->getDueDate());
+    }
+
     /** A subtask moved to the top level on Google leaves its parent in Maggie too. */
     public function testPullDetachesASubtaskGoogleMovedToTheTopLevel(): void
     {
