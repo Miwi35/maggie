@@ -15,6 +15,7 @@ use Maggie\Calendar\Service\GoogleTasksApiClient;
 use Maggie\Calendar\Service\GoogleTasksSyncService;
 use Maggie\Calendar\Service\ModuleAgendas;
 use Maggie\Core\Elasticsearch\Message\DeleteDocumentCommand;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -106,6 +107,24 @@ class GoogleTasksSyncServiceTest extends TestCase
         $this->moduleAgendas = $moduleAgendas;
 
         $this->createService()->pullFromGoogle($user);
+    }
+
+    public function testPullIndexesTheTasksModuleAgendaEvenWhenItAlreadyExists(): void
+    {
+        $user = $this->createGoogleUser();
+        $this->apiClient->method('listTasks')->willReturn([]);
+        $this->taskRepository->method('findBy')->willReturn([]);
+
+        $agenda = new Agenda();
+        $moduleAgendas = $this->createMock(ModuleAgendas::class);
+        $moduleAgendas->method('forUser')->willReturn([$agenda, false]);
+        $this->moduleAgendas = $moduleAgendas;
+
+        $this->createService()->pullFromGoogle($user);
+
+        $indexed = array_filter($this->dispatched, static fn (object $m): bool => $m instanceof IndexDocumentCommand && Agenda::class === $m->entityClass);
+        self::assertCount(1, $indexed);
+        self::assertSame([], $this->publishedUpdates);
     }
 
     public function testPullSkipsTaskWhenGoogleTimestampNotNewer(): void
@@ -249,6 +268,9 @@ class GoogleTasksSyncServiceTest extends TestCase
 
         $deleted = [];
         foreach ($this->dispatched as $message) {
+            if ($message instanceof IndexDocumentCommand) {
+                continue;
+            }
             self::assertInstanceOf(DeleteDocumentCommand::class, $message);
             $deleted[] = [$message->indexName, $message->documentId];
         }
