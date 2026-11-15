@@ -29,7 +29,6 @@ class UpdatePeriodHandler
 
         // Read before anything is set: a refusal leaves the period whole.
         $agenda = null === $command->agendaId ? null : $this->rules->agendaOf($command->userId, $command->agendaId);
-        $holiday = null === $command->holiday ? null : $this->rules->holiday($command->holiday);
 
         if (null !== $command->name) {
             $period->setName($command->name);
@@ -55,11 +54,6 @@ class UpdatePeriodHandler
             $period->setRrule($command->rrule);
         } elseif ($command->clears('rrule')) {
             $period->setRrule(null);
-        }
-        if (null !== $holiday) {
-            $period->setHoliday($holiday);
-        } elseif ($command->clears('holiday')) {
-            $period->setHoliday(null);
         }
 
         return $this->savePeriod->execute($period);

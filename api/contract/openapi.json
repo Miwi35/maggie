@@ -24796,19 +24796,6 @@
                             "null"
                         ]
                     },
-                    "holiday": {
-                        "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "enum": [
-                            "france",
-                            "geneve",
-                            "both",
-                            null
-                        ]
-                    },
                     "ownerRelation": {
                         "readOnly": true
                     },
@@ -24885,19 +24872,6 @@
                         "type": [
                             "string",
                             "null"
-                        ]
-                    },
-                    "holiday": {
-                        "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "enum": [
-                            "france",
-                            "geneve",
-                            "both",
-                            null
                         ]
                     },
                     "ownerRelation": {
@@ -24978,19 +24952,6 @@
                             "null"
                         ]
                     },
-                    "holiday": {
-                        "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "enum": [
-                            "france",
-                            "geneve",
-                            "both",
-                            null
-                        ]
-                    },
                     "ownerRelation": {
                         "readOnly": true
                     },
@@ -25068,19 +25029,6 @@
                                 "type": [
                                     "string",
                                     "null"
-                                ]
-                            },
-                            "holiday": {
-                                "description": "The public holidays this period stands for: france, geneve or both. Set by the import of the holidays; null on any other period.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ],
-                                "enum": [
-                                    "france",
-                                    "geneve",
-                                    "both",
-                                    null
                                 ]
                             },
                             "ownerRelation": {

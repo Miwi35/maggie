@@ -40,7 +40,6 @@ class CreatePeriodProcessor implements ProcessorInterface
             endDate: $data->getEndDate(),
             timeZone: $data->getTimeZone(),
             rrule: $data->getRrule(),
-            holiday: $data->getHoliday()?->value,
         ))->last(HandledStamp::class)->getResult();
     }
 }

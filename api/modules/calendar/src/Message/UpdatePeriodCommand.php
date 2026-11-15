@@ -15,7 +15,7 @@ final readonly class UpdatePeriodCommand
      * the period becomes timed (`startAt`, `endAt`) or all-day (`startDate`,
      * `endDate`, excluded), never half of each.
      *
-     * @param list<'rrule'|'holiday'> $clearFields
+     * @param list<'rrule'> $clearFields
      */
     public function __construct(
         public string $userId,
@@ -29,7 +29,6 @@ final readonly class UpdatePeriodCommand
         public ?\DateTimeImmutable $endDate = null,
         public ?string $timeZone = null,
         public ?string $rrule = null,
-        public ?string $holiday = null,
         public array $clearFields = [],
     ) {
     }
