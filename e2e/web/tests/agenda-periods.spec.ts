@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/index.js'
+import { parisDay } from '../fixtures/clock.js'
 import { calledTools } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -109,7 +110,7 @@ test('Maggie creates the custody from one sentence', async ({ api, page }) => {
 
   expect(calledTools(events), 'manage_periods never ran — did the scenario stop matching?').toEqual(['manage_periods'])
 
-  const month = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }).slice(0, 7)
+  const month = parisDay().slice(0, 7)
   await expect
     .poll(
       async () => {
