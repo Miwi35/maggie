@@ -1,5 +1,7 @@
 import { test, expect } from '../fixtures/index.js'
 import { getCollection } from '../helpers/api.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * The periods (MAG-809, « Périodes et contexte du jour » part 1, extends MAG-97): API
@@ -67,4 +69,29 @@ test('a fortnightly custody unfolds into its three occurrences over six weeks, e
     '2037-04-03 18:00',
   ])
   expect(occurrences.every((occurrence) => GARDE.name === occurrence.name)).toBe(true)
+})
+
+/** The prompt carries today's and tomorrow's context (MAG-811, extends MAG-99): the fake only answers when it does. */
+test('the chat reads the custody in progress in the day context line', async ({ api, page }) => {
+  const agenda = await api.post('/api/agendas', { headers: JSON_LD, data: { name: 'Famille' } })
+  expect(agenda.status(), await agenda.text()).toBe(201)
+  const agendaIri = (await agenda.json())['@id'] as string
+
+  const day = 24 * 3600 * 1000
+  const created = await api.post('/api/periods', {
+    headers: JSON_LD,
+    data: {
+      name: 'Garde de Léo',
+      agenda: agendaIri,
+      startAt: new Date(Date.now() - day).toISOString(),
+      endAt: new Date(Date.now() + 3 * day).toISOString(),
+    },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+
+  await new HomePage(page).open()
+  const chat = new ChatPanel(page)
+  await chat.send('Quel est le contexte du jour ?')
+
+  await expect(chat.bubbles('Contexte lu.')).toHaveCount(1)
 })
