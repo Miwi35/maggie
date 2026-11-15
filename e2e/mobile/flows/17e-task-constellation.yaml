@@ -19,7 +19,7 @@ onFlowComplete:
 #
 # It signs in as the seed's own account, `e2e-stars-mobile`: the counts are exact, so no other
 # journey may tick a task of it. The stars drawn one by one, the months before, the palier and
-# the animation switches are `ConstellationScreenTest`'s, `TasksEveningScreenTest`'s and the
+# the animation switches are `ConstellationScreenTest`'s and the
 # Playwright journey's; the grid hides its stars from the accessibility tree, so only its title
 # is asserted here.
 

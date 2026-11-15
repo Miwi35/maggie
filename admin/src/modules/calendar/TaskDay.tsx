@@ -38,8 +38,6 @@ interface TaskDayProps {
   selectedId?: string | null
   /** Opens the morning's proposal again (MAG-498). */
   onChange?: () => void
-  /** Opens the evening's review on demand (MAG-500). */
-  onEvening?: () => void
   /** How a task done is cheered (MAG-508). */
   cheer?: RewardCheer
 }
@@ -116,7 +114,6 @@ export const TaskDay = ({
   highlightId = null,
   selectedId = null,
   onChange,
-  onEvening,
   cheer = DEFAULT_CHEER,
 }: TaskDayProps) => {
   const notify = useNotify()
@@ -258,11 +255,6 @@ export const TaskDay = ({
         {onChange && (
           <Button size="small" color="inherit" onClick={onChange}>
             Changer
-          </Button>
-        )}
-        {onEvening && day.total > 0 && (
-          <Button size="small" color="inherit" onClick={onEvening}>
-            Le soir
           </Button>
         )}
         <DayRing done={day.done} total={day.total} />

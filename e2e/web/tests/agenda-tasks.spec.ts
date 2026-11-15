@@ -519,14 +519,15 @@ test.describe('the day of five', () => {
 })
 
 /**
- * « Ta journée » (MAG-498) and « Le soir » (MAG-500), extending MAG-100: at 8:30 the first visit to « Tâches » opens the
+ * « Ta journée » (MAG-498), extending MAG-100: at 8:30 the first visit to « Tâches » opens the
  * morning's proposal — five tasks at most with why and minutes, the time against the free time,
- * the rest in a line — and nothing is written until « C'est parti ».
+ * the rest in a line — and nothing is written until « C'est parti ». After the evening time the
+ * day stays (MAG-825).
  *
  * Signed in as the neighbour, whose day nobody else writes. A day cannot be unconfirmed, so a
  * retry meets a day already confirmed and asks for the proposal with « Changer » instead.
  */
-test.describe('the morning and the evening', () => {
+test.describe('the morning, and the day after the evening time', () => {
   test.describe.configure({ mode: 'serial' })
 
   test('opens at 8:30, swaps one task for the next of the reserve, and « C\'est parti » writes the five', async ({ otherUser }) => {
@@ -613,75 +614,39 @@ test.describe('the morning and the evening', () => {
   })
 
   /**
-   * At 21:05, a day of five with three done: the first visit opens the review on what is done,
-   * then the two left; one goes in tomorrow's five, the other is set aside into « Un jour ».
-   * « Plus tard » closes without recording the review, so a retry meets the evening again.
+   * At 21:30, a day with a task left (MAG-825): no evening replaces the day — the day's list is
+   * shown, the task ticks as at any hour. The evening's review is Maggie's « Bilan de la journée ».
    */
-  test('at 21:05 the review lists the three done then the two left; « Demain » and « Mettre de côté » write tomorrow and « Un jour »', async ({ otherUser }) => {
+  test('at 21:30 the day\'s list stays and a task left is ticked', async ({ otherUser }) => {
     const { page, api } = otherUser
     const today = parisDay()
-    const tomorrow = daysFrom(today, 1)
-    await page.context().clock.setFixedTime(new Date(parisTime(today, '21:05:00')))
+    await page.context().clock.setFixedTime(new Date(parisTime(today, '21:30:00')))
 
-    const done = [1, 2, 3].map((i) => perAttempt(`Soir — faite ${i}`))
-    const forTomorrow = perAttempt('Soir — pour demain')
-    const letGo = perAttempt('Soir — à lâcher')
+    const title = perAttempt('Soir — encore à faire')
     const ids: string[] = []
 
     try {
-      // Given a day of five, three of them done…
-      for (const title of done) ids.push(await createTask(api, { title }))
-      ids.push(await createTask(api, { title: forTomorrow }))
-      ids.push(await createTask(api, { title: letGo, dueDate: daysFrom(today, 2) }))
+      // Given the evening time passed and a task left in the day…
+      ids.push(await createTask(api, { title }))
       await setDayPlan(api, today, ids)
-      for (const id of ids.slice(0, 3)) {
-        const ticked = await api.patch(`/api/tasks/${id}`, {
-          headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
-          data: { completedAt: new Date(parisTime(today, '10:00:00')).toISOString() },
-        })
-        expect(ticked.ok(), `PATCH /api/tasks/${id} answered ${ticked.status()}`).toBe(true)
-      }
-      await setDayPlan(api, tomorrow, [], false)
 
-      // …when I open « Tâches », the review comes before the day: the three done, then the two left.
+      // …when I open « Tâches › Aujourd'hui », the day's list is shown…
       const board = new TasksPage(page)
-      await board.openMorning()
-      await expect(board.evening).toBeVisible()
-      await expect(board.evening.getByRole('heading', { name: '3 sur 5' })).toBeVisible()
-      await expect(board.eveningDone.getByRole('listitem')).toHaveText(done)
-      await expect(board.eveningLeft.getByRole('listitem')).toHaveCount(2)
-      await expect(board.leftRow(forTomorrow)).toBeVisible()
-      await expect(board.leftRow(letGo)).toBeVisible()
+      await board.open()
+      await expect(board.slot(title)).toBeVisible()
+      await expect(board.content.getByText("Qu'est-ce qui t'a aidé ?")).toHaveCount(0)
+      await expect(board.content.getByRole('button', { name: 'Bonne nuit' })).toHaveCount(0)
 
-      // When I put one in tomorrow's five and let the other go…
-      await board.outcome(forTomorrow, 'Demain').click()
-      await expect(board.outcome(forTomorrow, 'Demain')).toHaveAttribute('aria-pressed', 'true')
-      await board.outcome(letGo, 'Mettre de côté').click()
-      await expect(board.leftRow(letGo).getByText('Un jour', { exact: true })).toBeVisible()
-
-      // …then tomorrow holds the first, not settled, and the second waits in « Un jour » without a due day.
+      // …and the task is ticked from it.
+      await board.slot(title).getByRole('checkbox', { name: `Terminer ${title}` }).click()
       await expect
-        .poll(
-          async () => {
-            const next = await dayPlan(api, tomorrow)
-
-            return [next.confirmedAt, next.slots.map((slot) => slot.task.title)]
-          },
-          { timeout: 30_000, message: "tomorrow's day should hold the task, unsettled" },
-        )
-        .toEqual([null, [forTomorrow]])
-      await expect.poll(() => viewTitles(api, 'someday'), { timeout: 30_000 }).toContain(letGo)
-      expect((await dayPlan(api, today)).slots.map((slot) => slot.task.title)).not.toContain(letGo)
-
-      // « Plus tard » closes the review without recording it; the day is shown.
-      await board.eveningLater.click()
-      await expect(board.evening).toBeHidden()
-      await expect(board.dayReady).toBeVisible()
-      const review = await api.get(`/api/day-reviews/${today}`, { headers: { Accept: 'application/json' } })
-      expect(((await review.json()) as { reviewedAt: string | null }).reviewedAt).toBeNull()
+        .poll(async () => (await tasks(api)).find((task) => task.id === ids[0])?.completedAt != null, {
+          timeout: 30_000,
+          message: 'the task ticked at 21:30 should be done',
+        })
+        .toBe(true)
     } finally {
       await setDayPlan(api, today, [])
-      await setDayPlan(api, tomorrow, [], false)
       for (const id of ids) await api.delete(`/api/tasks/${id}`)
     }
   })
@@ -764,13 +729,12 @@ test('ticking from the day\'s list opens the bravo; the next message differs; th
 /**
  * The constellation of the month (MAG-509, extends MAG-100): one star per task done, only
  * those earned. The seed gives `e2e-stars@maggie.local` four stars this month and seven last
- * month; a tick brings the month to five, drawn under the bravo and on the task in the day's list,
- * and the evening goes back to last month and its seven, the total never lost.
+ * month; a tick brings the month to five, drawn under the bravo and on the task in the day's list.
  *
  * An account of its own, because the counts are exact: any other tick of it would move them.
  * A run again on the same stack finds the star of the first one — reseed first.
  */
-test('a tick adds a star to the month: the bravo draws five, the evening goes back to last month and its seven', async ({ starsUser }) => {
+test('a tick adds a star to the month: the bravo draws five, the day\'s list marks the task', async ({ starsUser }) => {
   const { page, api } = starsUser
   const today = parisDay()
   const title = perAttempt('Étoile — ranger le bureau')
@@ -800,16 +764,6 @@ test('a tick adds a star to the month: the bravo draws five, the evening goes ba
     await expect(board.bravo).toBeHidden()
     await expect(board.starOf(title)).toBeVisible()
 
-    // When I open the evening and go back a month, it shows the seven of last month and the total.
-    await board.openEveningButton.click()
-    await expect(board.evening).toBeVisible()
-    await expect(board.constellationOfEvening).toContainText('· 5 étoiles')
-    await expect(board.constellationOfEvening.getByRole('button', { name: 'Mois suivant' })).toBeDisabled()
-    await board.constellationOfEvening.getByRole('button', { name: 'Mois précédent' }).click()
-    await expect(board.constellationOfEvening).toContainText('· 7 étoiles')
-    await expect(board.constellationOfEvening.getByTestId('constellation-star')).toHaveCount(7)
-    await expect(board.constellationOfEvening.getByTestId('constellation-total')).toContainText('12 étoiles depuis toujours')
-    await expect(board.constellationOfEvening.getByRole('button', { name: 'Mois suivant' })).toBeEnabled()
   } finally {
     await setDayPlan(api, today, [])
     for (const id of ids) await api.delete(`/api/tasks/${id}`)
@@ -975,14 +929,11 @@ async function dayPlan(api: APIRequestContext, date = parisDay()): Promise<DayPl
   return (await response.json()) as DayPlan
 }
 
-/**
- * Replaces the whole list of the day's tasks, in order; answers the day as it stands.
- * `confirm: false` writes without settling the day, as the evening's « Demain » does (MAG-500).
- */
-async function setDayPlan(api: APIRequestContext, date: string, taskIds: string[], confirm = true): Promise<DayPlan> {
+/** Replaces the whole list of the day's tasks, in order; answers the day as it stands. */
+async function setDayPlan(api: APIRequestContext, date: string, taskIds: string[]): Promise<DayPlan> {
   const response = await api.put(`/api/day-plans/${date}`, {
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    data: { slots: taskIds.map((taskId) => ({ type: 'task', taskId })), ...(confirm ? {} : { confirm }) },
+    data: { slots: taskIds.map((taskId) => ({ type: 'task', taskId })) },
   })
   expect(response.ok(), `PUT /api/day-plans/${date} answered ${response.status()}`).toBe(true)
 

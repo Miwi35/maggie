@@ -814,9 +814,6 @@ mobile:
   e2e/mobile/flows/17c-task-focus.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/focus-api.js]
-  e2e/mobile/flows/17c-tasks-evening.yaml:
-    areas: [calendar]
-    paths: [e2e/mobile/scripts/day-review-api.js]
   e2e/mobile/flows/17d-task-bravo.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/bravo-api.js]
