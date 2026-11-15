@@ -1,0 +1,19 @@
+# « J'ai mon fils du 20 au 27 » (MAG-812): one period, named for what it is, whole days, the end
+# day excluded (the 28th). The month is this one: the journey reads the period back from the API.
+name: period-custody-create
+description: A custody described in one sentence becomes one manage_periods create, then one sentence.
+
+match:
+  user_matches: "j'ai mon fils du 20 au 27"
+
+turns:
+  - tools:
+      - name: manage_periods
+        input:
+          action: create
+          name: "Garde"
+          agenda_id: "Perso"
+          all_day: true
+          start_date: "${month}-20"
+          end_date: "${month}-28"
+  - text: "Voilà, la garde est posée du 20 au 27."

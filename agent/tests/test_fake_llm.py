@@ -1925,3 +1925,25 @@ class TestTheShippedFixturesSpeakInHerVoice:
                 if tutoiement.search(text) or text.startswith(("C'est noté :", "C'est fait :")):
                     found.append(f"{path.name}: {text[:60]}")
         assert found == []
+
+
+class TestThePeriodScenarios:
+    async def test_the_custody_sentence_creates_one_period(self):
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "J'ai mon fils du 20 au 27", tools=[{"name": "manage_periods"}])
+
+        [call] = [block for block in answer.content if isinstance(block, FakeToolUseBlock)]
+        assert call.name == "manage_periods"
+        assert call.input["action"] == "create" and call.input["name"] == "Garde"
+        assert call.input["all_day"] is True
+        assert call.input["start_date"].endswith("-20") and call.input["end_date"].endswith("-28")
+
+    async def test_a_doubtful_period_is_asked_with_ask_owner(self):
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(client, "Mets mes semaines de garde", tools=[{"name": "ask_owner"}])
+
+        [call] = [block for block in answer.content if isinstance(block, FakeToolUseBlock)]
+        assert call.name == "ask_owner"
+        assert len(call.input["options"]) >= 2

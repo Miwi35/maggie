@@ -280,6 +280,8 @@ digest, the day's reads (`get_weather`, `get_events_by_date`, `list_trips`, `get
 `98-proaction-digest-sport.yaml` (MAG-777) is the digest of a day with a planned session, tagged « digest MAG-777 »: it
 reads the agenda and cites « Séance A à 18 h 30, 30 min » among the appointments.
 
+**Periods** (MAG-812). `78-period-custody-create.yaml` answers « J'ai mon fils du 20 au 27 » with one `manage_periods` `create` (« Garde », whole days of this month, end the 28th, excluded) and one sentence; `78-period-doubt-ask.yaml` answers « Mets mes semaines de garde » with an `ask_owner` card of two options.
+
 ## Adding a scenario
 
 1. Pick a file name whose prefix puts it where you want in the matching order.

@@ -1,0 +1,16 @@
+# « Mets mes semaines de garde » (MAG-812): no date says which weeks, so she asks with boxes
+# (ask_owner) and stops, instead of guessing a schedule.
+name: period-doubt-ask
+description: A period request with no dated end is answered by ask_owner, two options, nothing else.
+
+match:
+  user_matches: "mets mes semaines de garde"
+
+turns:
+  - tools:
+      - name: ask_owner
+        input:
+          text: "Quelles semaines de garde dois-je mettre ?"
+          options:
+            - "Une semaine sur deux, à partir de celle-ci"
+            - "Seulement celle-ci"

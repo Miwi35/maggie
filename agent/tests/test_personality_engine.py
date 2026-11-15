@@ -202,6 +202,33 @@ class TestPersonalityEngine:
         assert "jamais une recherche par nom" in limit
 
     @pytest.mark.asyncio
+    async def test_the_prompt_asks_to_manage_periods_and_confirm_in_one_sentence(self):
+        """MAG-812: one generic rule, no rule per kind of period."""
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        rule = next(line for line in prompt.splitlines() if "PÉRIODES : une période" in line)
+        assert "manage_periods" in rule and "Confirme en une phrase" in rule
+        assert "ne demande que la date qui manque" in rule
+        assert "ask_owner" in rule and "UNE question" in rule
+        assert "garde =" not in rule and "férié =" not in rule and "malade =" not in rule
+
+    @pytest.mark.asyncio
+    async def test_the_prompt_sends_public_dates_to_web_search(self):
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        rule = next(line for line in prompt.splitlines() if "PÉRIODES : une période" in line)
+        assert "recherche web" in rule and "jours fériés" in rule
+        assert rule.index("recherche web") < rule.rindex("manage_periods")
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_file_a_tone_preference(self):
         """The half of MAG-22 that lives in the prompt, not in the code.
 
