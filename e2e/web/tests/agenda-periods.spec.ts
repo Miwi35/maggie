@@ -1,4 +1,6 @@
 import { test, expect } from '../fixtures/index.js'
+import { parisDay } from '../fixtures/clock.js'
+import { calledTools } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
@@ -19,6 +21,8 @@ interface StoredPeriod {
   name: string
   startAt?: string
   endAt?: string
+  startDate?: string
+  endDate?: string
 }
 
 const JSON_LD = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
@@ -94,4 +98,27 @@ test('the chat reads the custody in progress in the day context line', async ({ 
   await chat.send('Quel est le contexte du jour ?')
 
   await expect(chat.bubbles('Contexte lu.')).toHaveCount(1)
+})
+
+/** MAG-812, extends MAG-99: « J'ai mon fils du 20 au 27 » becomes one « Garde », whole days, the 28th excluded. */
+test('Maggie creates the custody from one sentence', async ({ api, page }) => {
+  const agenda = await api.post('/api/agendas', { headers: JSON_LD, data: { name: 'Perso' } })
+  expect(agenda.status(), await agenda.text()).toBe(201)
+
+  await new HomePage(page).open()
+  const events = await new ChatPanel(page).send("J'ai mon fils du 20 au 27")
+
+  expect(calledTools(events), 'manage_periods never ran — did the scenario stop matching?').toEqual(['manage_periods'])
+
+  const month = parisDay().slice(0, 7)
+  await expect
+    .poll(
+      async () => {
+        const periods = await getCollection<StoredPeriod>(api, '/api/periods')
+
+        return periods.filter((period) => 'Garde' === period.name).map((period) => `${period.startDate}→${period.endDate}`)
+      },
+      { message: 'the custody was not stored from 20th to 28th excluded', timeout: 30_000 },
+    )
+    .toEqual([`${month}-20→${month}-28`])
 })
