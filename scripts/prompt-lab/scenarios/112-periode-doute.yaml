@@ -1,0 +1,12 @@
+# « Mets mes semaines de garde » (MAG-812): no dated end, two plausible schedules.
+name: periode-doute
+description: A doubtful period request is answered by one ask_owner card, nothing else.
+channel: chat
+
+steps:
+  - user_message: "Mets mes semaines de garde."
+    expected_tools: [ask_owner]
+    forbidden_tools: [create_event]
+    expected_behavior: >
+      Une seule carte ask_owner avec au moins deux options sur les semaines concernées, puis
+      rien d'autre dans ce tour : aucune période créée, aucune question en texte libre.

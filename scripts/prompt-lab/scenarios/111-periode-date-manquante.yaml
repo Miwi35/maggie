@@ -1,0 +1,17 @@
+# « Je pars à Lyon jeudi » (MAG-812): the return day is missing and has no default.
+name: periode-date-manquante
+description: Ask only the missing return day, then create the trip period.
+channel: chat
+
+steps:
+  - user_message: "Je pars à Lyon jeudi."
+    forbidden_tools: [create_event]
+    expected_behavior: >
+      Elle ne crée rien : elle demande seulement quel jour il revient, en une phrase courte,
+      sans autre question.
+
+  - user_message: "Je reviens dimanche."
+    expected_tools: [manage_periods]
+    expected_behavior: >
+      Elle crée la période « Déplacement à Lyon » de jeudi à dimanche (end_date le lundi,
+      exclu) et confirme en une phrase, sans redemander rien.

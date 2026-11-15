@@ -1,0 +1,15 @@
+# « J'ai mon fils du 20 au 27 » (MAG-812): a period is created in one call, named for what it is,
+# whole days with the end day excluded, confirmed in one sentence, no question.
+name: periode-garde
+description: Create a custody period from one sentence, without asking.
+channel: chat
+
+steps:
+  - user_message: "J'ai mon fils du 20 au 27."
+    expected_tools: [manage_periods]
+    forbidden_tools: [ask_owner, create_event]
+    expected_contains: ["Garde"]
+    expected_behavior: >
+      Un seul appel manage_periods create, nom « Garde », journées entières, end_date le 28
+      (exclu). Elle confirme en une phrase, « du 20 au 27 », sans annoncer le 28 et sans poser
+      de question.

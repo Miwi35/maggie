@@ -1,0 +1,13 @@
+# « Mets les fériés français de l'année » (MAG-812): public dates, found online, one period a day.
+name: periode-feries-web
+description: Search the public holidays on the web, then one one-day period per holiday.
+channel: chat
+
+steps:
+  - user_message: "Mets les fériés français de l'année."
+    expected_tools: [manage_periods]
+    forbidden_tools: [ask_owner]
+    expected_behavior: >
+      Elle cherche les dates avec la recherche web, puis crée avec manage_periods une période
+      d'un jour (journée entière, end_date le lendemain) par férié, nommée par le férié
+      (« Férié 8 mai (France) »). Elle confirme en une ou deux phrases.
