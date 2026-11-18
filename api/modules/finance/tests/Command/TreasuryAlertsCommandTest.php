@@ -82,8 +82,8 @@ final class TreasuryAlertsCommandTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Proaction::class);
     }
 
-    /** Maggie only proposes: the prompt forbids her to execute or claim the transfer, and keeps off the envelope alert's ground. */
-    public function testThePromptMakesMaggieProposeNeverExecuteAndStaysApartFromTheScoreAndTheReview(): void
+    /** The prompt carries the facts and forbids the transfer; the wording is Maggie's. */
+    public function testThePromptForbidsTheTransferAndDictatesNoWording(): void
     {
         $this->paidLastMonth('late');
         $this->rent('late', '2026-11-06');
@@ -94,8 +94,31 @@ final class TreasuryAlertsCommandTest extends KernelTestCase
         self::assertStringContainsString('Tu ne fais que proposer', $prompt);
         self::assertStringContainsString('n\'exécute aucun virement', $prompt);
         self::assertStringContainsString('ne dis jamais qu\'il est fait', $prompt);
-        self::assertStringContainsString('la rendre dès que le salaire arrivera', $prompt);
-        self::assertStringContainsString('Ne parle ni du score ni de la revue mensuelle', $prompt);
+        $this->assertNoWordingIsDictated($prompt);
+    }
+
+    public function testWithoutASourceThePromptSaysNoAdvanceIsPossibleAndStillDictatesNoWording(): void
+    {
+        $this->paidLastMonth('late');
+        $this->rent('late', '2026-11-06');
+        $livret = $this->getFixture('livret_late');
+        \assert($livret instanceof Account);
+        $livret->setBalanceCents(0);
+        $this->flushWithoutTransactionEffects($this->em);
+
+        $this->runCommand();
+
+        $prompt = $this->alertsOf('late')[0]->getPrompt();
+        self::assertStringContainsString('Aucun compte d\'épargne ne peut couvrir une avance', $prompt);
+        self::assertStringContainsString('Tu ne fais que proposer', $prompt);
+        $this->assertNoWordingIsDictated($prompt);
+    }
+
+    private function assertNoWordingIsDictated(string $prompt): void
+    {
+        foreach (['Écris', 'message court', 'rappelle qu\'il', 'Ne parle ni'] as $phrase) {
+            self::assertStringNotContainsString($phrase, $prompt);
+        }
     }
 
     public function testNothingIsFiledWhenTheSalaryHasArrived(): void

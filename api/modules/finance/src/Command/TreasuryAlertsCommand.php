@@ -25,7 +25,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * executor runs it and the message lands in the conversation. A late salary
  * is an absence — nothing happens that could trigger it — hence a daily run.
  *
- * Maggie only proposes: the prompt forbids her to execute or claim a transfer.
+ * The prompt carries the facts and forbids the transfer; the wording is Maggie's.
  */
 #[AsCommand(
     name: 'app:finance:treasury-alerts',
@@ -122,14 +122,7 @@ class TreasuryAlertsCommand extends Command
             $lines[] = sprintf('Il manquerait encore %s une fois cette source vidée.', self::euros($advice['uncoveredCents']));
         }
 
-        $ask = null !== $advice['sourceAccountName']
-            ? 'Écris à l\'utilisateur un message court : dis le retard, la date du découvert et propose l\'avance depuis cette source, '
-                .'avec son montant, et rappelle qu\'il pourra la rendre dès que le salaire arrivera. '
-            : 'Écris à l\'utilisateur un message court : dis le retard et la date du découvert, et dis qu\'aucune avance n\'est possible depuis ses comptes d\'épargne. ';
-        $lines[] = $ask
-            .'Tu ne fais que proposer : n\'exécute aucun virement, ne dis jamais qu\'il est fait ou en cours, c\'est l\'utilisateur qui le passe. '
-            .'Vérifie les chiffres avec get_treasury_outlook avant de répondre. '
-            .'Ne parle ni du score ni de la revue mensuelle.';
+        $lines[] = 'Tu ne fais que proposer : n\'exécute aucun virement, ne dis jamais qu\'il est fait ou en cours, c\'est l\'utilisateur qui le passe.';
 
         return implode("\n", $lines);
     }
