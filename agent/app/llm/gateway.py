@@ -113,11 +113,11 @@ class LLMGateway:
         # made of its messages (MAG-13); a proaction has no thread yet and passes none.
         context_section = await active_contexts_section(user_id, current_context_id)
         # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
-        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
+        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id, tz=tz)
         now = current_datetime_line(tz=tz)
         # Whether the user is at work, next to the date: the tone follows it (MAG-790).
         work_hours = work_hours_line(await resolve_work_hours(user_id), datetime.now(tz))
-        if spoken:
+        if spoken or in_car:
             preamble = f"{preamble}\n\n{self.personality.get_spoken_prompt()}"
         if in_car:
             preamble = f"{preamble}\n\n{self.personality.get_driving_prompt()}"

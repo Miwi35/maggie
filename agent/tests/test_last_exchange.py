@@ -110,6 +110,16 @@ class TestLastExchangeLineAroundClockChanges:
         assert last_exchange_line(last, now=now) == "Dernière conversation : hier à 23h51 (il y a 10h)."
 
 
+class TestYesterdayInTheUsersTimezone:
+    def test_yesterday_is_counted_in_the_users_timezone(self):
+        new_york = ZoneInfo("America/New_York")
+        last = datetime(2026, 11, 10, 23, 30, tzinfo=new_york)
+        now = datetime(2026, 11, 11, 7, 0, tzinfo=new_york)
+
+        assert "hier à 23h30" in last_exchange_line(last, now=now, tz=new_york)
+        assert "aujourd'hui" in last_exchange_line(last, now=now)
+
+
 class TestLastExchangeSection:
     async def test_the_line_carries_the_gap_and_the_thread_label(self, chat_db):
         context_id = await _context(chat_db, "Menus de la semaine")

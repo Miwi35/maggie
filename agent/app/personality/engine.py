@@ -71,7 +71,9 @@ def _elapsed(gap: timedelta) -> str:
     return f"il y a {days} jour{'s' if days > 1 else ''}"
 
 
-def last_exchange_line(last_at: datetime, topic: str | None = None, now: datetime | None = None) -> str:
+def last_exchange_line(
+    last_at: datetime, topic: str | None = None, now: datetime | None = None, tz: ZoneInfo | None = None
+) -> str:
     """When the last message of the conversation was written, how long ago, and what it was about.
 
     « Hier » and « avant-hier » count calendar days in Paris, not 24-hour spans: a message
@@ -79,8 +81,9 @@ def last_exchange_line(last_at: datetime, topic: str | None = None, now: datetim
     The gap itself is real elapsed time, measured between UTC instants: two Paris datetimes
     subtract as wall-clock readings, which loses or gains an hour across a clock change (MAG-610).
     """
-    now = (now or datetime.now(TZ_PARIS)).astimezone(TZ_PARIS)
-    last = last_at.astimezone(TZ_PARIS)
+    tz = tz or TZ_PARIS
+    now = (now or datetime.now(tz)).astimezone(tz)
+    last = last_at.astimezone(tz)
     days = max((now.date() - last.date()).days, 0)
     if days == 0:
         when = "aujourd'hui"

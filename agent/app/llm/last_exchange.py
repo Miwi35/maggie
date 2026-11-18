@@ -10,6 +10,7 @@ not the user the answer.
 """
 
 import logging
+from zoneinfo import ZoneInfo
 
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
@@ -18,7 +19,9 @@ from app.personality.engine import last_exchange_line
 logger = logging.getLogger(__name__)
 
 
-async def last_exchange_section(user_id: str, *, exclude_message_id: str | None = None) -> str:
+async def last_exchange_section(
+    user_id: str, *, exclude_message_id: str | None = None, tz: ZoneInfo | None = None
+) -> str:
     """The last message's time, gap and thread label as a system-prompt line, or an empty string.
 
     `exclude_message_id` is the message being answered: the chat routes store it before
@@ -41,4 +44,4 @@ async def last_exchange_section(user_id: str, *, exclude_message_id: str | None 
         except Exception as e:
             logger.warning(f"Could not read the thread of the last message: {e}")
 
-    return "\n" + last_exchange_line(last.created_at, topic)
+    return "\n" + last_exchange_line(last.created_at, topic, tz=tz)
