@@ -5,11 +5,13 @@ loaded the skill with get_skill three reminders out of five; the other two she o
 the chat. The index alone was in the prompt, and the content only when the model thought of it.
 """
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
 from app.llm.prompt_cache import EPHEMERAL
+from app.skills.document import parse_markdown
 from app.skills.index import MOMENT_SKILLS_MAX_CHARS, SkillIndex
 from app.memory.agent_memory import MemoryBlocks
 
@@ -115,6 +117,17 @@ class TestPlanning:
         text = _text(blocks)
         assert PLAN.content in text
         assert DELIVER.content not in text
+
+
+    async def test_the_shipped_trips_skill_is_given_in_full_to_the_planning(self):
+        path = Path(__file__).parent.parent / "app" / "skills" / "trajets.md"
+        entry, body = parse_markdown(path)
+        trips = Skill(name=entry.name, description=entry.description, tags=entry.tags, content=body.strip())
+
+        text = _text(await _proaction_system(_index(trips), silent=True))
+
+        assert trips.content in text
+        assert len(trips.content) < MOMENT_SKILLS_MAX_CHARS
 
 
 class TestChat:

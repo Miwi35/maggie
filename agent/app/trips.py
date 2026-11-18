@@ -6,15 +6,13 @@ MAG-730 the checks before each departure); the model chooses origin and mode, an
 # the trips now, the ones still scheduled run without the model and do nothing.
 RETIRED_CHECK_SUMMARY_PREFIX = "Check départ · "
 REPLAN_SUMMARY = "Replanifier les trajets"
-QUESTION_SUMMARY_PREFIX = "Où pars-tu · "
+QUESTION_SUMMARY_PREFIX = "Où partez-vous · "
 PARKING_SUMMARY_PREFIX = "Où se garer · "
 ARRIVAL_SUMMARY_PREFIX = "Arrivée · "
 RETURN_SUMMARY_PREFIX = "Retour · "
 
 # A departAt that moves by less than this is not worth a new set_trip.
 DEPART_TOLERANCE_MINUTES = 2
-# Time on the spot, after the round trip, from which going back home beats chaining.
-HOME_STAY_MINUTES = 30
 
 
 def is_retired_trip_check(summary: str | None) -> bool:
@@ -31,75 +29,11 @@ def is_silent_trip_run(summary: str | None) -> bool:
 
 
 def planning_trips_rules(day: str) -> str:
-    """The morning card, appended to the daily planning prompt."""
+    """Step 5 of the daily planning: the know-how is the shipped `trajets` skill."""
     return (
-        f"5. Trajets du jour. Pour chaque événement du {day} qui a un lieu et qui n'a pas encore de trajet "
-        f'(list_trips avec date="{day}"), dans l\'ordre des heures : '
-        "a) Origine. Si l'utilisateur a répondu la veille (un trajet `originDecidedBy=user`), "
-        "garde son origine : même origine et decidedBy=user dans set_trip. "
-        "Sinon suis ses habitudes (list_instructions, ta mémoire). "
-        "Sinon : le premier trajet de la journée part de `position` (l'endroit où le téléphone était en dernier) ; "
-        f"pour les suivants, `place:<id>` de la maison (list_places) s'il reste au moins {HOME_STAY_MINUTES} minutes "
-        "sur place après l'aller-retour, sinon `event:<id>` de l'événement précédent (tu enchaînes). "
-        "b) Mode. Appelle estimate_trip avec l'origine et les modes plausibles (drive, transit, walk, bicycle : "
-        "pas bicycle sous la pluie, pas walk à plus de 3 km), compare les durées et choisis. "
-        "c) Enregistre le choix avec set_trip (eventId, mode, origin) ; ne mets decidedBy=user que pour une origine "
-        "que l'utilisateur a lui-même choisie. "
-        "d) En voiture, si le trajet répond parkingKnown=false, dis-le à l'utilisateur en lui demandant où il se gare "
-        f"(proaction non silencieuse programmée dans quelques minutes, résumé « {PARKING_SUMMARY_PREFIX}<titre> »), "
-        "puis enregistre sa réponse avec save_place. "
-        "e) Si le doute est réel (rentrer à la maison ou enchaîner, deux modes à égalité), estime chaque choix "
-        "(estimate_trip pour chaque origine) pour connaître son departAt, enregistre quand même "
-        "le meilleur choix par défaut, puis pose une question avec schedule_proaction dans quelques minutes (résumé "
-        f"« {QUESTION_SUMMARY_PREFIX}<titre> ») : « Je repasse à la maison ou j'enchaîne ? » avec, pour chaque choix, "
-        "l'heure de départ qu'il donne ; il peut répondre « Plus tard ». "
-        f"{stay_rules(day)}"
-        f"{return_rules(day)}"
-        "Ne repose pas de trajet qui existe déjà ; les vérifications avant le départ sont faites par l'API, "
-        "ne programme aucun check."
-    )
-
-
-def stay_rules(day: str) -> str:
-    """A whole-day event with a place (a stay: Airbnb, gîte) has no hour to arrive by: ask for it (MAG-733)."""
-    return (
-        "f) Séjour. Un événement en journée entière (allDay) qui a un lieu, qui commence le "
-        f"{day} ou le lendemain et n'a pas de trajet (estimate_trip le refuse sans arriveAt), "
-        "n'a pas d'heure d'arrivée : "
-        "demande-la, ne l'invente pas. Sans lieu, ne demande rien. Si une proaction "
-        f"« {ARRIVAL_SUMMARY_PREFIX}<titre> » existe déjà pour lui (list_proactions sur toute la durée du séjour, "
-        "faite, annulée ou à venir), ne la repose pas : l'utilisateur a déjà répondu, « Pas de trajet » compris. "
-        "Sinon pose avec schedule_proaction, non silencieuse, dans quelques minutes (ce soir pour le lendemain), "
-        f"le résumé « {ARRIVAL_SUMMARY_PREFIX}<titre> » et un prompt qui cite l'id de l'événement : une interruption "
-        "avec choix « Vers quelle heure arrivez-vous à <lieu court> ? » et les choix 15 h, 16 h, 18 h, "
-        "« Autre heure », « Pas de trajet ». "
-        "Réponse : une heure → set_trip avec arriveAt (ISO 8601, heure de Paris, le jour d'arrivée) et decidedBy=user, "
-        "le mode et l'origine choisis comme pour un trajet ordinaire (estimate_trip avec le même arriveAt d'abord) ; "
-        "« Autre heure » → demande l'heure ; « Pas de trajet » → n'enregistre rien. "
-        "Pendant le séjour, les trajets des jours suivants partent du lieu du séjour : origine `event:<id>` du séjour "
-        "plutôt que la maison, sauf si l'origine est `position`. "
-    )
-
-
-def return_rules(day: str) -> str:
-    """The way home at the end of a stay has no event at home to fix its hour: ask when the user leaves (MAG-734)."""
-    return (
-        "g) Retour de séjour. Un événement en journée entière (allDay) qui a un lieu et dont le dernier jour est "
-        f"{day} ou le lendemain n'a pas de trajet `return` (list_trips ne le montre pas avec leg=return) : "
-        "demande l'heure de départ du lieu, ne l'invente pas. Sans lieu, ne demande rien. "
-        "Sans maison connue (list_places n'en donne pas), ne pose pas la question : dis-le en une ligne dans "
-        "ton compte rendu (« Retour · <titre> : pas de maison connue »). "
-        f"Si une proaction « {RETURN_SUMMARY_PREFIX}<titre> » "
-        "existe déjà pour lui (list_proactions sur toute la durée du séjour, faite, annulée ou à venir), "
-        "ne la repose pas : l'utilisateur a déjà répondu, « Pas de trajet » compris. "
-        "Sinon pose avec schedule_proaction, non silencieuse, dans quelques minutes si le séjour finit "
-        f"{day}, ce soir s'il finit le lendemain, le résumé « {RETURN_SUMMARY_PREFIX}<titre> » et un prompt qui cite "
-        "l'id de l'événement : une interruption avec choix « À quelle heure repartez-vous de <lieu court> ? » "
-        "et les choix 10 h, 11 h, 12 h, « Autre heure », « Pas de trajet ». "
-        "Réponse : une heure → set_trip avec leg=return, departAt (ISO 8601, heure de Paris, le dernier jour) et "
-        "decidedBy=user, sans origine (le trajet part du lieu et rentre à la maison) ; le mode se choisit comme pour "
-        "un aller (estimate_trip avec leg=return et le même departAt d'abord) ; « Autre heure » → demande l'heure ; "
-        "« Pas de trajet » → n'enregistre rien. "
+        f'5. Trajets du jour (`list_trips` avec date="{day}") : suis la compétence trajets '
+        "(charge-la avec get_skill si elle n'est pas plus bas). "
+        "Ne programme aucun check : l'API vérifie avant chaque départ."
     )
 
 
@@ -111,8 +45,8 @@ def trip_run_rules() -> str:
         "restent à traiter : replanifie ceux-là, et seulement ceux-là. "
         "Ton output est un log interne : il n'est pas envoyé à l'utilisateur, l'alerte de départ est celle de l'API. "
         "1. Lis les trajets enregistrés (list_trips) et les événements du jour. "
-        "2. Pour chaque événement cité dans le prompt (sans trajet, choisis l'origine et le mode comme à la carte "
-        "du matin), recalcule-le depuis la position réelle : estimate_trip avec "
+        "2. Pour chaque événement cité dans le prompt (sans trajet, l'origine et le mode se choisissent comme dit "
+        "la compétence trajets, get_skill), recalcule-le depuis la position réelle : estimate_trip avec "
         "l'origine `position` — sauf si originDecidedBy=user, dont l'origine reste celle de l'utilisateur "
         "(list_trips la donne en kind et id : `position`, `place:<id>` ou `event:<id>`). "
         f"3. Si le departAt recalculé a bougé de plus de {DEPART_TOLERANCE_MINUTES} minutes, "
