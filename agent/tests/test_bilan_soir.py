@@ -257,6 +257,14 @@ class TestTheSanteStep:
         assert api.status["state"]["step"] == "sante"
         assert api.status["state"]["answers"] == {"mood": 7, "fatigue": 4}
 
+    def test_the_shipped_skill_takes_the_reminder_time_from_date_time(self):
+        from pathlib import Path
+
+        skill = (Path(bilan.__file__).parent / "skills" / "bilan-soir.md").read_text(encoding="utf-8")
+
+        assert "Paris" not in skill
+        assert "le champ `iso` que renvoie `date_time`" in skill
+
     async def test_the_skill_asks_a_value_off_the_scale_again_and_says_the_figures_without_verdict(self):
         from pathlib import Path
 
