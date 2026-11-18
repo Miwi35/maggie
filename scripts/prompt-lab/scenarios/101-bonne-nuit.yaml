@@ -8,5 +8,5 @@ steps:
     forbidden_tools: [get_tasks, get_upcoming_events, get_grocery_list]
     expected_absent: ["?", "demain"]
     expected_behavior: >
-      Elle répond par une seule courte phrase du type « Bonne nuit, monsieur. »,
+      Elle répond par une seule courte phrase du type « Bonne nuit. »,
       sans rappel, sans résumé de la journée, sans aperçu de demain et sans question.
