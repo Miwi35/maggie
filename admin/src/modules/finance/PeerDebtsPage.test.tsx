@@ -30,9 +30,9 @@ const debt = (id: string, direction: 'owed_to_me' | 'i_owe', object: string, sha
   history: [],
 })
 
-/** Tom owes 200 € (the gîte, with Julie) and I owe him 280 € (the petrol): 80 € net, I owe. */
+/** Tom owes 200 € (the gîte, with Emma) and I owe him 280 € (the petrol): 80 € net, I owe. */
 const DEBTS = [
-  debt('d1', 'owed_to_me', 'Gîte de Crozon', [share('s1', 'JULIE', 'Julie', 20000), share('s2', 'TOM', 'Tom', 20000)], 'Pris sur ma carte'),
+  debt('d1', 'owed_to_me', 'Gîte de Crozon', [share('s1', 'EMMA', 'Emma', 20000), share('s2', 'TOM', 'Tom', 20000)], 'Pris sur ma carte'),
   debt('d2', 'i_owe', 'Essence du road trip', [share('s3', 'TOM', 'Tom', 28000)]),
 ]
 const SUMMARY = {
@@ -40,7 +40,7 @@ const SUMMARY = {
   iOweCents: 28000,
   byContact: [
     { contactId: 'TOM', name: 'Tom', netCents: -8000, compensates: true },
-    { contactId: 'JULIE', name: 'Julie', netCents: 20000, compensates: false },
+    { contactId: 'EMMA', name: 'Emma', netCents: 20000, compensates: false },
   ],
 }
 
@@ -124,7 +124,7 @@ describe('PeerDebtsPage — « Créances et dettes »', () => {
     expect(objects).toHaveLength(2)
     expect(objects[0]).toHaveTextContent('Gîte de Crozon')
     expect(flat(objects[0])).toContain('on te doit 400,00 €')
-    expect(flat(objects[0])).toContain('Julie 200,00 € · Tom 200,00 €')
+    expect(flat(objects[0])).toContain('Emma 200,00 € · Tom 200,00 €')
     expect(objects[0]).toHaveTextContent('Pris sur ma carte')
     expect(flat(objects[1])).toContain('tu dois 280,00 €')
   })

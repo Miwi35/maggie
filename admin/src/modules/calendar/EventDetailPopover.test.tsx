@@ -79,12 +79,12 @@ describe('EventDetailPopover — all-day', () => {
 
 /** MAG-328 */
 describe('EventDetailPopover — proaction', () => {
-  const proaction = { prompt: 'Rappelle-moi de déposer Ael', executionStatus: 'completed', response: null, error: null }
+  const proaction = { prompt: 'Rappelle-moi de déposer Tom', executionStatus: 'completed', response: null, error: null }
 
   test('shows the instruction, the status in French and the answer', () => {
     renderPopover({ proaction: { ...proaction, response: 'C’est fait : rappel envoyé.' } })
 
-    expect(screen.getByText('Rappelle-moi de déposer Ael')).toBeInTheDocument()
+    expect(screen.getByText('Rappelle-moi de déposer Tom')).toBeInTheDocument()
     expect(screen.getByText('Faite')).toBeInTheDocument()
     expect(screen.getByText('C’est fait : rappel envoyé.')).toBeInTheDocument()
     expect(screen.queryByText('Erreur')).not.toBeInTheDocument()

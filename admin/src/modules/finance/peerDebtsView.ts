@@ -39,7 +39,7 @@ export const netSentence = (netCents: number): string =>
 export const compensationSentence = (name: string, netCents: number): string =>
   `Les deux se compensent : un seul virement de ${formatCents(Math.abs(netCents))} ${netCents < 0 ? 'à' : 'de'} ${name} solde tout`
 
-/** « Julie 200 € · Tom 200 € »: who still owes (or is owed) on one object. */
+/** « Emma 200 € · Tom 200 € »: who still owes (or is owed) on one object. */
 export const peopleSentence = (debt: PeerDebtWithHistory): string =>
   debt.shares
     .filter((share) => share.remainingCents > 0)

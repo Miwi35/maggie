@@ -11,7 +11,7 @@ import { parseEuros, splitEqually } from './peerDebtsApi'
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
 const CONTACTS = [
-  { id: '/api/contacts/01JULIE', name: 'Julie', notes: null },
+  { id: '/api/contacts/01EMMA', name: 'Emma', notes: null },
   { id: '/api/contacts/01TOM', name: 'Tom', notes: null },
   { id: '/api/contacts/01INES', name: 'Inès', notes: null },
 ]
@@ -41,7 +41,7 @@ const SHARED = {
     remainingCents: 60000,
     status: 'open',
     createdAt: '2026-08-14T10:00:00+00:00',
-    shares: [share('01JULIE', 'Julie', 20000), share('01TOM', 'Tom', 20000), share('01INES', 'Inès', 20000)],
+    shares: [share('01EMMA', 'Emma', 20000), share('01TOM', 'Tom', 20000), share('01INES', 'Inès', 20000)],
   },
 }
 
@@ -159,7 +159,7 @@ describe('TransactionShareSection', () => {
     expect(screen.queryByLabelText('Ta part (€)')).not.toBeInTheDocument()
   })
 
-  test('the gîte: my part of 200 € between Julie, Tom and Inès, split equally, is saved with one PUT', async () => {
+  test('the gîte: my part of 200 € between Emma, Tom and Inès, split equally, is saved with one PUT', async () => {
     const user = userEvent.setup()
     renderSection()
 
@@ -168,9 +168,9 @@ describe('TransactionShareSection', () => {
     expect(plain(screen.getByTestId('owed-to-me'))).toContain('On te doit 400,00 €')
     expect(screen.getByLabelText('Objet')).toHaveValue('GITE DES CEVENNES')
 
-    await pick(user, 'Julie')
+    await pick(user, 'Emma')
     await pick(user, 'Tom')
-    expect(partOf('Julie')).toHaveValue('200')
+    expect(partOf('Emma')).toHaveValue('200')
     expect(partOf('Tom')).toHaveValue('200')
 
     await pick(user, 'Inès')
@@ -179,7 +179,7 @@ describe('TransactionShareSection', () => {
     await user.type(part, '200')
 
     expect(plain(screen.getByTestId('owed-to-me'))).toContain('On te doit 600,00 €')
-    for (const name of ['Julie', 'Tom', 'Inès']) expect(partOf(name)).toHaveValue('200')
+    for (const name of ['Emma', 'Tom', 'Inès']) expect(partOf(name)).toHaveValue('200')
 
     expect(screen.getByRole('toolbar', { name: 'Barre de mise en forme' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('Notes'), 'Clés chez Tom')
@@ -193,7 +193,7 @@ describe('TransactionShareSection', () => {
             myShareCents: 20000,
             object: 'GITE DES CEVENNES',
             notes: 'Clés chez Tom',
-            shares: [{ contactId: '01JULIE' }, { contactId: '01TOM' }, { contactId: '01INES' }],
+            shares: [{ contactId: '01EMMA' }, { contactId: '01TOM' }, { contactId: '01INES' }],
           },
         },
       ]),
@@ -209,7 +209,7 @@ describe('TransactionShareSection', () => {
     await user.click(await screen.findByRole('button', { name: 'Augmenter ta part' }))
     expect(screen.getByLabelText('Ta part (€)')).toHaveValue('201')
     expect(plain(screen.getByTestId('owed-to-me'))).toContain('On te doit 599,00 €')
-    expect(partOf('Julie')).toHaveValue('199,66')
+    expect(partOf('Emma')).toHaveValue('199,66')
     expect(partOf('Inès')).toHaveValue('199,68')
 
     await user.click(screen.getByRole('button', { name: 'Diminuer ta part' }))
@@ -235,8 +235,8 @@ describe('TransactionShareSection', () => {
     state = SHARED
     renderSection()
 
-    await user.clear(await screen.findByLabelText('Part de Julie (€)'))
-    await user.type(partOf('Julie'), '100')
+    await user.clear(await screen.findByLabelText('Part de Emma (€)'))
+    await user.type(partOf('Emma'), '100')
 
     expect(screen.getByText(/Les parts font 500,00.*elles doivent faire 600,00/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Enregistrer le partage' })).toBeDisabled()
@@ -251,7 +251,7 @@ describe('TransactionShareSection', () => {
       object: 'Gîte Ardèche',
       notes: 'Clés chez Tom',
       shares: [
-        { contactId: '01JULIE', amountCents: 10000 },
+        { contactId: '01EMMA', amountCents: 10000 },
         { contactId: '01TOM', amountCents: 30000 },
         { contactId: '01INES', amountCents: 20000 },
       ],
@@ -266,7 +266,7 @@ describe('TransactionShareSection', () => {
     await user.click(await screen.findByRole('button', { name: 'Retirer Inès' }))
 
     expect(screen.queryByLabelText('Part de Inès (€)')).not.toBeInTheDocument()
-    expect(partOf('Julie')).toHaveValue('300')
+    expect(partOf('Emma')).toHaveValue('300')
     expect(partOf('Tom')).toHaveValue('300')
   })
 
