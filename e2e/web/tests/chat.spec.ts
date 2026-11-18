@@ -1578,7 +1578,7 @@ test('an event two agendas fit is not created until the owner says which one', a
  * 2098, so the 2099 assertions above never see it.
  */
 const SHIFT = {
-  title: 'Soirée avec Julie (MAG-321)',
+  title: 'Soirée avec Emma (MAG-321)',
   before: { startAt: '2098-03-19T18:00:00.000Z', endAt: '2098-03-19T23:00:00.000Z' },
   after: { startAt: '2098-03-20T18:00:00.000Z', endAt: '2098-03-20T23:00:00.000Z' },
 }
@@ -1707,12 +1707,12 @@ test('a rule announced as learned without a tool is stored as a skill, and shown
   await expect(page.getByText(RULE.skill)).toBeVisible()
 })
 
-/** 89-agenda-unread-once.yaml — « quand je vois Julie » answered from memory, then from the agenda. */
+/** 89-agenda-unread-once.yaml — « quand je vois Emma » answered from memory, then from the agenda. */
 const EVENING = {
-  question: 'Quand est-ce que je vois Julie ?',
-  title: 'Soirée à Rennes avec Julie',
+  question: 'Quand est-ce que je vois Emma ?',
+  title: 'Soirée à Rennes avec Emma',
   wrongAnswer: 'Demain, vendredi 3 octobre',
-  answer: 'Vous voyez Julie ce soir à 19 h',
+  answer: 'Vous voyez Emma ce soir à 19 h',
 }
 
 /**
@@ -1722,7 +1722,7 @@ const EVENING = {
  * So the assertion is the tool that ran and the answer that survived, never the wording of the
  * first attempt.
  */
-test('"quand est-ce que je vois Julie ?" is answered from the agenda, not from memory', async ({ page, api }) => {
+test('"quand est-ce que je vois Emma ?" is answered from the agenda, not from memory', async ({ page, api }) => {
   const today = parisDay()
   const created = await api.post('/api/events', {
     headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },

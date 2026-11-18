@@ -8,7 +8,7 @@
 // own: the pile is this one line.
 //
 // MAG-451 adds the shared spend: `share` writes, on the same account, a gîte of 800 € filed in
-// « Voyages » whose monthly envelope is 300 €, and the contacts Julie and Inès beside Tom, so the
+// « Voyages » whose monthly envelope is 300 €, and the contacts Emma and Inès beside Tom, so the
 // phone declares its part and the people who owe the rest. Collections are served from
 // Elasticsearch, which trails a write: what the phone reads next is polled for until findable.
 //
@@ -25,7 +25,7 @@
 // « Tu dois 80 € » and Tom's row on « Créances et dettes » says the two cancel out.
 //
 // MAG-454 lowers the safety cushion by the open créances: `cushion` writes a Livret A of 5 200 € counted
-// in the cushion and a target of 3 months of 2 500 €; `repay` writes a transfer of 200 € from Julie and
+// in the cushion and a target of 3 months of 2 500 €; `repay` writes a transfer of 200 € from Emma and
 // allocates it to her share of the gîte « GITE DES CIMES MAG-451 », which refills the cushion by 200 €.
 //
 // Parameters (flow `env:`, plus TODAY, E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
@@ -33,7 +33,7 @@
 //   EXPECTED_CENTS  income only: the month's income, in cents
 //
 // Everything is the journey's own — the account named after the ticket, the contacts « Tom »,
-// « Julie » and « Inès », the category « Voyages » and its envelope — and gone after `remove`.
+// « Emma » and « Inès », the category « Voyages » and its envelope — and gone after `remove`.
 
 (function () {
 const base = E2E_BASE_URL
@@ -43,15 +43,15 @@ const accountName = 'Compte MAG-450'
 const contactName = 'Tom'
 const label = 'VIR. DE TOM MARTIN'
 // MAG-451: the people of the shared gîte, and where it is filed.
-const sharingNames = ['Julie', 'Inès']
+const sharingNames = ['Emma', 'Inès']
 const categoryName = 'Voyages'
 const giteLabel = 'GITE DES CIMES MAG-451'
 // MAG-453: the créance a transfer from Tom repays.
 const crozonLabel = 'GITE DE CROZON MAG-453'
 const crozonObject = 'Gîte de Crozon'
-// MAG-454: the account counted in the cushion, and the transfer Julie repays with.
+// MAG-454: the account counted in the cushion, and the transfer Emma repays with.
 const livretName = 'Livret MAG-454'
-const repayLabel = 'VIR. DE JULIE MAG-454'
+const repayLabel = 'VIR. DE EMMA MAG-454'
 // MAG-455: the dette towards Tom that cancels his créance.
 const petrolLabel = 'VIR AVANCE ESSENCE MAG-455'
 const petrolObject = 'Essence du road trip'
@@ -332,8 +332,8 @@ if (ACTION === 'create') {
   if (!existing) {
     fail('no account « ' + accountName + ' »: run create first')
   }
-  const julie = awaitOne('/api/contacts?pagination=false', 'Julie')
-  post('/api/contact_counterparties', { contact: julie['@id'], label: repayLabel })
+  const emma = awaitOne('/api/contacts?pagination=false', 'Emma')
+  post('/api/contact_counterparties', { contact: emma['@id'], label: repayLabel })
   const received = post('/api/transactions', {
     account: existing['@id'],
     label: repayLabel,
@@ -345,7 +345,7 @@ if (ACTION === 'create') {
   const allocation = getJson('/api/finance/transactions/' + received.id + '/allocation')
   const share = allocation.candidates.filter(function (c) { return c.object === giteLabel })[0]
   if (!share) {
-    fail('Julie\'s share of the gîte is not offered to the transfer: ' + JSON.stringify(allocation))
+    fail('Emma\'s share of the gîte is not offered to the transfer: ' + JSON.stringify(allocation))
   }
   put('/api/finance/transactions/' + received.id + '/allocation', {
     kind: 'repayment',

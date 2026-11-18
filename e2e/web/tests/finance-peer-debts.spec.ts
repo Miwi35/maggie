@@ -98,7 +98,7 @@ test('a transfer associated from « À trier » makes its label Tom\'s, and the 
 
 /**
  * « Ma part d'une dépense partagée » (MAG-451): a gîte of 800 € of which my
- * part is 200 €, the rest owed by Julie, Tom and Inès, 200 € each. Only my
+ * part is 200 €, the rest owed by Emma, Tom and Inès, 200 € each. Only my
  * part counts in the Voyages envelope, and Tom's page says what he owes.
  *
  * On the season account, whose finance no other journey reads: a Voyages
@@ -137,7 +137,7 @@ test.describe('a shared spend', () => {
     const suffix = letters(6)
     const [year, month] = seedAnchorDate().split('-').map(Number)
     const voyages = `Voyages ${suffix}`
-    const [julie, tom, ines] = ['Julie', 'Tom', 'Inès'].map((name) => `${name} ${suffix}`)
+    const [emma, tom, ines] = ['Emma', 'Tom', 'Inès'].map((name) => `${name} ${suffix}`)
 
     // Given a gîte of 800 € filed in Voyages, with a 300 € envelope this month
     const categoryId = await create(api, '/api/categories', { name: voyages, obligation: 'optional' })
@@ -156,7 +156,7 @@ test.describe('a shared spend', () => {
       balanceCents: 0,
     })
     const contactIds: Record<string, string> = {}
-    for (const name of [julie, tom, ines]) {
+    for (const name of [emma, tom, ines]) {
       contactIds[name] = await create(api, '/api/contacts', { name })
     }
     const gite = await create(api, '/api/transactions', {
@@ -169,11 +169,11 @@ test.describe('a shared spend', () => {
       status: 'spent',
     })
 
-    // When I declare my part of 200 € shared between Julie, Tom and Inès on its sheet
+    // When I declare my part of 200 € shared between Emma, Tom and Inès on its sheet
     const sheet = new FinanceTransactionSheetPage(page)
     await sheet.open(gite)
-    await sheet.shareWith(200, [julie, tom, ines])
-    for (const name of [julie, tom, ines]) {
+    await sheet.shareWith(200, [emma, tom, ines])
+    for (const name of [emma, tom, ines]) {
       await expect(sheet.partOf(name), `${name} owes a third of the 600 €`).toHaveValue('200')
     }
 
@@ -414,17 +414,17 @@ test.describe('a shared spend', () => {
     await expect(screen.object(petrol)).toContainText(`depuis le ${day(seedDate())}`)
   })
   /**
-   * « Avancé à des proches » (MAG-454): Julie owes 200 € on a gîte, so a Livret A
+   * « Avancé à des proches » (MAG-454): Emma owes 200 € on a gîte, so a Livret A
    * of 5 200 € held as cushion counts 5 000 €; her repayment gives the 200 € back.
    */
-  test('a 200 € créance on Julie lowers the cushion to 5 000 €, and her repayment brings it back to 5 200 €', async ({
+  test('a 200 € créance on Emma lowers the cushion to 5 000 €, and her repayment brings it back to 5 200 €', async ({
     seasonUser,
   }) => {
     const { api, page } = seasonUser
     const suffix = letters(6)
-    const julie = `Julie ${suffix}`
+    const emma = `Emma ${suffix}`
     const gite = `Gîte de Crozon ${suffix}`
-    const label = `VIR. DE JULIE-${suffix}`
+    const label = `VIR. DE EMMA-${suffix}`
 
     // Given a Livret A of 5 200 € counted in the cushion, and a target of 3 months of 2 500 €
     await create(api, '/api/accounts', {
@@ -440,14 +440,14 @@ test.describe('a shared spend', () => {
     })
     expect(config.status(), await config.text()).toBe(200)
 
-    // And a créance of 200 € on Julie
+    // And a créance of 200 € on Emma
     const accountId = await create(api, '/api/accounts', {
       name: `Compte MAG-454 ${suffix}`,
       type: 'checking',
       currency: 'EUR',
       balanceCents: 0,
     })
-    const julieId = await create(api, '/api/contacts', { name: julie })
+    const emmaId = await create(api, '/api/contacts', { name: emma })
     const spend = await create(api, '/api/transactions', {
       account: `/api/accounts/${accountId}`,
       label: `GITE DE CROZON ${suffix}`,
@@ -457,7 +457,7 @@ test.describe('a shared spend', () => {
       status: 'spent',
     })
     const shared = await api.put(`/api/finance/transactions/${spend}/my-share`, {
-      data: { myShareCents: 20000, object: gite, shares: [{ contactId: julieId }] },
+      data: { myShareCents: 20000, object: gite, shares: [{ contactId: emmaId }] },
     })
     expect(shared.status(), await shared.text()).toBe(200)
 
@@ -473,8 +473,8 @@ test.describe('a shared spend', () => {
     await expect(cushion.peerClaims).toContainText(`−${euros(20000)}`)
     await expect(cushion.summary).toContainText(`Il manque ${euros(250000)}, dont ${euros(20000)} avancés à des proches`)
 
-    // When Julie repays her 200 €
-    await create(api, '/api/contact_counterparties', { contact: `/api/contacts/${julieId}`, label })
+    // When Emma repays her 200 €
+    await create(api, '/api/contact_counterparties', { contact: `/api/contacts/${emmaId}`, label })
     const transfer = await create(api, '/api/transactions', {
       account: `/api/accounts/${accountId}`,
       label,
@@ -483,7 +483,7 @@ test.describe('a shared spend', () => {
       bookedAt: seedDate(),
       status: 'spent',
     })
-    // Removed first: a créance someone gave money back on outlives its spend, and holds Julie.
+    // Removed first: a créance someone gave money back on outlives its spend, and holds Emma.
     created.unshift({ path: `/api/finance/transactions/${transfer}/allocation` })
     const candidates = await api.get(`/api/finance/transactions/${transfer}/allocation`)
     expect(candidates.status(), await candidates.text()).toBe(200)
