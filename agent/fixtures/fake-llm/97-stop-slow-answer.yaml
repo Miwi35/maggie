@@ -3,7 +3,7 @@
 # the sentence is back in the input. After its first deltas the stream stalls and never
 # finishes by itself, so no emulator or browser speed turns the stop into a race.
 #
-# The corrected sentence (« … Ael … ») is the next two files; this one must not match it.
+# The corrected sentence (« … Tom … ») is the next two files; this one must not match it.
 name: stop-slow-answer
 description: Answer "create a test event" slowly, so a journey can stop her before the end.
 

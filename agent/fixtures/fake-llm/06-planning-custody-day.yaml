@@ -1,20 +1,20 @@
-# The daily planning on a custody day (MAG-327): « les jours où j'ai Ael, préviens-moi
+# The daily planning on a custody day (MAG-327): « les jours où j'ai Tom, préviens-moi
 # 15 min avant de le déposer » is an instruction, and the agenda says which days.
 #
 # The fake reads no tool result, but the history does carry them one round later: the
 # third call of the run sees what `get_events_by_date` answered in the first. So this
-# scenario only matches once « Garde Ael » is in the agenda of the day it plans — on any
+# scenario only matches once « Garde Tom » is in the agenda of the day it plans — on any
 # other day 07-planning-read.yaml answers that there is nothing to schedule. Its first
 # two turns are 07's, never played here: a scenario's turns are counted from the run's
 # first round, whichever scenario played them.
 #
-# The instruction must not say « Garde Ael » itself: its text is in the history too.
+# The instruction must not say « Garde Tom » itself: its text is in the history too.
 name: planning-custody-day
 description: The daily planning schedules the drop-off reminder on a custody day, and only then.
 
 match:
   user_matches: "C'est le début de la journée du (\\d{4}-\\d{2}-\\d{2})"
-  history_contains: "Garde Ael"
+  history_contains: "Garde Tom"
 
 turns:
   - tools:
@@ -30,7 +30,7 @@ turns:
   - tools:
       - name: schedule_proaction
         input:
-          prompt: "Préviens l'utilisateur qu'il dépose Ael à l'école dans 15 minutes."
+          prompt: "Préviens l'utilisateur qu'il dépose Tom à l'école dans 15 minutes."
           scheduled_at: '\1T08:15:00'
-          summary: "Dépose Ael"
-  - text: "C'est programmé : dépose d'Ael, rappel à 8 h 15."
+          summary: "Dépose Tom"
+  - text: "C'est programmé : dépose d'Tom, rappel à 8 h 15."

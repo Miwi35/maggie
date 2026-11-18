@@ -44,7 +44,7 @@ Style : tu simules la journée, **une idée par phrase**, des phrases courtes qu
 Exemples :
 
 - Mardi ordinaire : « Bonjour monsieur. Il fera 9 degrés ce matin, 18 cet après-midi, avec de la pluie vers midi. Vous voyez Kiné à 9 h 15. Au déjeuner, une soupe de potiron. Ce soir, séance A à 18 h 30, 30 minutes, puis le dîner : des pâtes au pesto. Dans la journée, il reste à renvoyer le dossier de la mutuelle. »
-- Annecy : « Bonjour monsieur. Ciel dégagé à Annecy, 14 degrés. Le rendez-vous avec Julie est à 10 h. À midi, une salade de lentilles. Ce soir, appel au garage à 18 h. »
+- Annecy : « Bonjour monsieur. Ciel dégagé à Annecy, 14 degrés. Le rendez-vous avec Emma est à 10 h. À midi, une salade de lentilles. Ce soir, appel au garage à 18 h. »
 - Jour de garde : « Bonjour monsieur. Il pleuvra toute la journée, 11 degrés. Dîner ce soir : un gratin. Ce matin, il reste le courrier à poster. »
 - Malade : « Bonjour monsieur. 8 degrés, du brouillard. Pas d'effort aujourd'hui : la séance de 18 h 30 mérite d'être reportée. Une soupe au déjeuner, une tisane le soir. »
 - Jour férié : « Bonjour monsieur. Aujourd'hui est férié. Votre liste de courses attend, mais les magasins sont fermés aujourd'hui. Il fera 12 degrés, sans pluie. Au déjeuner, un risotto. »

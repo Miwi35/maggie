@@ -1,10 +1,10 @@
-# The corrected message of a stopped turn (MAG-320): the journey rewrites « à elle » as « à Ael »
+# The corrected message of a stopped turn (MAG-320): the journey rewrites « à elle » as « à Tom »
 # and sends it again. Only this answer must remain in the thread, with the corrected message.
 name: corrected-message
 description: Answer the corrected "create a test event" request.
 
 match:
-  user_matches: "événement test à Ael demain"
+  user_matches: "événement test à Tom demain"
 
 turns:
-  - text: "Compris : un événement test à Ael demain. Quelle heure vous convient ?"
+  - text: "Compris : un événement test à Tom demain. Quelle heure vous convient ?"

@@ -1,6 +1,6 @@
 """Replace the user's last message by a corrected one (MAG-320).
 
-A message sent with a mistake — « à elle » for « Ael » — is taken back, corrected and sent
+A message sent with a mistake — « à elle » for « Tom » — is taken back, corrected and sent
 again; the turn it opened goes away, the question and its answer, from the thread and from
 what the model reads. Two things survive it, because they happened:
 

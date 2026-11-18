@@ -21,7 +21,7 @@ from app.llm.image import ChatImage
 from app.llm.streaming import answer_message_id
 from app.llm.turns import TurnRunner, lease_deadline
 
-TEXT = "inverse les libellés Laure et Meven sur les événements de l'agenda Garde Ael"
+TEXT = "inverse les libellés Sophie et Meven sur les événements de l'agenda Garde Tom"
 
 
 class ToolGateway:

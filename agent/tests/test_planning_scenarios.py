@@ -1,6 +1,6 @@
 """The daily planning, scripted by the fake LLM against the simulated API (MAG-327).
 
-« Les jours où j'ai Ael, préviens-moi 15 min avant de le déposer » is an instruction; the
+« Les jours où j'ai Tom, préviens-moi 15 min avant de le déposer » is an instruction; the
 planning reads it with the day's agenda and the proactions already there, and poses one
 only on a custody day. Whether a real model makes that call is judged on the real model;
 what this proves is the run itself — the prompt, the tools it reaches, and that a second
@@ -24,7 +24,7 @@ from tests.fake_proaction_api import FakeProactionApi
 USER = "user-1"
 CUSTODY_DAY = date(2030, 11, 14)
 ORDINARY_DAY = date(2030, 11, 15)
-INSTRUCTION = "Les jours où j'ai Ael, préviens-moi 15 min avant de le déposer à l'école (8 h 30)."
+INSTRUCTION = "Les jours où j'ai Tom, préviens-moi 15 min avant de le déposer à l'école (8 h 30)."
 OFFERED = [
     {"name": name, "input_schema": {}}
     for name in (
@@ -47,7 +47,7 @@ DENTIST_ID = "01JDENTST00000000000000000"
 def api():
     fake = FakeProactionApi()
     fake.agenda[CUSTODY_DAY.isoformat()] = [
-        {"id": "01JGARDE", "summary": "Garde Ael", "startDate": CUSTODY_DAY.isoformat(), "allDay": True}
+        {"id": "01JGARDE", "summary": "Garde Tom", "startDate": CUSTODY_DAY.isoformat(), "allDay": True}
     ]
     instruction = SimpleNamespace(to_dict=lambda: {"id": "i-1", "content": INSTRUCTION, "kind": "planning"})
     with (
@@ -90,7 +90,7 @@ class TestTheDailyPlanning:
 
         assert "schedule_proaction" in tools_called(result)
         assert [(p["prompt"], p["scheduledAt"], p["status"]) for p in api.of(USER)] == [
-            ("Préviens l'utilisateur qu'il dépose Ael à l'école dans 15 minutes.", "2030-11-14T08:15:00+01:00", "pending")
+            ("Préviens l'utilisateur qu'il dépose Tom à l'école dans 15 minutes.", "2030-11-14T08:15:00+01:00", "pending")
         ]
 
     async def test_an_ordinary_day_gets_none(self, api):

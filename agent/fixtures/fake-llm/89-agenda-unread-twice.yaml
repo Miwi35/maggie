@@ -7,7 +7,7 @@ name: agenda-unread-twice
 description: A date cited twice with no agenda reading — replaced by the guard's sentence.
 
 match:
-  user_matches: "je revois Julie"
+  user_matches: "je revois Emma"
 
 turns:
   - text: "Demain, vendredi 3 octobre, de 19 h à minuit à Rennes."

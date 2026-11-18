@@ -6,7 +6,7 @@ answered « C'est noté », « j'ai enregistré cette préférence » to « quan
 rappel, je veux une notification » and called no tool at all: nothing was stored (MAG-340).
 The prompt says not to; this is the check that does not depend on the model reading it.
 
-On 8 Oct. she was asked « quand est-ce que je vois Julie ? », answered « demain, vendredi
+On 8 Oct. she was asked « quand est-ce que je vois Emma ? », answered « demain, vendredi
 3 octobre, de 19 h à minuit » and opened no agenda: the event was that evening (MAG-349).
 
 Both tool loops — `run_tool_loop` and the streamed `chat_stream` — hold one guard per
@@ -304,7 +304,7 @@ def _read_without_error(result: str) -> bool:
 def _backs_agenda(tool_name: str, result: str, arguments: dict) -> bool:
     """An agenda reading, or a tool whose own result carries the hour the answer gives.
 
-    The clock and the memory are not: « Julie est à Rennes » says nothing of the evening.
+    The clock and the memory are not: « Emma est à Rennes » says nothing of the evening.
     """
     if tool_name in AGENDA_READ_TOOLS or tool_name in (LIST_TOOL, DELEGATE_TOOL):
         return _read_without_error(result)

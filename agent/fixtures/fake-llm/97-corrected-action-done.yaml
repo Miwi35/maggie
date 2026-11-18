@@ -9,7 +9,7 @@ name: corrected-action-done
 description: Tell the owner what the replaced turn had already created, and ask what to do with it.
 
 match:
-  user_matches: "(?s)événement test à Ael demain.*avais déjà fait"
+  user_matches: "(?s)événement test à Tom demain.*avais déjà fait"
 
 turns:
   - text: "J'avais déjà créé un événement test avant que vous me corrigiez : je le garde ou je le supprime ?"
