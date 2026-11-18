@@ -156,12 +156,12 @@ class ProactionDueTest extends KernelTestCase
 
     public function testRecordingACompletedRunStoresTheResponseAndPublishes(): void
     {
-        $data = $this->call(RecordProactionResultTool::class, $this->id('already_running'), 'completed', 'Pense à déposer Ael !');
+        $data = $this->call(RecordProactionResultTool::class, $this->id('already_running'), 'completed', 'Pense à déposer Tom !');
 
         self::assertTrue($data['success']);
         $stored = $this->stored('already_running');
         self::assertSame(ProactionStatus::Completed, $stored->getExecutionStatus());
-        self::assertSame('Pense à déposer Ael !', $stored->getResponse());
+        self::assertSame('Pense à déposer Tom !', $stored->getResponse());
         self::assertNotNull($stored->getCompletedAt());
 
         $this->assertMercureUpdatePublished('/proactions/');

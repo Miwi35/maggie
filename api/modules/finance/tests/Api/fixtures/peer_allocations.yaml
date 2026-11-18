@@ -1,7 +1,7 @@
 # Allocating transfers to créances and dettes (MAG-453), shared by the API and
-# MCP suites. Créances: the gîte de Crozon (Julie 200 €, Tom 200 €), Tom's
+# MCP suites. Créances: the gîte de Crozon (Emma 200 €, Tom 200 €), Tom's
 # birthday present (45 €), Hellfest (Lucas 90 €); a dette: the road trip
-# petrol Tom paid (280 €). Transfers received from Julie (200 €), Tom (400 €)
+# petrol Tom paid (280 €). Transfers received from Emma (200 €), Tom (400 €)
 # and Lucas (50 €), one sent to Tom (280 €), each recognised by its
 # counterparty; an internal transfer, which is no transfer with a person.
 Maggie\Core\Entity\User:
@@ -44,8 +44,8 @@ Maggie\Finance\Entity\Envelope:
     user: '@test_user'
 
 Maggie\Finance\Entity\Contact:
-  julie:
-    name: Julie
+  emma:
+    name: Emma
     user: '@test_user'
   tom:
     name: Tom
@@ -58,9 +58,9 @@ Maggie\Finance\Entity\Contact:
     user: '@other_user'
 
 Maggie\Finance\Entity\ContactCounterparty:
-  julie_label:
-    contact: '@julie'
-    label: VIR DE JULIE ROUX
+  emma_label:
+    contact: '@emma'
+    label: VIR DE EMMA ROUX
     user: '@test_user'
   tom_label:
     contact: '@tom'
@@ -72,12 +72,12 @@ Maggie\Finance\Entity\ContactCounterparty:
     user: '@test_user'
 
 Maggie\Finance\Entity\Transaction:
-  julie_in:
+  emma_in:
     account: '@checking'
     amountCents: 20000
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-07-08"))>'
-    label: VIR DE JULIE ROUX
+    label: VIR DE EMMA ROUX
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
     user: '@test_user'
@@ -144,9 +144,9 @@ Maggie\Finance\Entity\PeerDebt:
     user: '@other_user'
 
 Maggie\Finance\Entity\PeerDebtShare:
-  gite_julie:
+  gite_emma:
     peerDebt: '@gite_debt'
-    contact: '@julie'
+    contact: '@emma'
     amountCents: 20000
   gite_tom:
     peerDebt: '@gite_debt'

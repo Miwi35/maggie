@@ -159,7 +159,7 @@ class TransactionDebtApiTest extends WebTestCase
         self::assertSame($before['incomeCents'] - 28000, $this->julyFlows()['incomeCents']);
         self::assertSame($before['expenseCents'], $this->julyFlows()['expenseCents']);
 
-        // Julie's dette (100 € left) is in the fixtures: Tom's 280 € come on top.
+        // Emma's dette (100 € left) is in the fixtures: Tom's 280 € come on top.
         $this->call('GET', '/api/finance/peer-debts/summary');
         self::assertSame(28000 + 10000, $this->response()['iOweCents']);
     }
@@ -185,14 +185,14 @@ class TransactionDebtApiTest extends WebTestCase
         self::assertNotNull($first);
         $this->resetMercure();
 
-        $this->owe('tom_transfer', 30000, 'julie', ['object' => 'Avance']);
+        $this->owe('tom_transfer', 30000, 'emma', ['object' => 'Avance']);
 
         self::assertResponseStatusCodeSame(200);
         $debt = $this->debtOf('tom_transfer');
         self::assertNotNull($debt);
         self::assertTrue($first->getId()->equals($debt->getId()));
         self::assertCount(1, $this->em()->getRepository(PeerDebtShare::class)->findBy(['peerDebt' => $debt->getId()]));
-        self::assertSame(['Julie'], array_column($this->response()['peerDebt']['shares'], 'contactName'));
+        self::assertSame(['Emma'], array_column($this->response()['peerDebt']['shares'], 'contactName'));
         self::assertSame(30000, $debt->getAmountCents());
         self::assertSame('Avance', $debt->getObject());
         $this->assertMercureUpdatePublished((string) $debt->getId());
@@ -311,26 +311,26 @@ class TransactionDebtApiTest extends WebTestCase
     {
         $this->login();
 
-        // Julie got 50 € of her 150 € back.
-        $this->call('DELETE', '/api/finance/transactions/'.$this->id('julie_transfer').'/debt');
+        // Emma got 50 € of her 150 € back.
+        $this->call('DELETE', '/api/finance/transactions/'.$this->id('emma_transfer').'/debt');
         self::assertResponseStatusCodeSame(400);
 
-        $this->owe('julie_transfer', 4000, 'julie');
+        $this->owe('emma_transfer', 4000, 'emma');
         self::assertResponseStatusCodeSame(400);
 
-        $this->owe('julie_transfer', 15000, 'tom');
+        $this->owe('emma_transfer', 15000, 'tom');
         self::assertResponseStatusCodeSame(400);
 
-        $debt = $this->debtOf('julie_transfer');
+        $debt = $this->debtOf('emma_transfer');
         self::assertNotNull($debt);
         self::assertSame(15000, $debt->getAmountCents());
         self::assertSame(5000, $debt->getRepaidCents());
 
         // It may still grow.
-        $this->owe('julie_transfer', 18000, 'julie');
+        $this->owe('emma_transfer', 18000, 'emma');
         self::assertResponseStatusCodeSame(200);
-        self::assertSame(18000, $this->debtOf('julie_transfer')?->getAmountCents());
-        self::assertSame(5000, $this->debtOf('julie_transfer')?->getRepaidCents());
+        self::assertSame(18000, $this->debtOf('emma_transfer')?->getAmountCents());
+        self::assertSame(5000, $this->debtOf('emma_transfer')?->getRepaidCents());
     }
 
     // --- What the debt protects ------------------------------------------------
@@ -359,7 +359,7 @@ class TransactionDebtApiTest extends WebTestCase
         $this->login();
         $this->owe('tom_transfer', 28000);
         $debtId = (string) $this->debtOf('tom_transfer')?->getId();
-        $julieDebtId = (string) $this->debtOf('julie_transfer')?->getId();
+        $emmaDebtId = (string) $this->debtOf('emma_transfer')?->getId();
         $this->resetMercure();
         $this->resetAsyncTransport();
 
@@ -368,9 +368,9 @@ class TransactionDebtApiTest extends WebTestCase
         self::assertNull($this->em()->find(PeerDebt::class, $debtId));
         $this->assertMercureDeletePublished('/api/peer_debts/'.$debtId);
 
-        $this->call('DELETE', '/api/transactions/'.$this->id('julie_transfer'));
+        $this->call('DELETE', '/api/transactions/'.$this->id('emma_transfer'));
         self::assertResponseStatusCodeSame(204);
-        $kept = $this->em()->find(PeerDebt::class, $julieDebtId);
+        $kept = $this->em()->find(PeerDebt::class, $emmaDebtId);
         self::assertNotNull($kept);
         self::assertNull($kept->getOriginTransactionId());
         self::assertSame(10000, $kept->getRemainingCents());
@@ -392,10 +392,10 @@ class TransactionDebtApiTest extends WebTestCase
             'peerDebt' => null,
         ], $this->response());
 
-        $this->call('GET', '/api/finance/transactions/'.$this->id('julie_transfer').'/debt');
+        $this->call('GET', '/api/finance/transactions/'.$this->id('emma_transfer').'/debt');
         $body = $this->response();
         self::assertNull($body['suggestedContactId']);
-        self::assertSame('Avance de Julie', $body['peerDebt']['object']);
+        self::assertSame('Avance de Emma', $body['peerDebt']['object']);
         self::assertSame('i_owe', $body['peerDebt']['direction']);
         self::assertSame(10000, $body['peerDebt']['remainingCents']);
 

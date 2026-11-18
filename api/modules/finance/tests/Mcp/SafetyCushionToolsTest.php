@@ -306,9 +306,9 @@ class SafetyCushionToolsTest extends KernelTestCase
         $peerDebts = self::getContainer()->get(ManagePeerDebtsTool::class);
         $allocation = json_decode($peerDebts(
             'allocate',
-            transactionId: (string) $this->getFixture('julie_in')->getId(),
+            transactionId: (string) $this->getFixture('emma_in')->getId(),
             kind: 'repayment',
-            shareId: (string) $this->getFixture('gite_julie')->getId(),
+            shareId: (string) $this->getFixture('gite_emma')->getId(),
             amountCents: 20000,
         ), true, 512, JSON_THROW_ON_ERROR);
 

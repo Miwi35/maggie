@@ -8,14 +8,14 @@ use PHPUnit\Framework\TestCase;
 
 class IsConnectedAgendaRenamedTest extends TestCase
 {
-    private function connected(string $name = 'Ael'): Agenda
+    private function connected(string $name = 'Tom'): Agenda
     {
-        return (new Agenda())->setName($name)->setGoogleCalendarId('ael@group.calendar.google.com');
+        return (new Agenda())->setName($name)->setGoogleCalendarId('tom@group.calendar.google.com');
     }
 
     public function testRenamingAConnectedAgendaSatisfiesIt(): void
     {
-        $specification = new IsConnectedAgendaRenamed(['name' => ['Garde Ael', 'Ael']]);
+        $specification = new IsConnectedAgendaRenamed(['name' => ['Garde Tom', 'Tom']]);
 
         self::assertTrue($specification->isSatisfiedBy($this->connected()));
     }
@@ -29,26 +29,26 @@ class IsConnectedAgendaRenamedTest extends TestCase
 
     public function testANameThatCameFromGoogleIsNotSentBack(): void
     {
-        $agenda = $this->connected()->adoptGoogleName('Ael');
+        $agenda = $this->connected()->adoptGoogleName('Tom');
 
-        self::assertFalse((new IsConnectedAgendaRenamed(['name' => ['Garde Ael', 'Ael']]))->isSatisfiedBy($agenda));
+        self::assertFalse((new IsConnectedAgendaRenamed(['name' => ['Garde Tom', 'Tom']]))->isSatisfiedBy($agenda));
     }
 
     public function testAUserRenameAfterAGoogleOneIsSentAgain(): void
     {
-        $agenda = $this->connected()->adoptGoogleName('Garde Ael')->setName('Ael');
+        $agenda = $this->connected()->adoptGoogleName('Garde Tom')->setName('Tom');
 
-        self::assertTrue((new IsConnectedAgendaRenamed(['name' => ['Garde Ael', 'Ael']]))->isSatisfiedBy($agenda));
+        self::assertTrue((new IsConnectedAgendaRenamed(['name' => ['Garde Tom', 'Tom']]))->isSatisfiedBy($agenda));
     }
 
     public function testACreationIsNotARename(): void
     {
-        self::assertFalse((new IsConnectedAgendaRenamed(['name' => [null, 'Ael']]))->isSatisfiedBy($this->connected()));
+        self::assertFalse((new IsConnectedAgendaRenamed(['name' => [null, 'Tom']]))->isSatisfiedBy($this->connected()));
     }
 
     public function testASaveThatLeavesTheNameAloneIsNotARename(): void
     {
-        self::assertFalse((new IsConnectedAgendaRenamed(['name' => ['Ael', 'Ael']]))->isSatisfiedBy($this->connected()));
+        self::assertFalse((new IsConnectedAgendaRenamed(['name' => ['Tom', 'Tom']]))->isSatisfiedBy($this->connected()));
         self::assertFalse((new IsConnectedAgendaRenamed(['color' => ['#fff', '#000']]))->isSatisfiedBy($this->connected()));
         self::assertFalse((new IsConnectedAgendaRenamed([]))->isSatisfiedBy($this->connected()));
     }

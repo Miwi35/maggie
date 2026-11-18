@@ -145,7 +145,7 @@ class TransactionAllocationApiTest extends WebTestCase
     public function testTheAllocationRequiresAuthentication(): void
     {
         $this->loadFixtures('peer_allocations.yaml');
-        $uri = '/api/finance/transactions/'.$this->id('julie_in').'/allocation';
+        $uri = '/api/finance/transactions/'.$this->id('emma_in').'/allocation';
 
         $this->call('GET', $uri, authenticated: false);
         self::assertResponseStatusCodeSame(401);
@@ -157,31 +157,31 @@ class TransactionAllocationApiTest extends WebTestCase
 
     // --- Acceptance criteria ---------------------------------------------------
 
-    public function testJulieRepaysHerShareOfTheGite(): void
+    public function testEmmaRepaysHerShareOfTheGite(): void
     {
         $this->login();
         $owedBefore = $this->owedToMe();
         $incomeBefore = $this->julyFlows()['incomeCents'];
 
-        $this->repay('julie_in', ['gite_julie' => 20000]);
+        $this->repay('emma_in', ['gite_emma' => 20000]);
 
         self::assertResponseIsSuccessful();
-        $this->assertMercureUpdatePublished('/transactions/'.$this->id('julie_in'));
+        $this->assertMercureUpdatePublished('/transactions/'.$this->id('emma_in'));
         $this->assertMercureUpdatePublished('/peer_debts/'.$this->id('gite_debt'));
-        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('julie_in'));
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('emma_in'));
         $this->assertElasticsearchIndexDispatchedFor(PeerDebt::class, $this->id('gite_debt'));
         $body = $this->response();
         self::assertSame('repayment', $body['peerKind']);
         self::assertSame(20000, $body['allocatedCents']);
         self::assertSame(0, $body['unallocatedCents']);
-        self::assertSame([['shareId' => $this->id('gite_julie'), 'peerDebtId' => $this->id('gite_debt'), 'amountCents' => 20000]], $body['allocations']);
+        self::assertSame([['shareId' => $this->id('gite_emma'), 'peerDebtId' => $this->id('gite_debt'), 'amountCents' => 20000]], $body['allocations']);
 
-        $share = $this->share('gite_julie');
+        $share = $this->share('gite_emma');
         self::assertSame(20000, $share->getRepaidCents());
         self::assertSame(0, $share->getRemainingCents());
         // Tom still owes his 200 €: the gîte stays open.
         self::assertSame('open', $share->getPeerDebt()->getStatus()->value);
-        $transaction = $this->transaction('julie_in');
+        $transaction = $this->transaction('emma_in');
         self::assertSame('repayment', $transaction->getPeerKind()?->value);
         self::assertSame(20000, $transaction->getPeerAllocatedCents());
         $allocations = $this->em()->getRepository(PeerDebtAllocation::class)->findBy(['transaction' => $transaction->getId()]);
@@ -352,18 +352,18 @@ class TransactionAllocationApiTest extends WebTestCase
     public function testRemovingTheAllocationPutsTheDebtBack(): void
     {
         $this->login();
-        $this->repay('julie_in', ['gite_julie' => 20000]);
+        $this->repay('emma_in', ['gite_emma' => 20000]);
         $this->resetMercure();
 
-        $this->call('DELETE', '/api/finance/transactions/'.$this->id('julie_in').'/allocation');
+        $this->call('DELETE', '/api/finance/transactions/'.$this->id('emma_in').'/allocation');
 
         self::assertResponseIsSuccessful();
         self::assertNull($this->response()['peerKind']);
-        self::assertSame(0, $this->share('gite_julie')->getRepaidCents());
-        self::assertSame(0, $this->transaction('julie_in')->getPeerAllocatedCents());
-        self::assertNull($this->transaction('julie_in')->getPeerKind());
+        self::assertSame(0, $this->share('gite_emma')->getRepaidCents());
+        self::assertSame(0, $this->transaction('emma_in')->getPeerAllocatedCents());
+        self::assertNull($this->transaction('emma_in')->getPeerKind());
         self::assertCount(0, $this->em()->getRepository(PeerDebtAllocation::class)->findAll());
-        $this->assertMercureUpdatePublished('/transactions/'.$this->id('julie_in'));
+        $this->assertMercureUpdatePublished('/transactions/'.$this->id('emma_in'));
         $this->assertMercureUpdatePublished('/peer_debts/'.$this->id('gite_debt'));
     }
 
@@ -479,7 +479,7 @@ class TransactionAllocationApiTest extends WebTestCase
         self::assertSame(5000, $body['unallocatedCents']);
         // Lucas's Hellfest first, then every other open créance; never a dette nor another user's.
         self::assertSame(
-            [$this->id('hellfest_lucas'), $this->id('gite_julie'), $this->id('gite_tom'), $this->id('birthday_tom')],
+            [$this->id('hellfest_lucas'), $this->id('gite_emma'), $this->id('gite_tom'), $this->id('birthday_tom')],
             array_column($body['candidates'], 'shareId'),
         );
         self::assertSame([true, false, false, false], array_column($body['candidates'], 'fromContact'));
@@ -490,25 +490,25 @@ class TransactionAllocationApiTest extends WebTestCase
     public function testASettledShareStaysAmongTheCandidatesOfTheTransferThatSettledIt(): void
     {
         $this->login();
-        $this->repay('julie_in', ['gite_julie' => 20000]);
+        $this->repay('emma_in', ['gite_emma' => 20000]);
 
-        $this->call('GET', '/api/finance/transactions/'.$this->id('julie_in').'/allocation');
+        $this->call('GET', '/api/finance/transactions/'.$this->id('emma_in').'/allocation');
         $byShare = array_column($this->response()['candidates'], null, 'shareId');
-        self::assertSame(0, $byShare[$this->id('gite_julie')]['remainingCents']);
-        self::assertSame(20000, $byShare[$this->id('gite_julie')]['allocatedCents']);
-        self::assertSame(20000, $byShare[$this->id('gite_julie')]['availableCents']);
+        self::assertSame(0, $byShare[$this->id('gite_emma')]['remainingCents']);
+        self::assertSame(20000, $byShare[$this->id('gite_emma')]['allocatedCents']);
+        self::assertSame(20000, $byShare[$this->id('gite_emma')]['availableCents']);
 
         // Another transfer no longer sees it.
         $this->call('GET', '/api/finance/transactions/'.$this->id('tom_in').'/allocation');
-        self::assertNotContains($this->id('gite_julie'), array_column($this->response()['candidates'], 'shareId'));
+        self::assertNotContains($this->id('gite_emma'), array_column($this->response()['candidates'], 'shareId'));
     }
 
     public function testThePeerKindIsReadWithTheTransaction(): void
     {
         $this->login();
-        $this->repay('julie_in', ['gite_julie' => 20000]);
+        $this->repay('emma_in', ['gite_emma' => 20000]);
 
-        $this->call('GET', '/api/transactions/'.$this->id('julie_in'));
+        $this->call('GET', '/api/transactions/'.$this->id('emma_in'));
 
         self::assertResponseIsSuccessful();
         self::assertSame('repayment', $this->response()['peerKind']);

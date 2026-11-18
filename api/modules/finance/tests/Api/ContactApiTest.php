@@ -102,7 +102,7 @@ class ContactApiTest extends WebTestCase
     {
         $this->loadFixtures('contacts.yaml');
 
-        $this->call('POST', '/api/contacts', ['name' => 'Julie'], authenticated: false);
+        $this->call('POST', '/api/contacts', ['name' => 'Emma'], authenticated: false);
 
         self::assertResponseStatusCodeSame(401);
     }
@@ -111,15 +111,15 @@ class ContactApiTest extends WebTestCase
     {
         $this->login();
 
-        $this->call('POST', '/api/contacts', ['name' => '  Julie ', 'notes' => 'Collègue']);
+        $this->call('POST', '/api/contacts', ['name' => '  Emma ', 'notes' => 'Collègue']);
 
         self::assertResponseStatusCodeSame(201);
-        self::assertSame('Julie', $this->response()['name']);
+        self::assertSame('Emma', $this->response()['name']);
 
-        $julie = $this->em()->getRepository(Contact::class)->findOneBy(['name' => 'Julie']);
-        self::assertNotNull($julie);
-        self::assertSame('Collègue', $julie->getNotes());
-        self::assertTrue($julie->getUser()->getId()->equals($this->getFixture('test_user')->getId()));
+        $emma = $this->em()->getRepository(Contact::class)->findOneBy(['name' => 'Emma']);
+        self::assertNotNull($emma);
+        self::assertSame('Collègue', $emma->getNotes());
+        self::assertTrue($emma->getUser()->getId()->equals($this->getFixture('test_user')->getId()));
 
         $this->assertMercureUpdatePublished('/contacts/');
         $this->assertElasticsearchIndexDispatched(Contact::class);
@@ -357,10 +357,10 @@ class ContactApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(200);
         $byId = array_column($this->response()['transactions'], null, 'id');
 
-        $julie = $byId[$this->id('julie_1')];
-        self::assertTrue($julie['asksForContact']);
-        self::assertNull($julie['contact']);
-        self::assertSame('VIR INST DE JULIE DURAND', $julie['counterpartyLabel']);
+        $emma = $byId[$this->id('emma_1')];
+        self::assertTrue($emma['asksForContact']);
+        self::assertNull($emma['contact']);
+        self::assertSame('VIR INST DE EMMA DURAND', $emma['counterpartyLabel']);
 
         self::assertSame('VIR. DE TOM MARTIN', $byId[$this->id('tom_4')]['counterpartyLabel']);
 
@@ -372,19 +372,19 @@ class ContactApiTest extends WebTestCase
         self::assertArrayNotHasKey($this->id('internal_tom'), $byId);
     }
 
-    /** Acceptance: from « À trier », « + Créer « Julie » » creates Julie and attaches the transfer. */
+    /** Acceptance: from « À trier », « + Créer « Emma » » creates Emma and attaches the transfer. */
     public function testCreatingAContactFromTheToSortPileAttachesTheTransfer(): void
     {
         $this->login();
 
-        $this->call('POST', '/api/contacts', ['name' => 'Julie']);
+        $this->call('POST', '/api/contacts', ['name' => 'Emma']);
         self::assertResponseStatusCodeSame(201);
-        $julieIri = $this->response()['@id'];
+        $emmaIri = $this->response()['@id'];
 
-        $this->call('POST', '/api/contact_counterparties', ['contact' => $julieIri, 'label' => 'VIR INST DE JULIE DURAND']);
+        $this->call('POST', '/api/contact_counterparties', ['contact' => $emmaIri, 'label' => 'VIR INST DE EMMA DURAND']);
         self::assertResponseStatusCodeSame(201);
 
-        $julie = $this->em()->getRepository(Contact::class)->findOneBy(['name' => 'Julie']);
-        self::assertSame((string) $julie?->getId(), $this->contactOf('julie_1'));
+        $emma = $this->em()->getRepository(Contact::class)->findOneBy(['name' => 'Emma']);
+        self::assertSame((string) $emma?->getId(), $this->contactOf('emma_1'));
     }
 }

@@ -258,7 +258,7 @@ class ReplanTripsTest extends KernelTestCase
 
     public function testChangingOnlyTheTitleOrTheDescriptionFilesNothing(): void
     {
-        $this->update('dentist', summary: 'Dentiste d\'Ael');
+        $this->update('dentist', summary: 'Dentiste d\'Tom');
         $this->update('dentist', description: 'Détartrage');
 
         self::assertSame([], $this->replans());

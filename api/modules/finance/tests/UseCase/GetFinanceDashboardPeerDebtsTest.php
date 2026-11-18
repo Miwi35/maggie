@@ -34,7 +34,7 @@ class GetFinanceDashboardPeerDebtsTest extends KernelTestCase
     {
         $todo = $this->todo('test_user');
 
-        // The gîte 350 € still to come (Julie gave 50 € back), the petrol 280 €; the settled lunch is out.
+        // The gîte 350 € still to come (Emma gave 50 € back), the petrol 280 €; the settled lunch is out.
         self::assertSame(35000, $todo['owedToMeCents']);
         self::assertSame(28000, $todo['iOweCents']);
     }

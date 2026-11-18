@@ -70,19 +70,19 @@ class EventReadFiltersToolsTest extends KernelTestCase
 
         $data = $this->upcoming(7);
 
-        self::assertSame(['Dentiste', 'Récupérer Ael à l\'école', 'Squash'], $this->summaries($data));
+        self::assertSame(['Dentiste', 'Récupérer Tom à l\'école', 'Squash'], $this->summaries($data));
     }
 
     public function testUpcomingOnlyReturnsTheNamedAgendas(): void
     {
         $this->loginFixtureUser();
 
-        $data = $this->upcoming(7, ['défaut', 'garde ael']);
+        $data = $this->upcoming(7, ['défaut', 'garde tom']);
 
-        self::assertSame(['Dentiste', 'Récupérer Ael à l\'école'], $this->summaries($data));
+        self::assertSame(['Dentiste', 'Récupérer Tom à l\'école'], $this->summaries($data));
         self::assertSame(2, $data['count']);
         foreach ($data['events'] as $event) {
-            self::assertContains($event['agenda'], ['Défaut', 'Garde Ael']);
+            self::assertContains($event['agenda'], ['Défaut', 'Garde Tom']);
         }
     }
 
@@ -100,11 +100,11 @@ class EventReadFiltersToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $data = $this->upcoming(7, ['Défaut', 'Garde Aël et Cie']);
+        $data = $this->upcoming(7, ['Défaut', 'Garde Tom et Cie']);
 
         self::assertArrayNotHasKey('events', $data);
-        self::assertStringContainsString('Garde Aël et Cie', $data['error']);
-        foreach (['Défaut', 'Garde Ael', 'Sport'] as $name) {
+        self::assertStringContainsString('Garde Tom et Cie', $data['error']);
+        foreach (['Défaut', 'Garde Tom', 'Sport'] as $name) {
             self::assertStringContainsString($name, $data['error']);
         }
         self::assertStringNotContainsString('Agenda secret du voisin', $data['error']);
@@ -138,7 +138,7 @@ class EventReadFiltersToolsTest extends KernelTestCase
 
         self::assertArrayNotHasKey('events', $data);
         self::assertStringContainsString('Sports', $data['error']);
-        self::assertStringContainsString('Garde Ael', $data['error']);
+        self::assertStringContainsString('Garde Tom', $data['error']);
     }
 
     public function testASeriesStartingBeyondTheWindowIsFoundByItsTitle(): void
@@ -168,10 +168,10 @@ class EventReadFiltersToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        foreach (['PIANO', 'piano du jeudi', 'pianno', 'récupérer ael', 'squash'] as $query) {
+        foreach (['PIANO', 'piano du jeudi', 'pianno', 'récupérer tom', 'squash'] as $query) {
             self::assertNotSame(0, $this->upcoming(null, null, $query)['count'], $query);
         }
-        self::assertSame(['Récupérer Ael à l\'école'], $this->summaries($this->upcoming(null, null, 'recuperer ael ecole')));
+        self::assertSame(['Récupérer Tom à l\'école'], $this->summaries($this->upcoming(null, null, 'recuperer tom ecole')));
     }
 
     public function testALigatureInTheTitleIsFoundWithoutIt(): void
@@ -235,7 +235,7 @@ class EventReadFiltersToolsTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        self::assertSame(['Piano'], $this->summaries($this->upcoming(null, ['Garde Ael'], 'piano')));
+        self::assertSame(['Piano'], $this->summaries($this->upcoming(null, ['Garde Tom'], 'piano')));
         self::assertSame(0, $this->upcoming(null, ['Défaut'], 'piano')['count']);
     }
 

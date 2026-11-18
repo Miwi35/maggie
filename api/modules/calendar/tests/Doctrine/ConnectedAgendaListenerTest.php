@@ -90,11 +90,11 @@ class ConnectedAgendaListenerTest extends KernelTestCase
     public function testRenamingAConnectedAgendaSendsTheEventOnceTheNameIsStored(): void
     {
         $agenda = $this->agenda('connected_agenda');
-        $agenda->setName('Ael');
+        $agenda->setName('Tom');
         $this->em()->flush();
 
-        self::assertEquals([new ConnectedAgendaRenamed((string) $agenda->getId(), 'Garde Ael')], $this->dispatched);
-        self::assertSame(['Ael'], $this->storedNameWhenSent);
+        self::assertEquals([new ConnectedAgendaRenamed((string) $agenda->getId(), 'Garde Tom')], $this->dispatched);
+        self::assertSame(['Tom'], $this->storedNameWhenSent);
         self::assertSame([false], $this->transactionOpenWhenSent, 'the event goes out after the flush is committed');
     }
 
@@ -124,7 +124,7 @@ class ConnectedAgendaListenerTest extends KernelTestCase
 
     public function testChangesOfAFlushThatFailedAreNotSentWithTheNextFlush(): void
     {
-        $this->agenda('connected_agenda')->setName('Ael');
+        $this->agenda('connected_agenda')->setName('Tom');
         $manager = $this->em()->getEventManager();
         $boom = new class {
             public function onFlush(): void
@@ -160,11 +160,11 @@ class ConnectedAgendaListenerTest extends KernelTestCase
             }, new NullLogger()),
         );
 
-        $this->agenda('connected_agenda')->setName('Ael');
+        $this->agenda('connected_agenda')->setName('Tom');
         $this->em()->flush();
 
         $this->em()->clear();
-        self::assertSame('Ael', $this->agenda('connected_agenda')->getName());
+        self::assertSame('Tom', $this->agenda('connected_agenda')->getName());
         self::assertCount(1, $this->dispatched, 'the other listener still got its event');
     }
 }

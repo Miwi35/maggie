@@ -9,8 +9,8 @@ Maggie\Core\Entity\User:
 
 Maggie\Calendar\Entity\Agenda:
   connected_agenda:
-    name: Garde Ael
-    googleCalendarId: garde-ael@group.calendar.google.com
+    name: Garde Tom
+    googleCalendarId: garde-tom@group.calendar.google.com
     user: '@test_user'
   local_agenda:
     name: Perso

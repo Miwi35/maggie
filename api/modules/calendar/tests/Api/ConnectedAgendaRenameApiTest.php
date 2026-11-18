@@ -66,11 +66,11 @@ class ConnectedAgendaRenameApiTest extends WebTestCase
     {
         $this->stubGoogle(refuses: false);
 
-        $this->rename('connected_agenda', 'Ael');
+        $this->rename('connected_agenda', 'Tom');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['Ael'], $this->sentNames);
-        self::assertSame('Ael', $this->storedName('connected_agenda'));
+        self::assertSame(['Tom'], $this->sentNames);
+        self::assertSame('Tom', $this->storedName('connected_agenda'));
         $this->assertMercureUpdatePublished('/agendas/');
         $this->assertElasticsearchIndexDispatched(Agenda::class);
     }
@@ -79,16 +79,16 @@ class ConnectedAgendaRenameApiTest extends WebTestCase
     {
         $this->stubGoogle(refuses: true);
 
-        $this->rename('connected_agenda', 'Ael');
+        $this->rename('connected_agenda', 'Tom');
 
         self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString('could not be renamed in Google', (string) $this->client->getResponse()->getContent());
-        self::assertSame('Garde Ael', $this->storedName('connected_agenda'));
+        self::assertSame('Garde Tom', $this->storedName('connected_agenda'));
         // What the other screens read is the reverted name, not the one that was refused.
         $this->assertMercureUpdatePublished('/agendas/');
         $this->assertElasticsearchIndexDispatched(Agenda::class);
         $published = $this->mercurePayloadsOn('/api/agendas/'.$this->getFixture('connected_agenda')->getId());
-        self::assertSame('Garde Ael', end($published)['name'] ?? null);
+        self::assertSame('Garde Tom', end($published)['name'] ?? null);
     }
 
     public function testRenamingAnAgendaNotConnectedToGoogleNeedsNoGoogle(): void

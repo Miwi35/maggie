@@ -1,5 +1,5 @@
 # My part of a shared spend (MAG-451), shared by the API and MCP suites: a gîte
-# of 800 € filed under Voyages, whose July envelope is 300 €; Julie, Tom and
+# of 800 € filed under Voyages, whose July envelope is 300 €; Emma, Tom and
 # Inès to share it with; an income and an internal transfer, which cannot be
 # shared; a dinner whose créance Tom already started to give back.
 Maggie\Core\Entity\User:
@@ -38,8 +38,8 @@ Maggie\Finance\Entity\Envelope:
     user: '@test_user'
 
 Maggie\Finance\Entity\Contact:
-  julie:
-    name: Julie
+  emma:
+    name: Emma
     user: '@test_user'
   tom:
     name: Tom

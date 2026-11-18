@@ -363,7 +363,7 @@ class DetectInternalTransfersTest extends KernelTestCase
     {
         // The dry run of 13 Oct. found exactly this pair in production (MAG-441).
         $card = $this->add('checking', -2500, '2026-07-13', 'PAIEMENT PAR CARTE X9633 LE CACTUS RENNES');
-        $refund = $this->add('savings', 2500, '2026-07-16', 'MLE JULIE RAYNAUD', counterparty: 'MLE JULIE RAYNAUD');
+        $refund = $this->add('savings', 2500, '2026-07-16', 'MLE EMMA RAYNAUD', counterparty: 'MLE EMMA RAYNAUD');
 
         $report = $this->detect->execute($this->user(), null, true);
 
@@ -428,7 +428,7 @@ class DetectInternalTransfersTest extends KernelTestCase
     public function testACreditFromAThirdPartyIsNotInternal(): void
     {
         $debit = $this->add('checking', -6000, '2026-08-10', 'Virement vers Livret');
-        $credit = $this->add('savings', 6000, '2026-08-11', 'VIR SEPA JULIE RAYNAUD', counterparty: 'Julie Raynaud');
+        $credit = $this->add('savings', 6000, '2026-08-11', 'VIR SEPA EMMA RAYNAUD', counterparty: 'Emma Raynaud');
 
         $this->detect->execute($this->user());
 
@@ -468,7 +468,7 @@ class DetectInternalTransfersTest extends KernelTestCase
     public function testAThirdPartyCreditDoesNotStealTheRealLegOfATransfer(): void
     {
         $debit = $this->add('savings', -6000, '2026-08-10', 'Virement vers Courant');
-        $friend = $this->add('checking', 6000, '2026-08-10', 'VIR SEPA JULIE RAYNAUD', counterparty: 'Julie Raynaud');
+        $friend = $this->add('checking', 6000, '2026-08-10', 'VIR SEPA EMMA RAYNAUD', counterparty: 'Emma Raynaud');
         $own = $this->add('checking', 6000, '2026-08-12', 'Virement du Livret');
 
         $this->detect->execute($this->user());

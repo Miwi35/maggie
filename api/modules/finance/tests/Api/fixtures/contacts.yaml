@@ -127,12 +127,12 @@ Maggie\Finance\Entity\Transaction:
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
     user: '@test_user'
-  julie_1:
+  emma_1:
     account: '@checking'
     amountCents: 40000
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-09-15"))>'
-    label: VIR INST DE JULIE DURAND
+    label: VIR INST DE EMMA DURAND
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
     user: '@test_user'

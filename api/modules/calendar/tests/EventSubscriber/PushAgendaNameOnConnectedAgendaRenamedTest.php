@@ -25,8 +25,8 @@ class PushAgendaNameOnConnectedAgendaRenamedTest extends TestCase
             }
         };
 
-        (new PushAgendaNameOnConnectedAgendaRenamed($bus))(new ConnectedAgendaRenamed('01J0AGENDA', 'Garde Ael'));
+        (new PushAgendaNameOnConnectedAgendaRenamed($bus))(new ConnectedAgendaRenamed('01J0AGENDA', 'Garde Tom'));
 
-        self::assertEquals([new PushAgendaNameToGoogleCommand('01J0AGENDA', 'Garde Ael')], $bus->sent);
+        self::assertEquals([new PushAgendaNameToGoogleCommand('01J0AGENDA', 'Garde Tom')], $bus->sent);
     }
 }

@@ -66,7 +66,7 @@ class GetCushionStatusPeerClaimsTest extends KernelTestCase
 
     public function testEachRepaymentFillsTheCushionBackUp(): void
     {
-        $this->repay('gite_julie', 20000);
+        $this->repay('gite_emma', 20000);
 
         $status = $this->cushionStatus();
 
@@ -86,7 +86,7 @@ class GetCushionStatusPeerClaimsTest extends KernelTestCase
 
     public function testWithoutAnyClaimTheCushionIsTheAccountsAlone(): void
     {
-        foreach (['gite_julie' => 20000, 'gite_tom' => 20000, 'birthday_tom' => 4500, 'hellfest_lucas' => 9000] as $share => $cents) {
+        foreach (['gite_emma' => 20000, 'gite_tom' => 20000, 'birthday_tom' => 4500, 'hellfest_lucas' => 9000] as $share => $cents) {
             $this->em->find(PeerDebtShare::class, $this->getFixture($share)->getId())->setRepaidCents($cents);
         }
         $this->em->flush();
@@ -111,7 +111,7 @@ class GetCushionStatusPeerClaimsTest extends KernelTestCase
         self::assertSame('building', $status['state']);
         self::assertTrue($status['blocksGreenScore']);
 
-        $this->repay('gite_julie', 20000);
+        $this->repay('gite_emma', 20000);
         $this->repay('gite_tom', 20000);
 
         $status = $this->cushionStatus();

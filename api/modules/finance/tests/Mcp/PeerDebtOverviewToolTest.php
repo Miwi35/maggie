@@ -40,7 +40,7 @@ class PeerDebtOverviewToolTest extends KernelTestCase
         self::assertSame(35000, $summary['owedToMeCents']);
         self::assertSame(28000, $summary['iOweCents']);
         self::assertSame(
-            [['Julie', 15000, false], ['Tom', -8000, true]],
+            [['Emma', 15000, false], ['Tom', -8000, true]],
             array_map(static fn (array $person): array => [$person['name'], $person['netCents'], $person['compensates']], $summary['byContact']),
         );
     }
@@ -50,8 +50,8 @@ class PeerDebtOverviewToolTest extends KernelTestCase
         self::assertSame(['Essence du road trip'], array_column($this->call('list', direction: 'i_owe')['peerDebts'], 'object'));
         self::assertSame(['Gîte de Crozon'], array_column($this->call('list', direction: 'owed_to_me', status: 'open')['peerDebts'], 'object'));
 
-        $gite = $this->call('list', contactId: $this->id('julie'))['peerDebts'][0];
-        self::assertSame([['VIR DE JULIE ROUX', 5000, 'Julie']], array_map(
+        $gite = $this->call('list', contactId: $this->id('emma'))['peerDebts'][0];
+        self::assertSame([['VIR DE EMMA ROUX', 5000, 'Emma']], array_map(
             static fn (array $entry): array => [$entry['label'], $entry['amountCents'], $entry['contactName']],
             $gite['history'],
         ));

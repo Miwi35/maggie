@@ -52,8 +52,8 @@ class MerchantExtractorTest extends TestCase
             'M. BALZANO VINCENT',
         ];
         yield 'transfer out' => [
-            'VIREMENT EMIS WEB LAURE ASSELIN',
-            'LAURE ASSELIN',
+            'VIREMENT EMIS WEB SOPHIE MARTIN',
+            'SOPHIE MARTIN',
         ];
         yield 'rejected debit' => [
             'REJET PRLV EURO-ASSURANCE',

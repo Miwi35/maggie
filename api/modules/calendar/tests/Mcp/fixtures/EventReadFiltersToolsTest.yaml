@@ -14,7 +14,7 @@ Maggie\Calendar\Entity\Agenda:
     isDefault: true
     user: '@test_user'
   garde_agenda:
-    name: Garde Ael
+    name: Garde Tom
     user: '@test_user'
   sport_agenda:
     name: Sport
@@ -35,7 +35,7 @@ Maggie\Calendar\Entity\Event:
     timeZone: Europe/Paris
     agenda: '@default_agenda'
   garde_event:
-    summary: Récupérer Ael à l'école
+    summary: Récupérer Tom à l'école
     startAt: '<(new \DateTimeImmutable("tomorrow 16:30", new \DateTimeZone("Europe/Paris")))>'
     endAt: '<(new \DateTimeImmutable("tomorrow 17:00", new \DateTimeZone("Europe/Paris")))>'
     timeZone: Europe/Paris

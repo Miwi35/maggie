@@ -84,7 +84,7 @@ class ProactionEventApiTest extends WebTestCase
         $members = $this->collection('?order[startAt]=asc')['member'];
 
         self::assertCount(2, $members);
-        self::assertSame(['Rappelle de déposer Ael à l\'école', 'Prépare le résumé de la semaine'], array_column($members, 'prompt'));
+        self::assertSame(['Rappelle de déposer Tom à l\'école', 'Prépare le résumé de la semaine'], array_column($members, 'prompt'));
         self::assertSame(['pending', 'failed'], array_column($members, 'executionStatus'));
         self::assertSame('Le modèle ne répond pas', $members[1]['error']);
         self::assertEquals(new \DateTimeImmutable('2037-01-15T08:35:00+01:00'), new \DateTimeImmutable($members[0]['endAt']));
@@ -150,7 +150,7 @@ class ProactionEventApiTest extends WebTestCase
         self::assertEquals(new \DateTimeImmutable('2037-01-15T09:15:00+01:00'), $proaction->getStartAt());
         self::assertEquals(new \DateTimeImmutable('2037-01-15T09:20:00+01:00'), $proaction->getEndAt());
         self::assertSame('agent', $proaction->getAgenda()->getModule());
-        self::assertSame('Rappelle de déposer Ael à l\'école', $proaction->getPrompt());
+        self::assertSame('Rappelle de déposer Tom à l\'école', $proaction->getPrompt());
         $this->assertMercureUpdatePublished('/proactions/');
         $this->assertElasticsearchIndexDispatched(Proaction::class);
     }

@@ -116,7 +116,7 @@ class DetectRejectionsTest extends KernelTestCase
         self::assertSame(3, $report['matched']);
         $this->assertRejectedPair($this->tx('edf_debit'), $this->tx('edf_rejection'));
         $this->assertRejectedPair($this->tx('assurance_debit'), $this->tx('assurance_rejection'));
-        $this->assertRejectedPair($this->tx('ael_debit'), $this->tx('ael_rejection'));
+        $this->assertRejectedPair($this->tx('tom_debit'), $this->tx('tom_rejection'));
 
         // The internal-transfer pass that follows leaves them alone.
         self::getContainer()->get(DetectInternalTransfers::class)->execute($this->user());
