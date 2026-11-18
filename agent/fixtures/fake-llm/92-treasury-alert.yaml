@@ -1,7 +1,7 @@
 # The daily treasury alert (MAG-281): `app:finance:treasury-alerts` files a
 # proaction whose prompt opens with « Alerte trésorerie » when the salary is late
 # and an overdraft is forecast within a week. Maggie reads the outlook again
-# through `get_treasury_outlook` (the prompt tells her to), then proposes the
+# through `get_treasury_outlook` (the facts cite it), then proposes the
 # advance — and only proposes: the transfer is the user's, never said done.
 #
 # The fake does not read the result: the journey asserts the tool ran and that the
