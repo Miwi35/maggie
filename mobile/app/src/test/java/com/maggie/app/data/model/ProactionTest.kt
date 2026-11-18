@@ -18,7 +18,7 @@ class ProactionTest {
             {"@id":"/api/proactions/01PRO","@type":"Proaction","id":"01PRO","summary":"Rappel école",
              "startAt":"2037-01-15T08:30:00+01:00","endAt":"2037-01-15T08:35:00+01:00",
              "agenda":"/api/agendas/01AGENDA","timeZone":"Europe/Paris","status":"confirmed",
-             "prompt":"Rappelle de déposer Ael à l'école","executionStatus":"failed",
+             "prompt":"Rappelle de déposer Tom à l'école","executionStatus":"failed",
              "response":null,"error":"Le modèle ne répond pas","completedAt":"2037-01-15T08:31:00+01:00"}
             """.trimIndent(),
         )

@@ -43,7 +43,7 @@ class ProactionViewModelTest {
         id = "01A",
         summary = "Rappel école",
         startAt = "2037-01-15T08:30:00+01:00",
-        prompt = "Rappelle de déposer Ael à l'école",
+        prompt = "Rappelle de déposer Tom à l'école",
     )
     private val second = Proaction(
         id = "01B",

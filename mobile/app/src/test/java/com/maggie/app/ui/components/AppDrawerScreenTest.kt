@@ -93,7 +93,7 @@ class AppDrawerScreenTest {
         compose.onAllNodes(textMatching(".*\\d+ (sur|à trier|articles?).*")).assertCountEquals(0)
     }
 
-    /** `charte/Tiroir`: « 3 sur 5 aujourd'hui », « 16:30 · Récupérer Ael », « Ce soir · … », and the pills. */
+    /** `charte/Tiroir`: « 3 sur 5 aujourd'hui », « 16:30 · Récupérer Tom », « Ce soir · … », and the pills. */
     @Test
     fun `the state line and the counter of a module are drawn under its name`() {
         compose.setContent {
@@ -105,7 +105,7 @@ class AppDrawerScreenTest {
                 summary = DrawerSummary(
                     mapOf(
                         "tasks" to DrawerEntryStatus("3 sur 5 aujourd'hui", count = 2),
-                        "calendar" to DrawerEntryStatus("16:30 · Récupérer Ael"),
+                        "calendar" to DrawerEntryStatus("16:30 · Récupérer Tom"),
                         "finance_dashboard" to DrawerEntryStatus("4 à trier", count = 4),
                     ),
                 ),
@@ -113,7 +113,7 @@ class AppDrawerScreenTest {
         }
 
         compose.onNodeWithText("3 sur 5 aujourd'hui").assertIsDisplayed()
-        compose.onNodeWithText("16:30 · Récupérer Ael").assertIsDisplayed()
+        compose.onNodeWithText("16:30 · Récupérer Tom").assertIsDisplayed()
         compose.onNodeWithText("2").assertIsDisplayed()
         compose.onNodeWithText("4").assertIsDisplayed()
     }

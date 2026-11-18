@@ -25,7 +25,7 @@ class PeerDebtTest {
                 createdAt = "2026-10-10T09:00:00+00:00",
                 shares = listOf(
                     PeerDebtShare("s-1", "c-tom", "Tom", amountCents = 20000, remainingCents = 20000),
-                    PeerDebtShare("s-2", "c-julie", "Julie", amountCents = 20000, remainingCents = 0),
+                    PeerDebtShare("s-2", "c-emma", "Emma", amountCents = 20000, remainingCents = 0),
                 ),
             ),
             PeerDebt(id = "d-2", `object` = "", status = "settled", shares = listOf(PeerDebtShare("s-3", "c-tom", "Tom", remainingCents = 500))),
@@ -36,7 +36,7 @@ class PeerDebtTest {
             listOf(ContactDebt("d-1", "Gîte", "2026-10-03", 20000), ContactDebt("d-3", "Dépense partagée", "2026-09-01", 500)),
             openDebtsOf(debts, "c-tom"),
         )
-        assertEquals(emptyList<ContactDebt>(), openDebtsOf(debts, "c-julie"))
+        assertEquals(emptyList<ContactDebt>(), openDebtsOf(debts, "c-emma"))
     }
 
     /** MAG-452: a dette (the owner owes) is listed on the person's page too, worded the other way round. */
@@ -124,7 +124,7 @@ class PeerDebtTest {
                 `object` = "Gîte",
                 history = listOf(
                     PeerDebtHistoryEntry("t-1", "2026-10-15", "VIR DE TOM", 10000, "c-tom", "Tom"),
-                    PeerDebtHistoryEntry("t-2", "2026-10-18", "VIR DE JULIE", 7000, "c-julie", "Julie"),
+                    PeerDebtHistoryEntry("t-2", "2026-10-18", "VIR DE EMMA", 7000, "c-emma", "Emma"),
                 ),
             ),
             PeerDebt(

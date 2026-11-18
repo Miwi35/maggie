@@ -70,12 +70,12 @@ class MessageBubbleScreenTest {
         val decision = ChatMessage(
             id = "d-1",
             role = "decision",
-            content = "Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »",
+            content = "Vous avez répondu : Autoriser — supprimer la série « Psychomot Tom »",
         )
 
         compose.setContent { MessageBubble(decision) }
 
-        compose.onNodeWithText("Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »").assertIsDisplayed()
+        compose.onNodeWithText("Vous avez répondu : Autoriser — supprimer la série « Psychomot Tom »").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.CHAT_DECISION).assertIsDisplayed()
     }
 
