@@ -50,7 +50,7 @@ def daily_planning_prompt(today: date) -> str:
         f"C'est le début de la journée du {day}. "
         '1. Appelle list_instructions avec kind="planning" pour lire tes consignes de planification. '
         f"2. Lis l'agenda de l'utilisateur pour ce jour (get_events_by_date, date={day}) : "
-        "une consigne qui dépend de l'agenda (« les jours où j'ai Ael… ») ne vaut que les jours où il le dit. "
+        "une consigne qui dépend de l'agenda (« les jours où j'ai mon fils… ») ne vaut que les jours où il le dit. "
         f'3. Appelle list_proactions avec from="{day}" et to="{day}" pour voir les proactions déjà posées ce jour-là. '
         "4. Pose avec schedule_proaction les proactions du jour que demandent les consignes, et seulement celles-là "
         "(les trajets de l'étape 5 ont les leurs), sans recréer celles qui existent déjà ce jour-là. "

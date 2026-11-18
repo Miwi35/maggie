@@ -39,7 +39,7 @@ class TransactionShareScreenTest {
 
     private val gite = Transaction(id = "tx-gite", label = "GITE DES CIMES", amountCents = -80000, bookedAt = "2026-10-10")
     private val salary = Transaction(id = "tx-salary", label = "SALAIRE", amountCents = 250000, bookedAt = "2026-10-01")
-    private val people = listOf(Contact("c-julie", "Julie"), Contact("c-tom", "Tom"), Contact("c-ines", "Inès"))
+    private val people = listOf(Contact("c-emma", "Emma"), Contact("c-tom", "Tom"), Contact("c-ines", "Inès"))
 
     private fun show(server: FakeTransactionTransfers) = compose.setContent {
         TransactionListScreen(viewModel = server.viewModel, accountName = "Courant", onBack = {})
@@ -58,14 +58,14 @@ class TransactionShareScreenTest {
     }
 
     @Test
-    fun `my part of 200 € of an 800 € gîte, owed 200 € each by Julie, Tom and Inès`() {
+    fun `my part of 200 € of an 800 € gîte, owed 200 € each by Emma, Tom and Inès`() {
         val server = FakeTransactionTransfers(transactions = listOf(gite), contacts = people)
         show(server)
         open("GITE DES CIMES")
 
         compose.onNodeWithTag(UiTags.SHARE_SWITCH).performScrollTo().performClick()
         compose.onNodeWithTag(UiTags.SHARE_MINE).performScrollTo().performTextReplacement("200")
-        listOf("Julie", "Tom", "Inès").forEach(::addPerson)
+        listOf("Emma", "Tom", "Inès").forEach(::addPerson)
 
         compose.onNodeWithTag(UiTags.SHARE_OWED).assertTextEquals("On te doit ${formatCents(60000)}")
         compose.onAllNodesWithTag(UiTags.SHARE_PERSON).assertCountEquals(3)
@@ -75,7 +75,7 @@ class TransactionShareScreenTest {
         val sent = server.sharesSent.single()
         assertEquals(20000, sent.myShareCents)
         // An equal split names no amount: the server makes it, the last cent on the last.
-        assertEquals(listOf("c-julie", "c-tom", "c-ines").map { MyShareRequestShare(it) }, sent.shares)
+        assertEquals(listOf("c-emma", "c-tom", "c-ines").map { MyShareRequestShare(it) }, sent.shares)
         compose.onNodeWithText("Partage enregistré").performScrollTo()
     }
 

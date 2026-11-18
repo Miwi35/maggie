@@ -89,11 +89,11 @@ class TestTheModelIsToldOnTheCorrectedMessage:
         now = datetime.now(UTC)
         await _write(chat_db.session, id="u0", user_id="u", role="user", content="Salut", created_at=now - timedelta(minutes=5))
         await _write(chat_db.session, id="a0", user_id="u", role="assistant", content="Bonjour", created_at=now - timedelta(minutes=4))
-        await _write(chat_db.session, id="u2", user_id="u", role="user", content="Crée un événement test à Ael", created_at=now)
+        await _write(chat_db.session, id="u2", user_id="u", role="user", content="Crée un événement test à Tom", created_at=now)
 
         turns = await build_history("u", current_message_id="u2", carried_over="[Message corrigé : x]")
 
-        assert turns[-1]["content"] == "Crée un événement test à Ael\n\n[Message corrigé : x]"
+        assert turns[-1]["content"] == "Crée un événement test à Tom\n\n[Message corrigé : x]"
         assert "Message corrigé" not in turns[0]["content"]
 
 
@@ -179,14 +179,14 @@ class TestReplacingThroughTheStream:
         await _turn(chat_db, blocks=record(CALLS[:1]))
 
         response, calls = await asyncio.to_thread(
-            _stream, authed_client, message="Crée un événement test à Ael", replaces="u1"
+            _stream, authed_client, message="Crée un événement test à Tom", replaces="u1"
         )
         await TurnRunner().idle()
 
         assert response.status_code == 200
         rows = await _rows(chat_db.session)
-        assert [(r.role, r.content) for r in rows] == [("user", "Crée un événement test à Ael")]
-        assert calls[0]["message"] == "Crée un événement test à Ael"
+        assert [(r.role, r.content) for r in rows] == [("user", "Crée un événement test à Tom")]
+        assert calls[0]["message"] == "Crée un événement test à Tom"
         assert 'create_event({"title":"Test à elle"})' in calls[0]["carried_over"]
 
     async def test_the_same_words_sent_again_are_a_new_turn_not_the_old_one_replayed(self, authed_client, chat_db):

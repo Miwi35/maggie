@@ -18,11 +18,11 @@ tags:
 # My part of a shared spend (MAG-451):
 #
 # Étant donné un gîte de 800 € classé Voyages, dont l'enveloppe du mois est de 300 €
-# Quand je déclare sur sa fiche ma part de 200 €, le reste partagé entre Julie, Tom et Inès
+# Quand je déclare sur sa fiche ma part de 200 €, le reste partagé entre Emma, Tom et Inès
 # Alors l'enveloppe Voyages affiche 200 € consommés
 # Et la fiche de Tom, ouverte par « Voir tout ce qu'on te doit » puis sa ligne dépliée, dit « te doit 200 € » sous « En cours »
 #
-# The gîte, « Voyages », its envelope and the contacts Julie and Inès are written by the same
+# The gîte, « Voyages », its envelope and the contacts Emma and Inès are written by the same
 # script (`ACTION: share`); Tom is the one this flow created.
 #
 # A transfer to give back in part (MAG-452):
@@ -47,14 +47,14 @@ tags:
 #
 # The safety cushion lowered by the créances (MAG-454):
 #
-# Étant donné un Livret A de 5 200 € compté dans le matelas, et le gîte des Cimes dont Julie, Tom et Inès
+# Étant donné un Livret A de 5 200 € compté dans le matelas, et le gîte des Cimes dont Emma, Tom et Inès
 #   me doivent chacun 200 € (Tom a remboursé le gîte de Crozon, qui ne compte plus)
 # Quand j'ouvre le matelas
 # Alors la ligne « Avancé à des proches » montre −600 €, et le matelas 4 600 €
-# Quand Julie rembourse ses 200 €
+# Quand Emma rembourse ses 200 €
 # Alors la ligne montre −400 € et le matelas est remonté à 4 800 €
 #
-# The Livret and Julie's transfer are written by `contacts-api.js` (`ACTION: cushion`, `repay`).
+# The Livret and Emma's transfer are written by `contacts-api.js` (`ACTION: cushion`, `repay`).
 # The dette of 280 € owed to Tom is no créance: it never lowers the cushion.
 #
 # What is not here: « Peut-être aussi », « Retirer » and the notes (`ContactViewModelTest`,
@@ -160,7 +160,7 @@ tags:
     visible: "2 virements"
     timeout: 30000
 
-# MAG-451: a gîte of 800 € in « Voyages » (300 € this month), Julie and Inès beside Tom.
+# MAG-451: a gîte of 800 € in « Voyages » (300 € this month), Emma and Inès beside Tom.
 - runScript:
     file: ../scripts/contacts-api.js
     env:
@@ -196,7 +196,7 @@ tags:
 - inputText: "200"
 - runFlow: ../subflows/hide-keyboard.yaml
 
-# Julie, Tom and Inès, each picked in the full-screen picker (« In »: no accent typed on Android).
+# Emma, Tom and Inès, each picked in the full-screen picker (« In »: no accent typed on Android).
 - scrollUntilVisible:
     element:
       id: "share_add_person"
@@ -209,7 +209,7 @@ tags:
     timeout: 10000
 - tapOn:
     id: "contact_picker_search"
-- inputText: "Julie"
+- inputText: "Emma"
 - extendedWaitUntil:
     visible:
       id: "contact_picker_result"
@@ -451,7 +451,7 @@ tags:
 - assertVisible: "4.{0,1}600,00.€ sur.*"
 - assertVisible: ".*dont 600,00.€ avancés à des proches.*"
 
-# Julie gives her 200 € back: the cushion refills.
+# Emma gives her 200 € back: the cushion refills.
 - runScript:
     file: ../scripts/contacts-api.js
     env:

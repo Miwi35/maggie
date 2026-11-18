@@ -55,7 +55,7 @@ data class DrawerSummary(val entries: Map<String, DrawerEntryStatus> = emptyMap(
             )
         }
 
-        /** « 16:30 · Récupérer Ael »: the next timed event not over yet, else the day's all-day one. */
+        /** « 16:30 · Récupérer Tom »: the next timed event not over yet, else the day's all-day one. */
         private fun agendaLine(agenda: AgendaHomeState, now: Instant): String? {
             val upcoming = agenda.events
                 .filter { !it.allDay && it.start != null && (it.end ?: it.start)!! > now }

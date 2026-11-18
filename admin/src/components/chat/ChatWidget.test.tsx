@@ -224,7 +224,7 @@ describe('ChatWidget', () => {
       const decision = {
         id: 'decision-1',
         role: 'decision',
-        content: 'Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »',
+        content: 'Vous avez répondu : Autoriser — supprimer la série « Psychomot Tom »',
         createdAt: '2026-10-01T18:00:00Z',
         decision: { answer: 'approved', channel: 'chat', actionId: 'act-1' },
       }

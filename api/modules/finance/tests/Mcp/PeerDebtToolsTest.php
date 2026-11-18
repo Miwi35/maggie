@@ -90,7 +90,7 @@ class PeerDebtToolsTest extends KernelTestCase
     {
         $this->login();
 
-        $data = $this->call('set_my_share', transactionId: $this->id('gite'), myShareCents: 20000, shares: $this->people('julie', 'tom', 'ines'), object: 'Gîte Bretagne');
+        $data = $this->call('set_my_share', transactionId: $this->id('gite'), myShareCents: 20000, shares: $this->people('emma', 'tom', 'ines'), object: 'Gîte Bretagne');
 
         self::assertTrue($data['success']);
         self::assertSame(60000, $data['peerDebt']['amountCents']);
@@ -115,10 +115,10 @@ class PeerDebtToolsTest extends KernelTestCase
     /** @return iterable<string, array{0: string, 1: int, 2: list<array{0: string, 1?: int}>}> */
     public static function badShares(): iterable
     {
-        yield 'an income' => ['salary', 1000, [['julie']]];
-        yield 'my part as much as the spend' => ['gite', 80000, [['julie']]];
+        yield 'an income' => ['salary', 1000, [['emma']]];
+        yield 'my part as much as the spend' => ['gite', 80000, [['emma']]];
         yield 'another user\'s contact' => ['gite', 20000, [['others_contact']]];
-        yield 'a wrong sum' => ['gite', 20000, [['julie', 30000], ['tom', 20000], ['ines', 20000]]];
+        yield 'a wrong sum' => ['gite', 20000, [['emma', 30000], ['tom', 20000], ['ines', 20000]]];
         yield 'nobody' => ['gite', 20000, []];
     }
 
@@ -141,7 +141,7 @@ class PeerDebtToolsTest extends KernelTestCase
     public function testANullPartRemovesTheShare(): void
     {
         $this->login();
-        $this->call('set_my_share', transactionId: $this->id('gite'), myShareCents: 20000, shares: $this->people('julie', 'tom'));
+        $this->call('set_my_share', transactionId: $this->id('gite'), myShareCents: 20000, shares: $this->people('emma', 'tom'));
 
         $data = $this->call('set_my_share', transactionId: $this->id('gite'), myShareCents: null);
 
@@ -154,7 +154,7 @@ class PeerDebtToolsTest extends KernelTestCase
     public function testListKeepsThoseOfOnePersonOrOfAStatus(): void
     {
         $this->login();
-        $this->call('set_my_share', transactionId: $this->id('gite'), myShareCents: 20000, shares: $this->people('julie', 'ines'));
+        $this->call('set_my_share', transactionId: $this->id('gite'), myShareCents: 20000, shares: $this->people('emma', 'ines'));
 
         self::assertSame(['GITE DES FALAISES', 'Dîner au Phare'], array_column($this->call('list')['peerDebts'], 'object'));
         self::assertSame(['Dîner au Phare'], array_column($this->call('list', contactId: $this->id('tom'))['peerDebts'], 'object'));
@@ -207,7 +207,7 @@ class PeerDebtToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/peer_debts/'.$debt->getId());
         $this->assertElasticsearchIndexDispatchedFor(PeerDebt::class, (string) $debt->getId());
 
-        // Julie's dette (100 € left) is in the fixtures too.
+        // Emma's dette (100 € left) is in the fixtures too.
         self::assertSame(38000, $this->call('summary')['iOweCents']);
     }
 
@@ -236,7 +236,7 @@ class PeerDebtToolsTest extends KernelTestCase
         yield 'an internal transfer' => ['from_savings', 'tom', 10000];
         yield 'another user\'s contact' => ['tom_transfer', 'others_contact', 10000];
         yield 'no contact' => ['tom_transfer', null, 10000];
-        yield 'a dette partly given back, made smaller' => ['julie_transfer', 'julie', 4000];
+        yield 'a dette partly given back, made smaller' => ['emma_transfer', 'emma', 4000];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('badDebts')]
@@ -259,6 +259,6 @@ class PeerDebtToolsTest extends KernelTestCase
 
         $this->loginFixtureUser();
         self::assertArrayHasKey('error', $this->call('record_debt', contactId: $this->id('tom'), amountCents: 1000));
-        self::assertArrayHasKey('error', $this->call('record_debt', transactionId: $this->id('julie_transfer'), amountCents: null));
+        self::assertArrayHasKey('error', $this->call('record_debt', transactionId: $this->id('emma_transfer'), amountCents: null));
     }
 }

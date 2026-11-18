@@ -70,7 +70,7 @@ final class DetectRejectionsCommandTest extends KernelTestCase
         $this->tester->assertCommandIsSuccessful();
         self::assertStringContainsString('3 rejet(s) apparié(s)', $this->tester->getDisplay());
         self::assertSame(TransferKind::Rejected, $this->kind('edf_debit'));
-        self::assertSame(TransferKind::Rejected, $this->kind('ael_rejection'));
+        self::assertSame(TransferKind::Rejected, $this->kind('tom_rejection'));
         self::assertSame(TransferKind::None, $this->kind('savings_debit'));
 
         /** @var Transaction $debit */

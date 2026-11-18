@@ -25,10 +25,10 @@ from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from tests.test_reminder_guard import stream_turn, the_bubble
 
-JULIE = "Quand est-ce que je vois Julie ?"
-JULIE_TWICE = "Quand est-ce que je revois Julie ?"
+EMMA = "Quand est-ce que je vois Emma ?"
+EMMA_TWICE = "Quand est-ce que je revois Emma ?"
 WRONG_DAY = "Demain, vendredi 3 octobre, de 19 h à minuit à Rennes."
-TONIGHT = "Vous voyez Julie ce soir à 19 h : « Soirée à Rennes avec Julie », à Rennes."
+TONIGHT = "Vous voyez Emma ce soir à 19 h : « Soirée à Rennes avec Emma », à Rennes."
 
 OFFERED = [
     {"name": name, "input_schema": {}}
@@ -44,15 +44,15 @@ OFFERED = [
         "memory_open",
     )
 ]
-EVENTS = json.dumps({"member": [{"id": "e-1", "summary": "Soirée à Rennes avec Julie", "startAt": "2026-10-08T19:00"}]})
+EVENTS = json.dumps({"member": [{"id": "e-1", "summary": "Soirée à Rennes avec Emma", "startAt": "2026-10-08T19:00"}]})
 
 
 class TestTheQuestion:
     @pytest.mark.parametrize(
         "text",
         [
-            "Quand est-ce que je vois Julie ?",
-            "quand je vois Julie",
+            "Quand est-ce que je vois Emma ?",
+            "quand je vois Emma",
             "À quelle heure est le dentiste ?",
             "C'est quoi mon prochain rendez-vous ?",
             "Prochain rdv avec le médecin ?",
@@ -93,7 +93,7 @@ class TestTheQuestionIsWhatTheUserSaid:
         assert not asks_about_the_agenda(question_of([{"role": "user", "content": page}]))
 
     def test_a_question_without_a_screen_is_kept(self):
-        assert question_of([{"role": "user", "content": JULIE}]) == JULIE
+        assert question_of([{"role": "user", "content": EMMA}]) == EMMA
 
 
 class TestTheAnswer:
@@ -111,7 +111,7 @@ class TestTheAnswer:
             "Samedi, à midi.",
             "À minuit.",
             "Le 2026-10-08 à 19h30.",
-            "Vous voyez Julie vendredi.",
+            "Vous voyez Emma vendredi.",
             "Votre prochain rendez-vous est dans trois jours.",
         ],
     )
@@ -123,7 +123,7 @@ class TestTheAnswer:
         [
             "",
             "Je regarde votre agenda.",
-            "De quelle Julie parlez-vous ?",
+            "De quelle Emma parlez-vous ?",
             "Je n'ai pas accès à cette information pour l'instant.",
             "Vous n'avez rien de prévu.",
             "Avec plaisir, monsieur.",
@@ -134,7 +134,7 @@ class TestTheAnswer:
 
 
 class TestTheGuard:
-    def guard(self, question: str = JULIE, tools: list[dict] | None = OFFERED) -> ClaimGuard:
+    def guard(self, question: str = EMMA, tools: list[dict] | None = OFFERED) -> ClaimGuard:
         return ClaimGuard(tools, question=question)
 
     def test_a_date_cited_without_reading_the_agenda_is_sent_back_once_then_given_up(self):
@@ -196,12 +196,12 @@ class TestTheGuard:
 
     def test_memory_is_not_the_agenda(self):
         guard = self.guard()
-        guard.record("memory_open", json.dumps({"chemin": "Julie habite à Rennes.md", "contenu": "Julie habite à Rennes"}))
+        guard.record("memory_open", json.dumps({"chemin": "Emma habite à Rennes.md", "contenu": "Emma habite à Rennes"}))
 
         assert guard.review(WRONG_DAY) is Verdict.RETRY
 
     def test_an_event_just_created_backs_the_hour_it_announces(self):
-        guard = self.guard("Quand est-ce que je vois Julie ? Crée-le.")
+        guard = self.guard("Quand est-ce que je vois Emma ? Crée-le.")
         guard.record("create_event", json.dumps({"event": {"id": "e-1", "startAt": "2026-10-08T19:00"}}), {})
 
         assert guard.review(TONIGHT) is Verdict.ACCEPT
@@ -223,7 +223,7 @@ class TestTheGuard:
         assert self.guard("Merci !").review("Avec plaisir, à demain 9 h.") is Verdict.ACCEPT
 
     def test_an_answer_that_cites_nothing_is_left_alone(self):
-        assert self.guard().review("De quelle Julie parlez-vous ?") is Verdict.ACCEPT
+        assert self.guard().review("De quelle Emma parlez-vous ?") is Verdict.ACCEPT
 
     def test_no_question_no_check(self):
         assert ClaimGuard(OFFERED).review(WRONG_DAY) is Verdict.ACCEPT
@@ -290,7 +290,7 @@ class TestTheToolLoop:
         router = MagicMock()
         router.call_tool = AsyncMock(return_value=EVENTS)
 
-        result, messages = await self._run(fake_client, JULIE, router)
+        result, messages = await self._run(fake_client, EMMA, router)
 
         router.call_tool.assert_awaited_once()
         assert router.call_tool.await_args.args[0] == "get_upcoming_events"
@@ -302,7 +302,7 @@ class TestTheToolLoop:
         router = MagicMock()
         router.call_tool = AsyncMock(return_value=EVENTS)
 
-        result, _ = await self._run(fake_client, JULIE_TWICE, router)
+        result, _ = await self._run(fake_client, EMMA_TWICE, router)
 
         router.call_tool.assert_not_awaited()
         assert result["response"] == NOT_READ_MESSAGE
@@ -310,7 +310,7 @@ class TestTheToolLoop:
 
 class TestTheStreamedPath:
     async def test_an_answer_from_memory_is_relaunched_and_the_agenda_is_read(self, fake_client, agenda):
-        events, saved = await stream_turn(fake_client, JULIE, OFFERED)
+        events, saved = await stream_turn(fake_client, EMMA, OFFERED)
 
         called = [e["toolName"] for e in events if e["type"] == "TOOL_CALL_END"]
         assert called == ["get_upcoming_events"]
@@ -318,7 +318,7 @@ class TestTheStreamedPath:
         assert the_bubble(events) == TONIGHT
 
     async def test_an_answer_from_memory_twice_ends_on_the_truth(self, fake_client, agenda):
-        events, saved = await stream_turn(fake_client, JULIE_TWICE, OFFERED)
+        events, saved = await stream_turn(fake_client, EMMA_TWICE, OFFERED)
 
         assert [e for e in events if e["type"] == "TOOL_CALL_END"] == []
         assert [message["content"] for message in saved] == [NOT_READ_MESSAGE]

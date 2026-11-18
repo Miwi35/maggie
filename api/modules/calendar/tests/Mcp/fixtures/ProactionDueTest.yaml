@@ -20,8 +20,8 @@ Maggie\Calendar\Entity\Agenda:
 
 Maggie\Calendar\Entity\Proaction:
   due_first:
-    prompt: Rappelle de déposer Ael à l'école
-    summary: Dépose Ael
+    prompt: Rappelle de déposer Tom à l'école
+    summary: Dépose Tom
     startAt: '<(new \DateTimeImmutable("-20 minutes"))>'
     agenda: '@maggie_agenda'
   due_second:

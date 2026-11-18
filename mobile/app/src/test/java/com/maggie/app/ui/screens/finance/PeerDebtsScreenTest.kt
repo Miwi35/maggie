@@ -42,7 +42,7 @@ class PeerDebtsScreenTest {
         amountCents = 40000,
         remainingCents = 40000,
         shares = listOf(
-            PeerDebtShare("s-1", "c-julie", "Julie", amountCents = 20000, remainingCents = 20000),
+            PeerDebtShare("s-1", "c-emma", "Emma", amountCents = 20000, remainingCents = 20000),
             PeerDebtShare("s-2", "c-tom", "Tom", amountCents = 20000, remainingCents = 20000),
         ),
     )
@@ -59,7 +59,7 @@ class PeerDebtsScreenTest {
             owedToMeCents = 40000,
             iOweCents = 28000,
             byContact = listOf(
-                ContactBalance("c-julie", "Julie", netCents = 20000),
+                ContactBalance("c-emma", "Emma", netCents = 20000),
                 ContactBalance("c-tom", "Tom", netCents = -8000, compensates = true),
             ),
         ),
@@ -89,7 +89,7 @@ class PeerDebtsScreenTest {
         val model = viewModel()
         compose.setContent { PeerDebtsScreen(model, onBack = {}, onOpenContact = { opened += it }, onAddPerson = {}) }
 
-        compose.onNodeWithText("Julie").assertIsDisplayed()
+        compose.onNodeWithText("Emma").assertIsDisplayed()
         compose.onNodeWithText("te doit ${formatCents(20000)}").assertIsDisplayed()
         compose.onNodeWithText("tu lui dois ${formatCents(8000)}").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.PEER_DEBTS_COMPENSATION)
@@ -116,7 +116,7 @@ class PeerDebtsScreenTest {
         assertEquals(2, compose.onAllNodesWithTag(UiTags.PEER_DEBTS_OBJECT).fetchSemanticsNodes().size)
         compose.onNodeWithText("Gîte de Crozon").assertIsDisplayed()
         compose.onNodeWithText("on te doit ${formatCents(40000)}").assertIsDisplayed()
-        compose.onNodeWithText("Julie ${formatCents(20000)} · Tom ${formatCents(20000)}").assertIsDisplayed()
+        compose.onNodeWithText("Emma ${formatCents(20000)} · Tom ${formatCents(20000)}").assertIsDisplayed()
         compose.onNodeWithText("Août").assertIsDisplayed()
         compose.onNodeWithText("tu dois ${formatCents(28000)}").assertIsDisplayed()
     }

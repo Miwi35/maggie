@@ -74,7 +74,7 @@ class UpdateEventToolTest extends KernelTestCase
         return $event->getStartAt()->setTimezone($zone)->format('Y-m-d H:i').' → '.$event->getEndAt()->setTimezone($zone)->format('Y-m-d H:i');
     }
 
-    /** MAG-321: « la soirée avec Julie ce sera demain soir » used to land at midnight, with no length. */
+    /** MAG-321: « la soirée avec Emma ce sera demain soir » used to land at midnight, with no length. */
     public function testShiftingTheEveningToTheNextDayWithItsFullScheduleIsStored(): void
     {
         $data = $this->call('event_evening', start_date: '2026-10-08', start_time: '19:00', end_date: '2026-10-09', end_time: '00:00');
@@ -260,12 +260,12 @@ class UpdateEventToolTest extends KernelTestCase
 
     public function testOtherFieldsChangeAloneWithoutTouchingTheSchedule(): void
     {
-        $data = $this->call('event_evening', title: 'Soirée chez Julie', location: 'Chez Julie');
+        $data = $this->call('event_evening', title: 'Soirée chez Emma', location: 'Chez Emma');
 
         self::assertTrue($data['success']);
         self::assertSame('2026-10-07 19:00 → 2026-10-08 00:00', $this->span('event_evening'));
         self::assertSame('2026-10-07T19:00:00+02:00', $data['event']['startAt']);
-        self::assertSame('Soirée chez Julie', $this->reload('event_evening')->getSummary());
+        self::assertSame('Soirée chez Emma', $this->reload('event_evening')->getSummary());
     }
 
     public function testAnotherUsersEventIsNotFoundAndItsScheduleIsNotLeaked(): void

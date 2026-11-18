@@ -38,7 +38,7 @@ class DepartureScreenTest {
     )
 
     private fun show(trip: Trip? = this.trip, onGo: (() -> Unit)? = {}, onAlreadyOnTheWay: () -> Unit = {}) =
-        screen.setContent { DepartureScreen("Pars maintenant pour Récupérer Ael", trip, now, onGo, onAlreadyOnTheWay) }
+        screen.setContent { DepartureScreen("Pars maintenant pour Récupérer Tom", trip, now, onGo, onAlreadyOnTheWay) }
 
     @Test
     fun `it says the time, who speaks, what to do and how long it takes`() {
@@ -47,7 +47,7 @@ class DepartureScreenTest {
         screen.onNodeWithText("17:04").assertIsDisplayed()
         screen.onNodeWithText("lundi 26 octobre").assertIsDisplayed()
         screen.onNodeWithText("Maggie · 17:04").assertIsDisplayed()
-        screen.onNodeWithText("Pars maintenant pour Récupérer Ael").assertIsDisplayed()
+        screen.onNodeWithText("Pars maintenant pour Récupérer Tom").assertIsDisplayed()
         screen.onNodeWithText("École Jean-Moulin · 21 min porte à porte").assertIsDisplayed()
         screen.onNodeWithText("13 min").assertIsDisplayed()
     }
@@ -77,7 +77,7 @@ class DepartureScreenTest {
     fun `before the trip is known the screen carries the title and the buttons`() {
         show(trip = null)
 
-        screen.onNodeWithText("Pars maintenant pour Récupérer Ael").assertIsDisplayed()
+        screen.onNodeWithText("Pars maintenant pour Récupérer Tom").assertIsDisplayed()
         screen.onNode(hasText("porte à porte", substring = true)).assertDoesNotExist()
         screen.onNodeWithTag(UiTags.DEPARTURE_GO).assertIsDisplayed()
     }

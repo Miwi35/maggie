@@ -79,12 +79,12 @@ class ContactToolsTest extends KernelTestCase
     {
         $this->login();
 
-        $data = $this->call('create', name: 'Julie', notes: 'Collègue');
+        $data = $this->call('create', name: 'Emma', notes: 'Collègue');
 
         self::assertTrue($data['success']);
-        self::assertSame('Julie', $data['contact']['name']);
-        $julie = $this->em()->getRepository(Contact::class)->findOneBy(['name' => 'Julie']);
-        self::assertSame('Collègue', $julie?->getNotes());
+        self::assertSame('Emma', $data['contact']['name']);
+        $emma = $this->em()->getRepository(Contact::class)->findOneBy(['name' => 'Emma']);
+        self::assertSame('Collègue', $emma?->getNotes());
         $this->assertMercureUpdatePublished('/contacts/');
         $this->assertElasticsearchIndexDispatched(Contact::class);
     }

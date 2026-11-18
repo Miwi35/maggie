@@ -94,7 +94,7 @@ const PEER_SUMMARY = {
   iOweCents: 28000,
   byContact: [
     { contactId: 'TOM', name: 'Tom', netCents: -8000, compensates: true },
-    { contactId: 'JULIE', name: 'Julie', netCents: 20000, compensates: false },
+    { contactId: 'EMMA', name: 'Emma', netCents: 20000, compensates: false },
   ],
 }
 

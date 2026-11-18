@@ -84,12 +84,12 @@ const LIST_EVENTS = /\/google\/calendar\/v3\/calendars\/e2e(%40|@)maggie\.local\
  * at runtime and removes them afterwards — the calendar list the other journeys
  * read is left as it is on disk.
  */
-const RENAMED_CALENDAR_ID = 'garde-ael-e2e@group.calendar.google.com'
-const RENAMED_FROM = "Garde d'Ael E2E"
-const RENAMED_TO = 'Ael E2E'
-const RENAMED_CALENDAR_PATH = '/google/calendar/v3/calendars/garde-ael-e2e(%40|@)group\\.calendar\\.google\\.com'
-const RENAME_CALENDAR = /\/google\/calendar\/v3\/calendars\/garde-ael-e2e(%40|@)group\.calendar\.google\.com(\?|$)/
-const RENAMED_CALENDAR_EVENTS = /\/google\/calendar\/v3\/calendars\/garde-ael-e2e(%40|@)group\.calendar\.google\.com\/events(\?|$)/
+const RENAMED_CALENDAR_ID = 'garde-tom-e2e@group.calendar.google.com'
+const RENAMED_FROM = "Garde d'Tom E2E"
+const RENAMED_TO = 'Tom E2E'
+const RENAMED_CALENDAR_PATH = '/google/calendar/v3/calendars/garde-tom-e2e(%40|@)group\\.calendar\\.google\\.com'
+const RENAME_CALENDAR = /\/google\/calendar\/v3\/calendars\/garde-tom-e2e(%40|@)group\.calendar\.google\.com(\?|$)/
+const RENAMED_CALENDAR_EVENTS = /\/google\/calendar\/v3\/calendars\/garde-tom-e2e(%40|@)group\.calendar\.google\.com\/events(\?|$)/
 const CREATE_CALENDAR = /\/google\/calendar\/v3\/calendars(\?|$)/
 
 interface StoredEvent {
@@ -347,8 +347,8 @@ test.describe('Importing the Google calendar', () => {
   /**
    * Renaming an agenda connected to Google sends the name to Google — MAG-385.
    *
-   * « Renomme l'agenda Garde Ael en "Ael" » was answered « c'est fait », and the
-   * next sync put « Garde Ael » back: Google owns the name on the way in and nothing
+   * « Renomme l'agenda Garde Tom en "Tom" » was answered « c'est fait », and the
+   * next sync put « Garde Tom » back: Google owns the name on the way in and nothing
    * sent the new one on the way out. The stubs are stateful so that the far side
    * behaves like Google: its calendar keeps the old name until it has been patched,
    * and answers the new one afterwards. Without the push, the pull below would bring
@@ -396,7 +396,7 @@ test.describe('Importing the Google calendar', () => {
           requiredScenarioState: 'Started',
           request: {
             method: 'GET',
-            urlPathPattern: `/google/calendar/v3/users/me/calendarList/garde-ael-e2e(%40|@)group\\.calendar\\.google\\.com`,
+            urlPathPattern: `/google/calendar/v3/users/me/calendarList/garde-tom-e2e(%40|@)group\\.calendar\\.google\\.com`,
           },
           response: {
             status: 200,
@@ -410,7 +410,7 @@ test.describe('Importing the Google calendar', () => {
           requiredScenarioState: 'Renamed',
           request: {
             method: 'GET',
-            urlPathPattern: `/google/calendar/v3/users/me/calendarList/garde-ael-e2e(%40|@)group\\.calendar\\.google\\.com`,
+            urlPathPattern: `/google/calendar/v3/users/me/calendarList/garde-tom-e2e(%40|@)group\\.calendar\\.google\\.com`,
           },
           response: {
             status: 200,

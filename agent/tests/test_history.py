@@ -615,11 +615,11 @@ class TestEveryPastDayIsDated:
             yield
 
     async def test_a_past_day_opens_with_its_date(self, say):
-        await say("user", "Quand est-ce que je vois Julie ?", minutes=0)
+        await say("user", "Quand est-ce que je vois Emma ?", minutes=0)
         turns = await build_history(OWNER)
 
         assert turns[0]["content"].startswith("— le jeudi 1er octobre —\n")
-        assert turns[0]["content"].endswith("Quand est-ce que je vois Julie ?")
+        assert turns[0]["content"].endswith("Quand est-ce que je vois Emma ?")
 
     async def test_the_answers_are_not_dated(self, say):
         """She would copy it, the way she copied the thread label (MAG-341)."""
@@ -708,7 +708,7 @@ class TestEveryPastDayIsDated:
 
     async def test_the_reproduction_a_tomorrow_written_on_the_2nd(self, say):
         """The incident: the history says « demain vendredi 3 octobre » and the question is « quel jour sommes-nous »."""
-        await say("user", "Quand est-ce que je vois Julie ?", minutes=24 * 60 + 60)
+        await say("user", "Quand est-ce que je vois Emma ?", minutes=24 * 60 + 60)
         await say("assistant", "Demain, vendredi 3 octobre, de 19 h à minuit.", minutes=24 * 60 + 61)
         asked = await say("user", "Quel jour sommes-nous ?", minutes=7 * 24 * 60 + 60)
 

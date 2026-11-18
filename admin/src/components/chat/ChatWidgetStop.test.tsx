@@ -72,7 +72,7 @@ class MockEventSource {
 }
 
 const QUESTION = 'Crée un événement test à elle demain'
-const CORRECTED = 'Crée un événement test à Ael demain'
+const CORRECTED = 'Crée un événement test à Tom demain'
 
 const HISTORY = [
   { id: 'm-1', role: 'user', content: 'Ajoute du parmesan', createdAt: '2026-10-05T10:00:00Z' },

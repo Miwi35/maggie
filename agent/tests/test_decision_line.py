@@ -11,7 +11,7 @@ from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.llm.history import build_history
 from app.policy.decision import decision_line, record_decision
 
-SUMMARY = "Supprimer la série « Psychomot Ael »"
+SUMMARY = "Supprimer la série « Psychomot Tom »"
 
 
 def action(status: PendingActionStatus, **overrides) -> PendingAction:
@@ -35,7 +35,7 @@ class TestDecisionLine:
     def test_an_approval_reads_autoriser_and_lowers_the_summary_after_the_dash(self):
         line = decision_line(PendingActionStatus.APPROVED, SUMMARY)
 
-        assert line == "Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »"
+        assert line == "Vous avez répondu : Autoriser — supprimer la série « Psychomot Tom »"
 
     def test_a_failed_run_is_still_an_approval(self):
         assert decision_line(PendingActionStatus.FAILED, SUMMARY).startswith("Vous avez répondu : Autoriser — ")
@@ -43,12 +43,12 @@ class TestDecisionLine:
     def test_a_refusal_reads_refuser(self):
         line = decision_line(PendingActionStatus.DENIED, SUMMARY)
 
-        assert line == "Vous avez répondu : Refuser — supprimer la série « Psychomot Ael »"
+        assert line == "Vous avez répondu : Refuser — supprimer la série « Psychomot Tom »"
 
     def test_an_expiry_says_nobody_answered(self):
         line = decision_line(PendingActionStatus.EXPIRED, SUMMARY)
 
-        assert line == "Sans réponse : la demande a expiré — supprimer la série « Psychomot Ael »"
+        assert line == "Sans réponse : la demande a expiré — supprimer la série « Psychomot Tom »"
 
     def test_a_pending_action_has_no_line(self):
         with pytest.raises(ValueError):
@@ -64,7 +64,7 @@ class TestRecordDecision:
         assert stored.role == DECISION_ROLE
         assert stored.user_id == "user-1"
         assert stored.context_id == "ctx-1"
-        assert stored.content == "Vous avez répondu : Autoriser — supprimer la série « Psychomot Ael »"
+        assert stored.content == "Vous avez répondu : Autoriser — supprimer la série « Psychomot Tom »"
         assert stored.decision == {
             "answer": "approved",
             "summary": SUMMARY,
@@ -111,7 +111,7 @@ class TestDecisionInTheHistory:
         assert [t["role"] for t in turns] == ["user", "assistant", "user"]
         note = turns[2]["content"]
         assert "Autoriser" in note
-        assert "supprimer la série « Psychomot Ael »" in note
+        assert "supprimer la série « Psychomot Tom »" in note
         assert "notification" in note
         assert note.endswith("Merci")
 

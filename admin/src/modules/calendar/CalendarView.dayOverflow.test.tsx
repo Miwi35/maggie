@@ -60,9 +60,9 @@ const SEVERAL_DAYS = {
 
 const EVENTS = [
   SEVERAL_DAYS,
-  timed('01A', 'Dépose Ael', 8),
-  timed('01B', 'Récupérer Ael', 16),
-  timed('01C', 'Soirée à Rennes avec Julie', 20),
+  timed('01A', 'Dépose Tom', 8),
+  timed('01B', 'Récupérer Tom', 16),
+  timed('01C', 'Soirée à Rennes avec Emma', 20),
   timed('01D', 'Dentiste', 11),
 ]
 
@@ -103,7 +103,7 @@ describe('CalendarView — a month cell is not capped at a fixed number of event
   test('the events of a crowded day are all handed to the grid', async () => {
     render(<CalendarView />)
 
-    for (const summary of ['Meven', 'Dépose Ael', 'Récupérer Ael', 'Soirée à Rennes avec Julie', 'Dentiste']) {
+    for (const summary of ['Meven', 'Dépose Tom', 'Récupérer Tom', 'Soirée à Rennes avec Emma', 'Dentiste']) {
       expect(await screen.findByText(summary)).toBeInTheDocument()
     }
   })

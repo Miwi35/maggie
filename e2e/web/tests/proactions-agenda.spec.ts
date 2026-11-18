@@ -40,7 +40,7 @@ function tomorrowInParis(): string {
 function promptOfThisAttempt(): string {
   const { retry } = test.info()
 
-  return `Rappelle de déposer Ael à l'école MAG-326${0 === retry ? '' : ` essai ${retry}`}`
+  return `Rappelle de déposer Tom à l'école MAG-326${0 === retry ? '' : ` essai ${retry}`}`
 }
 
 function inParis(instant: string | null): string {

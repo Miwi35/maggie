@@ -31,7 +31,7 @@ const LYDIA = {
   transactionCount: 3,
   lastSeenOn: '2026-04-02',
 }
-/** The gîte: Tom owes 200 €; Julie's share and a settled debt are not his business. */
+/** The gîte: Tom owes 200 €; Emma's share and a settled debt are not his business. */
 const GITE = {
   id: '01GITE',
   direction: 'owed_to_me',
@@ -45,7 +45,7 @@ const GITE = {
   since: '2026-07-03',
   createdAt: '2026-08-14T10:00:00+00:00',
   shares: [
-    { id: '01S1', contactId: '01JULIE', contactName: 'Julie', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
+    { id: '01S1', contactId: '01EMMA', contactName: 'Emma', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
     { id: '01S2', contactId: '01TOM', contactName: 'Tom', amountCents: 20000, repaidCents: 0, remainingCents: 20000 },
   ],
   history: [],

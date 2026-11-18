@@ -194,12 +194,12 @@ model then calls `create_skill`, and a second unbacked « je retiens » becomes 
 sentence that nothing was stored.
 
 `89-agenda-unread-once.yaml` and `89-agenda-unread-twice.yaml` script an answer that cites a
-date or an hour to an agenda question (« quand est-ce que je vois Julie ? ») with no agenda tool
+date or an hour to an agenda question (« quand est-ce que je vois Emma ? ») with no agenda tool
 called (MAG-349). The claim guard sends it back once; the model then calls `get_upcoming_events`,
 and a second answer from memory becomes the sentence that the agenda could not be read.
 
 `96-agenda-limit-directive.yaml` and `96-agenda-limit-applied.yaml` are the pair for « ne me parle que de Défaut
-et Garde Ael » (MAG-325): the rule is stored as a `behavior` directive, and the second can only answer, with
+et Garde Tom » (MAG-325): the rule is stored as a `behavior` directive, and the second can only answer, with
 `get_upcoming_events` called with `agendas`, once that directive is in the system prompt.
 `97-delete-event-by-name.yaml` replays the 7 Oct. conversation: an event the owner names is looked up with `query`
 and no `days`, whatever its date.

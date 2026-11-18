@@ -832,7 +832,7 @@ class CalendarViewModelTest {
         summary = summary,
         startAt = startAt,
         endAt = java.time.OffsetDateTime.parse(startAt).plusMinutes(5).toString(),
-        prompt = "Rappelle de déposer Ael à l'école",
+        prompt = "Rappelle de déposer Tom à l'école",
         executionStatus = executionStatus,
     )
 

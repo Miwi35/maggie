@@ -35,9 +35,9 @@ Maggie\Calendar\Entity\Event:
         - { method: 'popup', minutes: 15 }
     agenda: '@test_agenda'
 
-  # "La soirée avec Julie" of MAG-321: Wednesday 19:00 to midnight, in Paris.
+  # "La soirée avec Emma" of MAG-321: Wednesday 19:00 to midnight, in Paris.
   event_evening:
-    summary: Soirée avec Julie
+    summary: Soirée avec Emma
     timeZone: Europe/Paris
     startAt: '<(new \DateTimeImmutable("2026-10-07 19:00", new \DateTimeZone("Europe/Paris")))>'
     endAt: '<(new \DateTimeImmutable("2026-10-08 00:00", new \DateTimeZone("Europe/Paris")))>'

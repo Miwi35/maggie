@@ -98,7 +98,7 @@ class FinanceFiguresListenerTest extends KernelTestCase
     {
         $em = $this->em();
         $user = $em->find(User::class, $this->getFixture('test_user')->getId());
-        $contact = (new Contact())->setName('Julie')->setUser($user);
+        $contact = (new Contact())->setName('Emma')->setUser($user);
         $debt = (new PeerDebt())->setObject('Gîte')->setUser($user);
         $share = (new PeerDebtShare())->setContact($contact)->setAmountCents(10000)->setPosition(0);
         $share->setPeerDebt($debt);

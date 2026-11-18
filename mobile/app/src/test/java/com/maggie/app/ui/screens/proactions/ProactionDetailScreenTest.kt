@@ -26,7 +26,7 @@ class ProactionDetailScreenTest {
         id = "01PRO",
         summary = "Rappel école",
         startAt = "2037-01-15T08:30:00+01:00",
-        prompt = "Rappelle de déposer Ael à l'école",
+        prompt = "Rappelle de déposer Tom à l'école",
         executionStatus = Proaction.STATUS_FAILED,
         error = "Le modèle ne répond pas",
     )
@@ -38,7 +38,7 @@ class ProactionDetailScreenTest {
         compose.onNodeWithText("Rappel école").assertIsDisplayed()
         compose.onNodeWithText("Jeudi 15 janvier 2037, 08:30").assertIsDisplayed()
         compose.onNodeWithText("Échouée").assertIsDisplayed()
-        compose.onNodeWithText("Rappelle de déposer Ael à l'école").assertIsDisplayed()
+        compose.onNodeWithText("Rappelle de déposer Tom à l'école").assertIsDisplayed()
         compose.onNodeWithText("Le modèle ne répond pas").assertIsDisplayed()
         compose.onNodeWithText("Réponse").assertDoesNotExist()
     }

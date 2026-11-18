@@ -67,7 +67,7 @@ class ProactionToolsTest extends KernelTestCase
         $user = $this->loginFixtureUser();
         $at = $this->tomorrowAt('08:30');
 
-        $data = $this->call(ScheduleProactionTool::class, 'Rappelle à Meven de déposer Ael à l\'école à 8 h 45', $at);
+        $data = $this->call(ScheduleProactionTool::class, 'Rappelle à Meven de déposer Tom à l\'école à 8 h 45', $at);
 
         self::assertTrue($data['success'], json_encode($data, JSON_THROW_ON_ERROR));
         self::assertSame('Maggie', $data['agenda']);
@@ -78,7 +78,7 @@ class ProactionToolsTest extends KernelTestCase
         $em->clear();
         $stored = $em->find(Proaction::class, $data['proaction']['id']);
         self::assertNotNull($stored);
-        self::assertSame('Rappelle à Meven de déposer Ael à l\'école à 8 h 45', $stored->getPrompt());
+        self::assertSame('Rappelle à Meven de déposer Tom à l\'école à 8 h 45', $stored->getPrompt());
         self::assertSame(ProactionStatus::Pending, $stored->getExecutionStatus());
         self::assertEquals(new \DateTimeImmutable($at), $stored->getStartAt());
         // Shown five minutes long, at an instant, never repeating.
@@ -125,9 +125,9 @@ class ProactionToolsTest extends KernelTestCase
         // A planning run again the same day asks for what the first one scheduled (MAG-327).
         $this->loginFixtureUser();
 
-        $first = $this->call(ScheduleProactionTool::class, 'Rappelle de déposer Ael', $this->tomorrowAt('08:30'));
-        $again = $this->call(ScheduleProactionTool::class, '  Rappelle de déposer Ael ', $this->tomorrowAt('08:30'));
-        $later = $this->call(ScheduleProactionTool::class, 'Rappelle de déposer Ael', $this->tomorrowAt('08:45'));
+        $first = $this->call(ScheduleProactionTool::class, 'Rappelle de déposer Tom', $this->tomorrowAt('08:30'));
+        $again = $this->call(ScheduleProactionTool::class, '  Rappelle de déposer Tom ', $this->tomorrowAt('08:30'));
+        $later = $this->call(ScheduleProactionTool::class, 'Rappelle de déposer Tom', $this->tomorrowAt('08:45'));
 
         self::assertTrue($again['success']);
         self::assertSame($first['proaction']['id'], $again['proaction']['id']);
@@ -139,7 +139,7 @@ class ProactionToolsTest extends KernelTestCase
     public function testALongPromptIsShortenedForTheAgendaLabel(): void
     {
         $this->loginFixtureUser();
-        $prompt = 'Rappelle à Meven que c\'est son jour de garde, qu\'il doit déposer Ael à l\'école avant 8 h 45 et prendre son goûter';
+        $prompt = 'Rappelle à Meven que c\'est son jour de garde, qu\'il doit déposer Tom à l\'école avant 8 h 45 et prendre son goûter';
 
         $data = $this->call(ScheduleProactionTool::class, $prompt, $this->tomorrowAt('08:00'));
 

@@ -172,7 +172,7 @@ class TodayEventListenerTest extends KernelTestCase
 
     public function testChangingOnlyTheTitleSendsNothing(): void
     {
-        $this->event('dentist')->setSummary('Dentiste d\'Ael');
+        $this->event('dentist')->setSummary('Dentiste d\'Tom');
         $this->em()->flush();
 
         self::assertSame([], $this->dispatched);
@@ -221,7 +221,7 @@ class TodayEventListenerTest extends KernelTestCase
         $this->dispatched = [];
 
         $this->em()->clear();
-        $this->event('dentist')->setSummary('Dentiste d\'Ael');
+        $this->event('dentist')->setSummary('Dentiste d\'Tom');
         $this->em()->flush();
 
         self::assertSame([], $this->dispatched);

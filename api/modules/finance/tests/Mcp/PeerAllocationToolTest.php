@@ -81,27 +81,27 @@ class PeerAllocationToolTest extends KernelTestCase
     {
         $this->loadFixtures(self::FIXTURES);
 
-        $data = $this->call('allocate', transactionId: $this->id('julie_in'), kind: 'repayment', shareId: $this->id('gite_julie'), amountCents: 20000);
+        $data = $this->call('allocate', transactionId: $this->id('emma_in'), kind: 'repayment', shareId: $this->id('gite_emma'), amountCents: 20000);
 
         self::assertArrayHasKey('error', $data);
-        self::assertSame(0, $this->share('gite_julie')->getRepaidCents());
+        self::assertSame(0, $this->share('gite_emma')->getRepaidCents());
     }
 
     public function testAllocateStoresPublishesAndIndexes(): void
     {
         $this->login();
 
-        $data = $this->call('allocate', transactionId: $this->id('julie_in'), kind: 'repayment', shareId: $this->id('gite_julie'), amountCents: 20000);
+        $data = $this->call('allocate', transactionId: $this->id('emma_in'), kind: 'repayment', shareId: $this->id('gite_emma'), amountCents: 20000);
 
         self::assertTrue($data['success']);
         self::assertSame('repayment', $data['peerKind']);
         self::assertSame(0, $data['unallocatedCents']);
-        self::assertSame(20000, $this->share('gite_julie')->getRepaidCents());
-        self::assertSame('repayment', $this->transaction('julie_in')->getPeerKind()?->value);
+        self::assertSame(20000, $this->share('gite_emma')->getRepaidCents());
+        self::assertSame('repayment', $this->transaction('emma_in')->getPeerKind()?->value);
         self::assertCount(1, $this->em()->getRepository(PeerDebtAllocation::class)->findAll());
-        $this->assertMercureUpdatePublished('/transactions/'.$this->id('julie_in'));
+        $this->assertMercureUpdatePublished('/transactions/'.$this->id('emma_in'));
         $this->assertMercureUpdatePublished('/peer_debts/'.$this->id('gite_debt'));
-        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('julie_in'));
+        $this->assertElasticsearchIndexDispatchedFor(Transaction::class, $this->id('emma_in'));
         $this->assertElasticsearchIndexDispatchedFor(PeerDebt::class, $this->id('gite_debt'));
 
         self::assertSame(20000 + 4500 + 9000, $this->call('summary')['owedToMeCents']);
@@ -196,13 +196,13 @@ class PeerAllocationToolTest extends KernelTestCase
     public function testManageTransactionsGivesThePeerKindAndTheToSortReason(): void
     {
         $this->login();
-        $this->call('allocate', transactionId: $this->id('julie_in'), kind: 'repayment', shareId: $this->id('gite_julie'), amountCents: 20000);
+        $this->call('allocate', transactionId: $this->id('emma_in'), kind: 'repayment', shareId: $this->id('gite_emma'), amountCents: 20000);
         $tool = self::getContainer()->get(ManageTransactionsTool::class);
 
         $data = json_decode($tool('list', accountId: $this->id('checking')), true, 512, JSON_THROW_ON_ERROR);
         $byLabel = array_column($data['transactions'], null, 'label');
-        self::assertSame('repayment', $byLabel['VIR DE JULIE ROUX']['peerKind']);
-        self::assertSame(20000, $byLabel['VIR DE JULIE ROUX']['peerAllocatedCents']);
+        self::assertSame('repayment', $byLabel['VIR DE EMMA ROUX']['peerKind']);
+        self::assertSame(20000, $byLabel['VIR DE EMMA ROUX']['peerAllocatedCents']);
         self::assertNull($byLabel['VIR DE TOM MARTIN']['peerKind']);
 
         $pile = json_decode($tool('to_sort'), true, 512, JSON_THROW_ON_ERROR);

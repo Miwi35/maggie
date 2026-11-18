@@ -365,7 +365,7 @@ class ContactViewModelTest {
         coEvery { peerDebts.getOverview(contact = "c-tom") } returns Result.success(
             listOf(
                 debt("d-1", "Resto", "2026-09-02T20:00:00+00:00", Triple("c-tom", "Tom", 3000)),
-                debt("d-2", "Gîte des Cimes", "2026-10-10T09:00:00+00:00", Triple("c-julie", "Julie", 20000), Triple("c-tom", "Tom", 20000)),
+                debt("d-2", "Gîte des Cimes", "2026-10-10T09:00:00+00:00", Triple("c-emma", "Emma", 20000), Triple("c-tom", "Tom", 20000)),
                 // Anna's alone, and one Tom already settled: not his to show.
                 debt("d-3", "Cinéma", "2026-10-11T09:00:00+00:00", Triple("c-anna", "Anna", 1200)),
                 debt("d-4", "Courses", "2026-10-12T09:00:00+00:00", Triple("c-tom", "Tom", 0), status = "settled"),
@@ -406,7 +406,7 @@ class ContactViewModelTest {
                     history = listOf(
                         PeerDebtHistoryEntry("t-1", "2026-10-15", "VIR DE TOM MARTIN", 10000, "c-tom", "Tom"),
                         PeerDebtHistoryEntry("t-2", "2026-10-20", "VIR DE TOM MARTIN", 5000, "c-tom", "Tom"),
-                        PeerDebtHistoryEntry("t-3", "2026-10-18", "VIR DE JULIE", 7000, "c-julie", "Julie"),
+                        PeerDebtHistoryEntry("t-3", "2026-10-18", "VIR DE EMMA", 7000, "c-emma", "Emma"),
                     ),
                 ),
             ),

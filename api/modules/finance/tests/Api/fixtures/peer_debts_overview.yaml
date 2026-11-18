@@ -1,5 +1,5 @@
 # Créances et dettes par personne et par objet (MAG-455), shared by the API,
-# MCP and use case suites. Créances: the gîte de Crozon (Julie 200 €, of which
+# MCP and use case suites. Créances: the gîte de Crozon (Emma 200 €, of which
 # she gave 50 € back through a transfer; Tom 200 €); a dette: the petrol Tom
 # paid (280 €) — so Tom and the owner owe each other, and 80 € to Tom settles
 # both; a lunch Lucas gave back in full (settled). Someone else's créance.
@@ -23,8 +23,8 @@ Maggie\Finance\Entity\Account:
     user: '@test_user'
 
 Maggie\Finance\Entity\Contact:
-  julie:
-    name: Julie
+  emma:
+    name: Emma
     user: '@test_user'
   tom:
     name: Tom
@@ -37,12 +37,12 @@ Maggie\Finance\Entity\Contact:
     user: '@other_user'
 
 Maggie\Finance\Entity\Transaction:
-  julie_in:
+  emma_in:
     account: '@checking'
     amountCents: 5000
     currency: EUR
     bookedAt: '<(new \DateTimeImmutable("2026-07-20"))>'
-    label: VIR DE JULIE ROUX
+    label: VIR DE EMMA ROUX
     status: '<(Maggie\Finance\Enum\TransactionStatus::Spent)>'
     isExceptional: false
     user: '@test_user'
@@ -75,9 +75,9 @@ Maggie\Finance\Entity\PeerDebt:
     user: '@other_user'
 
 Maggie\Finance\Entity\PeerDebtShare:
-  gite_julie:
+  gite_emma:
     peerDebt: '@gite_debt'
-    contact: '@julie'
+    contact: '@emma'
     amountCents: 20000
     repaidCents: 5000
   gite_tom:
@@ -100,7 +100,7 @@ Maggie\Finance\Entity\PeerDebtShare:
     amountCents: 4000
 
 Maggie\Finance\Entity\PeerDebtAllocation:
-  julie_gave_back:
-    __construct: ['@julie_in', '@gite_julie', 5000]
+  emma_gave_back:
+    __construct: ['@emma_in', '@gite_emma', 5000]
   lucas_gave_back:
     __construct: ['@lucas_in', '@lunch_lucas', 3000]

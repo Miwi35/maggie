@@ -175,7 +175,7 @@ describe('Breadcrumbs', () => {
   })
 
   test.each([
-    ['summary', { summary: 'Soirée à Rennes avec Julie', name: 'ignoré' }, 'Soirée à Rennes avec Julie'],
+    ['summary', { summary: 'Soirée à Rennes avec Emma', name: 'ignoré' }, 'Soirée à Rennes avec Emma'],
     ['name', { name: 'Tarte', label: 'ignoré' }, 'Tarte'],
     ['label', { label: 'Prélèvement EDF', title: 'ignoré' }, 'Prélèvement EDF'],
     ['title', { title: 'Appeler le médecin' }, 'Appeler le médecin'],

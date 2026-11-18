@@ -13,10 +13,10 @@ import { HomePage } from '../pages/HomePage.js'
  */
 
 const QUESTION = 'Crée un événement test à elle demain'
-const CORRECTED = 'Crée un événement test à Ael demain'
+const CORRECTED = 'Crée un événement test à Tom demain'
 const FIRST_WORDS = /Je regarde votre agenda/
 const FROZEN_END = 'FIN DE LA RÉPONSE'
-const CORRECTED_ANSWER = "Compris : un événement test à Ael demain. Quelle heure vous convient ?"
+const CORRECTED_ANSWER = "Compris : un événement test à Tom demain. Quelle heure vous convient ?"
 
 // The second account, like chat-send-failed.spec.ts, under the chat lock for the same reason:
 // an answer to another run of the account reaching this window would muddy the counts.
@@ -57,7 +57,7 @@ test('Arrêter stops the answer and gives the message back; the corrected one re
     await expect(chat.panel.getByText(FROZEN_END)).toHaveCount(0)
     await expect(chat.bubbles(QUESTION)).toHaveCount(0)
 
-    // « à elle » becomes « à Ael ».
+    // « à elle » becomes « à Tom ».
     // Not `chat.submit()`: it takes the chat lock, which this journey already holds.
     await chat.input.fill(CORRECTED)
     const correctedRun = page.waitForResponse(

@@ -71,12 +71,12 @@ class PeerDebtOverviewApiTest extends WebTestCase
         $this->get('/api/finance/peer-debts/summary');
 
         self::assertResponseIsSuccessful();
-        // 150 € left on the gîte for Julie + 200 € for Tom; 280 € of petrol to Tom; Lucas gave all back. The biggest net first.
+        // 150 € left on the gîte for Emma + 200 € for Tom; 280 € of petrol to Tom; Lucas gave all back. The biggest net first.
         self::assertSame([
             'owedToMeCents' => 35000,
             'iOweCents' => 28000,
             'byContact' => [
-                ['contactId' => $this->id('julie'), 'name' => 'Julie', 'netCents' => 15000, 'compensates' => false],
+                ['contactId' => $this->id('emma'), 'name' => 'Emma', 'netCents' => 15000, 'compensates' => false],
                 ['contactId' => $this->id('tom'), 'name' => 'Tom', 'netCents' => -8000, 'compensates' => true],
             ],
         ], $this->response());
@@ -108,14 +108,14 @@ class PeerDebtOverviewApiTest extends WebTestCase
         self::assertSame(40000, $gite['amountCents']);
         self::assertSame(35000, $gite['remainingCents']);
         self::assertSame('open', $gite['status']);
-        self::assertSame(['Julie' => 15000, 'Tom' => 20000], array_column($gite['shares'], 'remainingCents', 'contactName'));
+        self::assertSame(['Emma' => 15000, 'Tom' => 20000], array_column($gite['shares'], 'remainingCents', 'contactName'));
         self::assertSame([[
-            'transactionId' => $this->id('julie_in'),
+            'transactionId' => $this->id('emma_in'),
             'bookedAt' => '2026-07-20',
-            'label' => 'VIR DE JULIE ROUX',
+            'label' => 'VIR DE EMMA ROUX',
             'amountCents' => 5000,
-            'contactId' => $this->id('julie'),
-            'contactName' => 'Julie',
+            'contactId' => $this->id('emma'),
+            'contactName' => 'Emma',
         ]], $gite['history']);
         self::assertSame([], $debts[1]['history']);
     }
@@ -143,7 +143,7 @@ class PeerDebtOverviewApiTest extends WebTestCase
         $this->login();
 
         self::assertSame(['Essence du road trip', 'Gîte de Crozon'], array_column($this->debts('?contact='.$this->id('tom')), 'object'));
-        self::assertSame(['Gîte de Crozon'], array_column($this->debts('?contact='.$this->id('julie')), 'object'));
+        self::assertSame(['Gîte de Crozon'], array_column($this->debts('?contact='.$this->id('emma')), 'object'));
     }
 
     /** @return iterable<string, array{0: string}> */

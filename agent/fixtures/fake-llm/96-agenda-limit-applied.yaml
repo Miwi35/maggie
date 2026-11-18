@@ -8,10 +8,10 @@ description: Read tomorrow through MCP with the agendas the directive limits her
 
 match:
   user_contains: "qu'est-ce que j'ai demain"
-  system_contains: "agendas Défaut et Garde Ael"
+  system_contains: "agendas Défaut et Garde Tom"
 
 turns:
   - tools:
       - name: get_upcoming_events
-        input: {days: 2, agendas: ["Défaut", "Garde Ael"]}
-  - text: "Voici demain dans Défaut et Garde Ael, les seuls agendas que vous m'avez demandé de lire."
+        input: {days: 2, agendas: ["Défaut", "Garde Tom"]}
+  - text: "Voici demain dans Défaut et Garde Tom, les seuls agendas que vous m'avez demandé de lire."

@@ -10,7 +10,7 @@ import { TransactionDebtSection } from './TransactionDebtSection'
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
 const CONTACTS = [
-  { id: '/api/contacts/01JULIE', name: 'Julie', notes: null },
+  { id: '/api/contacts/01EMMA', name: 'Emma', notes: null },
   { id: '/api/contacts/01TOM', name: 'Tom', notes: null },
 ]
 
@@ -36,7 +36,7 @@ const debtTo = (contactId: string, contactName: string, amountCents: number) => 
   shares: [{ id: 'S1', contactId, contactName, amountCents, repaidCents: 0, remainingCents: amountCents }],
 })
 
-const DECLARED = { ...NO_DEBT, peerDebt: debtTo('01JULIE', 'Julie', 30000) }
+const DECLARED = { ...NO_DEBT, peerDebt: debtTo('01EMMA', 'Emma', 30000) }
 
 const answer = (ok: boolean, body: unknown, status = ok ? 200 : 400) =>
   Promise.resolve({ ok, status, json: async () => body }) as Promise<Response>
@@ -185,7 +185,7 @@ describe('TransactionDebtSection', () => {
     state = DECLARED
     renderSection()
 
-    expect(await screen.findByTestId('debt-person')).toHaveTextContent('Julie')
+    expect(await screen.findByTestId('debt-person')).toHaveTextContent('Emma')
     await user.click(screen.getByRole('button', { name: 'Changer de personne' }))
     const dialog = await screen.findByRole('dialog', { name: 'À qui le rendre ?' })
     await user.click(await within(dialog).findByText('Tom'))

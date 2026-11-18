@@ -20,8 +20,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 /**
  * Renaming an agenda connected to Google goes to Google, whichever door asked (MAG-385).
  *
- * « Renomme l'agenda Garde Ael en "Ael" » was answered « c'est fait », and the next
- * sync put « Garde Ael » back: Google owns the name on the way in, and nothing sent
+ * « Renomme l'agenda Garde Tom en "Tom" » was answered « c'est fait », and the next
+ * sync put « Garde Tom » back: Google owns the name on the way in, and nothing sent
  * the new one on the way out.
  */
 class ConnectedAgendaRenameTest extends KernelTestCase
@@ -32,7 +32,7 @@ class ConnectedAgendaRenameTest extends KernelTestCase
     use SecurityTokenTrait;
 
     /** What Google answers for the calendar's name, and the only thing a rename changes there. */
-    private string $googleName = 'Garde Ael';
+    private string $googleName = 'Garde Tom';
     private bool $googleIsPrimary = false;
     private ?\Throwable $googleRefuses = null;
     /** @var list<string> the names Google was sent, in order */
@@ -43,7 +43,7 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         self::bootKernel();
         $this->resetMercure();
         $this->resetAsyncTransport();
-        $this->googleName = 'Garde Ael';
+        $this->googleName = 'Garde Tom';
         $this->googleIsPrimary = false;
         $this->googleRefuses = null;
         $this->sentNames = [];
@@ -56,7 +56,7 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         $apiClient = $this->createStub(GoogleCalendarApiClient::class);
         $apiClient->method('getCalendarListEntry')->willReturnCallback(function (): CalendarListEntry {
             $entry = new CalendarListEntry();
-            $entry->setId('garde-ael@group.calendar.google.com');
+            $entry->setId('garde-tom@group.calendar.google.com');
             $entry->setSummary($this->googleName);
             $entry->setPrimary($this->googleIsPrimary);
 
@@ -99,11 +99,11 @@ class ConnectedAgendaRenameTest extends KernelTestCase
 
     public function testARenamedConnectedAgendaKeepsItsNameAfterTheNextSync(): void
     {
-        $this->rename('connected_agenda', 'Ael');
+        $this->rename('connected_agenda', 'Tom');
         $this->sync();
 
-        self::assertSame(['Ael'], $this->sentNames, 'Google should have received the new name as summary.');
-        self::assertSame('Ael', $this->stored('connected_agenda')->getName());
+        self::assertSame(['Tom'], $this->sentNames, 'Google should have received the new name as summary.');
+        self::assertSame('Tom', $this->stored('connected_agenda')->getName());
     }
 
     public function testWhenGoogleRefusesTheNameGoesBackAndTheCallerIsTold(): void
@@ -111,14 +111,14 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         $this->googleRefuses = new \RuntimeException('403 forbidden');
 
         try {
-            $this->rename('connected_agenda', 'Ael');
+            $this->rename('connected_agenda', 'Tom');
             self::fail('The caller should have been told the rename did not reach Google.');
         } catch (HandlerFailedException $e) {
             self::assertInstanceOf(\DomainException::class, $e->getPrevious());
             self::assertStringContainsString('Google', $e->getPrevious()->getMessage());
         }
 
-        self::assertSame('Garde Ael', $this->stored('connected_agenda')->getName());
+        self::assertSame('Garde Tom', $this->stored('connected_agenda')->getName());
         $this->assertMercureUpdatePublished('/agendas/');
     }
 
@@ -145,25 +145,25 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         $this->googleName = 'fixture@example.com';
 
         try {
-            $this->rename('connected_agenda', 'Ael');
+            $this->rename('connected_agenda', 'Tom');
             self::fail('The caller should have been told the primary calendar keeps its name.');
         } catch (HandlerFailedException $e) {
             self::assertInstanceOf(\DomainException::class, $e->getPrevious());
         }
 
         self::assertSame([], $this->sentNames);
-        self::assertSame('Garde Ael', $this->stored('connected_agenda')->getName());
+        self::assertSame('Garde Tom', $this->stored('connected_agenda')->getName());
     }
 
     public function testManageAgendasUpdateRenamesInGoogleToo(): void
     {
         $this->loginFixtureUser();
 
-        $data = json_decode((self::getContainer()->get(ManageAgendasTool::class))('update', agendaId: (string) $this->getFixture('connected_agenda')->getId(), name: 'Ael'), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode((self::getContainer()->get(ManageAgendasTool::class))('update', agendaId: (string) $this->getFixture('connected_agenda')->getId(), name: 'Tom'), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertTrue($data['success']);
-        self::assertSame('Ael', $data['agenda']['name']);
-        self::assertSame(['Ael'], $this->sentNames);
+        self::assertSame('Tom', $data['agenda']['name']);
+        self::assertSame(['Tom'], $this->sentNames);
         $this->assertMercureUpdatePublished('/agendas/');
         $this->assertElasticsearchIndexDispatched(Agenda::class);
     }
@@ -173,12 +173,12 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         $this->loginFixtureUser();
         $this->googleRefuses = new \RuntimeException('403 forbidden');
 
-        $data = json_decode((self::getContainer()->get(ManageAgendasTool::class))('update', agendaId: (string) $this->getFixture('connected_agenda')->getId(), name: 'Ael'), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode((self::getContainer()->get(ManageAgendasTool::class))('update', agendaId: (string) $this->getFixture('connected_agenda')->getId(), name: 'Tom'), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertArrayNotHasKey('success', $data);
         self::assertStringContainsString('could not be renamed in Google', $data['error']);
-        self::assertStringContainsString('Garde Ael', $data['error']);
-        self::assertSame('Garde Ael', $this->stored('connected_agenda')->getName());
+        self::assertStringContainsString('Garde Tom', $data['error']);
+        self::assertSame('Garde Tom', $this->stored('connected_agenda')->getName());
         $this->assertElasticsearchIndexDispatched(Agenda::class);
     }
 
@@ -188,7 +188,7 @@ class ConnectedAgendaRenameTest extends KernelTestCase
         $this->googleRefuses = new \RuntimeException('403 forbidden');
         $tool = self::getContainer()->get(ManageAgendasTool::class);
         $id = (string) $this->getFixture('connected_agenda')->getId();
-        $tool('update', agendaId: $id, name: 'Ael');
+        $tool('update', agendaId: $id, name: 'Tom');
 
         $data = json_decode($tool('update', agendaId: $id, color: '#123456'), true, 512, JSON_THROW_ON_ERROR);
 

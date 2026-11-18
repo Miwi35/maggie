@@ -350,6 +350,6 @@ private fun ObjectDetail(debt: PeerDebt) {
 internal fun owedSentence(debt: PeerDebt): String =
     if (debt.direction == PeerDebt.DIRECTION_I_OWE) "tu dois ${formatCents(debt.remainingCents)}" else "on te doit ${formatCents(debt.remainingCents)}"
 
-/** « Julie 200,00 € · Tom 200,00 € »: who still owes (or is owed) on one object. */
+/** « Emma 200,00 € · Tom 200,00 € »: who still owes (or is owed) on one object. */
 internal fun peopleSentence(debt: PeerDebt): String =
     debt.shares.filter { it.remainingCents > 0 }.joinToString(" · ") { "${it.contactName} ${formatCents(it.remainingCents)}" }

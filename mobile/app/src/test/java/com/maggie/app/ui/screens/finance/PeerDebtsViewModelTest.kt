@@ -36,7 +36,7 @@ class PeerDebtsViewModelTest {
         amountCents = 40000,
         remainingCents = 40000,
         shares = listOf(
-            PeerDebtShare("s-1", "c-julie", "Julie", amountCents = 20000, remainingCents = 20000),
+            PeerDebtShare("s-1", "c-emma", "Emma", amountCents = 20000, remainingCents = 20000),
             PeerDebtShare("s-2", "c-tom", "Tom", amountCents = 20000, remainingCents = 20000),
         ),
     )
@@ -52,7 +52,7 @@ class PeerDebtsViewModelTest {
         owedToMeCents = 40000,
         iOweCents = 28000,
         byContact = listOf(
-            ContactBalance("c-julie", "Julie", netCents = 20000),
+            ContactBalance("c-emma", "Emma", netCents = 20000),
             ContactBalance("c-tom", "Tom", netCents = -8000, compensates = true),
         ),
     )
@@ -90,7 +90,7 @@ class PeerDebtsViewModelTest {
         assertEquals(PeerDebtsTab.BY_PERSON, state.tab)
         assertEquals(40000, state.summary.owedToMeCents)
         assertEquals(28000, state.summary.iOweCents)
-        assertEquals(listOf("Julie", "Tom"), state.summary.byContact.map { it.name })
+        assertEquals(listOf("Emma", "Tom"), state.summary.byContact.map { it.name })
         assertTrue(state.summary.byContact.last().compensates)
         coVerify(exactly = 1) { peerDebts.getOverview(status = "open") }
     }
@@ -121,7 +121,7 @@ class PeerDebtsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(PeerDebtsTab.BY_OBJECT, state.tab)
         assertEquals(listOf("Gîte de Crozon", "Essence du road trip"), state.debts.map { it.`object` })
-        assertEquals(listOf("Julie", "Tom"), state.debts.first().shares.map { it.contactName })
+        assertEquals(listOf("Emma", "Tom"), state.debts.first().shares.map { it.contactName })
 
         viewModel.toggleDebt("d-gite")
         assertEquals("d-gite", viewModel.uiState.value.selectedDebt?.id)

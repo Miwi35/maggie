@@ -64,11 +64,11 @@ final class AccountIncidentsControllerTest extends WebTestCase
 
         $edfDebit = $this->line('checking', -20600, '2026-10-05', 'PRELEVEMENT EDF', 'EDF');
         $edfCredit = $this->line('checking', 20600, '2026-10-06', 'REJET PRLV ELECTRICITE DE FRANCE');
-        $laureDebit = $this->line('checking', -20000, '2026-10-01', 'VIREMENT EMIS WEB Laure', 'Laure');
-        $laureCredit = $this->line('checking', 20000, '2026-10-02', 'REJET VIREMENT WEB Laure');
+        $sophieDebit = $this->line('checking', -20000, '2026-10-01', 'VIREMENT EMIS WEB Sophie', 'Sophie');
+        $sophieCredit = $this->line('checking', 20000, '2026-10-02', 'REJET VIREMENT WEB Sophie');
         $this->line('checking', -999, '2026-10-03', 'PRELEVEMENT NETFLIX');
         $this->reject($edfDebit, $edfCredit);
-        $this->reject($laureDebit, $laureCredit);
+        $this->reject($sophieDebit, $sophieCredit);
 
         self::assertSame([
             [
@@ -82,11 +82,11 @@ final class AccountIncidentsControllerTest extends WebTestCase
                 'settledAt' => null,
             ],
             [
-                'debitId' => (string) $laureDebit->getId(),
-                'creditId' => (string) $laureCredit->getId(),
+                'debitId' => (string) $sophieDebit->getId(),
+                'creditId' => (string) $sophieCredit->getId(),
                 'bookedAt' => '2026-10-01',
                 'rejectedAt' => '2026-10-02',
-                'counterpartyName' => 'Laure',
+                'counterpartyName' => 'Sophie',
                 'amountCents' => 20000,
                 'kind' => 'transfer',
                 'settledAt' => null,

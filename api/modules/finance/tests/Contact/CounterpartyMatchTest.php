@@ -62,9 +62,9 @@ class CounterpartyMatchTest extends TestCase
 
     public function testOnlyAnUnclaimedTransferAsksForItsContact(): void
     {
-        self::assertTrue(CounterpartyMatch::asksForContact(self::transaction('VIR INST DE JULIE DURAND')));
+        self::assertTrue(CounterpartyMatch::asksForContact(self::transaction('VIR INST DE EMMA DURAND')));
         self::assertTrue(CounterpartyMatch::asksForContact(self::transaction('PAYPAL *TOMMARTIN')));
-        self::assertTrue(CounterpartyMatch::asksForContact(self::transaction('XYZ', 'Julie Durand')));
+        self::assertTrue(CounterpartyMatch::asksForContact(self::transaction('XYZ', 'Emma Durand')));
         self::assertFalse(CounterpartyMatch::asksForContact(self::transaction('CARREFOUR MARKET')));
         self::assertFalse(CounterpartyMatch::asksForContact(self::transaction('VIR. DE TOM MARTIN', kind: TransferKind::Internal)));
         self::assertFalse(CounterpartyMatch::asksForContact(self::transaction('VIR. DE TOM MARTIN')->setContact(new Contact())));
@@ -74,6 +74,6 @@ class CounterpartyMatchTest extends TestCase
     {
         self::assertSame('VIR. DE TOM MARTIN', CounterpartyMatch::labelFor(self::transaction('VIR. DE TOM MARTIN 05/09 REF 4411')));
         self::assertSame('PAYPAL *TOMMARTIN', CounterpartyMatch::labelFor(self::transaction('PAYPAL *TOMMARTIN')));
-        self::assertSame('Julie Durand', CounterpartyMatch::labelFor(self::transaction('VIREMENT 123456789', 'Julie Durand')));
+        self::assertSame('Emma Durand', CounterpartyMatch::labelFor(self::transaction('VIREMENT 123456789', 'Emma Durand')));
     }
 }

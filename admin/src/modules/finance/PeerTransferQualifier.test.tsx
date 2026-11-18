@@ -10,7 +10,7 @@ import { PeerTransferQualifier } from './PeerTransferQualifier'
 const i18nProvider = polyglotI18nProvider(() => messages, 'fr')
 
 const CONTACTS = [
-  { id: '/api/contacts/01JULIE', name: 'Julie', notes: null },
+  { id: '/api/contacts/01EMMA', name: 'Emma', notes: null },
   { id: '/api/contacts/01TOM', name: 'Tom', notes: null },
 ]
 
@@ -18,7 +18,7 @@ const candidate = (shareId: string, object: string, contactName: string, remaini
   shareId,
   peerDebtId: `D-${shareId}`,
   object,
-  contactId: contactName === 'Tom' ? '01TOM' : '01JULIE',
+  contactId: contactName === 'Tom' ? '01TOM' : '01EMMA',
   contactName,
   amountCents: remainingCents,
   repaidCents: 0,
@@ -28,7 +28,7 @@ const candidate = (shareId: string, object: string, contactName: string, remaini
   fromContact,
 })
 
-/** From Tom, +400 €: Julie's resto (listed first by the API order on purpose) and Tom's gîte. */
+/** From Tom, +400 €: Emma's resto (listed first by the API order on purpose) and Tom's gîte. */
 const FROM_TOM = {
   transactionId: '01TX',
   amountCents: 40000,
@@ -40,7 +40,7 @@ const FROM_TOM = {
   unallocatedCents: 40000,
   allocations: [],
   candidates: [
-    candidate('S-RESTO', 'Resto', 'Julie', 3000, false),
+    candidate('S-RESTO', 'Resto', 'Emma', 3000, false),
     candidate('S-GITE', 'Gîte de Crozon', 'Tom', 20000, true),
   ],
   peerDebt: null,
@@ -170,7 +170,7 @@ describe('PeerTransferQualifier', () => {
     await user.click(await screen.findByRole('button', { name: 'Un remboursement' }))
     const covers = screen.getByRole('list', { name: 'Il couvre' })
     const boxes = within(covers).getAllByRole('checkbox')
-    expect(boxes.map((b) => b.closest('label')?.textContent)).toEqual(['Gîte de Crozon · Tom', 'Resto · Julie'])
+    expect(boxes.map((b) => b.closest('label')?.textContent)).toEqual(['Gîte de Crozon · Tom', 'Resto · Emma'])
     expect(plain(screen.getByTestId('peer-unallocated'))).toContain('Non affecté : 400,00 €')
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
 
@@ -204,7 +204,7 @@ describe('PeerTransferQualifier', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Un remboursement' }))
     await user.click(screen.getByRole('checkbox', { name: 'Gîte de Crozon · Tom' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Resto · Julie' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Resto · Emma' }))
 
     expect(screen.getByLabelText('Montant pour Resto (€)')).toHaveValue('10')
     expect(plain(screen.getByTestId('peer-unallocated'))).toContain('Non affecté : 0,00 €')
@@ -243,7 +243,7 @@ describe('PeerTransferQualifier', () => {
     renderQualifier()
 
     expect(await screen.findByLabelText('Montant pour Gîte de Crozon (€)')).toHaveValue('150')
-    expect(screen.getByRole('checkbox', { name: 'Resto · Julie' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Resto · Emma' })).not.toBeChecked()
     expect(plain(screen.getByTestId('peer-unallocated'))).toContain('Non affecté : 250,00 €')
   })
 
@@ -280,17 +280,17 @@ describe('PeerTransferQualifier', () => {
     await user.click(await screen.findByRole('button', { name: 'Nouvelle créance' }))
     await user.click(screen.getByRole('button', { name: 'Changer de personne' }))
     const dialog = await screen.findByRole('dialog', { name: 'Qui te doit ?' })
-    await user.click(await within(dialog).findByText('Julie'))
+    await user.click(await within(dialog).findByText('Emma'))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Qui te doit ?' })).not.toBeInTheDocument())
-    expect(screen.getByTestId('peer-person')).toHaveTextContent('Julie')
-    expect(plain(screen.getByTestId('peer-summary'))).toContain('Julie te doit 60,00 €')
+    expect(screen.getByTestId('peer-person')).toHaveTextContent('Emma')
+    expect(plain(screen.getByTestId('peer-summary'))).toContain('Emma te doit 60,00 €')
 
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     await waitFor(() => expect(puts()).toHaveLength(1))
     expect(puts()[0].body).toEqual({
       kind: 'new_claim',
-      claim: { contactId: '01JULIE', object: 'VIR. DE TOM MARTIN', notes: null },
+      claim: { contactId: '01EMMA', object: 'VIR. DE TOM MARTIN', notes: null },
     })
   })
 

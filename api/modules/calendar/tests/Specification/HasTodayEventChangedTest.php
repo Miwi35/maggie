@@ -93,7 +93,7 @@ class HasTodayEventChangedTest extends TestCase
 
     public function testChangingOnlyTheTitleOrTheDescriptionDoesNot(): void
     {
-        $changeSet = ['summary' => ['Dentiste', 'Dentiste Ael'], 'description' => [null, 'Détartrage']];
+        $changeSet = ['summary' => ['Dentiste', 'Dentiste Tom'], 'description' => [null, 'Détartrage']];
 
         self::assertFalse(HasTodayEventChanged::updated($changeSet, $this->now)->isSatisfiedBy($this->event()));
     }

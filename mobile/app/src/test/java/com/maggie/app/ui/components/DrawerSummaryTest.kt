@@ -46,12 +46,12 @@ class DrawerSummaryTest {
             date = "2026-10-25",
             events = listOf(
                 event("Dentiste", "2026-10-25T07:30:00Z", "2026-10-25T08:00:00Z"),
-                event("Récupérer Ael", "2026-10-25T15:30:00Z", "2026-10-25T16:00:00Z"),
+                event("Récupérer Tom", "2026-10-25T15:30:00Z", "2026-10-25T16:00:00Z"),
                 event("Apéro", "2026-10-25T17:00:00Z", "2026-10-25T18:00:00Z"),
             ),
         )
 
-        assertEquals("16:30 · Récupérer Ael", DrawerSummary.of(agenda = agenda, now = morning)["calendar"]?.line)
+        assertEquals("16:30 · Récupérer Tom", DrawerSummary.of(agenda = agenda, now = morning)["calendar"]?.line)
         assertEquals("18:00 · Apéro", DrawerSummary.of(agenda = agenda, now = Instant.parse("2026-10-25T16:30:00Z"))["calendar"]?.line)
         assertNull(DrawerSummary.of(agenda = agenda, now = Instant.parse("2026-10-25T19:00:00Z"))["calendar"])
     }

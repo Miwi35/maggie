@@ -155,14 +155,14 @@ class PeerDebtApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    // --- The gîte: 800 €, my part 200 €, Julie, Tom and Inès ---------------------
+    // --- The gîte: 800 €, my part 200 €, Emma, Tom and Inès ---------------------
 
     public function testMyShareSplitsTheRestEquallyAndOnlyMyPartCountsInTheEnvelope(): void
     {
         $this->login();
         self::assertSame(80000 + 3000 + 10000, $this->travelSpentInJuly());
 
-        $this->shareGite(20000, [['julie'], ['tom'], ['ines']]);
+        $this->shareGite(20000, [['emma'], ['tom'], ['ines']]);
 
         self::assertResponseIsSuccessful();
         $body = $this->response();
@@ -171,12 +171,12 @@ class PeerDebtApiTest extends WebTestCase
         self::assertSame(60000, $body['peerDebt']['remainingCents']);
         self::assertSame('open', $body['peerDebt']['status']);
         self::assertSame('owed_to_me', $body['peerDebt']['direction']);
-        self::assertSame(['Julie', 'Tom', 'Inès'], array_column($body['peerDebt']['shares'], 'contactName'));
+        self::assertSame(['Emma', 'Tom', 'Inès'], array_column($body['peerDebt']['shares'], 'contactName'));
 
         self::assertSame(20000, $this->transaction('gite')->getMyShareCents());
         $debt = $this->debtOf('gite');
         self::assertNotNull($debt);
-        self::assertSame(['Julie' => 20000, 'Tom' => 20000, 'Inès' => 20000], self::sharesByName($debt));
+        self::assertSame(['Emma' => 20000, 'Tom' => 20000, 'Inès' => 20000], self::sharesByName($debt));
         // The object is the spend's label unless given; the notes are kept.
         self::assertSame('GITE DES FALAISES', $debt->getObject());
         self::assertSame('Week-end de juillet', $debt->getNotes());
@@ -196,7 +196,7 @@ class PeerDebtApiTest extends WebTestCase
         $summary = $this->response();
         self::assertSame([60000 + 5000, 0], [$summary['owedToMeCents'], $summary['iOweCents']]);
         // Tom also owes the 50 € of the dinner: the biggest net first, then by name.
-        self::assertSame([['Tom', 25000], ['Inès', 20000], ['Julie', 20000]], array_map(
+        self::assertSame([['Tom', 25000], ['Emma', 20000], ['Inès', 20000]], array_map(
             static fn (array $person): array => [$person['name'], $person['netCents']],
             $summary['byContact'],
         ));
@@ -206,12 +206,12 @@ class PeerDebtApiTest extends WebTestCase
     {
         $this->login();
 
-        $this->shareGite(20000, [['julie', 30000], ['tom', 20000], ['ines', 10000]], 'Gîte Bretagne');
+        $this->shareGite(20000, [['emma', 30000], ['tom', 20000], ['ines', 10000]], 'Gîte Bretagne');
 
         self::assertResponseIsSuccessful();
         $debt = $this->debtOf('gite');
         self::assertNotNull($debt);
-        self::assertSame(['Julie' => 30000, 'Tom' => 20000, 'Inès' => 10000], self::sharesByName($debt));
+        self::assertSame(['Emma' => 30000, 'Tom' => 20000, 'Inès' => 10000], self::sharesByName($debt));
         self::assertSame('Gîte Bretagne', $debt->getObject());
     }
 
@@ -219,7 +219,7 @@ class PeerDebtApiTest extends WebTestCase
     {
         $this->login();
 
-        $this->shareGite(20000, [['julie', 30000], ['tom', 20000], ['ines', 20000]]);
+        $this->shareGite(20000, [['emma', 30000], ['tom', 20000], ['ines', 20000]]);
 
         self::assertResponseStatusCodeSame(400);
         self::assertStringContainsString('60000', $this->response()['error']);
@@ -234,30 +234,30 @@ class PeerDebtApiTest extends WebTestCase
 
         $this->call('PUT', '/api/finance/transactions/'.$this->id('small_spend').'/my-share', [
             'myShareCents' => 0,
-            'shares' => [['contactId' => $this->id('julie')], ['contactId' => $this->id('tom')], ['contactId' => $this->id('ines')]],
+            'shares' => [['contactId' => $this->id('emma')], ['contactId' => $this->id('tom')], ['contactId' => $this->id('ines')]],
         ]);
 
         self::assertResponseIsSuccessful();
         $debt = $this->debtOf('small_spend');
         self::assertNotNull($debt);
-        self::assertSame(['Julie' => 3333, 'Tom' => 3333, 'Inès' => 3334], self::sharesByName($debt));
+        self::assertSame(['Emma' => 3333, 'Tom' => 3333, 'Inès' => 3334], self::sharesByName($debt));
         self::assertSame(0, $this->transaction('small_spend')->getMyShareCents());
     }
 
     public function testSettingMyShareAgainUpdatesTheSameDebt(): void
     {
         $this->login();
-        $this->shareGite(20000, [['julie'], ['tom'], ['ines']]);
+        $this->shareGite(20000, [['emma'], ['tom'], ['ines']]);
         $first = $this->debtOf('gite');
         self::assertNotNull($first);
 
-        $this->shareGite(40000, [['julie'], ['tom']]);
+        $this->shareGite(40000, [['emma'], ['tom']]);
 
         self::assertResponseIsSuccessful();
         $debt = $this->debtOf('gite');
         self::assertNotNull($debt);
         self::assertTrue($first->getId()->equals($debt->getId()));
-        self::assertSame(['Julie' => 20000, 'Tom' => 20000], self::sharesByName($debt));
+        self::assertSame(['Emma' => 20000, 'Tom' => 20000], self::sharesByName($debt));
         self::assertCount(2, $this->em()->getRepository(PeerDebtShare::class)->findBy(['peerDebt' => $debt->getId()]));
         self::assertSame(40000, $this->transaction('gite')->getMyShareCents());
     }
@@ -267,16 +267,16 @@ class PeerDebtApiTest extends WebTestCase
     /** @return iterable<string, array{0: string, 1: array<string, mixed>|string}> */
     public static function badShares(): iterable
     {
-        yield 'an income' => ['salary', ['myShareCents' => 1000, 'shares' => [['contactId' => 'julie']]]];
-        yield 'an internal transfer' => ['to_savings', ['myShareCents' => 1000, 'shares' => [['contactId' => 'julie']]]];
-        yield 'my part as much as the spend' => ['gite', ['myShareCents' => 80000, 'shares' => [['contactId' => 'julie']]]];
-        yield 'a negative part' => ['gite', ['myShareCents' => -1, 'shares' => [['contactId' => 'julie']]]];
+        yield 'an income' => ['salary', ['myShareCents' => 1000, 'shares' => [['contactId' => 'emma']]]];
+        yield 'an internal transfer' => ['to_savings', ['myShareCents' => 1000, 'shares' => [['contactId' => 'emma']]]];
+        yield 'my part as much as the spend' => ['gite', ['myShareCents' => 80000, 'shares' => [['contactId' => 'emma']]]];
+        yield 'a negative part' => ['gite', ['myShareCents' => -1, 'shares' => [['contactId' => 'emma']]]];
         yield 'another user\'s contact' => ['gite', ['myShareCents' => 20000, 'shares' => [['contactId' => 'others_contact']]]];
         yield 'nobody' => ['gite', ['myShareCents' => 20000, 'shares' => []]];
         yield 'the same person twice' => ['gite', ['myShareCents' => 20000, 'shares' => [['contactId' => 'tom'], ['contactId' => 'tom']]]];
-        yield 'some amounts only' => ['gite', ['myShareCents' => 20000, 'shares' => [['contactId' => 'tom', 'amountCents' => 30000], ['contactId' => 'julie']]]];
-        yield 'no part' => ['gite', ['shares' => [['contactId' => 'julie']]]];
-        yield 'shares not a list' => ['gite', ['myShareCents' => 20000, 'shares' => 'julie']];
+        yield 'some amounts only' => ['gite', ['myShareCents' => 20000, 'shares' => [['contactId' => 'tom', 'amountCents' => 30000], ['contactId' => 'emma']]]];
+        yield 'no part' => ['gite', ['shares' => [['contactId' => 'emma']]]];
+        yield 'shares not a list' => ['gite', ['myShareCents' => 20000, 'shares' => 'emma']];
         yield 'not JSON' => ['gite', '{oops'];
     }
 
@@ -301,7 +301,7 @@ class PeerDebtApiTest extends WebTestCase
         $this->loadFixtures('peer_debts.yaml');
         $this->authenticateAsUser($this->getFixture('other_user'));
 
-        $this->shareGite(20000, [['julie']]);
+        $this->shareGite(20000, [['emma']]);
 
         self::assertResponseStatusCodeSame(404);
     }
@@ -311,7 +311,7 @@ class PeerDebtApiTest extends WebTestCase
     public function testRemovingTheSharePutsTheWholeSpendBackAndForgetsTheDebt(): void
     {
         $this->login();
-        $this->shareGite(20000, [['julie'], ['tom'], ['ines']]);
+        $this->shareGite(20000, [['emma'], ['tom'], ['ines']]);
         $debtId = (string) $this->debtOf('gite')?->getId();
         $this->resetMercure();
         $this->resetAsyncTransport();
@@ -348,7 +348,7 @@ class PeerDebtApiTest extends WebTestCase
 
         $this->call('PUT', '/api/finance/transactions/'.$this->id('dinner').'/my-share', [
             'myShareCents' => 3000,
-            'shares' => [['contactId' => $this->id('julie')]],
+            'shares' => [['contactId' => $this->id('emma')]],
         ]);
 
         self::assertResponseStatusCodeSame(400);
@@ -381,7 +381,7 @@ class PeerDebtApiTest extends WebTestCase
     public function testDeletingASharedSpendForgetsItsDebt(): void
     {
         $this->login();
-        $this->shareGite(20000, [['julie'], ['tom'], ['ines']]);
+        $this->shareGite(20000, [['emma'], ['tom'], ['ines']]);
         $debtId = (string) $this->debtOf('gite')?->getId();
         $this->resetMercure();
         $this->resetAsyncTransport();
@@ -429,7 +429,7 @@ class PeerDebtApiTest extends WebTestCase
     public function testTheDebtsListOnlyTheOwnersWithTheirShares(): void
     {
         $this->login();
-        $this->shareGite(20000, [['julie'], ['tom'], ['ines']]);
+        $this->shareGite(20000, [['emma'], ['tom'], ['ines']]);
 
         $this->call('GET', '/api/peer_debts');
 
@@ -511,7 +511,7 @@ class PeerDebtApiTest extends WebTestCase
     public function testTheMonthlyReviewWeighsMyPartOnly(): void
     {
         $this->login();
-        $this->shareGite(20000, [['julie'], ['tom'], ['ines']]);
+        $this->shareGite(20000, [['emma'], ['tom'], ['ines']]);
 
         $this->call('GET', '/api/finance/monthly-review?year=2026&month=7');
 

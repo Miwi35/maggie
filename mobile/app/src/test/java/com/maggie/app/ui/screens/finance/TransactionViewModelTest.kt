@@ -1759,10 +1759,10 @@ class TransactionViewModelTest {
         coVerify { transactionRepository.setAdvanceSource("tx-adv", null) }
     }
 
-    // « Partage » (MAG-451): the gîte of 800 €, my part 200 €, Julie, Tom and Inès 200 € each.
+    // « Partage » (MAG-451): the gîte of 800 €, my part 200 €, Emma, Tom and Inès 200 € each.
 
     private val gite = Transaction(id = "tx-gite", label = "GITE DES CIMES", amountCents = -80000)
-    private val julie = Contact(id = "c-julie", name = "Julie")
+    private val emma = Contact(id = "c-emma", name = "Emma")
     private val tom = Contact(id = "c-tom", name = "Tom")
     private val ines = Contact(id = "c-ines", name = "Inès")
 
@@ -1826,12 +1826,12 @@ class TransactionViewModelTest {
 
     @Test
     fun `a shared spend opens switched on, with its people and its object`() = runTest {
-        openGite(sharedGite(20000, julie to 20000, tom to 20000, ines to 20000))
+        openGite(sharedGite(20000, emma to 20000, tom to 20000, ines to 20000))
 
         assertTrue(share.enabled)
         assertTrue(share.isShared)
         assertEquals(20000, share.myShareCents)
-        assertEquals(listOf("Julie", "Tom", "Inès"), share.people.map { it.name })
+        assertEquals(listOf("Emma", "Tom", "Inès"), share.people.map { it.name })
         assertFalse("an equal split is not an edit by hand", share.editedByHand)
         assertEquals("Gîte des Cimes", share.subject)
         assertEquals("Week-end d'octobre", share.notes)
@@ -1856,7 +1856,7 @@ class TransactionViewModelTest {
         viewModel.setShareEnabled(true)
         viewModel.changeMyShare(20000)
 
-        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(emma)
         viewModel.addSharePerson(tom)
         viewModel.addSharePerson(ines)
 
@@ -1883,7 +1883,7 @@ class TransactionViewModelTest {
     fun `changing my part splits the rest again`() = runTest {
         openGite()
         viewModel.setShareEnabled(true)
-        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(emma)
         viewModel.addSharePerson(tom)
 
         viewModel.changeMyShare(20000)
@@ -1909,13 +1909,13 @@ class TransactionViewModelTest {
         openGite()
         viewModel.setShareEnabled(true)
         viewModel.changeMyShare(20000)
-        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(emma)
         viewModel.addSharePerson(tom)
         viewModel.addSharePerson(ines)
 
         viewModel.removeSharePerson("c-tom")
 
-        assertEquals(listOf("Julie", "Inès"), share.people.map { it.name })
+        assertEquals(listOf("Emma", "Inès"), share.people.map { it.name })
         assertEquals(listOf(30000, 30000), share.people.map { it.amountCents })
     }
 
@@ -1924,10 +1924,10 @@ class TransactionViewModelTest {
         openGite()
         viewModel.setShareEnabled(true)
         viewModel.changeMyShare(20000)
-        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(emma)
         viewModel.addSharePerson(tom)
 
-        viewModel.editShareAmount("c-julie", 40000)
+        viewModel.editShareAmount("c-emma", 40000)
 
         assertTrue(share.editedByHand)
         assertEquals(listOf(40000, 30000), share.people.map { it.amountCents })
@@ -1948,11 +1948,11 @@ class TransactionViewModelTest {
     fun `saving an equal split sends no amount, and the line becomes shared`() = runTest {
         val request = slot<MyShareRequest>()
         coEvery { peerDebtRepository.setMyShare("tx-gite", capture(request)) } returns
-            Result.success(sharedGite(20000, julie to 20000, tom to 20000, ines to 20000))
+            Result.success(sharedGite(20000, emma to 20000, tom to 20000, ines to 20000))
         openGite()
         viewModel.setShareEnabled(true)
         viewModel.changeMyShare(20000)
-        listOf(julie, tom, ines).forEach(viewModel::addSharePerson)
+        listOf(emma, tom, ines).forEach(viewModel::addSharePerson)
         viewModel.changeShareNotes("Week-end d'octobre")
         coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(gite.copy(myShareCents = 20000)))
 
@@ -1964,7 +1964,7 @@ class TransactionViewModelTest {
                 myShareCents = 20000,
                 `object` = "GITE DES CIMES",
                 notes = "Week-end d'octobre",
-                shares = listOf(MyShareRequestShare("c-julie"), MyShareRequestShare("c-tom"), MyShareRequestShare("c-ines")),
+                shares = listOf(MyShareRequestShare("c-emma"), MyShareRequestShare("c-tom"), MyShareRequestShare("c-ines")),
             ),
             request.captured,
         )
@@ -1979,13 +1979,13 @@ class TransactionViewModelTest {
     fun `saving amounts edited by hand sends every amount`() = runTest {
         val request = slot<MyShareRequest>()
         coEvery { peerDebtRepository.setMyShare("tx-gite", capture(request)) } returns
-            Result.success(sharedGite(20000, julie to 40000, tom to 20000))
+            Result.success(sharedGite(20000, emma to 40000, tom to 20000))
         openGite()
         viewModel.setShareEnabled(true)
         viewModel.changeMyShare(20000)
-        viewModel.addSharePerson(julie)
+        viewModel.addSharePerson(emma)
         viewModel.addSharePerson(tom)
-        viewModel.editShareAmount("c-julie", 40000)
+        viewModel.editShareAmount("c-emma", 40000)
         viewModel.editShareAmount("c-tom", 20000)
 
         viewModel.saveShare()
@@ -2059,7 +2059,7 @@ class TransactionViewModelTest {
 
     @Test
     fun `the picker offers the owner's contacts and a person created there joins the share`() = runTest {
-        coEvery { contactRepository.getContacts() } returns Result.success(listOf(julie, tom))
+        coEvery { contactRepository.getContacts() } returns Result.success(listOf(emma, tom))
         coEvery { contactRepository.createContact("Inès") } returns Result.success(ines)
         openGite()
         viewModel.setShareEnabled(true)
@@ -2067,9 +2067,9 @@ class TransactionViewModelTest {
         viewModel.openShareContactPicker()
         assertTrue(viewModel.uiState.value.shareContacts!!.isLoading)
         advanceUntilIdle()
-        assertEquals(listOf("Julie", "Tom"), viewModel.uiState.value.shareContacts!!.contacts.map { it.name })
+        assertEquals(listOf("Emma", "Tom"), viewModel.uiState.value.shareContacts!!.contacts.map { it.name })
 
-        viewModel.pickShareContact(julie)
+        viewModel.pickShareContact(emma)
         assertNull(viewModel.uiState.value.shareContacts)
 
         viewModel.openShareContactPicker()
@@ -2078,7 +2078,7 @@ class TransactionViewModelTest {
         advanceUntilIdle()
 
         assertNull(viewModel.uiState.value.shareContacts)
-        assertEquals(listOf("Julie", "Inès"), share.people.map { it.name })
+        assertEquals(listOf("Emma", "Inès"), share.people.map { it.name })
     }
 
     // « Ce virement est » (MAG-452): 280 € received from Tom, to be given back.
@@ -2108,7 +2108,7 @@ class TransactionViewModelTest {
         coEvery { transactionRepository.getTransactions(accountId) } returns pageOf(listOf(virement))
         coEvery { transactionRepository.getTransfer("tx-vir") } returns Result.success(TransferInfo())
         coEvery { peerDebtRepository.getDebt("tx-vir") } returns Result.success(debt)
-        coEvery { contactRepository.getContacts() } returns Result.success(listOf(julie, tom))
+        coEvery { contactRepository.getContacts() } returns Result.success(listOf(emma, tom))
         viewModel = newViewModel()
         advanceUntilIdle()
         viewModel.openDetail("tx-vir")
@@ -2180,12 +2180,12 @@ class TransactionViewModelTest {
         viewModel.openDebtContactPicker()
         assertTrue(viewModel.uiState.value.debtContacts!!.isLoading)
         advanceUntilIdle()
-        assertEquals(listOf("Julie", "Tom"), viewModel.uiState.value.debtContacts!!.contacts.map { it.name })
+        assertEquals(listOf("Emma", "Tom"), viewModel.uiState.value.debtContacts!!.contacts.map { it.name })
 
-        viewModel.pickDebtContact(julie)
+        viewModel.pickDebtContact(emma)
 
         assertNull(viewModel.uiState.value.debtContacts)
-        assertEquals("c-julie", debt.contactId)
+        assertEquals("c-emma", debt.contactId)
         assertTrue(debt.canSave)
     }
 
@@ -2300,7 +2300,7 @@ class TransactionViewModelTest {
         amountCents = 20000, remainingCents = 20000, availableCents = 20000, fromContact = true,
     )
     private val ticketShare = PeerAllocationCandidate(
-        shareId = "share-ticket", peerDebtId = "debt-ticket", `object` = "Ciné", contactId = "c-julie", contactName = "Julie",
+        shareId = "share-ticket", peerDebtId = "debt-ticket", `object` = "Ciné", contactId = "c-emma", contactName = "Emma",
         amountCents = 5000, remainingCents = 5000, availableCents = 5000,
     )
 
@@ -2322,7 +2322,7 @@ class TransactionViewModelTest {
         coEvery { transactionRepository.getTransfer("tx-tom") } returns Result.success(TransferInfo())
         coEvery { peerDebtRepository.getDebt("tx-tom") } returns Result.success(TransactionDebt("tx-tom", 40000, canBeDebt = true))
         coEvery { peerDebtRepository.getAllocation("tx-tom") } returns Result.success(allocation)
-        coEvery { contactRepository.getContacts() } returns Result.success(listOf(julie, tom))
+        coEvery { contactRepository.getContacts() } returns Result.success(listOf(emma, tom))
         viewModel = newViewModel()
         advanceUntilIdle()
         viewModel.openDetail("tx-tom")
@@ -2445,10 +2445,10 @@ class TransactionViewModelTest {
         viewModel.openPeerContactPicker()
         assertTrue(viewModel.uiState.value.peerContacts!!.isLoading)
         advanceUntilIdle()
-        viewModel.pickPeerContact(julie)
+        viewModel.pickPeerContact(emma)
 
         assertNull(viewModel.uiState.value.peerContacts)
-        assertEquals("c-julie", peer.personId)
+        assertEquals("c-emma", peer.personId)
     }
 
     @Test

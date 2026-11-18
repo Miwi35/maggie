@@ -24,8 +24,8 @@ Maggie\Calendar\Entity\Agenda:
 
 Maggie\Calendar\Entity\Proaction:
   proaction:
-    prompt: Rappelle de déposer Ael à l'école
-    summary: Dépose Ael
+    prompt: Rappelle de déposer Tom à l'école
+    summary: Dépose Tom
     startAt: '<(new \DateTimeImmutable("2037-01-15T08:30:00+01:00"))>'
     agenda: '@maggie_agenda'
   later_failed_proaction:

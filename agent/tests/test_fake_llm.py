@@ -541,7 +541,7 @@ class TestMatching:
             return await client.messages.create(
                 model="fake",
                 max_tokens=1024,
-                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Ael",
+                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Tom",
                 tools=[{"name": "manage_meals"}],
                 messages=[{"role": "user", "content": question}, *rounds],
             )
@@ -578,7 +578,7 @@ class TestMatching:
             return await client.messages.create(
                 model="fake",
                 max_tokens=1024,
-                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Ael",
+                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Tom",
                 tools=[{"name": "manage_accounts"}],
                 messages=messages,
             )
@@ -613,7 +613,7 @@ class TestMatching:
             return await client.messages.create(
                 model="fake",
                 max_tokens=1024,
-                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Ael",
+                system="Tu es Maggie. Ne me parle que des événements des agendas Défaut et Garde Tom",
                 tools=[{"name": "read_bank_statement"}, {"name": "import_bank_transactions"}],
                 messages=[{"role": "user", "content": question}],
             )
@@ -858,19 +858,19 @@ class TestMatching:
         )
 
     async def test_the_stopped_request_stalls_and_its_correction_does_not_match_it(self):
-        """97-*.yaml (MAG-320): « à elle » is stopped, « à Ael » is answered, and the note makes it say what was done."""
+        """97-*.yaml (MAG-320): « à elle » is stopped, « à Tom » is answered, and the note makes it say what was done."""
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
 
         stopped = await ask(client, "Crée un événement test à elle demain")
-        corrected = await ask(client, "Crée un événement test à Ael demain")
+        corrected = await ask(client, "Crée un événement test à Tom demain")
         after_action = await ask(
             client,
-            "Crée un événement test à Ael demain\n\n[Message corrigé : x. Pendant ce tour tu avais déjà fait : "
+            "Crée un événement test à Tom demain\n\n[Message corrigé : x. Pendant ce tour tu avais déjà fait : "
             'create_event({"title":"Test"}). Ces actions n\'ont pas été défaites.]',
         )
 
         assert "FIN DE LA RÉPONSE" in text_of(stopped)
-        assert text_of(corrected) == "Compris : un événement test à Ael demain. Quelle heure vous convient ?"
+        assert text_of(corrected) == "Compris : un événement test à Tom demain. Quelle heure vous convient ?"
         # A « c'est noté » with no tool behind it is sent back by the claim guard, and the one-turn
         # scenario then answers « n'a pas de tour 2 » on screen.
         assert not claims_learning(text_of(corrected))
@@ -1671,14 +1671,14 @@ class TestTheShippedFixtures:
         """A rule she gives herself is read in every answer, so it is `behavior`, not `planning` (MAG-325)."""
         client = build_client(DEFAULT_FIXTURES_DIR)
 
-        for wording in ("Ne me parle que de Défaut et Garde Ael", "Ne me parle que des événements de Défaut et Garde Ael"):
+        for wording in ("Ne me parle que de Défaut et Garde Tom", "Ne me parle que des événements de Défaut et Garde Tom"):
             answer = await ask(client, wording)
             assert answer.stop_reason == "tool_use", wording
 
         stored = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
         assert stored.name == "add_instruction"
         assert stored.input["kind"] == "behavior"
-        assert "Défaut et Garde Ael" in stored.input["content"]
+        assert "Défaut et Garde Tom" in stored.input["content"]
 
     async def test_tomorrow_is_read_with_the_agendas_the_directive_limits_her_to(self):
         client = build_client(DEFAULT_FIXTURES_DIR)
@@ -1689,12 +1689,12 @@ class TestTheShippedFixtures:
         with_directive = await ask(
             client,
             "Qu'est-ce que j'ai demain ?",
-            system=f"Tu es Maggie.{HEADER}\n- Ne me parle que des événements des agendas Défaut et Garde Ael",
+            system=f"Tu es Maggie.{HEADER}\n- Ne me parle que des événements des agendas Défaut et Garde Tom",
         )
 
         call = next(block for block in with_directive.content if isinstance(block, FakeToolUseBlock))
         assert call.name == "get_upcoming_events"
-        assert call.input["agendas"] == ["Défaut", "Garde Ael"]
+        assert call.input["agendas"] == ["Défaut", "Garde Tom"]
 
     async def test_an_event_named_by_the_owner_is_searched_by_title_with_no_window(self):
         """The 7 Oct. conversation: `days: 7` missed a series starting in 8 days (MAG-325)."""
