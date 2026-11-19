@@ -27,7 +27,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * What a departure alert opens, over the lock screen (MAG-658): « Pars maintenant pour … » with
+ * What a departure alert opens, over the lock screen (MAG-658): « Partez maintenant pour … » with
  * « Y aller » and « Déjà en route ». Started with [PushIntents.ACTION_DEPARTURE_GO] it has no screen:
  * it hands the navigation link over and closes, which is what the notification's own « Y aller » does.
  */

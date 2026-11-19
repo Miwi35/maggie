@@ -41,7 +41,7 @@ private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 private val DAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH)
 
 /**
- * « Pars maintenant » (MAG-658, mockup `Depart-Tel`): what a departure alert opens over the lock
+ * « Partez maintenant » (MAG-658, mockup `Depart-Tel`): what a departure alert opens over the lock
  * screen. Always the night palette, like the other screens meant to be read at a glance. [trip] is
  * null while it loads or when the alert's trip is gone: the screen then carries the title and the
  * two buttons only. [onGo] is null when the alert carries no navigation link.

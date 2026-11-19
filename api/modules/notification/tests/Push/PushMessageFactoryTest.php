@@ -357,7 +357,7 @@ final class PushMessageFactoryTest extends TestCase
     {
         $factory = new PushMessageFactory('maggie', [$this->navigationLinks(['/api/trips/01JTRIP' => 'https://waze.com/ul?ll=48.119,-1.6672&navigate=yes'])]);
 
-        $message = $factory->build($this->notification(NotificationType::Departure, 'Pars maintenant pour Dentiste', null, '/api/trips/01JTRIP'), 't');
+        $message = $factory->build($this->notification(NotificationType::Departure, 'Partez maintenant pour Dentiste', null, '/api/trips/01JTRIP'), 't');
 
         self::assertSame('departure', $message['data']['type']);
         self::assertSame('https://waze.com/ul?ll=48.119,-1.6672&navigate=yes', $message['data']['link']);
@@ -366,14 +366,14 @@ final class PushMessageFactoryTest extends TestCase
         self::assertSame('departure', $message['data']['channel']);
         self::assertArrayNotHasKey('notification', $message);
         self::assertArrayNotHasKey('notification', $message['android']);
-        self::assertSame('Pars maintenant pour Dentiste', $message['data']['title']);
+        self::assertSame('Partez maintenant pour Dentiste', $message['data']['title']);
     }
 
-    /** A phone offline when the alert goes out must not be told « Pars maintenant » once the event has started (MAG-679). */
+    /** A phone offline when the alert goes out must not be told « Partez maintenant » once the event has started (MAG-679). */
     public function testADepartureCarriesItsExpiryAndFcmDropsItThen(): void
     {
         $factory = new PushMessageFactory('maggie', [$this->navigationLinks(['/api/trips/01JTRIP' => 'https://waze.com/ul?navigate=yes'])]);
-        $notification = $this->notification(NotificationType::Departure, 'Pars maintenant pour Dentiste', null, '/api/trips/01JTRIP')
+        $notification = $this->notification(NotificationType::Departure, 'Partez maintenant pour Dentiste', null, '/api/trips/01JTRIP')
             ->setExpiresAt(new \DateTimeImmutable('+20 minutes'));
 
         $message = $factory->build($notification, 't');
@@ -386,7 +386,7 @@ final class PushMessageFactoryTest extends TestCase
     {
         $factory = new PushMessageFactory('maggie', [$this->navigationLinks([])]);
 
-        $message = $factory->build($this->notification(NotificationType::Departure, 'Pars maintenant pour Dentiste', null, '/api/trips/01JTRIP'), 't');
+        $message = $factory->build($this->notification(NotificationType::Departure, 'Partez maintenant pour Dentiste', null, '/api/trips/01JTRIP'), 't');
 
         self::assertArrayNotHasKey('link', $message['data']);
         self::assertArrayNotHasKey('actionLabel', $message['data']);

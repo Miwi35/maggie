@@ -26,7 +26,7 @@ class PushDelivery(
     fun deliver(payload: PushPayload, reshow: Boolean = false) {
         // A push held back for hours is not worth saying once what it announced is over (MAG-679).
         if (payload.isExpired(now())) return
-        // « Pars maintenant » (MAG-658) is the system's strong interruption, open or not: its full screen and
+        // « Partez maintenant » (MAG-658) is the system's strong interruption, open or not: its full screen and
         // its « Y aller » (a link to Waze or Maps) are not something the in-app toaster can say.
         if (payload.isDeparture) {
             if (!car.say(payload)) notifier().show(payload)

@@ -137,7 +137,7 @@ data class PushPayload(
     /** The morning digest (MAG-709): a message whose link opens the Digest screen. */
     val isDigest: Boolean get() = isMessage && link?.startsWith(DIGEST_LINK_PREFIX) == true
 
-    /** « Pars maintenant » (MAG-655): the alert that opens a full-screen interruption and a navigation app. */
+    /** « Partez maintenant » (MAG-655): the alert that opens a full-screen interruption and a navigation app. */
     val isDeparture: Boolean get() = type == DEPARTURE_TYPE
     /** The system tag the app files it under, and the one a withdrawal names — its notification id, or `cooking-timer-{id}`. */
     /** The system tag it is shown under — the server's own, so the app's and the system's are one notification. */

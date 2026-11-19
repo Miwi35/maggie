@@ -10,7 +10,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-/** « Pars maintenant » for a trip that is gone is not worth saying any more (MAG-679). */
+/** « Partez maintenant » for a trip that is gone is not worth saying any more (MAG-679). */
 #[AsMessageHandler(bus: 'event.bus')]
 final class ExpireNotificationsOnTripRemoved
 {

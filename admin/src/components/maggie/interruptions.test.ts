@@ -155,7 +155,7 @@ describe('a departure alert (MAG-659)', () => {
   const departure = {
     '@id': '/api/notifications/n14',
     type: 'departure',
-    title: 'Pars maintenant pour Dentiste',
+    title: 'Partez maintenant pour Dentiste',
     body: null,
     relatedEntityIri: '/api/trips/01K0TRIP',
     readAt: null,
@@ -168,7 +168,7 @@ describe('a departure alert (MAG-659)', () => {
         source: 'notification',
         id: 'notification:/api/notifications/n14',
         ref: '/api/notifications/n14',
-        title: 'Pars maintenant pour Dentiste',
+        title: 'Partez maintenant pour Dentiste',
         message: '',
         link: null,
         departureTrip: '/api/trips/01K0TRIP',

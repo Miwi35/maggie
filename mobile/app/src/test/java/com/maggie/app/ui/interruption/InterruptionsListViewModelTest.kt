@@ -42,7 +42,7 @@ class InterruptionsListViewModelTest {
     private fun departure(id: String, readAt: String? = null, expiresAt: String? = null) = Notification(
         id = id,
         type = "departure",
-        title = "Pars maintenant",
+        title = "Partez maintenant",
         relatedEntityIri = "/api/trips/t-$id",
         readAt = readAt,
         expiresAt = expiresAt,
@@ -76,7 +76,7 @@ class InterruptionsListViewModelTest {
 
         val state = viewModel().uiState.value
 
-        assertEquals(listOf(TripEntry("n1", "Pars maintenant", 25, "https://maps.example/n1")), state.trips)
+        assertEquals(listOf(TripEntry("n1", "Partez maintenant", 25, "https://maps.example/n1")), state.trips)
         assertEquals(1, state.pendingCount)
     }
 

@@ -53,7 +53,7 @@ class PushNotifier(private val context: Context) {
         // Quiet hours (MAG-687): below Android 8 there are no channels, so the notification itself is silent.
         if (payload.silent) builder.setSilent(true).setPriority(NotificationCompat.PRIORITY_LOW)
 
-        // « Pars maintenant » (MAG-658): a strong interruption, the full screen over the lock screen.
+        // « Partez maintenant » (MAG-658): a strong interruption, the full screen over the lock screen.
         if (payload.isDeparture && withActions && !inCar) {
             val screen = departureScreen(payload, go = false)
             builder
@@ -348,7 +348,7 @@ object PushIntents {
         navigationOf(payload.link)?.let { Intent(Intent.ACTION_VIEW, it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
 
     /**
-     * The departure activity: « Pars maintenant » full screen, or with [go] straight to the navigation link.
+     * The departure activity: « Partez maintenant » full screen, or with [go] straight to the navigation link.
      * Never reused (no CLEAR_TOP, standard launch mode): each alert reads its own payload.
      */
     fun departure(context: Context, payload: PushPayload, go: Boolean): Intent =

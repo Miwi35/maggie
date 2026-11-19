@@ -11,7 +11,7 @@ tags:
 # `scripts/trip-api.js`; Google is WireMock: walk 4 min, drive 14, walk 3 from the parking),
 # the day view reads « Partir à 13:34 · depuis la maison » under Dentiste, with the three
 # steps. The event moves to 15:00 and the trip is kept again: the line reads 14:34 without
-# reloading anything (Mercure). The alert « Pars maintenant », its buttons and the navigation
+# reloading anything (Mercure). The alert « Partez maintenant », its buttons and the navigation
 # link are the JVM's business (`PushNotifierTest`, `DepartureScreenTest`, `PushActionHandlerTest`).
 #
 # The line is « Parti à » once the departure has passed, hence the choice in the patterns: the

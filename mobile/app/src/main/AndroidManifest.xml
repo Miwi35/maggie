@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- A voice message of the chat goes on playing with the screen off (MAG-686). -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- « Pars maintenant » (MAG-658): the departure alert opens over the lock screen. -->
+    <!-- « Partez maintenant » (MAG-658): the departure alert opens over the lock screen. -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- « Partir à l'heure » (MAG-651): asked only when the owner turns the switch on. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -78,7 +78,7 @@
             </intent-filter>
         </activity>
 
-        <!-- « Pars maintenant » (MAG-658): opened by the departure notification only, over the lock screen. -->
+        <!-- « Partez maintenant » (MAG-658): opened by the departure notification only, over the lock screen. -->
         <activity
             android:name=".ui.screens.departure.DepartureActivity"
             android:exported="false"

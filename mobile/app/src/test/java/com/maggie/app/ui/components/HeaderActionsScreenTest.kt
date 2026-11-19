@@ -39,7 +39,7 @@ class HeaderActionsScreenTest {
         interaction = PushInteraction(kind = "choice", options = listOf("Oui", "Non")),
     )
 
-    private val trip = TripEntry("n1", "Pars maintenant", 25, "https://maps.example/go")
+    private val trip = TripEntry("n1", "Partez maintenant", 25, "https://maps.example/go")
     private val full = InterruptionsUiState(
         trips = listOf(trip),
         questions = listOf(question("q1", "Je décale ?"), question("q2", "On mange où ?")),
@@ -85,7 +85,7 @@ class HeaderActionsScreenTest {
 
         compose.onNodeWithTag(UiTags.INTERRUPTIONS_PANEL, useUnmergedTree = true).assertExists()
         compose.onNodeWithText("En attente de votre réponse").assertIsDisplayed()
-        compose.onNodeWithText("Pars maintenant").assertIsDisplayed()
+        compose.onNodeWithText("Partez maintenant").assertIsDisplayed()
         compose.onNodeWithText("Maggie a 2 questions").assertIsDisplayed()
         compose.onNodeWithText("Nouveau message de Maggie").assertIsDisplayed()
         compose.onNodeWithText("Réglées").assertIsDisplayed()

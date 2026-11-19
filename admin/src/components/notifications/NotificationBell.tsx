@@ -177,7 +177,7 @@ export const NotificationBell = () => {
     setError(null)
   }
 
-  // « Pars maintenant » (MAG-655) opens the trip's navigation link. It is read when the bell
+  // « Partez maintenant » (MAG-655) opens the trip's navigation link. It is read when the bell
   // opens, so that the click opens the tab at once: a tab opened after a wait is blocked.
   const [navigation, setNavigation] = useState<Record<string, string>>({})
   const departureTrips = useMemo(

@@ -621,7 +621,7 @@ object UiTags {
     const val TRIP_LINE_PREFIX = "trip_line_"
     const val TRIP_GO = "trip_go"
 
-    /** The full-screen « Pars maintenant » (MAG-658): the screen, its « Y aller » and its « Déjà en route ». */
+    /** The full-screen « Partez maintenant » (MAG-658): the screen, its « Y aller » and its « Déjà en route ». */
     const val DEPARTURE_SCREEN = "departure_screen"
     const val DEPARTURE_GO = "departure_go"
     const val DEPARTURE_DISMISS = "departure_dismiss"

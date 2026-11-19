@@ -942,7 +942,7 @@ curl -sS -o /dev/null -X PUT "${AUTH[@]}" -H 'Content-Type: application/json' \
 assert_eq 204 "$(status_of -X DELETE "${AUTH[@]}" "$BASE_URL/api/tasks/$nudge_task_id")" "the nudged task is deleted"
 
 # ---------------------------------------------------------------------------
-step "11d. A trip whose time to leave has come becomes a « Pars maintenant » notification"
+step "11d. A trip whose time to leave has come becomes a « Partez maintenant » notification"
 # ---------------------------------------------------------------------------
 # MAG-655 (« Partir à l'heure »). Maggie plans with `set_trip`, the API alerts: the
 # producer is the cron, which no browser can run, so it is fired from here.
@@ -1020,7 +1020,7 @@ if [ -n "$departed" ]; then
 else
   fail "the cron wrote no departure notification for '$trip_title' — is the trip due and its event not started?"
 fi
-assert_eq "Pars maintenant pour $trip_title" "$(printf '%s' "$departures" | jq -r '.[0].title // empty')" \
+assert_eq "Partez maintenant pour $trip_title" "$(printf '%s' "$departures" | jq -r '.[0].title // empty')" \
   "the alert tells the owner to leave, for the event"
 
 # Same departAt, same alert: the cron runs every minute.

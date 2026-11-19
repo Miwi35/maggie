@@ -9,7 +9,7 @@ import { HomePage } from '../pages/HomePage.js'
  * The trip on screen — MAG-659 (« Partir à l'heure », part 10, extends MAG-100).
  *
  * The day view of the agenda draws the trip Maggie kept under its event, and
- * follows it live; the « Pars maintenant » alert interrupts the open admin with
+ * follows it live; the « Partez maintenant » alert interrupts the open admin with
  * « Y aller ». Google is WireMock (walk 4, drive 14, walk 3), as in
  * agenda-trips.spec.ts.
  *
@@ -92,7 +92,7 @@ test('the day view draws the trip under its event, and follows it without a relo
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
 
-test('« Pars maintenant » interrupts with « Y aller », which opens the navigation link in a new tab', async ({ interruptedUser }) => {
+test('« Partez maintenant » interrupts with « Y aller », which opens the navigation link in a new tab', async ({ interruptedUser }) => {
   const { page, api, session } = interruptedUser
   const title = `Dentiste, départ ${test.info().retry}`
   // The account seeded for the interruptions has no agenda yet: an event needs one.
@@ -121,14 +121,14 @@ test('« Pars maintenant » interrupts with « Y aller », which opens the navig
     '@id': `/api/notifications/${id}`,
     id,
     type: 'departure',
-    title: `Pars maintenant pour ${title}`,
+    title: `Partez maintenant pour ${title}`,
     body: null,
     relatedEntityIri: trip!['@id'],
     readAt: null,
     createdAt: e2eNow().toISOString(),
   })
 
-  const interruption = page.getByRole('alertdialog').filter({ hasText: `Pars maintenant pour ${title}` })
+  const interruption = page.getByRole('alertdialog').filter({ hasText: `Partez maintenant pour ${title}` })
   await expect(interruption).toBeVisible({ timeout: 5_000 })
   await interruption.getByRole('button', { name: 'Y aller' }).click()
 
