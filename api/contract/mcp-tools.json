@@ -1329,7 +1329,7 @@
                 }
             }
         },
-        "description": "Reads routines. Without date: all, as {routines}. With date (YYYY-MM-DD): active routines due that day, as {date, moments: [{anchor, time, routines}]}. A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner, time), anchorTime HH:MM, time, recurrence ({kind: daily|weekdays|weekly|monthly, weekday 1-7, monthDay 1-31}), active, remind, createdAt, checkedToday, dueToday, monthCount, totalCount."
+        "description": "Reads routines. Without date: all, as {routines}. With date (YYYY-MM-DD): active routines due that day, as {date, moments: [{anchor, time, routines}]}. A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner, time), anchorTime HH:MM, time, recurrence ({kind, weekday, monthDay}), active, remind, createdAt, checkedToday, dueToday, monthCount, totalCount."
     },
     "list_trips": {
         "name": "list_trips",
@@ -4780,7 +4780,7 @@
                 }
             }
         },
-        "description": "Creates a place (without id) or changes one (with id, from list_places). name and address required. latitude and longitude (degrees) go together. parkingAddress with parkingLatitude and parkingLongitude (together); empty parkingAddress removes it. isHome=true replaces the previous home. Omitted fields keep their value. Refused call changes nothing, answers {error, field}. Returns {success, place}."
+        "description": "Creates a place (without id) or changes one (with id, from list_places). name and address required. latitude and longitude (degrees) go together. parkingAddress with parkingLatitude and parkingLongitude (together); empty parkingAddress removes it. isHome=true replaces the home. Omitted fields kept. Refusal changes nothing, answers {error, field}. Returns {success, place}."
     },
     "save_routine": {
         "name": "save_routine",
@@ -4866,7 +4866,7 @@
                 }
             }
         },
-        "description": "Creates a routine (without id; title, anchor, recurrence required) or changes one (with id; given fields only). title: 255 characters max. anchor: wake, afterBreakfast, afterLunch, afterDinner, or time (needs anchorTime HH:MM, only this anchor). recurrence: {kind: daily}, {kind: weekdays}, {kind: weekly, weekday: 1 Monday to 7 Sunday} or {kind: monthly, monthDay: 1 to 31}. active=false pauses; remind=true asks a reminder. Refused call changes nothing, answers {error}. Returns {success, routine}. No deletion."
+        "description": "Creates a routine (without id; title, anchor, recurrence required) or changes one (with id; given fields only). title: 255 characters max. anchor: wake, afterBreakfast, afterLunch, afterDinner, or time (needs anchorTime HH:MM, only this anchor). recurrence: {kind: daily}, {kind: weekdays}, {kind: weekly, weekday: 1 Monday to 7 Sunday} or {kind: monthly, monthDay: 1 to 31}. active=false pauses; remind=true asks a reminder. Refused call changes nothing, answers {error}. Returns {success, routine}."
     },
     "schedule_proaction": {
         "name": "schedule_proaction",
@@ -5604,6 +5604,6 @@
                 "id"
             ]
         },
-        "description": "Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1 to 1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (only with time): minutes before; another moment drops time and reminders. timed=true: timer for estimatedMinutes. clear: fields to empty among description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment."
+        "description": "Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1 to 1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (with time only): minutes before; another moment drops them. timed=true: timer. clear: fields to empty among description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment."
     }
 }
