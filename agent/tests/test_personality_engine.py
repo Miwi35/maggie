@@ -315,6 +315,17 @@ class TestPersonalityEngine:
         assert "waitsFor" not in prompt and "non rapproché" not in prompt
 
     @pytest.mark.asyncio
+    async def test_the_shipped_prompt_sends_trips_to_their_skill(self):
+        engine = PersonalityEngine()
+
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            prompt = await engine.get_system_prompt("user-1")
+
+        line = next(line for line in prompt.splitlines() if "les trajets" in line and "compétence trajets" in line)
+        assert "get_skill" in line
+
+    @pytest.mark.asyncio
     async def test_the_shipped_prompt_has_her_cite_late_tasks_first_and_offer_one_someday_task(self):
         """MAG-409: the half that lives in the prompt — the fake LLM calls whatever its fixture says."""
         engine = PersonalityEngine()
