@@ -1,6 +1,6 @@
 ---
 name: trajets
-description: "Trajets du jour : origine, mode, stationnement, séjour et retour, à la planification du matin et au replan."
+description: "Trajets du jour : origine, mode, stationnement, séjour et retour, à la planification du matin, au replan et en conversation."
 tags:
 - trajets
 - moment:planification
@@ -31,6 +31,17 @@ En voiture, si le trajet répond `parkingKnown=false`, dis-le à l'utilisateur e
 ## Doute
 
 Le doute est réel quand deux choix se valent : rentrer à la maison ou enchaîner, deux modes à égalité. Estime chaque choix (`estimate_trip` pour chaque origine) pour connaître son `departAt`. Enregistre quand même le meilleur choix par défaut. Pose ensuite une question avec `schedule_proaction`, non silencieuse, dans quelques minutes, au résumé « Où partez-vous · <titre> » : « Je repasse à la maison ou j'enchaîne ? », avec pour chaque choix l'heure de départ qu'il donne. Il peut répondre « Plus tard ».
+
+## En conversation
+
+Quand l'utilisateur te parle des trajets ou des départs, sans que ce soit la planification :
+
+1. Lis d'abord `list_trips` du jour concerné.
+2. Un trajet en place reste tel quel, sauf demande explicite de changement (mode, origine, heure).
+3. Une remarque sur l'affichage (« je ne vois pas les trajets ») n'est pas une demande de recalcul : dis ce qui est enregistré, sans rien écrire.
+4. Avant tout `set_trip`, appelle `estimate_trip` et compare au trajet en place, parce que `set_trip` remplace le trajet de l'événement.
+5. Un résultat incohérent (une marche de plus d'une heure, une durée très au-delà de celle du trajet en place, un `departAt` déjà passé) n'enregistre jamais : garde le trajet en place et dis-le.
+6. `decidedBy=user` seulement pour une origine nommée par l'utilisateur dans la conversation (« je pars de chez… », « j'enchaîne ») ou pour sa réponse à une question d'origine ; sinon `maggie`.
 
 ## Séjour
 

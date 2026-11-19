@@ -86,6 +86,34 @@ class TestTheShippedTripsSkill:
         assert "date_time" in SKILL
 
 
+class TestTheSkillInChat:
+    section = SKILL.split("## En conversation", 1)[1].split("\n## ", 1)[0] if "## En conversation" in SKILL else ""
+
+    def test_in_chat_the_trips_of_the_day_are_read_before_any_write(self):
+        assert self.section
+        assert "`list_trips`" in self.section
+        assert self.section.index("`list_trips`") < self.section.index("`set_trip`")
+
+    def test_set_trip_follows_an_estimate_compared_to_the_trip_in_place(self):
+        assert self.section.index("`estimate_trip`") < self.section.index("`set_trip`", self.section.index("`estimate_trip`"))
+        assert "remplace" in self.section
+
+    def test_an_incoherent_result_is_never_saved(self):
+        assert "n'enregistre jamais" in self.section
+        assert "garde le trajet en place" in self.section
+
+    def test_decided_by_user_only_for_an_origin_the_user_named(self):
+        assert "`decidedBy=user`" in self.section
+        assert "nommée" in self.section
+
+    def test_a_display_remark_is_no_recompute(self):
+        assert "affichage" in self.section
+        assert "pas une demande de recalcul" in self.section
+
+    def test_the_description_covers_the_conversation(self):
+        assert "en conversation" in SKILL.split("---", 2)[1]
+
+
 class TestThePlanningPrompt:
     prompt = daily_planning_prompt(date(2030, 11, 14))
 
