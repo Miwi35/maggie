@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -54,3 +54,9 @@ async def test_the_prompt_lists_nothing_of_the_conversations(memory, env):
     await env.service.write(USER_A, "Conversations/2026/10/2026-10-04 18h14 — Sujet.md", "# Sujet\n", conversation=True)
 
     assert "Conversations/" not in await memory.get_memory_context(USER_A)
+
+
+async def test_starting_the_catch_up_never_fails_the_turn(memory, env):
+    env.service.catch_up_soon = MagicMock(side_effect=RuntimeError("boom"))
+
+    memory.catch_up_soon(USER_A)
