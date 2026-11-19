@@ -18,6 +18,7 @@ from app.memory.tools import NATIVE_HANDLERS as MEMORY_HANDLERS
 # The policy module is where a `source` means something, so it owns the vocabulary.
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
 from app.policy.summary import build_summary
+from app.redaction import redact
 from app.skills.index import skill_index
 from app.tts.voice_message import SEND_VOICE_MESSAGE_TOOL, handle_send_voice_message
 
@@ -488,6 +489,18 @@ class ToolRouter:
         return tools
 
     async def call_tool(
+        self,
+        name: str,
+        arguments: dict,
+        user_id: str | None = None,
+        source: str = "chat",
+        context_id: str | None = None,
+    ) -> str:
+        """The only point every tool result goes through: it leaves masked (MAG-871),
+        toward the model, the stored and replayed blocks, `tool_calls` and the stream."""
+        return redact(await self._call_tool(name, arguments, user_id, source, context_id))
+
+    async def _call_tool(
         self,
         name: str,
         arguments: dict,
