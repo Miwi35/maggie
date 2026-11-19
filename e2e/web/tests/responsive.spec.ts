@@ -132,8 +132,12 @@ test.describe('Responsive @responsive', () => {
     // A click opens the conversation, a column beside the page on a desk, the
     // whole window as a sheet below `md`.
     await chat.open()
-    const panel = await chat.panel.boundingBox()
-    expect(Math.round(panel?.width ?? 0)).toBe(shape.chatWidth)
+    // The column grows to its width over 225 ms (ChatWidget): read it once it has.
+    await expect
+      .poll(async () => Math.round((await chat.panel.boundingBox())?.width ?? 0), {
+        message: 'the chat should settle at its width',
+      })
+      .toBe(shape.chatWidth)
 
     // And the page is whole again once it is put away.
     await chat.close()
