@@ -267,6 +267,7 @@ test('a burst of writes reads each card once', async ({ homeUser }) => {
   expect(seed.ok(), `POST /api/tasks answered ${seed.status()}`).toBe(true)
   await home.open()
   await expect(home.financeCard).toBeVisible()
+  const seedIri = ((await seed.json()) as { '@id': string })['@id']
 
   // The card draws five lines at most and the ring stops there: the rows plus « + n autres » count the open tasks.
   const totalOf = async () => {
@@ -275,8 +276,10 @@ test('a burst of writes reads each card once', async ({ homeUser }) => {
     const extra = (await more.count()) === 0 ? 0 : Number(/\d+/.exec((await more.textContent()) ?? '')?.[0])
     return ring + extra
   }
+  const openTasks = async () => ((await (await api.get('/api/tasks/view/today', { headers: { Accept: 'application/ld+json' } })).json()).member ?? []).length
   await expect(home.tasksRing).toHaveText(/\d+ sur \d+/)
   const before = await totalOf()
+  const apiBefore = await openTasks()
 
   const dashboardReads: string[] = []
   page.on('request', (request) => {
@@ -292,6 +295,15 @@ test('a burst of writes reads each card once', async ({ homeUser }) => {
     ),
   )
   for (const response of responses) expect(response.ok(), `POST /api/tasks answered ${response.status()}`).toBe(true)
+
+  // The collections are indexed by the worker after the messages leave: when the burst's read came first,
+  // a later message (the seed task touched again) is what a real session would send, and reads the burst.
+  await expect.poll(openTasks, { timeout: 60_000 }).toBeGreaterThanOrEqual(apiBefore + 8)
+  const touched = await api.patch(seedIri, {
+    headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+    data: { title: 'Rafale départ relue' },
+  })
+  expect(touched.ok(), `PATCH ${seedIri} answered ${touched.status()}`).toBe(true)
 
   await expect.poll(totalOf).toBe(before + 8)
   expect(dashboardReads.length, 'the Finance dashboard is read once per burst, not once per message').toBeLessThanOrEqual(2)
