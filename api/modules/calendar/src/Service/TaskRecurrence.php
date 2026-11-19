@@ -22,10 +22,10 @@ use Recurr\Transformer\ArrayTransformerConfig;
  */
 final class TaskRecurrence
 {
-    /** A task is counted in days: nothing finer than a day. */
     /** The column's length. */
     public const MAX_LENGTH = 255;
 
+    /** A task is counted in days: nothing finer than a day. */
     private const FREQUENCIES = [Frequency::DAILY, Frequency::WEEKLY, Frequency::MONTHLY, Frequency::YEARLY];
 
     /**
