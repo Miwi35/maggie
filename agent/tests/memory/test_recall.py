@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.config import settings
-from app.db.memory_index_repository import CardView
+from app.db.memory_index_repository import CardView, memory_index_repo
 from app.memory import recall as recall_module
 from app.memory.agent_memory import AgentMemory, render_profile, render_recalled
 from app.memory.recall import rank, recall_for_turn, resolve_days
@@ -317,6 +317,61 @@ class TestProfile:
 
         assert blocks.recalled == ""
         assert "Famille/Roses.md" in blocks.profile
+
+
+class TestCardsReadOnce:
+    QUESTION = "Un bouquet pour la fête des mères"
+
+    @staticmethod
+    async def seed(env):
+        await env.service.write(USER_A, "Famille/Roses.md", carte(resume="Roses", evoque=["fête des mères"]))
+
+    async def test_a_turn_reads_the_cards_once_for_the_profile_and_the_recall(self, env, memory):
+        await self.seed(env)
+
+        with patch.object(memory_index_repo, "cards", wraps=memory_index_repo.cards) as spy:
+            blocks = await memory.blocks(USER_A, self.QUESTION, today=TODAY)
+
+        assert spy.call_count == 1
+        assert "Famille/Roses.md" in blocks.profile
+        assert "Famille/Roses.md" in blocks.recalled
+
+    async def test_a_recall_past_its_delay_does_not_cut_the_profile_s_read(self, env, memory, monkeypatch):
+        await self.seed(env)
+        real = memory_index_repo.cards
+
+        async def slow(user_id):
+            await asyncio.sleep(0.2)
+            return await real(user_id)
+
+        monkeypatch.setattr(settings, "memory_recall_timeout_seconds", 0.05)
+
+        with patch.object(memory_index_repo, "cards", side_effect=slow) as spy:
+            blocks = await memory.blocks(USER_A, self.QUESTION, today=TODAY)
+
+        assert spy.call_count == 1
+        assert "Famille/Roses.md" in blocks.profile
+        assert blocks.recalled == ""
+
+    async def test_a_failed_read_of_the_cards_never_fails_the_turn(self, env, memory):
+        await self.seed(env)
+
+        with patch.object(memory_index_repo, "cards", side_effect=RuntimeError("boom")):
+            blocks = await memory.blocks(USER_A, self.QUESTION, today=TODAY)
+
+        assert blocks.profile == ""
+        assert blocks.recalled == ""
+
+    async def test_the_recall_given_its_cards_does_not_read_the_index(self, env):
+        await self.seed(env)
+        given = asyncio.get_running_loop().create_future()
+        given.set_result([])
+
+        with patch.object(memory_index_repo, "cards", wraps=memory_index_repo.cards) as spy:
+            found = await recall_module.recall(USER_A, self.QUESTION, TODAY, cards=given)
+
+        assert found == []
+        spy.assert_not_called()
 
 
 def test_rank_is_pure_and_orders_by_score_then_path():

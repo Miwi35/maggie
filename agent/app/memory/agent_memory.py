@@ -116,27 +116,33 @@ class AgentMemory:
             await legacy.import_once(user_id)
         if not memory_service.enabled:
             return MemoryBlocks(notice=notice)
-        # Level 2 is bounded on its own (`memory_recall_timeout_seconds`) and runs beside the profile read, so the
-        # two never add up. Catching the folder up with its bucket (`_folder_notice`) keeps its own timeout.
-        profile, found = await asyncio.gather(
-            self._profile(user_id),
-            recall_for_turn(user_id, text, today or datetime.now().date(), source=source, context_id=context_id)
-            if text.strip()
-            else _nothing(),
-        )
+        # One read of the cartes, shared; each reader keeps its own bound (profile `memory_turn_sync_timeout_seconds`,
+        # recall `memory_recall_timeout_seconds`) and they run side by side, so the two never add up.
+        cards = asyncio.ensure_future(memory_service.cards(user_id))
+        try:
+            profile, found = await asyncio.gather(
+                self._profile(user_id, cards),
+                recall_for_turn(
+                    user_id, text, today or datetime.now().date(), source=source, context_id=context_id, cards=cards
+                )
+                if text.strip()
+                else _nothing(),
+            )
+        finally:
+            cards.cancel()
         recalled = render_recalled(found)
         MEMORY_BLOCK_TOKENS.labels(block="profile").observe(_estimated_tokens(profile))
         MEMORY_BLOCK_TOKENS.labels(block="recalled").observe(_estimated_tokens(recalled))
         return MemoryBlocks(notice=notice, profile=profile, recalled=recalled)
 
-    async def _profile(self, user_id: str) -> str:
+    async def _profile(self, user_id: str, cards: asyncio.Future[list[CardView]]) -> str:
         """The permanent profile, read from the index: a fiche written one turn ago is there."""
         try:
-            cards, usage = await asyncio.wait_for(
-                asyncio.gather(memory_service.cards(user_id), memory_service.usage(user_id)),
+            loaded, usage = await asyncio.wait_for(
+                asyncio.gather(asyncio.shield(cards), memory_service.usage(user_id)),
                 settings.memory_turn_sync_timeout_seconds,
             )
-            return render_profile(cards, usage, settings.memory_profile_max)
+            return render_profile(loaded, usage, settings.memory_profile_max)
         except Exception as e:
             logger.warning(f"Could not build the memory profile: {e}")
             return ""
