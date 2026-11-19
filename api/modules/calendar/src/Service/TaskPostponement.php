@@ -11,11 +11,11 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * « Reportée » (MAG-497): a task not done is put off since its due day once
- * that day is past, or since the first past settled day it held a slot of (a
- * proposal never taken does not count) — a day is never carried over in
- * silence, what it left undone goes back to the reserve marked so. The
- * earliest of the two. It replaces the red of lateness for an
- * ordinary task; never a reproach.
+ * that day is past, its scheduled day once past (MAG-870), or since the
+ * first past settled day it held a slot of (a proposal never taken does not
+ * count) — a day is never carried over in silence, what it left undone goes
+ * back to the reserve marked so. The earliest of them. It replaces the red
+ * of lateness for an ordinary task; never a reproach.
  */
 final class TaskPostponement implements ResetInterface
 {
@@ -46,6 +46,11 @@ final class TaskPostponement implements ResetInterface
         $dueDay = $task->getDueDate()?->format('Y-m-d');
         if (null !== $dueDay && $dueDay < $today->format('Y-m-d')) {
             $days[] = $dueDay;
+        }
+        // Its scheduled day gone: a missed occurrence of a recurring task stays open, put off.
+        $scheduledDay = $task->getScheduledDate()?->format('Y-m-d');
+        if (null !== $scheduledDay && $scheduledDay < $today->format('Y-m-d')) {
+            $days[] = $scheduledDay;
         }
         $plannedDay = $this->plannedBefore($task->getUser(), $today)[(string) $task->getId()] ?? null;
         if (null !== $plannedDay) {

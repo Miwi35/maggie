@@ -9,6 +9,9 @@ use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Calendar\Entity\Task;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 
 class TaskApiTest extends WebTestCase
 {
@@ -24,6 +27,12 @@ class TaskApiTest extends WebTestCase
         $this->client = self::createClient();
         $this->resetMercure();
         $this->resetAsyncTransport();
+    }
+
+    protected function tearDown(): void
+    {
+        Clock::set(new NativeClock());
+        parent::tearDown();
     }
 
     /** @param array<string, mixed> $payload */
@@ -268,5 +277,110 @@ class TaskApiTest extends WebTestCase
         self::assertNull($em->getRepository(Task::class)->find($moving->getId()));
         $this->assertMercureDeletePublished('/api/tasks/'.$first->getId());
         $this->assertElasticsearchDeleteDispatched('tasks');
+    }
+
+    private const EVERY_OTHER_TUESDAY = 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU';
+
+    /** A recurring task posted as the screens would (MAG-870), on Tuesday 2026-11-24. */
+    private function postRecurring(): Task
+    {
+        Clock::set(new MockClock('2026-11-24 11:00:00 UTC'));
+        $this->loadMoving();
+        $this->postTask(['title' => 'Sortir la poubelle jaune', 'scheduledDate' => '2026-11-24', 'rrule' => self::EVERY_OTHER_TUESDAY]);
+        self::assertResponseStatusCodeSame(201);
+        $task = self::getContainer()->get('doctrine.orm.entity_manager')->getRepository(Task::class)->find($this->json()['id'] ?? basename($this->json()['@id']));
+        self::assertInstanceOf(Task::class, $task);
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        return $task;
+    }
+
+    /** @return list<Task> */
+    private function bins(): array
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->getRepository(Task::class)->findBy(['title' => 'Sortir la poubelle jaune'], ['scheduledDate' => 'ASC']);
+    }
+
+    public function testPostWithRrulePersistsIt(): void
+    {
+        $task = $this->postRecurring();
+
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $this->json()['rrule']);
+        self::assertArrayNotHasKey('recurrenceDate', $this->json(), 'internal, never sent');
+        $stored = $this->reload($task);
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $stored->getRrule());
+        self::assertSame('2026-11-24', $stored->getRecurrenceDate()?->format('Y-m-d'));
+    }
+
+    public function testPatchWithoutRruleKeepsIt(): void
+    {
+        $task = $this->postRecurring();
+
+        $this->patchTask($task, ['title' => 'Sortir la poubelle jaune ', 'description' => 'Le bac jaune']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $this->reload($task)->getRrule());
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $this->json()['rrule']);
+    }
+
+    public function testPatchRruleNullClearsIt(): void
+    {
+        $task = $this->postRecurring();
+
+        $this->patchTask($task, ['rrule' => null]);
+
+        self::assertResponseIsSuccessful();
+        $stored = $this->reload($task);
+        self::assertNull($stored->getRrule());
+        self::assertNull($stored->getRecurrenceDate());
+        $this->assertMercureUpdatePublished('/tasks/');
+    }
+
+    public function testBadRruleIsA400WithNoMercureUpdate(): void
+    {
+        $task = $this->postRecurring();
+
+        $this->patchTask($task, ['rrule' => 'FREQ=WEEKLY;COUNT=4']);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('UNTIL', (string) $this->client->getResponse()->getContent());
+
+        $this->postTask(['title' => 'Sortir la poubelle grise', 'rrule' => self::EVERY_OTHER_TUESDAY]);
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('This task has neither', (string) $this->client->getResponse()->getContent());
+
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $this->reload($task)->getRrule());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testPatchCompletedAtCreatesTheNextOccurrence(): void
+    {
+        $task = $this->postRecurring();
+
+        $this->patchTask($task, ['completedAt' => '2026-11-24T08:00:00+01:00']);
+
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->json()['rrule'] ?? null, 'a past occurrence has no rule');
+        [$done, $next] = $this->bins();
+        self::assertTrue($done->isDone());
+        self::assertNull($done->getRrule());
+        self::assertFalse($next->isDone());
+        self::assertSame('2026-12-08', $next->getScheduledDate()?->format('Y-m-d'));
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $next->getRrule());
+        $this->assertMercureUpdatePublished('/tasks/'.$next->getId());
+        $this->assertElasticsearchIndexDispatched(Task::class);
+    }
+
+    public function testUnauthenticatedIsA401(): void
+    {
+        $this->loadMoving();
+
+        $this->postTask(['title' => 'Sortir la poubelle jaune', 'scheduledDate' => '2026-11-24', 'rrule' => self::EVERY_OTHER_TUESDAY], authenticated: false);
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertSame([], $this->bins());
     }
 }
