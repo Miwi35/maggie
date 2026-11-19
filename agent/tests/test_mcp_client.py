@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx
@@ -231,6 +232,69 @@ class TestMcpClient:
         await client.call_tool("manage_accounts", {"action": "list"})
 
         assert "X-Maggie-User-Id" not in route.calls.last.request.headers
+
+        await client.disconnect()
+
+
+class TestConcurrentReconnect:
+    @staticmethod
+    def _rpc(result: dict) -> dict:
+        return {"jsonrpc": "2.0", "id": 1, "result": result}
+
+    @respx.mock
+    async def test_a_call_in_flight_survives_a_reconnect_from_another_task(
+        self, client: McpClient, mcp_server_url: str
+    ):
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+        client._tools = [{"name": "get_event"}]
+        client._last_activity = 0  # stale: the next ensure_connected reconnects
+
+        call_started = asyncio.Event()
+        release_call = asyncio.Event()
+
+        async def respond(request: httpx.Request) -> httpx.Response:
+            method = json.loads(request.content)["method"]
+            if method == "tools/call":
+                call_started.set()
+                await release_call.wait()
+                return httpx.Response(200, json=self._rpc({"content": [{"type": "text", "text": "the event"}]}))
+            if method == "tools/list":
+                return httpx.Response(200, json=self._rpc({"tools": [{"name": "get_event"}]}))
+            return httpx.Response(200, json=self._rpc({"serverInfo": {}}), headers={"mcp-session-id": "new"})
+
+        respx.post(mcp_server_url).mock(side_effect=respond)
+
+        in_flight = asyncio.create_task(client.call_tool("get_event", {"id": "1"}))
+        await call_started.wait()
+        in_use = client._http_client
+        await client.ensure_connected()
+        # Closing it would cut the request still waiting on it.
+        assert client._http_client is in_use
+        assert in_use is not None and not in_use.is_closed
+        release_call.set()
+
+        assert await in_flight == "the event"
+
+        await client.disconnect()
+
+    @respx.mock
+    async def test_concurrent_reconnections_send_one_initialize(self, client: McpClient, mcp_server_url: str):
+        client._last_activity = 0
+
+        async def respond(request: httpx.Request) -> httpx.Response:
+            method = json.loads(request.content)["method"]
+            await asyncio.sleep(0.01)
+            if method == "tools/list":
+                return httpx.Response(200, json=self._rpc({"tools": [{"name": "get_event"}]}))
+            return httpx.Response(200, json=self._rpc({"serverInfo": {}}), headers={"mcp-session-id": "new"})
+
+        route = respx.post(mcp_server_url).mock(side_effect=respond)
+
+        await asyncio.gather(client.ensure_connected(), client.ensure_connected(), client.ensure_connected())
+
+        methods = [json.loads(c.request.content)["method"] for c in route.calls]
+        assert methods.count("initialize") == 1
 
         await client.disconnect()
 
