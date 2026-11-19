@@ -234,3 +234,48 @@ class TestRunToolLoop:
         assert kwargs["model"] == "claude-test"
         assert kwargs["max_tokens"] == 512
         assert kwargs["system"] == "system"
+
+
+class TestReview:
+    async def test_a_review_note_sends_the_model_back_once_in_the_same_thread(self, client, tool_router, usage):
+        client.messages.create.side_effect = [_text_response("Premier jet"), _text_response("Second jet")]
+        messages = [{"role": "user", "content": "hello"}]
+        seen = []
+
+        def review(text, calls):
+            seen.append((text, calls))
+            return "[Contrôle automatique] il manque Kiné"
+
+        result = await _run(client, tool_router, messages=messages, review=review)
+
+        assert result["response"] == "Second jet"
+        assert seen == [("Premier jet", [])]
+        assert messages[-2]["role"] == "assistant"
+        assert messages[-1] == {"role": "user", "content": [{"type": "text", "text": "[Contrôle automatique] il manque Kiné"}]}
+        assert client.messages.create.await_count == 2
+
+    async def test_a_review_is_asked_at_most_once(self, client, tool_router, usage):
+        client.messages.create.side_effect = [_text_response("a"), _text_response("b")]
+        review = MagicMock(return_value="encore")
+
+        result = await _run(client, tool_router, review=review)
+
+        assert result["response"] == "b"
+        review.assert_called_once()
+
+    async def test_no_review_without_room_for_it(self, client, tool_router, usage):
+        client.messages.create.return_value = _text_response("a")
+        review = MagicMock(return_value="note")
+
+        result = await _run(client, tool_router, max_iterations=1, review=review)
+
+        assert result["response"] == "a"
+        review.assert_not_called()
+
+    async def test_a_review_with_nothing_to_say_changes_nothing(self, client, tool_router, usage):
+        client.messages.create.return_value = _text_response("a")
+
+        result = await _run(client, tool_router, review=lambda text, calls: None)
+
+        assert result["response"] == "a"
+        assert client.messages.create.await_count == 1

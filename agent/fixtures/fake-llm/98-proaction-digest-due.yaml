@@ -1,9 +1,9 @@
-# The digest of 06-planning-digest.yaml, come due (MAG-709, rewritten by MAG-807, extends MAG-99): the run loads
+# The digest of 06-planning-digest.yaml, come due (MAG-709, rewritten by MAG-807 and MAG-843, extends MAG-99): the run loads
 # the digest skill, reads the day through MCP — the weather from the simulated Open-Meteo (70 % of rain), the
 # agenda, the tasks, the meals — and answers the digest as one text. The code voices it, reads it back
 # (`app.digest`) and stores one message on the digest screen: no `send_voice_message`, no trips, no finance.
-# The text names neither the day's appointment nor its hour on purpose: the rewrite
-# (98-proaction-digest-rewrite.yaml) does not either, so the code appends « Vous avez aussi … à … ».
+# The third turn names neither the day's appointment nor its hour on purpose: the code's read-back sends the
+# model one « [Contrôle automatique] » turn in the same thread, and the fourth turn, reached only then, says it.
 #
 # The figures are the Open-Meteo stub's (.docker/e2e/wiremock/mappings/open-meteo.json): the fake
 # reads no tool result, so a weather in error still gets this text — the journal is where it shows.
@@ -29,3 +29,4 @@ turns:
       - name: get_grocery_list
         input: {}
   - text: "Bonjour monsieur. Il fera entre 9,5 et 18,5 degrés, avec de la pluie probable. Ce soir, la préparation du weekend. (digest MAG-709)"
+  - text: "Bonjour monsieur. Il fera entre 9,5 et 18,5 degrés, avec de la pluie probable. Kiné à 14 h 30. Ce soir, la préparation du weekend. (digest MAG-709)"

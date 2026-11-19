@@ -2,7 +2,7 @@
 
 import json
 
-from app.digest_facts import Fact, format_hour, missing_facts, required_facts
+from app.digest_facts import Fact, format_hour, missing_facts, required_facts, signal
 
 DAY = "2030-11-14"
 
@@ -23,7 +23,6 @@ def test_a_timed_event_is_a_fact_with_its_hour():
     [fact] = required_facts([events(event("Kiné"))], DAY)
 
     assert (fact.kind, fact.label, fact.hour) == ("event", "Kiné", "09:15")
-    assert fact.fallback == "Vous avez aussi Kiné à 9 h 15."
 
 
 def test_the_events_of_maggie_and_repas_and_all_day_ones_are_not_facts():
@@ -54,8 +53,8 @@ def test_a_task_scheduled_today_is_a_fact_and_its_hour_when_timed():
 
     garage, weekend = required_facts([tasks], DAY)
 
-    assert (garage.hour, garage.fallback) == ("18:00", "Vous avez aussi Appeler le garage à 18 h.")
-    assert (weekend.hour, weekend.fallback) == (None, "Il reste aussi : Préparer le weekend.")
+    assert garage.hour == "18:00"
+    assert weekend.hour is None
 
 
 def test_a_meal_is_a_fact_named_by_its_recipes():
@@ -67,41 +66,51 @@ def test_a_meal_is_a_fact_named_by_its_recipes():
     [fact] = required_facts([meals], DAY)
 
     assert (fact.kind, fact.label) == ("meal", "Soupe de potiron et Pain")
-    assert fact.fallback == "Au déjeuner : Soupe de potiron et Pain."
 
 
 def test_a_weather_in_error_is_no_fact():
     ok = call("get_weather", {"days": [{"temperature_min_c": 9.5, "temperature_max_c": 18.5}]})
 
     assert required_facts([call("get_weather", {"error": "down"})], DAY) == []
-    assert [f.fallback for f in required_facts([ok], DAY)] == ["Il fera entre 10 et 18 degrés."]
+    assert [f.kind for f in required_facts([ok], DAY)] == ["weather"]
 
 
 def test_a_fact_is_named_with_half_of_its_words_and_its_hour_in_the_same_sentence():
-    fact = Fact("event", "Rendez-vous chez le dentiste", "09:15", "")
+    fact = Fact("event", "Rendez-vous chez le dentiste", "09:15")
 
     assert missing_facts("Vous voyez le dentiste à 9 h 15.", [fact]) == []
     assert missing_facts("Rendez-vous dentiste à 9h15, puis le déjeuner.", [fact]) == []
     assert missing_facts("Le dentiste vous attend à 09:15", [fact]) == []
     assert missing_facts("Le dentiste, puis rien d'autre.", [fact]) == [fact]
-    meal = Fact("meal", "Soupe de potiron", None, "")
+    meal = Fact("meal", "Soupe de potiron", None)
     assert missing_facts("Au dîner, une soupe.", [meal]) == []
     assert missing_facts("Au dîner, des pâtes.", [meal]) == [meal]
-    weather = Fact("weather", "météo", None, "")
+    weather = Fact("weather", "météo", None)
     assert missing_facts("Il fera 12 degrés.", [weather]) == []
     assert missing_facts("Il fera 12 °C.", [weather]) == []
     assert missing_facts("Il fera beau.", [weather]) == [weather]
 
 
 def test_an_hour_in_another_sentence_does_not_count():
-    fact = Fact("event", "Kiné", "09:15", "")
+    fact = Fact("event", "Kiné", "09:15")
 
     assert missing_facts("Vous avez Kiné. Le café est à 9 h 15.", [fact]) == [fact]
     assert missing_facts("Vous avez Kiné à 9 h 150.", [fact]) == [fact]
-    assert missing_facts("Kiné à 9 h.", [Fact("event", "Kiné", "09:00", "")]) == []
+    assert missing_facts("Kiné à 9 h.", [Fact("event", "Kiné", "09:00")]) == []
 
 
 def test_format_hour():
     assert format_hour("09:15") == "9 h 15"
     assert format_hour("18:00") == "18 h"
     assert format_hour("07:05") == "7 h 05"
+
+
+def test_the_signal_names_each_fact_with_its_hour_and_dictates_no_style():
+    text = signal([Fact("event", "Kiné", "09:15"), Fact("weather", "météo", None)])
+
+    assert text == (
+        "[Contrôle automatique] Ton digest ne cite pas ces faits lus ce matin :\n"
+        "- Kiné, 9 h 15\n- météo\nRéponds par le digest entier."
+    )
+    for style in ("monsieur", "vouvoiement", "Markdown"):
+        assert style not in text

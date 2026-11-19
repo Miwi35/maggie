@@ -349,6 +349,9 @@ class TestSupersededShippedSkills:
         assert "1388c31d86eae127d2a65a6c96f6568637617058f016bdbf4287cc7e1d11fdb1" in SUPERSEDED_BUILTIN_BODIES["digest"]
         assert "d7133b2abd3081fdd9e0e6e2fb608efa91dd43f70cef4256a14686a216d297da" in SUPERSEDED_BUILTIN_BODIES["bilan-soir"]
 
+    def test_the_digest_shipped_before_mag_843_is_listed(self):
+        assert "46d2535a0652939b4c7e798e97559660cb15e84a1a08e64a65293125b5bf65d5" in SUPERSEDED_BUILTIN_BODIES["digest"]
+
     async def test_an_untouched_previous_digest_is_replaced_by_the_shipped_one(self, agent_db):
         index = _index()
         await index.create("digest", "ancien", [], "Ancien digest", user_id="u")
