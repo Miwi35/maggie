@@ -28,6 +28,8 @@ export function initSentry(env: SentryEnv = import.meta.env): boolean {
     // Errors only: no tracing, no replay. The default integrations keep the
     // global handlers for uncaught errors and unhandled promise rejections.
     tracesSampleRate: 0,
+    // Browser extensions (MetaMask, ...) inject scripts and throw in our page: not our bugs.
+    denyUrls: [/^(chrome|moz|safari-web)-extension:\/\//],
     // The Linear bridge files each problem by the component that raised it.
     initialScope: { tags: { component: 'admin' } },
   })

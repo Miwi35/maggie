@@ -35,6 +35,18 @@ describe('initSentry', () => {
     )
   })
 
+  it('drops errors raised by browser extensions', () => {
+    initSentry({ VITE_SENTRY_DSN: 'https://key@glitchtip.meven.fr/3' })
+
+    const options = vi.mocked(Sentry.init).mock.calls[0][0]!
+    const denied = (url: string) => options.denyUrls!.some((p) => (p instanceof RegExp ? p.test(url) : url.includes(p)))
+
+    expect(denied('chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn/scripts/inpage.js')).toBe(true)
+    expect(denied('moz-extension://abc/content.js')).toBe(true)
+    expect(denied('safari-web-extension://abc/content.js')).toBe(true)
+    expect(denied('https://maggie.meven.fr/assets/index-abc.js')).toBe(false)
+  })
+
   it('keeps an explicit environment', () => {
     initSentry({ VITE_SENTRY_DSN: 'https://key@glitchtip.meven.fr/3', VITE_SENTRY_ENVIRONMENT: 'staging' })
 
