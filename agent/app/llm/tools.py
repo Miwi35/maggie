@@ -506,6 +506,10 @@ class ToolRouter:
             logger.warning(f"A2A call to a tool outside the read-only list refused: {name}")
             return json.dumps({"error": f"Tool '{name}' is not available over A2A"})
 
+        if name in EXECUTOR_ONLY_MCP_TOOLS:
+            logger.warning(f"Call to an executor-only tool refused: {name}")
+            return json.dumps({"error": f"Tool '{name}' is not available"})
+
         held = await self._apply_policy(name, arguments, user_id, source, context_id)
         if held is not None:
             return held

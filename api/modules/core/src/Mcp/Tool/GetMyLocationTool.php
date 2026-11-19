@@ -10,7 +10,7 @@ use Maggie\Core\Repository\UserLocationRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Psr\Clock\ClockInterface;
 
-#[McpTool(name: 'get_my_location', description: 'Read where the user\'s phone last was. Returns {position}: {latitude, longitude, accuracy (metres), capturedAt, ageMinutes} or null. Only GPS positions are kept (a network position, which can be kilometres off, is never stored), and the last GPS point stays the position whatever its age: a phone that has not moved for hours still has its last GPS point. Say how old the position is (ageMinutes) before relying on it. null when the phone never reported a GPS point: the user has to allow the position in the app.')]
+#[McpTool(name: 'get_my_location', description: 'Reads the user\'s phone last GPS position. Returns {position}: {latitude, longitude, accuracy (metres), capturedAt, ageMinutes}, or null when the phone never reported a GPS point (the position must be allowed in the app). Only GPS positions are stored, and the last one stays the position whatever its age.')]
 final class GetMyLocationTool
 {
     public function __construct(

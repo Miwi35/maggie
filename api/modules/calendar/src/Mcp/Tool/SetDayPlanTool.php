@@ -13,7 +13,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'set_day_plan', description: 'Set the user\'s day: taskIds is the whole list of the day\'s tasks, in order, 5 at most — it replaces the slots, so to add one keep the others, and to put a task in place of another list it where the other was (the other goes back to the reserve). A task appears once. date is YYYY-MM-DD, today when left out; a future day can be written. confirm=false writes a proposal the user has not settled yet (confirmedAt stays null). Returns the day as get_day_plan does.')]
+#[McpTool(name: 'set_day_plan', description: 'Sets the user\'s day. taskIds is the whole ordered list of the day\'s tasks, 5 at most: it replaces the slots, so keeping a task means listing it, and a task listed in place of another sends the other back to the reserve. A task appears once. date is YYYY-MM-DD, today when left out; a future day is allowed. confirm=false writes a proposal (confirmedAt stays null). Returns the day as get_day_plan does.')]
 final class SetDayPlanTool
 {
     public function __construct(

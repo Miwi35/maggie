@@ -16,7 +16,7 @@ use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(
     name: 'get_weather',
-    description: 'Daily weather forecast from Open-Meteo: condition (text, plus `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min and max temperature (°C), rain (mm and probability), wind and gusts (km/h), and alerts. Without `date` it returns today and tomorrow; with `date` (YYYY-MM-DD, from today up to 15 days ahead) only that day. `location` is a city name; without it the city the user chose in their preferences is used, and if there is none the tool says so — ask the user for a city. Alerts are derived from the forecast (storm, strong wind, heavy rain, snow, heat, hard frost), not official warnings. When the weather service is down the result is an `error`: say so plainly and carry on without the weather.',
+    description: 'Daily forecast from Open-Meteo: condition (text, `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min/max temperature (°C), rain (mm, probability), wind and gusts (km/h), alerts. Without `date`: today and tomorrow; with `date` (YYYY-MM-DD, up to 15 days ahead): that day. `location`: city, default the user\'s. Failure returns `error`.',
 )]
 class GetWeatherTool
 {

@@ -35,6 +35,13 @@ Domain tools on top of the CRUD set are encouraged and keep their own verb:
 - Unknown `action` returns an error listing the valid ones; a missing required
   argument returns an error naming it
 
+## Descriptions
+
+- A description says what the tool does, each argument (format, units, values), what it returns and the shape of a refusal. It never says how or when Maggie should use it, nor what to announce or ask: that is prompt (`default.yaml`) or judgement. What is part of the tool's contract stays (« two equally plausible agendas → an error naming them, nothing is created »).
+- Cross-cutting rules (weekday, timezone, `date_time`) live once in the prompt, never in a tool.
+- Budget: 1 500 characters per tool (its description plus its arguments' descriptions), 60 000 in total (the cap ratchets down to it). `McpToolsContractTest` enforces both.
+- In English, factual sentences, no conversation example.
+
 ## Authentication and user scoping
 
 `/_mcp` is outside the API firewall — `McpAccessListener` (Maggie\Core\Mcp)

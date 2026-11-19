@@ -10,7 +10,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Repository\ActivityStatusRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_activity_status', description: 'Read where the user stands in an activity left in progress, to resume at the right place. activity is cuisine, comptes or bilan (the evening review: step, answers, instructions). Returns the status {activity, origin, state, startedAt, updatedAt}, or null when nothing is in progress. A pure read.')]
+#[McpTool(name: 'get_activity_status', description: 'Reads the status of an activity left in progress. activity is cuisine, comptes or bilan (the evening review: step, answers, instructions). Returns {activity, origin, state, startedAt, updatedAt}, or null when nothing is in progress. Read-only.')]
 class GetActivityStatusTool
 {
     public function __construct(
