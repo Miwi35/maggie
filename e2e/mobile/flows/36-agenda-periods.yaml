@@ -9,11 +9,12 @@ tags:
 # Étant donné une période « Garde MAG-815 » de cinq jours à partir d'aujourd'hui (écrite par `scripts/period-api.js`)
 # Quand j'ouvre l'agenda en semaine
 # Alors une pastille « Garde MAG-815 » est sous les dates, et la toucher ouvre le formulaire « Période »
-# Et quand je passe par le fil d'Ariane à « Périodes », la liste montre la période
+# Et quand je passe par le fil d'Ariane à « Périodes » (sur tablette la pastille ouvre déjà Périodes en deux
+# colonnes, sans ×), la liste montre la période
 # Et quand j'ajoute « Vacances MAG-815 » et que j'enregistre, la liste la montre
 # Et quand je supprime « Garde MAG-815 » et que je confirme, elle n'est plus ni dans la liste ni dans l'API
 #
-# What is not here: the dates of a row, the groups, the recurrence and the tablet's two columns
+# What is not here: the dates of a row, the groups, the recurrence
 # (`PeriodPresentationTest`, `PeriodListScreenTest`, `PeriodViewModelTest`); the chips of the Day view
 # (`PeriodChipsScreenTest`).
 
@@ -52,18 +53,31 @@ tags:
       id: "period_form"
     timeout: 20000
 - assertVisible: "Période"
-- tapOn:
-    id: "period_close"
 
-# The list, by the breadcrumb Agenda › Périodes.
-- extendedWaitUntil:
-    visible:
-      id: "calendar_day_${TODAY}"
-    timeout: 20000
-- tapOn:
-    id: "breadcrumb_section"
-- tapOn:
-    id: "breadcrumb_menu_periods"
+# The list: on a phone, × then the breadcrumb Agenda › Périodes; on the tablet the chip opened the list
+# and the form in the pane, which has no ×.
+- runFlow:
+    when:
+      notVisible:
+        id: "detail_pane"
+    commands:
+      - tapOn:
+          id: "period_close"
+      - extendedWaitUntil:
+          visible:
+            id: "calendar_day_${TODAY}"
+          timeout: 20000
+      - tapOn:
+          id: "breadcrumb_section"
+      - tapOn:
+          id: "breadcrumb_menu_periods"
+- runFlow:
+    when:
+      visible:
+        id: "detail_pane"
+    commands:
+      - assertVisible:
+          id: "list_pane"
 - extendedWaitUntil:
     visible:
       id: "period_row_${output.periodId}"
