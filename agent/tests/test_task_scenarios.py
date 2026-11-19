@@ -131,6 +131,16 @@ class TestRelativeDays:
     def test_a_text_without_a_placeholder_is_untouched(self):
         assert expand_days("rien à changer $5") == "rien à changer $5"
 
+    def test_next_tuesday_is_the_tuesday_of_next_week(self):
+        from datetime import date
+
+        today = date.fromisoformat(expand_days("${today}"))
+        tuesday = date.fromisoformat(expand_days("${next_tuesday}"))
+
+        assert tuesday.weekday() == 1
+        assert tuesday == date.fromisoformat(expand_days("${next_monday}")) + timedelta(days=1)
+        assert 2 <= (tuesday - today).days <= 8
+
 
 class TestTaskReminder:
     """MAG-703: « rappelle-moi d'aller faire X » files a task due that day, never an unbacked promise."""
@@ -267,3 +277,23 @@ class TestTimedTask:
             "scheduledMoment": "evening",
         }
         assert "au minuteur" in result["response"]
+
+
+class TestRecurringTask:
+    """MAG-870: « un mardi sur deux » is ONE task carrying the rule, from the Tuesday of next week."""
+
+    async def test_every_other_tuesday_creates_one_recurring_task_on_next_tuesday(self, api):
+        result = await ask([{"role": "user", "content": "Rappelle-moi un mardi sur deux de sortir la poubelle jaune"}])
+
+        assert called(result) == ["create_task"]
+        assert api.calls == [
+            (
+                "create_task",
+                {
+                    "title": "Sortir la poubelle jaune",
+                    "scheduledDate": expand_days("${next_tuesday}"),
+                    "rrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU",
+                },
+            )
+        ]
+        assert "un mardi sur deux" in result["response"]

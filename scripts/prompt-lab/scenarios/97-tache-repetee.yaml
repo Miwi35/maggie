@@ -1,0 +1,17 @@
+# A reminder that comes back is one recurring task (MAG-870).
+#
+# « un mardi sur deux » is a thing he does, again and again: one create_task carrying an rrule
+# (FREQ=WEEKLY;INTERVAL=2;BYDAY=TU) on its first Tuesday — not a planning directive, a routine
+# nor a proaction, and not one task per date.
+name: tache-repetee
+description: Asked to be reminded every other Tuesday to take the bin out, she creates one task repeated by an rrule.
+channel: chat
+
+steps:
+  - user_message: "Rappelle-moi un mardi sur deux de sortir la poubelle jaune"
+    expected_tools: [create_task]
+    forbidden_tools: [add_instruction, save_routine, schedule_proaction]
+    expected_behavior: >
+      Elle crée UNE tâche « Sortir la poubelle jaune » avec rrule FREQ=WEEKLY;INTERVAL=2;BYDAY=TU et
+      scheduledDate = le premier mardi visé (calculé avec date_time), sans COUNT ni préfixe « RRULE: »,
+      puis confirme en une phrase, au vouvoiement, sans recopier la tâche.

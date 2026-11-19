@@ -1,0 +1,15 @@
+# « Rappelle-moi un mardi sur deux de sortir la poubelle jaune » (MAG-870): a thing the user
+# does again and again is ONE task carrying the rule — not a task per date, a routine nor a
+# planning directive. Its first day is the Tuesday of next week (`${next_tuesday}`, Paris);
+# when it is checked, the API creates the next one, fourteen days later.
+name: task-recurring
+description: One recurring task, every other Tuesday, starting the Tuesday of next week.
+
+match:
+  user_matches: "rappelle-moi un mardi sur deux de sortir la poubelle jaune"
+
+turns:
+  - tools:
+      - name: create_task
+        input: {title: "Sortir la poubelle jaune", scheduledDate: "${next_tuesday}", rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"}
+  - text: "Sortir la poubelle jaune est dans vos tâches, un mardi sur deux à partir de mardi prochain."
