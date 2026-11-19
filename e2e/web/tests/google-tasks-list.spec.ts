@@ -1,4 +1,5 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, JOURNEY_HEADER } from '../fixtures/index.js'
+import { signIn } from '../fixtures/session.js'
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection } from '../helpers/api.js'
 import { openWiremockJournal } from '../helpers/wiremock.js'
@@ -23,10 +24,8 @@ import { GoogleSettingsPage } from '../pages/GoogleSettingsPage.js'
  * list — read from WireMock's journal, which is the only witness to it (the
  * pull is asynchronous and leaves no trace the API exposes).
  *
- * Serial, and it puts the seed's list back: the choice is one field on the one
- * seeded user, so two tests changing it side by side would each read the
- * other's, and a journey leaving the account on "Courses Google" would move
- * what the next run starts from.
+ * Each test has an account of its own: a pull only deletes the tasks of the
+ * account it runs for, so the shared account's tasks are never touched.
  */
 
 const SEEDED_LIST = { id: 'e2e-task-list', title: 'Mes tâches' }
@@ -42,7 +41,6 @@ async function connectedTaskListId(api: APIRequestContext): Promise<string | nul
   return ((await response.json()) as { googleTaskListId?: string | null }).googleTaskListId ?? null
 }
 
-/** Back to what the seed sets up, whichever way the test before it ended. */
 async function connect(api: APIRequestContext, googleTaskListId: string): Promise<void> {
   const response = await api.post('/api/calendar/google/connect-tasks', {
     headers: { 'Content-Type': 'application/json' },
@@ -62,43 +60,9 @@ async function disconnect(api: APIRequestContext): Promise<void> {
 /** The one task `mappings/google.json` puts in every list it is asked for. */
 const PULLED_TASK = 'Tâche importée de Google'
 
-/**
- * Takes away the copies switching lists leaves behind.
- *
- * The stub answers the same task whatever list is asked for, so a pull of the
- * second list creates a local row for it — and connecting the seeded list again
- * detaches that row rather than deleting it, since its Google id belongs to the
- * list being left. Without this, each run would add one orphan « Tâche importée
- * de Google » to a database the whole suite shares, and the first journey to
- * count tasks by title would fail on the residue rather than on its own subject.
- *
- * Run before the list is connected back, so the pull that follows recreates
- * exactly one tracked copy. The task list is served from Elasticsearch, so a
- * row the index has not caught up with yet survives this — hygiene, not a
- * guarantee, and not worth a 30-second wait on a cleanup nothing asserts.
- */
-async function forgetPulledTasks(api: APIRequestContext): Promise<void> {
-  const pulled = await getCollection<{ id?: string; title?: string }>(api, '/api/tasks?itemsPerPage=100')
-
-  for (const task of pulled.filter((candidate) => candidate.title === PULLED_TASK)) {
-    const response = await api.delete(`/api/tasks/${task.id}`)
-    // 404 is a pass: the list is read from a lagging index, so it can hand
-    // back a row a previous teardown already took away — and failing in
-    // teardown on something no test asserts is the worse outcome.
-    expect([204, 404], `DELETE /api/tasks/${task.id} answered ${response.status()}`).toContain(
-      response.status(),
-    )
-  }
-}
+test.use({ journeyAccount: 'empty' })
 
 test.describe('The Google Tasks list', () => {
-  test.describe.configure({ mode: 'serial' })
-
-  test.afterEach(async ({ api }) => {
-    await forgetPulledTasks(api)
-    await connect(api, SEEDED_LIST.id)
-  })
-
   test('the screen states the list already chosen, and lets it go', async ({ page, api }) => {
     await connect(api, SEEDED_LIST.id)
 
@@ -145,5 +109,59 @@ test.describe('The Google Tasks list', () => {
     await journal.waitForCount('GET', listTasks(OTHER_LIST.id), before + 1)
 
     await journal.dispose()
+  })
+
+  /**
+   * Switching the list pulls Google's, and the stub answers one fixed task: a
+   * pull deletes every local task of the account whose Google id is not in that
+   * answer. Run on the shared account it took away what other journeys had just
+   * created (chat.spec.ts, MAG-873), so the pull must stay on the journey's own.
+   */
+  test("the pull of a journey account leaves the shared account's tasks alone", async ({
+    api,
+    baseURL,
+    playwright,
+    journey,
+  }) => {
+    const shared = await signIn(baseURL as string, 'e2e@maggie.local', { [JOURNEY_HEADER]: journey })
+    const sharedApi = await playwright.request.newContext({
+      baseURL: baseURL as string,
+      extraHTTPHeaders: { Authorization: `Bearer ${shared.token}`, [JOURNEY_HEADER]: journey },
+    })
+    const journal = await openWiremockJournal(playwright)
+    const pushed = /\/lists\/e2e-task-list\/tasks(\?|$)/
+
+    try {
+      const pushes = await journal.count('POST', pushed)
+      const created = await sharedApi.post('/api/tasks', {
+        headers: { 'Content-Type': 'application/json' },
+        data: { title: 'Survivre au changement de liste' },
+      })
+      expect(created.ok(), `POST /api/tasks answered ${created.status()}`).toBe(true)
+      const { id } = (await created.json()) as { id: string }
+      await journal.waitForCount('POST', pushed, pushes + 1)
+
+      await disconnect(api)
+      const pulls = await journal.count('GET', listTasks(SEEDED_LIST.id))
+      await connect(api, SEEDED_LIST.id)
+      await journal.waitForCount('GET', listTasks(SEEDED_LIST.id), pulls + 1)
+      await expect
+        .poll(
+          async () =>
+            (await getCollection<{ title?: string }>(api, '/api/tasks?itemsPerPage=100')).some(
+              (task) => task.title === PULLED_TASK,
+            ),
+          { message: 'the pull should have written the Google task for the journey account' },
+        )
+        .toBe(true)
+
+      const survivor = await sharedApi.get(`/api/tasks/${id}`)
+      expect(survivor.status(), "the shared account's task should survive another account's pull").toBe(200)
+
+      await sharedApi.delete(`/api/tasks/${id}`)
+    } finally {
+      await journal.dispose()
+      await sharedApi.dispose()
+    }
   })
 })
