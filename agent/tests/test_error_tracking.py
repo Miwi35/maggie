@@ -92,6 +92,18 @@ class TestTheSignals:
         assert event["tags"]["component"] == "agent"
         assert event["level"] == "error"
 
+    def test_a_known_secret_never_reaches_an_event(self, sent):
+        token = "svc-0123456789abcdef"
+        with patch("app.redaction.settings.service_token", token):
+            try:
+                raise RuntimeError(f"refusé : {token}")
+            except RuntimeError as exc:
+                sentry_sdk.capture_exception(exc)
+
+        sent_json = json.dumps(only_event(sent), ensure_ascii=False)
+        assert token not in sent_json
+        assert "[masqué]" in sent_json
+
     def test_a_query_string_never_leaves(self, sent):
         with sentry_sdk.new_scope() as scope:
             scope.add_event_processor(

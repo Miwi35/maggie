@@ -7,7 +7,7 @@ send nothing.
 Every event carries `component=agent`, which the bridge to Linear reads. The repository
 is public and the messages are personal data: no request body, no local variables, no
 log records, and the signals carry identifiers and tool names only — never what the user
-or the model wrote.
+or the model wrote. Known secret values are masked in every event (MAG-871).
 """
 
 import logging
@@ -18,6 +18,7 @@ from sentry_sdk.integrations.anthropic import AnthropicIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 from app.config import Settings, settings
+from app.redaction import redact_event
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def _tag_component(event: dict, hint: dict) -> dict | None:
     request = event.get("request")
     if isinstance(request, dict):
         request.pop("query_string", None)
-    return event
+    return redact_event(event)
 
 
 def init_error_tracking(config: Settings = settings, **options) -> bool:
