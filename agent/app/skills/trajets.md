@@ -22,7 +22,7 @@ Ne mets `decidedBy=user` que pour une origine que l'utilisateur a lui-même choi
 
 ## Mode
 
-Appelle `estimate_trip` avec l'origine et les modes plausibles (`drive`, `transit`, `walk`, `bicycle`). Écarte ceux que la météo, la distance ou ses habitudes rendent absurdes. Compare les durées et choisis. Enregistre le choix avec `set_trip` (`eventId`, `mode`, `origin`).
+Appelle `estimate_trip` avec l'origine et les modes plausibles (`drive`, `transit`, `walk`, `bicycle`). Écarte ceux que la météo, la distance ou ses habitudes rendent absurdes. Compare les durées et choisis. Enregistre le choix avec `set_trip` (`eventId`, `mode`, `origin`). Pour un événement répété, passe `date` (le jour planifié, `YYYY-MM-DD`) à `estimate_trip` et `set_trip` : chaque occurrence a son trajet.
 
 ## Stationnement
 

@@ -19,6 +19,7 @@ use Maggie\Calendar\Message\ReplanTripsCommand;
 use Maggie\Calendar\Reminder\TripCheckSource;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Calendar\Tests\Support\FakeRoutingTrait;
 use Maggie\Core\Message\ReportUserLocationCommand;
@@ -193,7 +194,7 @@ final class TripCheckSourceTest extends KernelTestCase
     private function seedReturn(string $eventRef, string $departAt): void
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
-        $trip = (new Trip($event))->apply(new TripEstimate(
+        $trip = (new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
             mode: TripMode::Transit,
             origin: new TripOrigin(TripOrigin::EVENT, $this->id($eventRef), 'Vacances', 48.118, -1.668),
             steps: [new RouteLeg(TripMode::Transit, 1800)],
@@ -211,7 +212,7 @@ final class TripCheckSourceTest extends KernelTestCase
     private function seed(string $eventRef, string $departAt, int $durationMinutes = 10): void
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
-        $trip = (new Trip($event))->apply(new TripEstimate(
+        $trip = (new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
             mode: TripMode::Transit,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
             steps: [new RouteLeg(TripMode::Transit, $durationMinutes * 60)],

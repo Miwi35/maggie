@@ -17,6 +17,7 @@ use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\RewardGranter;
 use Maggie\Calendar\Service\RewardMessages;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Weather\OpenMeteoClient;
@@ -1016,7 +1017,7 @@ final class RecordedResponseContractTest extends WebTestCase
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $event = $em->find(Event::class, $this->getFixture('recorded_event')->getId());
         self::assertInstanceOf(Event::class, $event);
-        $em->persist((new Trip($event))->apply(new TripEstimate(
+        $em->persist((new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
             mode: TripMode::Drive,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 38.72, -9.14),
             steps: [new RouteLeg(TripMode::Walk, 240), new RouteLeg(TripMode::Drive, 840), new RouteLeg(TripMode::Walk, 180)],

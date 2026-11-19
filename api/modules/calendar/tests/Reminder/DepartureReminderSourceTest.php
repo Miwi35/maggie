@@ -18,12 +18,14 @@ use Maggie\Calendar\Reminder\DepartureReminderSource;
 use Maggie\Calendar\Repository\TripRepository;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Push\PushMessageFactory;
 use Maggie\Notification\Repository\NotificationRepository;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Clock;
@@ -58,6 +60,64 @@ final class DepartureReminderSourceTest extends KernelTestCase
     {
         Clock::set(new NativeClock());
         parent::tearDown();
+    }
+
+    /** A series' trip serves one occurrence: its alert and its expiry are that day's, not the series' first (MAG-862). */
+    public function testAnOccurrenceTripAlertsAtItsOwnDepartAt(): void
+    {
+        $this->dentistEveryWeek();
+        $this->seed('dentist', '2026-11-03 13:34', occurrenceStartAt: '2026-11-03 14:00');
+
+        self::assertSame(0, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:33:59 UTC'))->created);
+        self::assertSame(1, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'))->created);
+
+        [$notification] = $this->departures();
+        self::assertSame('2026-11-03T13:00:00+00:00', $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+    }
+
+    /** @return iterable<string, array{EventStatus, bool, list<string>}> */
+    public static function exceptions(): iterable
+    {
+        yield 'cancelled' => [EventStatus::Cancelled, false, []];
+        yield 'modified, with a trip of its own' => [EventStatus::Confirmed, true, ['exception']];
+        yield 'modified, without' => [EventStatus::Confirmed, false, ['series']];
+    }
+
+    /**
+     * An occurrence cancelled, or planned on its own row, is no longer the series': the series' trip there
+     * is not alerted. Modified without a trip of its own, it still is (MAG-862).
+     *
+     * @param list<string> $alerted
+     */
+    #[DataProvider('exceptions')]
+    public function testTheSeriesTripOfAnOccurrenceThatBecameAnExceptionIsAlertedOnlyWhileItServesIt(EventStatus $status, bool $ownTrip, array $alerted): void
+    {
+        $this->dentistEveryWeek();
+        $trips = ['series' => $this->seed('dentist', '2026-11-03 13:34', occurrenceStartAt: '2026-11-03 14:00')];
+        $series = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($series);
+        $exception = (new Event())
+            ->setSummary('Dentiste')
+            ->setAgenda($series->getAgenda())
+            ->setRecurringEvent($series)
+            ->setOriginalStartAt(new \DateTimeImmutable('2026-11-03 13:00:00 UTC'))
+            ->setStatus($status);
+        $exception->scheduleTimed(new \DateTimeImmutable('2026-11-03 13:30:00 UTC'), new \DateTimeImmutable('2026-11-03 14:30:00 UTC'));
+        $this->em()->persist($exception);
+        $this->em()->flush();
+        if ($ownTrip) {
+            $trip = (new Trip($exception, TripOccurrence::startOf($exception)))->apply($this->estimate('2026-11-03 13:34'), TripDecider::Maggie, new \DateTimeImmutable('2026-11-03 10:00:00 UTC'));
+            $this->em()->persist($trip);
+            $this->em()->flush();
+            $trips['exception'] = (string) $trip->getId();
+        }
+
+        $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'));
+
+        self::assertSame(
+            array_map(static fn (string $key): string => '/api/trips/'.$trips[$key], $alerted),
+            array_map(static fn (Notification $notification): ?string => $notification->getRelatedEntityIri(), $this->departures()),
+        );
     }
 
     public function testATripNotYetDueAlertsNobody(): void
@@ -391,11 +451,22 @@ final class DepartureReminderSourceTest extends KernelTestCase
     }
 
     /** A trip as set_trip keeps it, leaving at $departAt (Paris). */
-    private function seed(string $eventRef, string $departAt, TripLeg $leg = TripLeg::Outbound, ?string $arriveAt = null, string $computedAt = '2026-11-03 10:00:00 UTC'): string
+    /** The dentist becomes weekly, every Tuesday at 14:00 in Paris since 13 October: 3 November is its fourth (MAG-862). */
+    private function dentistEveryWeek(): void
+    {
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($event);
+        $start = new \DateTimeImmutable('2026-10-13 12:00:00', new \DateTimeZone('UTC'));
+        $event->scheduleTimed($start, $start->modify('+1 hour'));
+        $event->setRrule('FREQ=WEEKLY');
+        $this->em()->flush();
+    }
+
+    private function seed(string $eventRef, string $departAt, TripLeg $leg = TripLeg::Outbound, ?string $arriveAt = null, string $computedAt = '2026-11-03 10:00:00 UTC', ?string $occurrenceStartAt = null): string
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
         self::assertInstanceOf(Event::class, $event);
-        $trip = (new Trip($event))->apply($this->estimate($departAt, $leg, $arriveAt), TripDecider::Maggie, new \DateTimeImmutable($computedAt));
+        $trip = (new Trip($event, null === $occurrenceStartAt ? TripOccurrence::startOf($event) : new \DateTimeImmutable($occurrenceStartAt, new \DateTimeZone('Europe/Paris'))))->apply($this->estimate($departAt, $leg, $arriveAt), TripDecider::Maggie, new \DateTimeImmutable($computedAt));
         $this->em()->persist($trip);
         $this->em()->flush();
 

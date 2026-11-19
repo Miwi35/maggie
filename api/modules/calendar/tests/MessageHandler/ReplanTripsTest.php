@@ -11,6 +11,7 @@ use Maggie\Calendar\Entity\Proaction;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Message\CreateEventCommand;
 use Maggie\Calendar\Message\DeleteEventCommand;
@@ -19,10 +20,13 @@ use Maggie\Calendar\Message\ScheduleProactionCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
+use Maggie\Calendar\Service\TripRecheck;
 use Maggie\Calendar\Tests\Support\FakeRoutingTrait;
 use Maggie\Core\Message\ParkCarCommand;
 use Maggie\Core\Message\ReportUserLocationCommand;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
@@ -90,11 +94,11 @@ class ReplanTripsTest extends KernelTestCase
         return $this->em()->getRepository(Proaction::class)->findBy(['summary' => ReplanTripsCommand::SUMMARY]);
     }
 
-    private function seedTrip(string $eventRef, TripMode $mode = TripMode::Transit, string $departAt = '2026-11-03 13:20:00'): void
+    private function seedTrip(string $eventRef, TripMode $mode = TripMode::Transit, string $departAt = '2026-11-03 13:20:00', ?string $occurrenceStartAt = null): void
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
         $drive = TripMode::Drive === $mode;
-        $trip = (new Trip($event))->apply(new TripEstimate(
+        $trip = (new Trip($event, null === $occurrenceStartAt ? TripOccurrence::startOf($event) : $this->at($occurrenceStartAt)))->apply(new TripEstimate(
             mode: $mode,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
             steps: [new RouteLeg($mode, 600)],
@@ -405,6 +409,121 @@ class ReplanTripsTest extends KernelTestCase
         self::assertSame(10, $this->storedTrip('dentist')->getDurationMinutes());
     }
 
+    /** A series' trip is computed again on its occurrence of the day, never on the series' first start (MAG-862). */
+    public function testAnOccurrenceTripOfTodayIsRechecked(): void
+    {
+        // Made weekly on a day nothing falls on, so the change itself triggers nothing.
+        Clock::set(new MockClock('2020-01-01 12:00:00', 'Europe/Paris'));
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($event);
+        $event->scheduleTimed($this->at('2026-10-13 14:00:00'), $this->at('2026-10-13 15:00:00'));
+        $event->setRrule('FREQ=WEEKLY');
+        $this->em()->flush();
+        Clock::set(new MockClock('2026-11-03 10:00:00', 'Europe/Paris'));
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00', '2026-11-03 14:00:00');
+        $this->routeSeconds = 1500;
+
+        $this->report(48.128);
+
+        $this->em()->clear();
+        $trips = $this->em()->getRepository(Trip::class)->findAll();
+        self::assertCount(1, $trips);
+        self::assertSame(25, $trips[0]->getDurationMinutes());
+        self::assertEquals($this->at('2026-11-03 13:30:00'), $trips[0]->getDepartAt());
+        self::assertEquals($this->at('2026-11-03 14:00:00'), $trips[0]->getOccurrenceStartAt());
+        self::assertSame([], $this->replans());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function movedOccurrences(): iterable
+    {
+        yield 'later the same day' => ['2026-11-03'];
+        yield 'to the next day' => ['2026-11-04'];
+    }
+
+    /** The occurrence moved on its own row: the series' trip of that day follows it there, whatever its new day (MAG-862). */
+    #[DataProvider('movedOccurrences')]
+    public function testAnOccurrenceMovedOnItsOwnRowTakesTheSeriesTripOfThatDay(string $newDay): void
+    {
+        Clock::set(new MockClock('2020-01-01 12:00:00', 'Europe/Paris'));
+        $series = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($series);
+        $series->scheduleTimed($this->at('2026-10-13 14:00:00'), $this->at('2026-10-13 15:00:00'));
+        $series->setRrule('FREQ=WEEKLY');
+        $exception = (new Event())
+            ->setSummary('Dentiste')
+            ->setLocation($series->getLocation())
+            ->setAgenda($series->getAgenda())
+            ->setRecurringEvent($series)
+            ->setOriginalStartAt($this->at('2026-11-03 14:00:00'));
+        $exception->scheduleTimed($this->at("{$newDay} 15:00:00"), $this->at("{$newDay} 16:00:00"));
+        $this->em()->persist($exception);
+        $this->em()->flush();
+        Clock::set(new MockClock('2026-11-03 10:00:00', 'Europe/Paris'));
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00', '2026-11-03 14:00:00');
+
+        $this->report(48.128);
+
+        $this->em()->clear();
+        $trips = $this->em()->getRepository(Trip::class)->findAll();
+        self::assertCount(1, $trips);
+        self::assertSame((string) $exception->getId(), (string) $trips[0]->getEvent()->getId());
+        self::assertEquals($this->at("{$newDay} 15:00:00"), $trips[0]->getOccurrenceStartAt());
+        self::assertEquals($this->at("{$newDay} 14:45:00"), $trips[0]->getDepartAt());
+    }
+
+    /** @return iterable<string, array{TripLeg, string}> the leg, and the hour the user fixed on the old day */
+    public static function fixedHours(): iterable
+    {
+        yield 'an outbound arriving at a set hour' => [TripLeg::Outbound, '09:00:00'];
+        yield 'a return leaving at a set hour' => [TripLeg::Return, '18:00:00'];
+    }
+
+    /** A whole-day occurrence moved to the next day: the hour the user fixed moves with it, never left on the old day (MAG-862). */
+    #[DataProvider('fixedHours')]
+    public function testAFixedHourFollowsItsOccurrenceMovedToAnotherDay(TripLeg $leg, string $hour): void
+    {
+        Clock::set(new MockClock('2020-01-01 12:00:00', 'Europe/Paris'));
+        $series = $this->em()->find(Event::class, $this->id('holiday'));
+        self::assertNotNull($series);
+        $series->scheduleAllDay(new \DateTimeImmutable('2026-10-13'), new \DateTimeImmutable('2026-10-14'));
+        $series->setRrule('FREQ=WEEKLY');
+        $exception = (new Event())
+            ->setSummary('Vacances')
+            ->setLocation($series->getLocation())
+            ->setAgenda($series->getAgenda())
+            ->setRecurringEvent($series)
+            ->setOriginalStartAt(new \DateTimeImmutable('2026-11-03', new \DateTimeZone('UTC')));
+        $exception->scheduleAllDay(new \DateTimeImmutable('2026-11-04'), new \DateTimeImmutable('2026-11-05'));
+        $this->em()->persist($exception);
+        $this->em()->flush();
+        Clock::set(new MockClock('2026-11-03 07:00:00', 'Europe/Paris'));
+        $fixed = $this->at("2026-11-03 {$hour}");
+        $outbound = TripLeg::Outbound === $leg;
+        $trip = (new Trip($series, $this->at('2026-11-03 00:00:00')))->apply(new TripEstimate(
+            mode: TripMode::Transit,
+            origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
+            steps: [new RouteLeg(TripMode::Transit, 600)],
+            durationMinutes: 10,
+            departAt: $outbound ? $fixed->modify('-10 minutes') : $fixed,
+            navigationUrl: 'https://waze.com/ul',
+            parkingKnown: false,
+            arriveAt: $outbound ? $fixed : $fixed->modify('+10 minutes'),
+            leg: $leg,
+        ), TripDecider::User, $this->at('2026-11-03 07:00:00'));
+        $this->em()->persist($trip);
+        $this->em()->flush();
+
+        self::getContainer()->get(TripRecheck::class)->recheck($trip);
+
+        $this->em()->clear();
+        $trips = $this->em()->getRepository(Trip::class)->findAll();
+        self::assertCount(1, $trips);
+        self::assertSame((string) $exception->getId(), (string) $trips[0]->getEvent()->getId());
+        self::assertEquals($this->at('2026-11-04 00:00:00'), $trips[0]->getOccurrenceStartAt());
+        self::assertEquals($this->at("2026-11-04 {$hour}"), $outbound ? $trips[0]->getArriveAt() : $trips[0]->getDepartAt());
+    }
+
     public function testATripThatGrewByLessThanFifteenMinutesIsKeptWithoutWakingMaggie(): void
     {
         $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00');
@@ -432,7 +551,7 @@ class ReplanTripsTest extends KernelTestCase
     public function testATripWhoseOriginTheUserChoseKeepsItAndItsDecider(): void
     {
         $event = $this->em()->find(Event::class, $this->id('dentist'));
-        $this->em()->persist((new Trip($event))->apply(new TripEstimate(
+        $this->em()->persist((new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
             mode: TripMode::Transit,
             origin: new TripOrigin(TripOrigin::PLACE, $this->id('home'), 'Maison', 48.11, -1.68),
             steps: [new RouteLeg(TripMode::Transit, 600)],

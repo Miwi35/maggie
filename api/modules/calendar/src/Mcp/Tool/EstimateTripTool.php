@@ -13,6 +13,7 @@ use Maggie\Calendar\Routing\NoRouteException;
 use Maggie\Calendar\Routing\RoutingException;
 use Maggie\Calendar\Service\TripEstimate;
 use Maggie\Calendar\Service\TripLocations;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Calendar\Service\TripOrigins;
 use Maggie\Calendar\Service\TripPlanner;
@@ -22,7 +23,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'estimate_trip', description: 'Estimate the trip to an event, several modes at once. modes: drive, transit, walk, bicycle. origin: position (phone\'s last position, default), home (the user\'s home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable.')]
+#[McpTool(name: 'estimate_trip', description: 'Estimate the trip to an event, several modes at once. date (YYYY-MM-DD, Paris): the occurrence\'s day; required for a repeating event, else optional and must match. modes: drive, transit, walk, bicycle. origin: position (phone\'s last position, default), home (the user\'s home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable.')]
 final class EstimateTripTool
 {
     public function __construct(
@@ -31,6 +32,7 @@ final class EstimateTripTool
         private readonly TripLocations $locations,
         private readonly TripOrigins $origins,
         private readonly TripPlanner $planner,
+        private readonly TripOccurrence $occurrences,
     ) {
     }
 
@@ -44,6 +46,7 @@ final class EstimateTripTool
         #[Schema(enum: ['outbound', 'return'])]
         ?string $leg = null,
         ?string $departAt = null,
+        ?string $date = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -63,7 +66,8 @@ final class EstimateTripTool
                 ?? throw new InvalidTripException('leg', "« {$leg} » is not a leg: outbound or return.");
             $arrival = null === $arriveAt ? null : TripPlanner::parseArriveAt($arriveAt);
             $departure = null === $departAt ? null : TripPlanner::parseArriveAt($departAt, 'departAt');
-            TripPlanner::checkHour($event, $tripLeg, $arrival, $departure);
+            $occurrence = $this->occurrences->on($event, $date);
+            TripPlanner::checkHour($occurrence, $tripLeg, $arrival, $departure);
             // Where the event is before where the trip starts: the user fixes the event first.
             $this->locations->ofEvent($event);
 
@@ -75,7 +79,7 @@ final class EstimateTripTool
             $unavailable = [];
             foreach ($tripModes as $mode) {
                 try {
-                    $estimates[] = $this->planner->estimate($event, $mode, $from, $arrival, $tripLeg, $departure);
+                    $estimates[] = $this->planner->estimate($occurrence, $mode, $from, $arrival, $tripLeg, $departure);
                 } catch (NoRouteException $e) {
                     $unavailable[] = ['mode' => $mode->value, 'reason' => $e->getMessage()];
                 }

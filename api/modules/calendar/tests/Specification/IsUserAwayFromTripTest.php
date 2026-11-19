@@ -20,7 +20,7 @@ class IsUserAwayFromTripTest extends TestCase
 {
     private function trip(TripMode $mode, ?float $carLatitude = null, ?float $carLongitude = null): Trip
     {
-        return (new Trip(new Event()))->apply(new TripEstimate(
+        return (new Trip(new Event(), new \DateTimeImmutable('2026-11-03 14:00:00 Europe/Paris')))->apply(new TripEstimate(
             mode: $mode,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
             steps: [new RouteLeg($mode, 600)],

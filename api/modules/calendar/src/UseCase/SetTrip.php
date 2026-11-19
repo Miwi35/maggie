@@ -13,14 +13,16 @@ use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Repository\TripRepository;
 use Maggie\Calendar\Routing\RoutingException;
+use Maggie\Calendar\Service\TripDay;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripPlanner;
 use Psr\Clock\ClockInterface;
 
 /**
  * The trip to an event, computed by {@see TripPlanner} and kept (MAG-654): an
- * event has one trip per leg at most, a new one replaces it in place — same id, same
- * topic, the screens see an update.
+ * event has one trip per leg and occurrence at most (MAG-862), a new one replaces it in
+ * place — same id, same topic, the screens see an update.
  */
 class SetTrip
 {
@@ -33,25 +35,46 @@ class SetTrip
     }
 
     /**
+     * Plans `$occurrence` ({@see TripOccurrence::on()}) and keeps its trip on `$event`, the series it comes from.
+     *
      * @throws InvalidTripException
      * @throws RoutingException
      */
-    public function execute(Event $event, TripMode $mode, string $origin, TripDecider $decidedBy, ?\DateTimeImmutable $arriveAt = null, TripLeg $leg = TripLeg::Outbound, ?\DateTimeImmutable $departAt = null): Trip
+    public function execute(Event $event, Event $occurrence, TripMode $mode, string $origin, TripDecider $decidedBy, ?\DateTimeImmutable $arriveAt = null, TripLeg $leg = TripLeg::Outbound, ?\DateTimeImmutable $departAt = null): Trip
     {
-        return $this->keep($event, $this->planner->estimate($event, $mode, $origin, $arriveAt, $leg, $departAt), $decidedBy);
+        return $this->keep(
+            TripOccurrence::owner($event, $occurrence),
+            TripOccurrence::startOf($occurrence),
+            $this->planner->estimate($occurrence, $mode, $origin, $arriveAt, $leg, $departAt),
+            $decidedBy,
+        );
     }
 
-    /** Keeps an estimate already computed: the event's trip is replaced in place. */
-    public function keep(Event $event, TripEstimate $estimate, TripDecider $decidedBy): Trip
+    /**
+     * Keeps an estimate already computed: the occurrence's trip is replaced in place, and follows its
+     * occurrence when it moved — a single event has one, a series one a day. `$trip` is the one computed again.
+     */
+    public function keep(Event $event, \DateTimeImmutable $occurrenceStartAt, TripEstimate $estimate, TripDecider $decidedBy, ?Trip $trip = null): Trip
     {
-        $trip = $this->trips->findOneByEvent($event, $estimate->leg);
+        $trip ??= $this->occurrenceTrip($event, $estimate->leg, $occurrenceStartAt);
         if (null === $trip) {
-            $trip = new Trip($event);
+            $trip = new Trip($event, $occurrenceStartAt);
             $this->em->persist($trip);
         }
+        $trip->moveTo($event, $occurrenceStartAt);
         $trip->apply($estimate, $decidedBy, $this->clock->now());
         $this->em->flush();
 
         return $trip;
+    }
+
+    private function occurrenceTrip(Event $event, TripLeg $leg, \DateTimeImmutable $occurrenceStartAt): ?Trip
+    {
+        if (!$event->isRecurring()) {
+            return $this->trips->findOneByEvent($event, $leg);
+        }
+        [$dayStart, $dayEnd] = TripDay::bounds($occurrenceStartAt->setTimezone(new \DateTimeZone(TripDay::TIME_ZONE))->format('Y-m-d'));
+
+        return $this->trips->findOneByEventBetween($event, $dayStart, $dayEnd, $leg);
     }
 }
