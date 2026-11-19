@@ -190,13 +190,8 @@ notification à … » — the phrasing the recette agent saw in production.
 
 `87-learning-forgotten-once.yaml` and `88-learning-forgotten-twice.yaml` do the same
 for « c'est noté » with nothing stored (MAG-340): the claim guard sends it back once, the
-model then calls `create_skill`, and a second unbacked « je retiens » becomes the
-sentence that nothing was stored.
-
-`89-agenda-unread-once.yaml` and `89-agenda-unread-twice.yaml` script an answer that cites a
-date or an hour to an agenda question (« quand est-ce que je vois Emma ? ») with no agenda tool
-called (MAG-349). The claim guard sends it back once; the model then calls `get_upcoming_events`,
-and a second answer from memory becomes the sentence that the agenda could not be read.
+model then calls `create_skill`, and a second unbacked « je retiens » goes out as the model
+wrote it, signalled to GlitchTip (`claim_unbacked`).
 
 `96-agenda-limit-directive.yaml` and `96-agenda-limit-applied.yaml` are the pair for « ne me parle que de Défaut
 et Garde Tom » (MAG-325): the rule is stored as a `behavior` directive, and the second can only answer, with
