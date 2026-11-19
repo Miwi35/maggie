@@ -35,10 +35,12 @@ class McpClient:
         self._session_expired: bool = False
         self._tools: list[dict] = []
         self._last_activity: float = 0.0
+        self._reconnect_lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        """Initialize connection to MCP server."""
-        self._http_client = httpx.AsyncClient(timeout=TIMEOUT)
+        """Open a new MCP session. The HTTP client is kept: calls in flight still use it."""
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient(timeout=TIMEOUT)
         self._session_id = None
         self._session_expired = False
 
@@ -71,7 +73,7 @@ class McpClient:
             logger.error("MCP tools/list failed — no response from server")
 
     async def disconnect(self) -> None:
-        """Close the HTTP client."""
+        """Close the HTTP client — at shutdown only, a reconnection must not cut calls in flight."""
         if self._http_client:
             await self._http_client.aclose()
             self._http_client = None
@@ -79,15 +81,20 @@ class McpClient:
 
     async def ensure_connected(self) -> None:
         """Reconnect to MCP server if tools are not loaded or session is stale."""
-        if self._tools:
-            elapsed = time.monotonic() - self._last_activity
-            if elapsed < SESSION_STALENESS_SECONDS:
+        if self._is_fresh():
+            return
+        async with self._reconnect_lock:
+            if self._is_fresh():  # another task reconnected while this one waited
                 return
-            logger.info(f"MCP session stale ({elapsed:.0f}s idle), proactively reconnecting...")
-        else:
-            logger.info("MCP tools not loaded, reconnecting...")
-        await self.disconnect()
-        await self.connect()
+            if self._tools:
+                elapsed = time.monotonic() - self._last_activity
+                logger.info(f"MCP session stale ({elapsed:.0f}s idle), proactively reconnecting...")
+            else:
+                logger.info("MCP tools not loaded, reconnecting...")
+            await self.connect()
+
+    def _is_fresh(self) -> bool:
+        return bool(self._tools) and time.monotonic() - self._last_activity < SESSION_STALENESS_SECONDS
 
     async def list_tools(self) -> list[dict]:
         """Return tool definitions, reconnecting if needed."""
@@ -100,6 +107,7 @@ class McpClient:
         The MCP server acts for `user_id`; without it, tools touching user data
         refuse the call.
         """
+        stale_session = self._session_id
         response = await self._send_request(
             "tools/call",
             {
@@ -112,9 +120,9 @@ class McpClient:
         # Retry once on session expiration
         if response is None and self._session_expired:
             logger.info("MCP session expired, reconnecting...")
-            self._tools = []
-            await self.disconnect()
-            await self.connect()
+            async with self._reconnect_lock:
+                if self._session_id == stale_session:  # not already renewed by another task
+                    await self.connect()
             response = await self._send_request(
                 "tools/call",
                 {
