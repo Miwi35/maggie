@@ -266,6 +266,8 @@ if [ -z "$APK" ]; then
   APK="$FLOW_DIR/apk/maggie-e2e.apk"
 fi
 [ -f "$APK" ] || die "No APK at $APK (E2E_MOBILE_APK)."
+# An install of another build, signed by another debug key, refuses -r: remove it first.
+"$ADB" -s "$SERIAL" uninstall com.maggie.app.e2e >/dev/null 2>&1 || true
 # -r: replace an install from a previous run; -t: the e2e flavor is a debug build.
 "$ADB" -s "$SERIAL" install -r -t "$APK" >/dev/null
 note "installed ${APK#"$REPO_ROOT"/}"
