@@ -33,7 +33,7 @@ class UpdateTaskProcessor implements ProcessorInterface
         // A nullable field that was set and is now null is an explicit clear
         $clearFields = [];
         if (null !== $previous) {
-            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent', 'estimatedMinutes' => 'getEstimatedMinutes', 'firstStep' => 'getFirstStep', 'scheduledDate' => 'getScheduledDate', 'scheduledMoment' => 'getScheduledMoment'] as $field => $getter) {
+            foreach (['description' => 'getDescription', 'dueDate' => 'getDueDate', 'completedAt' => 'getCompletedAt', 'parent' => 'getParent', 'estimatedMinutes' => 'getEstimatedMinutes', 'firstStep' => 'getFirstStep', 'scheduledDate' => 'getScheduledDate', 'scheduledMoment' => 'getScheduledMoment', 'rrule' => 'getRrule'] as $field => $getter) {
                 if (null === $data->$getter() && null !== $previous->$getter()) {
                     $clearFields[] = $field;
                 }
@@ -64,6 +64,7 @@ class UpdateTaskProcessor implements ProcessorInterface
             // Sent, even unchanged: an empty list at a new precise time is no reminder, not the default one.
             reminders: null === $previous || $data->getReminders() !== $previous->getReminders() || $this->sends('reminders') ? $data->getReminders() : null,
             timed: null === $previous || $data->isTimed() !== $previous->isTimed() ? $data->isTimed() : null,
+            rrule: null === $previous || $data->getRrule() !== $previous->getRrule() ? $data->getRrule() : null,
         );
 
         // The deserializer applied the patch to the managed entity, the parent

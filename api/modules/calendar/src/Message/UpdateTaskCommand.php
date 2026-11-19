@@ -9,8 +9,8 @@ final readonly class UpdateTaskCommand
     use ClearsFieldsTrait;
 
     /**
-     * @param list<'description'|'dueDate'|'completedAt'|'parent'|'estimatedMinutes'|'firstStep'|'scheduledDate'|'scheduledMoment'> $clearFields
-     * @param list<int>|null                                                                                                        $reminders   minutes before the time, [] for none; null: unchanged
+     * @param list<'description'|'dueDate'|'completedAt'|'parent'|'estimatedMinutes'|'firstStep'|'scheduledDate'|'scheduledMoment'|'rrule'> $clearFields
+     * @param list<int>|null                                                                                                                $reminders   minutes before the time, [] for none; null: unchanged
      */
     public function __construct(
         public string $taskId,
@@ -30,6 +30,7 @@ final readonly class UpdateTaskCommand
         public ?string $scheduledTime = null,
         public ?array $reminders = null,
         public ?bool $timed = null,
+        public ?string $rrule = null,
     ) {
     }
 }

@@ -40,6 +40,7 @@ use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
 use Maggie\Core\Serializer\StrictDayNormalizer;
 use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Uid\Ulid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -170,6 +171,23 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         openapiContext: ['type' => 'array', 'items' => ['type' => 'integer', 'minimum' => 0, 'maximum' => TaskSchedule::MAX_REMINDER_MINUTES], 'maxItems' => Event::MAX_REMINDERS],
     )]
     private array $reminders = [];
+
+    /**
+     * The recurrence (MAG-870), RFC 5545 without « RRULE: », as an event has
+     * one. Carried by the series' only open occurrence: it passes to the next
+     * one when this one is done or its day has passed. Maggie's own.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(
+        description: 'The recurrence, RFC 5545 without "RRULE:" (e.g. FREQ=WEEKLY;INTERVAL=2;BYDAY=TU): FREQ DAILY to YEARLY, UNTIL allowed, COUNT refused. Needs a scheduledDate or a dueDate on a day of the rule. Only the open occurrence carries it: done or its day past, it passes to the next one. Maggie\'s own: Google never sees it.',
+        openapiContext: ['type' => ['string', 'null'], 'example' => 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU'],
+    )]
+    private ?string $rrule = null;
+
+    /** The day of the rule this occurrence stands for: moving the occurrence leaves it, so the series keeps its days. Never sent. */
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $recurrenceDate = null;
 
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
@@ -393,6 +411,36 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         return $this;
     }
 
+    public function getRrule(): ?string
+    {
+        return $this->rrule;
+    }
+
+    public function setRrule(?string $rrule): static
+    {
+        $this->rrule = $rrule;
+
+        return $this;
+    }
+
+    #[Ignore]
+    public function getRecurrenceDate(): ?\DateTimeImmutable
+    {
+        return $this->recurrenceDate;
+    }
+
+    /**
+     * The rule and the day of it this occurrence stands for, as
+     * {@see \Maggie\Calendar\Service\TaskRecurrence} settled them: both or neither.
+     */
+    public function repeat(?string $rrule, ?\DateTimeImmutable $recurrenceDate): static
+    {
+        $this->rrule = $rrule;
+        $this->recurrenceDate = null === $rrule ? null : $recurrenceDate;
+
+        return $this;
+    }
+
     public function getCompletedAt(): ?\DateTimeImmutable
     {
         return $this->completedAt;
@@ -564,6 +612,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'scheduledMoment' => $this->scheduledMoment?->value,
             'scheduledTime' => $this->scheduledTime,
             'reminders' => $this->reminders,
+            'rrule' => $this->rrule,
             'completedAt' => $this->completedAt?->format('c'),
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
             'position' => $this->position,
@@ -588,6 +637,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'scheduledMoment' => $this->scheduledMoment?->value,
             'scheduledTime' => $this->scheduledTime,
             'reminders' => $this->reminders,
+            'rrule' => $this->rrule,
             'isDone' => $this->isDone(),
             'parent' => null !== $this->parent ? '/api/tasks/'.$this->parent->getId() : null,
             'position' => $this->position,
