@@ -15,6 +15,7 @@ use Maggie\Calendar\Service\GoogleCalendarApiClient;
 use Maggie\Calendar\Service\GoogleCalendarNameMapper;
 use Maggie\Calendar\Service\GoogleCalendarSyncService;
 use Maggie\Calendar\Service\GoogleEventMapper;
+use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Maggie\Core\Entity\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -254,8 +255,76 @@ class GoogleCalendarSyncServiceTest extends TestCase
         $service = $this->createService();
         $service->pullFromGoogle($agenda);
 
-        // Should still publish Mercure update for the returned ID but mapper was not called
+        self::assertCount(0, $this->publishedUpdates);
+        self::assertSame([], array_filter($this->dispatchedMessages, fn ($m) => $m instanceof IndexDocumentCommand));
+    }
+
+    public function testPullSkipsEventWhenGoogleEtagIsUnchanged(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+
+        $googleEvent = $this->createGoogleEvent('g-evt-1', 'Meeting');
+        $googleEvent->setUpdated('2026-03-20T12:00:00Z');
+        $googleEvent->setEtag('"e1"');
+
+        $existingEvent = new Event();
+        $existingEvent->setSummary('Meeting');
+        $existingEvent->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+        $existingEvent->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+        $existingEvent->setAgenda($agenda);
+        $existingEvent->setGoogleEventId('g-evt-1');
+        $existingEvent->setGoogleUpdatedAt(new \DateTimeImmutable('2026-03-20T10:00:00Z'));
+        $existingEvent->setGoogleEtag('"e1"');
+
+        $this->apiClient->method('listEvents')->willReturn([
+            'events' => [$googleEvent],
+            'nextPageToken' => null,
+            'nextSyncToken' => 'new-sync-token',
+        ]);
+        $this->eventRepository->method('findByGoogleEventId')->willReturn($existingEvent);
+        $this->eventMapper->expects(self::never())->method('fromGoogle');
+
+        $this->createService()->pullFromGoogle($agenda);
+
+        self::assertCount(0, $this->publishedUpdates);
+        self::assertSame([], array_filter($this->dispatchedMessages, fn ($m) => $m instanceof IndexDocumentCommand));
+    }
+
+    public function testPullPublishesOnlyTheChangedEventOfABurst(): void
+    {
+        $agenda = $this->createSyncedAgenda();
+
+        $googleEvents = [];
+        $existing = [];
+        for ($i = 0; $i < 41; ++$i) {
+            $googleEvent = $this->createGoogleEvent('g-evt-'.$i, 'Meeting '.$i);
+            $googleEvent->setUpdated(40 === $i ? '2026-03-20T12:00:00Z' : '2026-03-20T10:00:00Z');
+            $googleEvents[] = $googleEvent;
+
+            $event = new Event();
+            $event->setSummary('Meeting '.$i);
+            $event->setStartAt(new \DateTimeImmutable('2026-03-20T10:00:00+01:00'));
+            $event->setEndAt(new \DateTimeImmutable('2026-03-20T11:00:00+01:00'));
+            $event->setAgenda($agenda);
+            $event->setGoogleEventId('g-evt-'.$i);
+            $event->setGoogleUpdatedAt(new \DateTimeImmutable('2026-03-20T10:00:00Z'));
+            $existing['g-evt-'.$i] = $event;
+        }
+
+        $this->apiClient->method('listEvents')->willReturn([
+            'events' => $googleEvents,
+            'nextPageToken' => null,
+            'nextSyncToken' => 'new-sync-token',
+        ]);
+        $this->eventRepository->method('findByGoogleEventId')
+            ->willReturnCallback(fn (string $id) => $existing[$id] ?? null);
+        $this->eventMapper->expects(self::once())->method('fromGoogle')->willReturn($existing['g-evt-40']);
+        $this->eventRepository->method('find')->willReturn($existing['g-evt-40']);
+
+        $this->createService()->pullFromGoogle($agenda);
+
         self::assertCount(1, $this->publishedUpdates);
+        self::assertCount(1, array_filter($this->dispatchedMessages, fn ($m) => $m instanceof IndexDocumentCommand));
     }
 
     public function testPullUpdatesEventWhenGoogleTimestampIsNewer(): void
