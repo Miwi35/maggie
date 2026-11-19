@@ -8,7 +8,9 @@ use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Exception\InvalidTripException;
+use Maggie\Calendar\Repository\EventRepository;
 use Maggie\Calendar\Repository\PlaceRepository;
+use Maggie\Calendar\Repository\TripRepository;
 use Maggie\Calendar\Routing\Route;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Routing\RoutingClient;
@@ -21,7 +23,8 @@ use Psr\Clock\ClockInterface;
  * Door to door to an event (« Partir à l'heure », MAG-653).
  *
  * - **Car**: a walk to the car when it stands more than {@see self::CAR_WALK_METERS}
- *   away (where the phone saw it parked, home when that is unknown), the drive
+ *   away (where the phone saw it parked, home when that is unknown; chained from an
+ *   event reached by car, at that event, MAG-854), the drive
  *   to the parking of the known place the event is at ({@see PlaceMatcher}),
  *   then the walk from the parking. Without a known parking, the drive goes to
  *   the event and {@see self::PARKING_MINUTES} are added to find a spot.
@@ -48,6 +51,8 @@ class TripPlanner
         private readonly TripOrigins $origins,
         private readonly PlaceMatcher $placeMatcher,
         private readonly PlaceRepository $places,
+        private readonly TripRepository $trips,
+        private readonly EventRepository $events,
         private readonly UserLocationRepository $userLocations,
         private readonly ClockInterface $clock,
     ) {
@@ -232,15 +237,15 @@ class TripPlanner
      */
     private function drive(User $user, TripOrigin $origin, float $latitude, float $longitude, \DateTimeImmutable $start): array
     {
+        $this->locatePlaces($user);
+        $knownCar = $this->carAtOrigin($user, $origin) ?? $this->car($user);
         // A car nobody knows the place of is taken where the trip starts.
-        $knownCar = $this->car($user);
         $car = $knownCar ?? [$origin->latitude, $origin->longitude];
         $steps = [];
         if (PlaceMatcher::distance($origin->latitude, $origin->longitude, $car[0], $car[1]) > self::CAR_WALK_METERS) {
             $steps[] = $this->leg(TripMode::Walk, [$origin->latitude, $origin->longitude], $car);
         }
 
-        $this->locatePlaces($user);
         $place = $this->placeMatcher->match($user, $latitude, $longitude);
         $parking = null === $place ? null : $this->locations->ofParking($place);
         $leaveAround = $start->modify(sprintf('-%d minutes', self::DRIVE_TRAFFIC_LEAD_MINUTES));
@@ -304,6 +309,27 @@ class TripPlanner
                 continue;
             }
         }
+    }
+
+    /**
+     * Chained from an event the user reaches by car, the car is there when they leave it:
+     * at the parking of its known place, else at the event.
+     *
+     * @return array{float, float}|null
+     */
+    private function carAtOrigin(User $user, TripOrigin $origin): ?array
+    {
+        if (TripOrigin::EVENT !== $origin->kind || null === $origin->id) {
+            return null;
+        }
+        $event = $this->events->find($origin->id);
+        if (!$event instanceof Event || TripMode::Drive !== $this->trips->findOneByEvent($event)?->getMode()) {
+            return null;
+        }
+
+        $place = $this->placeMatcher->match($user, $origin->latitude, $origin->longitude);
+
+        return (null === $place ? null : $this->locations->ofParking($place)) ?? [$origin->latitude, $origin->longitude];
     }
 
     /**
