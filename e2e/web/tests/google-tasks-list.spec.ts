@@ -1,4 +1,5 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, JOURNEY_HEADER } from '../fixtures/index.js'
+import { signIn } from '../fixtures/session.js'
 import type { APIRequestContext } from '@playwright/test'
 import { getCollection } from '../helpers/api.js'
 import { openWiremockJournal } from '../helpers/wiremock.js'
@@ -145,5 +146,59 @@ test.describe('The Google Tasks list', () => {
     await journal.waitForCount('GET', listTasks(OTHER_LIST.id), before + 1)
 
     await journal.dispose()
+  })
+
+  /**
+   * Switching the list pulls Google's, and the stub answers one fixed task: a
+   * pull deletes every local task of the account whose Google id is not in that
+   * answer. Run on the shared account it took away what other journeys had just
+   * created (chat.spec.ts, MAG-873), so the pull must stay on the journey's own.
+   */
+  test("the pull of a journey account leaves the shared account's tasks alone", async ({
+    api,
+    baseURL,
+    playwright,
+    journey,
+  }) => {
+    const shared = await signIn(baseURL as string, 'e2e@maggie.local', { [JOURNEY_HEADER]: journey })
+    const sharedApi = await playwright.request.newContext({
+      baseURL: baseURL as string,
+      extraHTTPHeaders: { Authorization: `Bearer ${shared.token}`, [JOURNEY_HEADER]: journey },
+    })
+    const journal = await openWiremockJournal(playwright)
+    const pushed = /\/lists\/e2e-task-list\/tasks(\?|$)/
+
+    try {
+      const pushes = await journal.count('POST', pushed)
+      const created = await sharedApi.post('/api/tasks', {
+        headers: { 'Content-Type': 'application/json' },
+        data: { title: 'Survivre au changement de liste' },
+      })
+      expect(created.ok(), `POST /api/tasks answered ${created.status()}`).toBe(true)
+      const { id } = (await created.json()) as { id: string }
+      await journal.waitForCount('POST', pushed, pushes + 1)
+
+      await disconnect(api)
+      const pulls = await journal.count('GET', listTasks(SEEDED_LIST.id))
+      await connect(api, SEEDED_LIST.id)
+      await journal.waitForCount('GET', listTasks(SEEDED_LIST.id), pulls + 1)
+      await expect
+        .poll(
+          async () =>
+            (await getCollection<{ title?: string }>(api, '/api/tasks?itemsPerPage=100')).some(
+              (task) => task.title === PULLED_TASK,
+            ),
+          { message: 'the pull should have written the Google task for the journey account' },
+        )
+        .toBe(true)
+
+      const survivor = await sharedApi.get(`/api/tasks/${id}`)
+      expect(survivor.status(), "the shared account's task should survive another account's pull").toBe(200)
+
+      await sharedApi.delete(`/api/tasks/${id}`)
+    } finally {
+      await journal.dispose()
+      await sharedApi.dispose()
+    }
   })
 })
