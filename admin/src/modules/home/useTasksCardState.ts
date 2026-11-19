@@ -61,14 +61,19 @@ export function useTasksCardState(day: HomeDay) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const latest = useRef(0)
+  const shown = useRef('')
 
   const load = useCallback(
     async (initial: boolean) => {
       const request = ++latest.current
       if (initial) setLoading(true)
+      let changed = false
       try {
         const body = await read(day)
         if (request === latest.current) {
+          const next = JSON.stringify(body)
+          changed = next !== shown.current
+          shown.current = next
           setState(body)
           setError(false)
         }
@@ -77,6 +82,8 @@ export function useTasksCardState(day: HomeDay) {
       } finally {
         if (request === latest.current) setLoading(false)
       }
+
+      return changed
     },
     [day],
   )
@@ -89,10 +96,10 @@ export function useTasksCardState(day: HomeDay) {
     }
   }, [load])
 
-  // A burst of messages is one read; `true` skips the catch-up read, the card holds no state to compare.
+  // A burst of messages is one read; a read that learns nothing is made once more, the tasks index may lag the message.
   useMercure(
     HOME_RESOURCE_TOPICS,
-    useLiveRead(() => load(false).then(() => true)),
+    useLiveRead(() => load(false)),
   )
 
   const retry = useCallback(() => load(true), [load])
