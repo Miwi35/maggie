@@ -17,7 +17,7 @@ use Mcp\Capability\Attribute\McpTool;
  * the service token and no user named it lists every user — like
  * claim_due_proactions; a caller acting for a user only reads that user's.
  */
-#[McpTool(name: 'list_daily_rendezvous', description: "Reserved for the proaction planner — never call it in a conversation. Lists each user's daily rendezvous settings: the morning digest and the evening review, on or off, and their HH:MM hour in the user's timezone.")]
+#[McpTool(name: 'list_daily_rendezvous', description: "Lists each user's daily rendezvous settings (morning digest, evening review: on or off, HH:MM hour). Executor only, never offered to the model.")]
 class ListDailyRendezvousTool
 {
     public function __construct(

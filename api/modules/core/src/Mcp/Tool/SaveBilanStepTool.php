@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'save_bilan_step', description: 'Record where the evening review (« Bilan du soir ») stands, at every passage from one step to the next, so any device resumes it there. day is the day of the review, YYYY-MM-DD. step is one of journee, finance, sante, consignes, demain, in that order. answers (optional) is {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note} and instructions (optional) a list of {id, text, kind: reminder|task|instruction, targetId?}: when omitted, what is already stored for the same day is kept; a new day starts from nothing. Returns the status as saved, or {error}.')]
+#[McpTool(name: 'save_bilan_step', description: 'Records the evening review state. day: YYYY-MM-DD. step: journee, finance, sante, consignes, demain. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}.')]
 class SaveBilanStepTool
 {
     public function __construct(
