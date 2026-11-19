@@ -61,7 +61,7 @@ class SetTrip
             $trip = new Trip($event, $occurrenceStartAt);
             $this->em->persist($trip);
         }
-        $trip->moveTo($occurrenceStartAt);
+        $trip->moveTo($event, $occurrenceStartAt);
         $trip->apply($estimate, $decidedBy, $this->clock->now());
         $this->em->flush();
 

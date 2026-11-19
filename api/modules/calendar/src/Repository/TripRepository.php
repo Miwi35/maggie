@@ -18,13 +18,15 @@ use Symfony\Component\Uid\Ulid;
 class TripRepository extends ServiceEntityRepository
 {
     /**
-     * The occurrence a series' trip serves has not become an exception of its own — cancelled, or
-     * modified and planned on its own row (MAG-862). An all-day exception is known by the midnight
-     * UTC of its day ({@see \Maggie\Calendar\Service\RecurrenceService}), within the Paris day.
+     * The occurrence a series' trip serves was not cancelled, and did not become an exception with
+     * a trip of its own (MAG-862); a modified one without is the series trip's still, which the
+     * recheck moves onto it. An all-day exception is known by the midnight UTC of its day
+     * ({@see \Maggie\Calendar\Service\RecurrenceService}), within the Paris day. Needs `:cancelled`.
      */
     private const string OCCURRENCE_STILL_OF_THE_SERIES = 'NOT EXISTS (SELECT x.id FROM '.Event::class.' x WHERE x.recurringEvent = e'
         .' AND (x.originalStartAt = t.occurrenceStartAt'
-        ." OR (e.startAt IS NULL AND x.originalStartAt > t.occurrenceStartAt AND x.originalStartAt < DATE_ADD(t.occurrenceStartAt, 1, 'day'))))";
+        ." OR (e.startAt IS NULL AND x.originalStartAt > t.occurrenceStartAt AND x.originalStartAt < DATE_ADD(t.occurrenceStartAt, 1, 'day')))"
+        .' AND (x.status = :cancelled OR EXISTS (SELECT own.id FROM '.Trip::class.' own WHERE own.event = x AND own.leg = t.leg)))';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -103,7 +105,7 @@ class TripRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return list<Trip> the user's trips leaving within [$from, $to), by departure, but those of an occurrence that became an exception */
+    /** @return list<Trip> the user's trips leaving within [$from, $to), by departure, but those of an occurrence cancelled or planned on its own */
     public function findLeavingBetween(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         /* @var list<Trip> */
@@ -113,6 +115,7 @@ class TripRepository extends ServiceEntityRepository
             ->where('a.user = :user')
             ->andWhere('t.departAt >= :from AND t.departAt < :to')
             ->andWhere(self::OCCURRENCE_STILL_OF_THE_SERIES)
+            ->setParameter('cancelled', EventStatus::Cancelled)
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('to', $to, Types::DATETIMETZ_IMMUTABLE)

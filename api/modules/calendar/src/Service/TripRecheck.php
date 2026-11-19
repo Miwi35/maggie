@@ -56,7 +56,7 @@ class TripRecheck
             return TripRecheckOutcome::Unchanged;
         }
 
-        $this->setTrip->keep($trip->getEvent(), TripOccurrence::startOf($event), $estimate, $decidedBy, $trip);
+        $this->setTrip->keep(TripOccurrence::owner($trip->getEvent(), $event), TripOccurrence::startOf($event), $estimate, $decidedBy, $trip);
 
         return TripRecheckOutcome::Updated;
     }

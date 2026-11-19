@@ -177,9 +177,13 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         return $this->occurrenceStartAt;
     }
 
-    /** A single event moved: its trip follows it, it is still the same occurrence. */
-    public function moveTo(\DateTimeImmutable $occurrenceStartAt): void
+    /**
+     * The occurrence moved — a single event, or one of a series that became an exception: its trip
+     * follows it, onto the exception's row then, since the screens find the trip by the event they show.
+     */
+    public function moveTo(Event $event, \DateTimeImmutable $occurrenceStartAt): void
     {
+        $this->event = $event;
         if ($occurrenceStartAt != $this->occurrenceStartAt) {
             $this->occurrenceStartAt = $occurrenceStartAt;
         }

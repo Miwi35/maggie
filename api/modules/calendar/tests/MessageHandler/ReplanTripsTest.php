@@ -431,6 +431,36 @@ class ReplanTripsTest extends KernelTestCase
         self::assertSame([], $this->replans());
     }
 
+    /** The occurrence moved on its own row: the series' trip of that day follows it there (MAG-862). */
+    public function testAnOccurrenceMovedOnItsOwnRowTakesTheSeriesTripOfThatDay(): void
+    {
+        Clock::set(new MockClock('2020-01-01 12:00:00', 'Europe/Paris'));
+        $series = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($series);
+        $series->scheduleTimed($this->at('2026-10-13 14:00:00'), $this->at('2026-10-13 15:00:00'));
+        $series->setRrule('FREQ=WEEKLY');
+        $exception = (new Event())
+            ->setSummary('Dentiste')
+            ->setLocation($series->getLocation())
+            ->setAgenda($series->getAgenda())
+            ->setRecurringEvent($series)
+            ->setOriginalStartAt($this->at('2026-11-03 14:00:00'));
+        $exception->scheduleTimed($this->at('2026-11-03 15:00:00'), $this->at('2026-11-03 16:00:00'));
+        $this->em()->persist($exception);
+        $this->em()->flush();
+        Clock::set(new MockClock('2026-11-03 10:00:00', 'Europe/Paris'));
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00', '2026-11-03 14:00:00');
+
+        $this->report(48.128);
+
+        $this->em()->clear();
+        $trips = $this->em()->getRepository(Trip::class)->findAll();
+        self::assertCount(1, $trips);
+        self::assertSame((string) $exception->getId(), (string) $trips[0]->getEvent()->getId());
+        self::assertEquals($this->at('2026-11-03 15:00:00'), $trips[0]->getOccurrenceStartAt());
+        self::assertEquals($this->at('2026-11-03 14:45:00'), $trips[0]->getDepartAt());
+    }
+
     public function testATripThatGrewByLessThanFifteenMinutesIsKeptWithoutWakingMaggie(): void
     {
         $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00');

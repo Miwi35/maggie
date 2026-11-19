@@ -75,19 +75,25 @@ final class DepartureReminderSourceTest extends KernelTestCase
         self::assertSame('2026-11-03T13:00:00+00:00', $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
     }
 
-    /** @return iterable<string, array{EventStatus}> */
+    /** @return iterable<string, array{EventStatus, bool, list<string>}> */
     public static function exceptions(): iterable
     {
-        yield 'cancelled' => [EventStatus::Cancelled];
-        yield 'modified, with its own row' => [EventStatus::Confirmed];
+        yield 'cancelled' => [EventStatus::Cancelled, false, []];
+        yield 'modified, with a trip of its own' => [EventStatus::Confirmed, true, ['exception']];
+        yield 'modified, without' => [EventStatus::Confirmed, false, ['series']];
     }
 
-    /** An occurrence that became an exception is no longer the series': its trip there is not alerted (MAG-862). */
+    /**
+     * An occurrence cancelled, or planned on its own row, is no longer the series': the series' trip there
+     * is not alerted. Modified without a trip of its own, it still is (MAG-862).
+     *
+     * @param list<string> $alerted
+     */
     #[DataProvider('exceptions')]
-    public function testTheSeriesTripOfAnOccurrenceThatBecameAnExceptionIsNotAlerted(EventStatus $status): void
+    public function testTheSeriesTripOfAnOccurrenceThatBecameAnExceptionIsAlertedOnlyWhileItServesIt(EventStatus $status, bool $ownTrip, array $alerted): void
     {
         $this->dentistEveryWeek();
-        $this->seed('dentist', '2026-11-03 13:34', occurrenceStartAt: '2026-11-03 14:00');
+        $trips = ['series' => $this->seed('dentist', '2026-11-03 13:34', occurrenceStartAt: '2026-11-03 14:00')];
         $series = $this->em()->find(Event::class, $this->id('dentist'));
         self::assertNotNull($series);
         $exception = (new Event())
@@ -96,11 +102,22 @@ final class DepartureReminderSourceTest extends KernelTestCase
             ->setRecurringEvent($series)
             ->setOriginalStartAt(new \DateTimeImmutable('2026-11-03 13:00:00 UTC'))
             ->setStatus($status);
-        $exception->scheduleTimed(new \DateTimeImmutable('2026-11-03 15:00:00 UTC'), new \DateTimeImmutable('2026-11-03 16:00:00 UTC'));
+        $exception->scheduleTimed(new \DateTimeImmutable('2026-11-03 13:30:00 UTC'), new \DateTimeImmutable('2026-11-03 14:30:00 UTC'));
         $this->em()->persist($exception);
         $this->em()->flush();
+        if ($ownTrip) {
+            $trip = (new Trip($exception, TripOccurrence::startOf($exception)))->apply($this->estimate('2026-11-03 13:34'), TripDecider::Maggie, new \DateTimeImmutable('2026-11-03 10:00:00 UTC'));
+            $this->em()->persist($trip);
+            $this->em()->flush();
+            $trips['exception'] = (string) $trip->getId();
+        }
 
-        self::assertSame(0, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'))->created);
+        $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'));
+
+        self::assertSame(
+            array_map(static fn (string $key): string => '/api/trips/'.$trips[$key], $alerted),
+            array_map(static fn (Notification $notification): ?string => $notification->getRelatedEntityIri(), $this->departures()),
+        );
     }
 
     public function testATripNotYetDueAlertsNobody(): void
