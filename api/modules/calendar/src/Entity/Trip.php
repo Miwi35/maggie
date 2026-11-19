@@ -16,6 +16,7 @@ use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Filter\TripDayFilter;
 use Maggie\Calendar\Repository\TripRepository;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripPlanner;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedThroughInterface;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
@@ -228,6 +229,17 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     public function getOriginDecidedBy(): TripDecider
     {
         return $this->originDecidedBy;
+    }
+
+    /**
+     * MAG-655, MAG-855: whether leaving at `departAt` (within the planner's margin) was still
+     * possible at the minute the trip was computed — otherwise « Pars maintenant » would be false.
+     */
+    public function couldStillArriveOnTimeWhenComputed(): bool
+    {
+        $computedMinute = $this->computedAt->setTime((int) $this->computedAt->format('H'), (int) $this->computedAt->format('i'));
+
+        return $this->departAt->modify(\sprintf('+%d minutes', TripPlanner::MARGIN_MINUTES)) >= $computedMinute;
     }
 
     public function getComputedAt(): \DateTimeImmutable
