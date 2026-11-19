@@ -45,6 +45,7 @@ from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
 from app.skills.index import skill_index
 from app.skills.store import skill_files
+from app.tts.synthesis import close_providers
 
 # Configure logging so app messages are visible
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
@@ -156,6 +157,8 @@ async def lifespan(app: FastAPI):
         await queue_connection.disconnect()
     with contextlib.suppress(Exception):
         await mcp_client.disconnect()
+    with contextlib.suppress(Exception):
+        await close_providers()
 
 
 app = FastAPI(

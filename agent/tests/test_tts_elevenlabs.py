@@ -29,6 +29,15 @@ def elevenlabs_configured(monkeypatch):
     monkeypatch.setattr("app.tts.synthesis.settings.elevenlabs_api_key", "xi-test-key")
 
 
+@pytest.fixture(autouse=True)
+def fresh_elevenlabs_client():
+    from app.tts.synthesis import _elevenlabs
+
+    _elevenlabs._client = None
+    yield
+    _elevenlabs._client = None
+
+
 class EdgeSpy:
     """Stands in for edge_tts.Communicate and remembers what it was asked to say."""
 
@@ -320,3 +329,28 @@ class TestDeliveryTags:
 
         assert await collect("[warmly]") == b""
         assert edge.spoken == []
+
+
+class TestTheClientIsReused:
+    """Every synthesis used to open its own TLS connection; the client now lives with the provider (MAG-850)."""
+
+    @respx.mock
+    async def test_two_syntheses_share_one_http_client(self):
+        respx.post(SPEECH_URL).mock(return_value=httpx.Response(200, content=b"claire-audio"))
+
+        with patch("app.tts.providers.httpx.AsyncClient", wraps=httpx.AsyncClient) as constructor:
+            await collect("Bonjour.")
+            await collect("Encore.")
+
+        constructor.assert_called_once()
+
+    @respx.mock
+    async def test_a_closed_client_is_replaced(self):
+        from app.tts.synthesis import _elevenlabs, close_providers
+
+        respx.post(SPEECH_URL).mock(return_value=httpx.Response(200, content=b"claire-audio"))
+        await collect("Bonjour.")
+        await close_providers()
+
+        assert await collect("Encore.") == b"claire-audio"
+        assert _elevenlabs._client is not None
