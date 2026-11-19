@@ -63,6 +63,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 ## Data ownership
 - Memory (a folder per user, `MemoryService`) and instructions: every read or write is filtered by `user_id`; an id belonging to another user behaves like an unknown id (same "not found" error, no leak). New per-user data follows the same rule and ships a two-user isolation test. Pending actions follow it too
 - Skills are files in `Compétences/` (MAG-218), the `skill` table of `maggie_agent` (MAG-187) being the index derived from them; the in-memory index (`skill_index.rebuild()`) is reloaded from the table at startup, after `skill_files.start_up()` has brought it in step with the files. They are **global**, shared by all users: accepted while Maggie has a single user. Multi-user means adding a `user_id` to that table first (MAG-108).
+- Secrets (MAG-871): the owner's message is held by `app.llm.held_secret` at the chat routes (a code, PIN, password or card number becomes `[masqué]` before any storage, log or model); every tool result leaves `ToolRouter.call_tool` through `app.redaction.redact`; logs and GlitchTip events are redacted too. `[masqué]` is the only mask
 - Sub-agent definitions and the policy are files in the repository, not user data: global, versioned, reviewed like code
 
 ## Memory folder
