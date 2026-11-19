@@ -422,6 +422,7 @@ private const val DEFAULT_ACCOUNT_NAME = "Compte"
 private val MAIN_SCREENS = setOf(
     Screen.Home.route,
     Screen.Calendar.route,
+    Screen.PeriodList.route,
     Screen.Tasks.route,
     Screen.Chat.route,
     Screen.Cookbook.route,
@@ -434,7 +435,7 @@ private val MAIN_SCREENS = setOf(
 )
 
 // The screens whose content opens with the module's breadcrumb: the generic bar and its title would stack on it.
-private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Calendar.route, Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthNutrition.route, Screen.HealthJournal.route, Screen.HealthSport.route, Screen.HealthConfiguration.route)
+private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Calendar.route, Screen.PeriodList.route, Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthNutrition.route, Screen.HealthJournal.route, Screen.HealthSport.route, Screen.HealthConfiguration.route)
 
 // The full-screen chat has its own input: a second way in would duplicate it
 // The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
