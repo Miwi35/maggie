@@ -56,6 +56,7 @@ import io.mockk.every
 import io.mockk.verify
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -2341,6 +2342,59 @@ class TransactionViewModelTest {
         assertEquals(listOf("share-gite", "share-ticket"), peer.choices.map { it.candidate.shareId })
         assertTrue(peer.choices.none { it.selected })
         assertEquals(listOf(PeerKind.INCOME, PeerKind.REPAYMENT, PeerKind.NEW_DEBT), PeerKind.choicesFor(peer.direction))
+    }
+
+    @Test
+    fun `a share read that lands after the owner's edit keeps the edit`() = runTest {
+        openGite()
+        val gate = CompletableDeferred<Unit>()
+        coEvery { peerDebtRepository.getMyShare("tx-gite") } coAnswers {
+            gate.await()
+            Result.success(MyShare(transactionId = "tx-gite", amountCents = -80000, canBeShared = true))
+        }
+        viewModel.openDetail("tx-gite")
+        runCurrent()
+
+        viewModel.setShareEnabled(true)
+        viewModel.addSharePerson(emma)
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(share.enabled)
+        assertEquals(listOf("Emma"), share.people.map { it.name })
+    }
+
+    @Test
+    fun `an allocation read that lands after the owner's choice keeps the amount typed`() = runTest {
+        openTomTransfer()
+        val gate = CompletableDeferred<Unit>()
+        coEvery { peerDebtRepository.getAllocation("tx-tom") } coAnswers {
+            gate.await()
+            Result.success(tomAllocation())
+        }
+        viewModel.openDetail("tx-tom")
+        runCurrent()
+
+        viewModel.choosePeerKind(PeerKind.NEW_DEBT)
+        viewModel.changePeerDebtAmount(28000)
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(PeerKind.NEW_DEBT, peer.kind)
+        assertEquals(28000, peer.debtAmountCents)
+    }
+
+    @Test
+    fun `reopening the same sheet keeps the draft`() = runTest {
+        openTomTransfer()
+        viewModel.choosePeerKind(PeerKind.NEW_DEBT)
+        viewModel.changePeerDebtAmount(28000)
+
+        viewModel.openDetail("tx-tom")
+        advanceUntilIdle()
+
+        assertEquals(PeerKind.NEW_DEBT, peer.kind)
+        assertEquals(28000, peer.debtAmountCents)
     }
 
     @Test
