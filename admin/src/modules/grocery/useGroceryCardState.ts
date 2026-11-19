@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { addDays, localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
+import { useLiveRead } from '../calendar/calendarLive'
 import { ApiStatusError, apiUrl, headers } from '../calendar/taskViews'
 import { HOME_RESOURCE_TOPICS } from '../home/homeResourceTopics'
 import { composeGroceryState } from './groceryCardState'
@@ -75,9 +76,11 @@ export function useGroceryCardState() {
     }
   }, [load])
 
-  useMercure(HOME_RESOURCE_TOPICS, () => {
-    void load(false)
-  })
+  // A burst of messages is one read; `true` skips the catch-up read, the card holds no state to compare.
+  useMercure(
+    HOME_RESOURCE_TOPICS,
+    useLiveRead(() => load(false).then(() => true)),
+  )
 
   const retry = useCallback(() => load(true), [load])
 

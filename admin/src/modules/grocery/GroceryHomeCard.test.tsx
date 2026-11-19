@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { veilleuseLightTheme } from '../../theme'
-import { emitMercure } from '../../test/mercure'
+import { emitMercureAndWait } from '../../test/mercure'
 import { GroceryHomeCard } from './GroceryHomeCard'
 import { recipeNeedsLabel } from './homeRecipeNeeds'
 
@@ -204,7 +204,7 @@ describe('GroceryHomeCard', () => {
 
     answers.items = SIX_AT_THE_SUPERMARKET
     await act(async () => {
-      await emitMercure('/api/grocery_lists/{id}', { '@id': '/api/grocery_lists/l1' })
+      await emitMercureAndWait('/api/grocery_lists/{id}', { '@id': '/api/grocery_lists/l1' })
     })
 
     expect(await screen.findAllByTestId('home-grocery-store')).toHaveLength(3)
@@ -221,7 +221,7 @@ describe('GroceryHomeCard', () => {
 
       answers.items = SIX_AT_THE_SUPERMARKET.filter((i) => i.label !== 'Pain')
       await act(async () => {
-        await emitMercure(topic, { '@id': topic })
+        await emitMercureAndWait(topic, { '@id': topic })
       })
 
       await waitFor(() => expect(screen.queryByText('Pain')).toBeNull())
@@ -252,7 +252,7 @@ describe('GroceryHomeCard', () => {
 
     answers.recipeNeeds = failing(500)
     await act(async () => {
-      await emitMercure('/api/meals/{id}', {})
+      await emitMercureAndWait('/api/meals/{id}', {})
     })
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()

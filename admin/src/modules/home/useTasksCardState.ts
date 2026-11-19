@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { addDays, localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
+import { useLiveRead } from '../calendar/calendarLive'
 import { fetchRoutinesDay } from '../calendar/routinesApi'
 import { ApiStatusError, fetchCompletedBetween, fetchOpenDueOn, fetchTaskView } from '../calendar/taskViews'
 import { API_PATH as TASK_SETTINGS_PATH, apiFetch } from '../settings/taskSettingsApi'
@@ -88,9 +89,11 @@ export function useTasksCardState(day: HomeDay) {
     }
   }, [load])
 
-  useMercure(HOME_RESOURCE_TOPICS, () => {
-    void load(false)
-  })
+  // A burst of messages is one read; `true` skips the catch-up read, the card holds no state to compare.
+  useMercure(
+    HOME_RESOURCE_TOPICS,
+    useLiveRead(() => load(false).then(() => true)),
+  )
 
   const retry = useCallback(() => load(true), [load])
 
