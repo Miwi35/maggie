@@ -29,7 +29,7 @@ SECRET_URL_SETTINGS = ("agent_database_url", "rabbitmq_url")
 # Shorter values (« guest », « maggie » in the dev URLs) are not secrets worth masking everywhere.
 _MIN_LENGTH = 8
 
-_SK_KEY = re.compile(r"sk-[A-Za-z0-9_-]{20,}")
+_SK_KEY = re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}")
 _JWT = re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")
 _CARD = re.compile(r"(?<!\d)(?<!\d[ -])[2-6](?:[ -]?\d){12,18}(?![ -]?\d)")
 
