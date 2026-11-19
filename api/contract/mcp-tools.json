@@ -479,13 +479,20 @@
                         "boolean"
                     ],
                     "default": null
+                },
+                "rrule": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "title"
             ]
         },
-        "description": "Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates are YYYY-MM-DD. parentId: a task that is not itself a subtask. estimatedMinutes 1 to 1440; firstStep. dueDate is the deadline; scheduledDate the planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (only with time) are minutes before it, 0 at the time. timed=true runs a timer for estimatedMinutes."
+        "description": "Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates are YYYY-MM-DD. parentId: a task that is not itself a subtask. estimatedMinutes 1 to 1440; firstStep. dueDate is the deadline; scheduledDate the planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (only with time) are minutes before it, 0 at the time. timed=true runs a timer for estimatedMinutes. rrule (RFC 5545 without \"RRULE:\", DAILY to YEARLY, UNTIL not COUNT) repeats it from scheduledDate, else dueDate, a day of the rule; done or past, a new task takes it on."
     },
     "delete_event": {
         "name": "delete_event",
@@ -5612,12 +5619,19 @@
                         "boolean"
                     ],
                     "default": null
+                },
+                "rrule": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "id"
             ]
         },
-        "description": "Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1 to 1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (with time only): minutes before; another moment drops them. timed=true: timer. clear: fields to empty among description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment."
+        "description": "Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1 to 1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (with time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; moving the day moves this occurrence only. clear: fields to empty among description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule."
     }
 }

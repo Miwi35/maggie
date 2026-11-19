@@ -23,6 +23,7 @@ final class TaskJson
             'scheduledMoment' => $task->getScheduledMoment()?->value,
             'scheduledTime' => $task->getScheduledTime(),
             'reminders' => $task->getReminders(),
+            'rrule' => $task->getRrule(),
             'isDone' => $task->isDone(),
             'completedAt' => $task->getCompletedAt()?->format('c'),
             'overdueDays' => $task->getOverdueDays(),

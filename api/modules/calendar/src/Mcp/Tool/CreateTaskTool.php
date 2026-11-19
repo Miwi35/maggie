@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_task', description: 'Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates are YYYY-MM-DD. parentId: a task that is not itself a subtask. estimatedMinutes 1 to 1440; firstStep. dueDate is the deadline; scheduledDate the planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (only with time) are minutes before it, 0 at the time. timed=true runs a timer for estimatedMinutes.')]
+#[McpTool(name: 'create_task', description: 'Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates are YYYY-MM-DD. parentId: a task that is not itself a subtask. estimatedMinutes 1 to 1440; firstStep. dueDate is the deadline; scheduledDate the planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (only with time) are minutes before it, 0 at the time. timed=true runs a timer for estimatedMinutes. rrule (RFC 5545 without "RRULE:", DAILY to YEARLY, UNTIL not COUNT) repeats it from scheduledDate, else dueDate, a day of the rule; done or past, a new task takes it on.')]
 class CreateTaskTool
 {
     public function __construct(
@@ -38,6 +38,7 @@ class CreateTaskTool
         ?string $scheduledTime = null,
         ?array $reminders = null,
         ?bool $timed = null,
+        ?string $rrule = null,
     ): string {
         try {
             $user = $this->userContext->getUser();
@@ -63,6 +64,7 @@ class CreateTaskTool
                 scheduledTime: $scheduledTime,
                 reminders: $reminders,
                 timed: $timed ?? false,
+                rrule: $rrule,
             ));
 
             /** @var Task $task */
