@@ -20,6 +20,7 @@ BUILTIN_SKILLS_DIR = Path(__file__).parent
 # was never edited by the owner, so the seed replaces it with the current shipped text (MAG-753). When you
 # change a shipped skill, add the hash of the version you replace.
 SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
+    "trajets": frozenset({"d83361f03e16dc8fa26a4f3fc82da33276c65d0ae55d3c28478a48be1d6ec157"}),
     "bilan-soir": frozenset(
         {
             "865ed7bb25d31d55f85997030f664206cf77025ec70ce468b508b8af08779911",

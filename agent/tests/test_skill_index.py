@@ -324,6 +324,21 @@ class TestSupersededShippedSkills:
     def test_the_versions_deployed_by_mag_753_are_listed(self, deployed):
         assert deployed in SUPERSEDED_BUILTIN_BODIES["bilan-soir"]
 
+    async def test_an_untouched_trips_copy_from_before_mag_856_is_replaced(self, agent_db):
+        index = _index()
+        old = "Pour chaque événement du jour qui a un lieu et qui n'a pas encore de trajet."
+        await index.create("trajets", "ancien", [], old, user_id="u")
+        digest = hashlib.sha256(old.encode()).hexdigest()
+
+        with patch.dict(SUPERSEDED_BUILTIN_BODIES, {"trajets": SUPERSEDED_BUILTIN_BODIES["trajets"] | {digest}}):
+            assert "trajets" in await index.seed_builtin()
+        await index.rebuild()
+
+        assert "## En conversation" in (await index.get("trajets") or "")
+
+    def test_the_trips_body_deployed_before_mag_856_is_listed(self):
+        assert "d83361f03e16dc8fa26a4f3fc82da33276c65d0ae55d3c28478a48be1d6ec157" in SUPERSEDED_BUILTIN_BODIES["trajets"]
+
     def test_the_digest_replaced_by_mag_807_is_listed(self):
         assert "edad938cdc10aad3cb738726f77f93eb11c214f7e843c2c99890b92e775bc6b1" in SUPERSEDED_BUILTIN_BODIES["digest"]
 
