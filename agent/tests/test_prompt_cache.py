@@ -300,6 +300,118 @@ class TestStreamingPrefix:
         assert kwargs["tools"][-2]["cache_control"] == EPHEMERAL_1H
         assert usage.call_args.kwargs["cache_read_input_tokens"] == 700
 
+    async def test_tools_and_stable_block_carry_the_one_hour_ttl_before_any_five_minute_entry(self):
+        from app.config import settings
+        from app.llm.streaming import StreamingGateway
+
+        final = MagicMock(stop_reason="end_turn", content=[])
+        final.usage = MagicMock(input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0)
+
+        class FakeStream:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+            async def get_final_message(self):
+                return final
+
+        with patch("app.llm.streaming.message_repo") as message_repo:
+            message_repo.find_recent = AsyncMock(return_value=[])
+            message_repo.create = AsyncMock()
+            gateway = StreamingGateway()
+            gateway.client = MagicMock()
+            gateway.client.messages.stream = MagicMock(return_value=FakeStream())
+            gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[{"name": "a"}, {"name": "b"}]))
+            gateway._build_system_prompt = AsyncMock(
+                return_value=build_system("STABLE", "VOLATILE", "MOMENT", "PROFILE")
+            )
+            gateway._resolve_context = AsyncMock(return_value=None)
+
+            with patch("app.llm.streaming.record_llm_usage"):
+                async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
+                    pass
+
+        kwargs = gateway.client.messages.stream.call_args.kwargs
+        rendered = [*kwargs["tools"], *kwargs["system"]]
+        assert [b["cache_control"] for b in rendered if "cache_control" in b] == [
+            EPHEMERAL_1H,
+            EPHEMERAL_1H,
+            EPHEMERAL,
+            EPHEMERAL,
+        ]
+        assert kwargs["output_config"] == {"effort": "medium"}
+        assert kwargs["max_tokens"] == settings.llm_max_tokens
+
+
+class TestSharedToolPrefix:
+    async def test_chat_proaction_and_planning_send_the_same_tools_first(self):
+        from app.llm.streaming import StreamingGateway
+
+        tools = [{"name": "a"}, {"name": "b"}]
+        final = MagicMock(stop_reason="end_turn", content=[])
+        final.usage = MagicMock(input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0)
+
+        class FakeStream:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+            async def get_final_message(self):
+                return final
+
+        with patch("app.llm.streaming.message_repo") as message_repo:
+            message_repo.find_recent = AsyncMock(return_value=[])
+            message_repo.create = AsyncMock()
+            chat = StreamingGateway()
+            chat.client = MagicMock()
+            chat.client.messages.stream = MagicMock(return_value=FakeStream())
+            chat.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))
+            chat._build_system_prompt = AsyncMock(return_value=build_system("STABLE"))
+            chat._resolve_context = AsyncMock(return_value=None)
+            with patch("app.llm.streaming.record_llm_usage"):
+                async for _ in chat.chat_stream("salut", "user-1", "msg-1"):
+                    pass
+        chat_tools = chat.client.messages.stream.call_args.kwargs["tools"]
+
+        response = MagicMock(stop_reason="end_turn", content=[MagicMock(type="text", text="ok")])
+        response.usage = final.usage
+        sent = {}
+        for silent in (False, True):
+            gateway = LLMGateway.__new__(LLMGateway)
+            gateway.client = MagicMock()
+            gateway.client.messages.create = AsyncMock(return_value=response)
+            gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))
+            gateway._build_system_prompt = AsyncMock(return_value=build_system("STABLE"))
+            gateway._resolve_proaction_context = AsyncMock(return_value=None)
+            with (
+                patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+                patch("app.llm.contexts.context_repo") as contexts,
+                patch("app.llm.runner.note_provider_success", AsyncMock()),
+            ):
+                contexts.find_active = AsyncMock(return_value=[])
+                await gateway.proaction("Fais-le", "user-1", silent=silent)
+            sent[silent] = gateway.client.messages.create.call_args.kwargs["tools"]
+
+        assert chat_tools[-1]["name"] == "web_search"
+        assert sent[False] == chat_tools[:-1] == sent[True]
+        assert sent[False][-1] == {"name": "b", "cache_control": EPHEMERAL_1H}
+
 
 class TestStreamingSystemPrompt:
     async def test_active_contexts_and_date_go_after_the_cached_prefix(self):

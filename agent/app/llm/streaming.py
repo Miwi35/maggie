@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 import anthropic
 from sqlalchemy.exc import IntegrityError
 
+from app.config import settings
 from app.day_context import resolve_day_context
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
@@ -27,7 +28,7 @@ from app.llm.gateway import API_ERROR_MESSAGE
 from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
-from app.llm.models import CHAT, model_for
+from app.llm.models import CHAT, effort_kwargs, model_for
 from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.provider_status import alert_owner, note_provider_failure, note_provider_success, provider_reason
 from app.llm.questions import asked_question, blocks_of
@@ -281,10 +282,11 @@ class StreamingGateway:
                 # Use streaming API
                 stream = (await client_for(user_id, self.client)).messages.stream(
                     model=model_for(CHAT),
-                    max_tokens=4096,
+                    max_tokens=settings.llm_max_tokens,
                     system=system_prompt,
                     messages=messages,
                     tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
+                    **effort_kwargs(CHAT),
                 )
 
                 tool_use_blocks = []

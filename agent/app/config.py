@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # the same streaming gateway — what the e2e stack runs, so a journey that
     # talks to Maggie is fast, free and deterministic (MAG-95).
     llm_provider: str = "anthropic"
+    # Ceiling of the streamed chat and of `run_tool_loop`; adaptive thinking counts in it, and 16000 stays
+    # under the SDK's HTTP timeout for a call that is not streamed.
+    llm_max_tokens: int = 16000
     # Empty means agent/fixtures/fake-llm/. Only the tests move it.
     fake_llm_fixtures_dir: str = ""
     openai_api_key: str = ""

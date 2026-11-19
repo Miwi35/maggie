@@ -33,7 +33,7 @@ from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
 from app.llm.client import client_for
-from app.llm.models import UTILITY, model_for
+from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage
 
 logger = logging.getLogger(__name__)
@@ -262,6 +262,7 @@ async def _ask_router(client, system: str, prompt: str) -> dict:
     response = await client.messages.create(
         model=model_for(UTILITY),
         max_tokens=200,
+        **effort_kwargs(UTILITY),
         system=system,
         messages=[{"role": "user", "content": prompt}],
     )

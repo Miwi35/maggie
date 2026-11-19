@@ -14,7 +14,7 @@ from app.llm.dry_run import DryRunToolRouter
 from app.llm.history import build_history, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
-from app.llm.models import CHAT, model_for, proaction_run
+from app.llm.models import CHAT, effort_for, model_for, proaction_run
 from app.llm.prompt_cache import build_system
 from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
@@ -195,7 +195,8 @@ class LLMGateway:
         messages = [{"role": "user", "content": content}]
         tool_router = DryRunToolRouter(tool_router) if dry_run else tool_router
 
-        model = model_for(proaction_run(silent=silent, summary=summary, prompt=prompt))
+        run = proaction_run(silent=silent, summary=summary, prompt=prompt)
+        model = model_for(run)
         try:
             result = await run_tool_loop(
                 system_prompt,
@@ -205,6 +206,7 @@ class LLMGateway:
                 tool_router=tool_router,
                 user_id=user_id,
                 model=model,
+                effort=effort_for(run),
                 call_type="proaction",
                 source="proaction",
                 max_iterations=PROACTION_MAX_ITERATIONS,
@@ -340,6 +342,7 @@ class LLMGateway:
                 tool_router=self.tool_router,
                 user_id=user_id,
                 model=model_for(CHAT),
+                effort=effort_for(CHAT),
                 call_type="chat",
                 source=source,
                 context_id=context_id,
