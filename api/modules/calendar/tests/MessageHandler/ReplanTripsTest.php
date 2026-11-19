@@ -24,6 +24,7 @@ use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Calendar\Tests\Support\FakeRoutingTrait;
 use Maggie\Core\Message\ParkCarCommand;
 use Maggie\Core\Message\ReportUserLocationCommand;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Clock;
 use Symfony\Component\Clock\MockClock;
@@ -431,8 +432,16 @@ class ReplanTripsTest extends KernelTestCase
         self::assertSame([], $this->replans());
     }
 
-    /** The occurrence moved on its own row: the series' trip of that day follows it there (MAG-862). */
-    public function testAnOccurrenceMovedOnItsOwnRowTakesTheSeriesTripOfThatDay(): void
+    /** @return iterable<string, array{string}> */
+    public static function movedOccurrences(): iterable
+    {
+        yield 'later the same day' => ['2026-11-03'];
+        yield 'to the next day' => ['2026-11-04'];
+    }
+
+    /** The occurrence moved on its own row: the series' trip of that day follows it there, whatever its new day (MAG-862). */
+    #[DataProvider('movedOccurrences')]
+    public function testAnOccurrenceMovedOnItsOwnRowTakesTheSeriesTripOfThatDay(string $newDay): void
     {
         Clock::set(new MockClock('2020-01-01 12:00:00', 'Europe/Paris'));
         $series = $this->em()->find(Event::class, $this->id('dentist'));
@@ -445,7 +454,7 @@ class ReplanTripsTest extends KernelTestCase
             ->setAgenda($series->getAgenda())
             ->setRecurringEvent($series)
             ->setOriginalStartAt($this->at('2026-11-03 14:00:00'));
-        $exception->scheduleTimed($this->at('2026-11-03 15:00:00'), $this->at('2026-11-03 16:00:00'));
+        $exception->scheduleTimed($this->at("{$newDay} 15:00:00"), $this->at("{$newDay} 16:00:00"));
         $this->em()->persist($exception);
         $this->em()->flush();
         Clock::set(new MockClock('2026-11-03 10:00:00', 'Europe/Paris'));
@@ -457,8 +466,8 @@ class ReplanTripsTest extends KernelTestCase
         $trips = $this->em()->getRepository(Trip::class)->findAll();
         self::assertCount(1, $trips);
         self::assertSame((string) $exception->getId(), (string) $trips[0]->getEvent()->getId());
-        self::assertEquals($this->at('2026-11-03 15:00:00'), $trips[0]->getOccurrenceStartAt());
-        self::assertEquals($this->at('2026-11-03 14:45:00'), $trips[0]->getDepartAt());
+        self::assertEquals($this->at("{$newDay} 15:00:00"), $trips[0]->getOccurrenceStartAt());
+        self::assertEquals($this->at("{$newDay} 14:45:00"), $trips[0]->getDepartAt());
     }
 
     public function testATripThatGrewByLessThanFifteenMinutesIsKeptWithoutWakingMaggie(): void
