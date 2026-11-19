@@ -621,7 +621,11 @@ class TransactionViewModel(
 
     private fun showDetail(transaction: Transaction) {
         val transactionId = transaction.id
-        _uiState.value = _uiState.value.copy(detail = TransferDetailState(transaction = transaction, isLoading = true))
+        // The same sheet reopened keeps the owner's draft; only another line starts from zero.
+        val open = _uiState.value.detail?.takeIf { it.transaction.id == transactionId }
+        _uiState.value = _uiState.value.copy(
+            detail = TransferDetailState(transaction = transaction, isLoading = true, share = open?.share, peer = open?.peer),
+        )
         loadDetailInfo(transactionId)
         // The sheet names the event an attributed line belongs to.
         if (transaction.oneOffEnvelope != null && _uiState.value.oneOffEnvelopes.isEmpty()) {
@@ -642,7 +646,7 @@ class TransactionViewModel(
     private fun loadAllocation(transaction: Transaction) {
         viewModelScope.launch {
             peerDebtRepository.getAllocation(transaction.id).onSuccess { allocation ->
-                updateDetail(transaction.id) { it.copy(peer = PeerTransferEditor.of(allocation, transaction.label)) }
+                updateDetail(transaction.id) { if (it.peer == null) it.copy(peer = PeerTransferEditor.of(allocation, transaction.label)) else it }
             }
         }
     }
@@ -750,7 +754,9 @@ class TransactionViewModel(
     private fun loadShare(transaction: Transaction) {
         viewModelScope.launch {
             peerDebtRepository.getMyShare(transaction.id)
-                .onSuccess { share -> updateDetail(transaction.id) { it.copy(share = ShareEditor.of(share, transaction.label)) } }
+                .onSuccess { share ->
+                    updateDetail(transaction.id) { if (it.share == null) it.copy(share = ShareEditor.of(share, transaction.label)) else it }
+                }
                 .onFailure { e -> updateDetail(transaction.id) { it.copy(error = e.message) } }
         }
     }

@@ -190,10 +190,20 @@ tags:
       id: "share_mine"
     centerElement: true
     timeout: 10000
-- tapOn:
-    id: "share_mine"
-- eraseText
-- inputText: "200"
+# A typed amount is checked before going on: a field that kept its old value is typed again.
+- retry:
+    maxRetries: 2
+    commands:
+      - evalScript: ${0}
+      - tapOn:
+          id: "share_mine"
+      - eraseText
+      - inputText: "200"
+      - extendedWaitUntil:
+          visible:
+            id: "share_mine"
+            text: "200"
+          timeout: 5000
 - runFlow: ../subflows/hide-keyboard.yaml
 
 # Emma, Tom and Inès, each picked in the full-screen picker (« In »: no accent typed on Android).
@@ -256,11 +266,24 @@ tags:
     id: "contact_picker_result"
 
 # The rest, 600 €, owed 200 € each; « Enregistrer » writes the part and the créance together.
-# The line sits above the three people just added: it is looked for upwards.
-- scrollUntilVisible:
-    element: "On te doit 600,00.€"
-    direction: UP
-    centerElement: true
+# The line sits above the three people just added: it is looked for upwards, then downwards.
+- runFlow:
+    when:
+      notVisible: "On te doit 600,00.€"
+    commands:
+      - scrollUntilVisible:
+          element: "On te doit 600,00.€"
+          direction: UP
+          centerElement: true
+          optional: true
+- runFlow:
+    when:
+      notVisible: "On te doit 600,00.€"
+    commands:
+      - scrollUntilVisible:
+          element: "On te doit 600,00.€"
+          direction: DOWN
+          centerElement: true
 - scrollUntilVisible:
     element:
       id: "share_save"
@@ -333,10 +356,19 @@ tags:
     element:
       id: "peer_amount"
     centerElement: true
-- tapOn:
-    id: "peer_amount"
-- eraseText
-- inputText: "280"
+- retry:
+    maxRetries: 2
+    commands:
+      - evalScript: ${0}
+      - tapOn:
+          id: "peer_amount"
+      - eraseText
+      - inputText: "280"
+      - extendedWaitUntil:
+          visible:
+            id: "peer_amount"
+            text: "280"
+          timeout: 5000
 - runFlow: ../subflows/hide-keyboard.yaml
 - scrollUntilVisible:
     element:
