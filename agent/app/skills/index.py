@@ -71,8 +71,8 @@ class SkillIndex:
         self.entries = [_entry(s) for s in skills]
 
     async def refresh(self) -> None:
-        """Reload before building a prompt: first take what the owner changed in the skill files (a bounded
-        wait, like the memory's), then read the table they feed. Each worker process holds its own copy, so a
+        """Reload before building a prompt: start a catch-up with the skill files (never waited
+        for: the owner's change lands at the next turn), then read the table as it is. Each worker process holds its own copy, so a
         skill created through another one is only seen after a reload. A failed reload keeps the last index:
         a passing hiccup must not take the chat down."""
         try:
