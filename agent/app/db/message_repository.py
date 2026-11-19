@@ -50,8 +50,11 @@ class MessageRepository:
         audio: dict | None = None,
         screen: str | None = None,
         ui_blocks: list[dict] | None = None,
+        announce: bool = True,
     ) -> Message:
         """Store a message and publish it on the user's chat topic.
+
+        `announce=False` stores only: the caller then calls `announce(msg)` when it chooses (MAG-850).
 
         `message_id` lets a streamed answer be stored under the id its stream announced: the
         device that streamed it then recognises the Mercure echo of the same message.
@@ -91,8 +94,15 @@ class MessageRepository:
             await session.commit()
             await session.refresh(msg)
 
+        if announce:
+            await self.announce(msg)
+
+        return msg
+
+    async def announce(self, msg: Message) -> None:
+        """Publish a stored message on Mercure, then write it into the conversation's memory file."""
         try:
-            await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
+            await self.publisher.publish(topics.for_user(topics.CHAT, msg.user_id), msg.to_dict())
         except Exception as e:
             logger.warning(f"Failed to publish message to Mercure: {e}")
 
@@ -100,8 +110,6 @@ class MessageRepository:
         from app.memory import conversations
 
         await conversations.record(msg)
-
-        return msg
 
     async def answer_question(
         self, user_id: str, question_id: str, choices: list[str]
