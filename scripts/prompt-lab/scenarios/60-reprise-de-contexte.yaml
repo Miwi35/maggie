@@ -10,7 +10,7 @@ channel: stream
 
 steps:
   - user_message: "Qu'est-ce que j'ai de prévu cette semaine ?"
-    expected_tools: [get_upcoming_events]
+    expected_tools: [get_events]
     expected_context: created
     expected_behavior: >
       Elle répond sur l'agenda de la semaine, en français et en phrases

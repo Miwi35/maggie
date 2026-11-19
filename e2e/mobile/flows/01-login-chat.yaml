@@ -109,7 +109,7 @@ tags:
 - runFlow: ../subflows/hide-keyboard.yaml
 
 # `agent/fixtures/fake-llm/30-upcoming-events.yaml` scripts the model's side and
-# nothing else: the `get_upcoming_events` call it asks for really runs, against
+# nothing else: the `get_events` call it asks for really runs, against
 # the real MCP server and the seeded agenda, before this sentence streams back.
 # 60 s covers the agent's first round trip on a cold emulator.
 - extendedWaitUntil:

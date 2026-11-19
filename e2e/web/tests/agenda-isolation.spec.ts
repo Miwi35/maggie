@@ -18,7 +18,7 @@ import { CalendarPage } from '../pages/CalendarPage.js'
  * first from passing because the fixture was never loaded, which is the way an
  * isolation test usually lies.
  *
- * The MCP side — `get_upcoming_events`, `get_tasks`, `check_conflicts`,
+ * The MCP side — `get_events`, `get_tasks`, `check_conflicts`,
  * `create_event` — is covered tool by tool in
  * `api/modules/calendar/tests/Mcp/UserIsolationToolsTest.php`. This file holds the
  * promise the owner can see.

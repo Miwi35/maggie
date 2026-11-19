@@ -273,7 +273,7 @@ describe('useAgUiStream', () => {
         .mockResolvedValueOnce(
           createCutResponse([
             { type: 'RUN_STARTED', runId: 'r1' },
-            { type: 'TOOL_CALL_START', toolCallId: 'tc1', toolName: 'get_upcoming_events' },
+            { type: 'TOOL_CALL_START', toolCallId: 'tc1', toolName: 'get_events' },
           ]),
         )
         .mockResolvedValueOnce(

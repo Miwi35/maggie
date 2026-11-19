@@ -7,7 +7,7 @@ channel: chat
 
 mock_tool_results:
   get_weather: '{"days": [{"date": "2026-10-30", "temperature_min_c": 11, "temperature_max_c": 11, "rain_probability_percent": 90, "alerts": []}]}'
-  get_events_by_date: '{"events": [{"id": "01JGARDE", "summary": "Garde des enfants", "allDay": true, "startDate": "2026-10-30", "endDate": "2026-10-31", "lastDay": "2026-10-30", "status": "confirmed", "agenda": "Garde"}], "count": 1}'
+  get_events: '{"events": [{"id": "01JGARDE", "summary": "Garde des enfants", "allDay": true, "startDate": "2026-10-30", "endDate": "2026-10-31", "lastDay": "2026-10-30", "status": "confirmed", "agenda": "Garde"}], "count": 1}'
   get_tasks: '{"tasks": [], "counts": {"today": 0}}'
   manage_meals: '{"meals": [{"date": "2026-10-30", "slot": "dinner", "recipes": [{"name": "Gratin de pâtes"}]}]}'
   get_grocery_list: '{"stores": []}'
@@ -15,7 +15,7 @@ mock_tool_results:
 steps:
   - user_message: >
       [Proaction due maintenant] Fais le digest du matin (compétence digest).
-    expected_tools: [get_weather, get_events_by_date, get_tasks, manage_meals]
+    expected_tools: [get_weather, get_events, get_tasks, manage_meals]
     forbidden_tools: [send_voice_message, list_trips, get_finance_scores, ask_owner]
     expected_absent: ["?", "**", "Aucun", "Rien n'", "demain", "départ"]
     expected_behavior: >

@@ -15,7 +15,7 @@ steps:
       contredire et sans reprendre une date citée plus tôt dans la conversation.
 
   - user_message: "Et quand est-ce que je vois Alex ?"
-    expected_tools: [get_upcoming_events]
+    expected_tools: [get_events]
     expected_absent: ["je n'ai pas accès", "je ne peux pas accéder"]
     expected_behavior: >
       Elle consulte l'agenda avant de répondre, puis donne le jour et l'heure du

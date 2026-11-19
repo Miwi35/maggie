@@ -47,7 +47,7 @@ const FAILED_PROACTION: JournalEntry = {
   summary: 'Digest du matin',
   instructions: [],
   scheduled: [],
-  toolCalls: [{ name: 'get_events_by_date', input: { date: '2026-10-29' }, result: '{"error": "Agenda unavailable"}', error: 'Agenda unavailable' }],
+  toolCalls: [{ name: 'get_events', input: { date: '2026-10-29' }, result: '{"error": "Agenda unavailable"}', error: 'Agenda unavailable' }],
   response: null,
   error: 'LLM timeout',
   origin: { planningId: 'run-1', day: '2026-10-29', instructions: PLANNING.instructions },
@@ -106,7 +106,7 @@ describe('ProactionJournal', () => {
     await userEvent.click(await screen.findByText('Digest du matin'))
 
     const failing = (await screen.findAllByTestId('journal-tool-call'))[0]
-    expect(failing).toHaveTextContent('get_events_by_date')
+    expect(failing).toHaveTextContent('get_events')
     expect(failing).toHaveTextContent('Erreur : Agenda unavailable')
     expect(screen.getByText('LLM timeout')).toBeVisible()
     expect(screen.getByText(/Programmée par la planification du 2026-10-29/)).toBeVisible()

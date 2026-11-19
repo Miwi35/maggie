@@ -26,7 +26,7 @@ spoken: false                   # true: the answer is for the voice (live voice,
 in_car: false                   # true: the owner is driving — the request carries `in_car` (MAG-684)
 steps:
   - user_message: "Qu'est-ce que j'ai de prévu aujourd'hui ?"
-    expected_tools: [get_upcoming_events]     # each has to be called
+    expected_tools: [get_events]     # each has to be called
     forbidden_tools: [create_event]           # none may be
     expected_contains: ["Alex"]               # substrings, case-insensitive
     expected_absent: ["je n'ai pas accès"]

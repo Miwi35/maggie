@@ -1,7 +1,7 @@
 # Une date donnée à « quand est-ce que je vois … ? » vient de l'agenda, lu dans ce tour.
 #
-# La règle est dans le prompt (« toute question sur l'agenda passe par get_events_by_date
-# ou get_upcoming_events, dans ce tour »). Le code ne la garde plus (MAG-842) : c'est ce
+# La règle est dans le prompt (« toute question sur l'agenda passe par get_events
+# dans ce tour »). Le code ne la garde plus (MAG-842) : c'est ce
 # scénario, sur le vrai modèle, qui la juge.
 name: date-lue-dans-l-agenda
 description: Une question « quand » sur l'agenda est répondue après une lecture de l'agenda.
@@ -9,7 +9,7 @@ channel: chat
 
 steps:
   - user_message: "Quand est-ce que je vois Lucie ?"
-    expected_tools: [get_upcoming_events]
+    expected_tools: [get_events]
     expected_behavior: >
       Elle lit l'agenda dans ce tour avant de donner un jour ou une heure, et ne
       répond pas de mémoire ou d'après l'historique de la conversation.

@@ -5,7 +5,7 @@ channel: chat
 
 steps:
   - user_message: "Qu'est-ce que j'ai demain ?"
-    expected_tools: [get_upcoming_events]
+    expected_tools: [get_events]
     expected_absent: [" tu ", " ton ", " ta ", " te "]
     expected_behavior: >
       Elle vouvoie le propriétaire, n'emploie « monsieur » qu'une fois au plus
