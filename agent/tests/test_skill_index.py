@@ -220,7 +220,7 @@ class TestShippedSkills:
     async def test_the_digest_skill_is_seeded_with_its_order_and_its_screen(self, agent_db):
         index = _index()
 
-        assert await index.seed_builtin() == ["bilan-soir", "digest", "releves-bancaires", "trajets"]
+        assert await index.seed_builtin() == ["bilan-soir", "digest", "recette", "releves-bancaires", "trajets"]
         await index.rebuild()
 
         digest = await index.get("digest") or ""
@@ -234,6 +234,16 @@ class TestShippedSkills:
         order = ["**Météo**", "**Déroulé chronologique**", "**Tâches du jour sans heure**", "**Décision éventuelle**"]
         assert [digest.index(part) for part in order] == sorted(digest.index(part) for part in order)
         assert index.store.load("digest") is not None
+
+    async def test_the_recipe_skill_is_seeded(self, agent_db):
+        index = _index()
+        await index.seed_builtin()
+        await index.rebuild()
+
+        skill = await index.get("recette") or ""
+        assert skill.index("avant tout create_recipe") < skill.index("Je la crée ?")
+        entry = next(e for e in index.entries if e.name == "recette")
+        assert not any(tag.startswith("moment:") for tag in entry.tags)
 
     async def test_the_bank_statement_skill_reads_first_and_imports_only_what_is_chosen(self, agent_db):
         index = _index()
@@ -283,7 +293,7 @@ class TestShippedSkills:
         index = _index()
         await index.create("digest", "le mien", [], "Mon digest à moi", user_id="u")
 
-        assert await index.seed_builtin() == ["bilan-soir", "releves-bancaires", "trajets"]
+        assert await index.seed_builtin() == ["bilan-soir", "recette", "releves-bancaires", "trajets"]
 
         assert "Mon digest à moi" in (await index.get("digest") or "")
 
@@ -319,6 +329,32 @@ class TestSupersededShippedSkills:
 
     def test_the_digest_still_deployed_on_13_nov_is_listed(self):
         assert "fa6c9fbe117c67ad53484bb531a9c0cd623873ffe3b17f4b42a5cff0b2d911e7" in SUPERSEDED_BUILTIN_BODIES["digest"]
+
+    def test_the_bodies_shipped_before_mag_837_are_listed(self):
+        assert "1388c31d86eae127d2a65a6c96f6568637617058f016bdbf4287cc7e1d11fdb1" in SUPERSEDED_BUILTIN_BODIES["digest"]
+        assert "d7133b2abd3081fdd9e0e6e2fb608efa91dd43f70cef4256a14686a216d297da" in SUPERSEDED_BUILTIN_BODIES["bilan-soir"]
+
+    async def test_an_untouched_previous_digest_is_replaced_by_the_shipped_one(self, agent_db):
+        index = _index()
+        await index.create("digest", "ancien", [], "Ancien digest", user_id="u")
+        digest = hashlib.sha256(b"Ancien digest").hexdigest()
+
+        with patch.dict(SUPERSEDED_BUILTIN_BODIES, {"digest": frozenset({digest})}):
+            assert "digest" in await index.seed_builtin()
+        await index.rebuild()
+
+        assert "Contexte du jour" in (await index.get("digest") or "")
+
+    async def test_an_untouched_previous_bilan_soir_is_replaced(self, agent_db):
+        index = _index()
+        await index.create("bilan-soir", "ancien", [], "Ancien bilan", user_id="u")
+        digest = hashlib.sha256(b"Ancien bilan").hexdigest()
+
+        with patch.dict(SUPERSEDED_BUILTIN_BODIES, {"bilan-soir": frozenset({digest})}):
+            assert "bilan-soir" in await index.seed_builtin()
+        await index.rebuild()
+
+        assert "Paris" not in (await index.get("bilan-soir") or "")
 
     async def test_an_edited_copy_is_kept(self, agent_db):
         index = _index()

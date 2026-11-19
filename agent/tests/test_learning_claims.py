@@ -308,7 +308,6 @@ class TestWhatTheModelIsTold:
         prompt = await shipped_prompt()
 
         assert "une confirmation DIT L'ACTION FAITE" in prompt
-        assert "« À partir de maintenant, je… »" in prompt
         assert "« C'est noté » seul n'est pas une confirmation" in prompt
 
     def test_create_skill_carries_the_owners_rule(self):

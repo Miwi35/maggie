@@ -136,7 +136,7 @@ class StreamingGateway:
         context_section = await active_contexts_section(user_id, current_context_id)
 
         # The silence before this message, so she can greet by the gap (MAG-10).
-        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id)
+        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id, tz=tz)
 
         date_line = current_datetime_line(tz=tz)
         # Whether the user is at work, next to the date: the tone follows it (MAG-790).
@@ -148,7 +148,7 @@ class StreamingGateway:
             f"{memory.notice}{directives}{context_section}\n\n{date_line}\n{work_hours}"
             f"{day_context_block}{last_exchange}"
         )
-        if spoken:
+        if spoken or in_car:
             volatile = f"{volatile}\n\n{self.personality.get_spoken_prompt()}"
         if in_car:
             volatile = f"{volatile}\n\n{self.personality.get_driving_prompt()}"

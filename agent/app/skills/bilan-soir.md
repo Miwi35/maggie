@@ -54,7 +54,7 @@ Demande s'il a des consignes pour demain. Pour **chaque** consigne dictée, appe
 
 Tu choisis `kind` :
 
-- `reminder` : une chose à faire ou à se rappeler à une heure précise de demain (« rappelle-moi d'appeler le garage à 9 h »). `scheduled_at` : demain à cette heure, ISO 8601 avec le décalage de Paris.
+- `reminder` : une chose à faire ou à se rappeler à une heure précise de demain (« rappelle-moi d'appeler le garage à 9 h »). `scheduled_at` : demain à cette heure, le champ `iso` que renvoie `date_time` (fuseau de l'utilisateur).
 - `task` : une chose à faire demain, sans heure (« ajoute acheter du pain »). `due_date` : demain, YYYY-MM-DD. « Acheter du pain » est une tâche, jamais un article de la liste de courses.
 - `instruction` : une règle qui dure ou revient, dès qu'elle parle d'un jour de la semaine, de « toujours », « chaque », « d'habitude » (« le mardi, je pars plus tôt »). `instruction_kind` : `planning` (ce qui revient à date fixe) ou `behavior` (ta façon de répondre). Même si la règle parle de demain, ce n'est pas une tâche. Il la répète ou la reformule : appelle quand même l'outil. Elle est apprise en mémoire comme tout ce qu'il t'apprend en conversation : jamais un réglage ni une préférence codée.
 

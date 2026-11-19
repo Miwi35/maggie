@@ -205,6 +205,22 @@ class TestTheDrivingInstruction:
         assert seen["in_car"] is in_car
 
 
+class TestTheOralInstructionComesOnce:
+    @pytest.mark.parametrize(
+        ("cls", "module"), [(StreamingGateway, "app.llm.streaming"), (LLMGateway, "app.llm.gateway")]
+    )
+    async def test_in_the_car_the_oral_instruction_appears_once(self, agent_db, cls, module):
+        prompt = _text(await _prompt(_gateway(cls), module, spoken=True, in_car=True))
+
+        assert prompt.count(SPOKEN_MARKER) == 1
+        assert prompt.count(DRIVING_MARKER) == 1
+
+    async def test_in_the_car_alone_the_oral_instruction_is_given(self, agent_db):
+        prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming", in_car=True))
+
+        assert prompt.count(SPOKEN_MARKER) == 1
+
+
 class TestNumbersAndTags:
     async def test_the_spoken_block_rounds_numbers_and_ties_tags_to_the_news(self, agent_db):
         prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming", spoken=True))
@@ -215,7 +231,8 @@ class TestNumbersAndTags:
     async def test_the_driving_block_rounds_numbers_too(self, agent_db):
         prompt = _text(await _prompt(_gateway(StreamingGateway), "app.llm.streaming", in_car=True))
 
-        assert "un seul chiffre arrondi par phrase" in prompt
+        assert "un seul chiffre par phrase, arrondi" in prompt
+        assert DRIVING_MARKER in prompt
 
     def test_the_system_prompt_forbids_identifiers(self):
         from pathlib import Path

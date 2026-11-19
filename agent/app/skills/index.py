@@ -29,6 +29,7 @@ SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
             "f0ca77921f11b4b33e37dcfc281cb02bd3a83266144c9865f4506ec072f36d6a",
             "455031d22211fa4c93c6e3edeb0931979ecc7e2ee0e883baca549ecbcd16257d",
             "a45371e2e7e7625c650317f86aca6cb2ad613d3333c24c8f978a342984520684",
+            "d7133b2abd3081fdd9e0e6e2fb608efa91dd43f70cef4256a14686a216d297da",
         }
     ),
     "digest": frozenset(
@@ -37,6 +38,7 @@ SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
             "e811cba94733145c73397a1d6bff2d2a7ecd8b833d3f52598bb91e061afb3609",
             "edad938cdc10aad3cb738726f77f93eb11c214f7e843c2c99890b92e775bc6b1",
             "fa6c9fbe117c67ad53484bb531a9c0cd623873ffe3b17f4b42a5cff0b2d911e7",
+            "1388c31d86eae127d2a65a6c96f6568637617058f016bdbf4287cc7e1d11fdb1",
         }
     ),
 }

@@ -1,0 +1,11 @@
+# Relation: alone and outside working hours she is warm, still in « vous », without « monsieur » (MAG-837).
+name: salut-hors-horaires
+description: At 22 h, a plain hello gets a warm answer in « vous », without « monsieur ».
+channel: chat
+
+steps:
+  - user_message: "Salut Maggie, il est 22 h, je suis tranquille chez moi."
+    expected_absent: ["monsieur", "?"]
+    expected_behavior: >
+      Elle répond chaleureusement, au vouvoiement, sans « monsieur » : seule et hors des horaires
+      de travail, le registre le permet. Aucune relance finale.

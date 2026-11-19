@@ -1,4 +1,5 @@
 import json
+from zoneinfo import ZoneInfo
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -103,6 +104,12 @@ class TestHandleDelegate:
             "result": "Votre semaine est calme.",
             "tool_calls": ["get_upcoming_events", "search_recipes"],
         }
+
+    async def test_the_subagent_date_follows_the_users_timezone(self, registry, router, loop):
+        with patch("app.agents.delegate.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("America/New_York"))):
+            await handle_delegate({"agent": "researcher", "task": "Ma semaine"}, "user-1")
+
+        assert "America/New_York" in loop.await_args.args[0]
 
     async def test_the_agent_never_receives_delegate(self, registry, router, loop):
         registry.agents["all"] = SubagentDefinition(**{**RESEARCHER.__dict__, "name": "all", "tools": ["*"]})

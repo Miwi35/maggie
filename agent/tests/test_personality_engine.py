@@ -288,25 +288,31 @@ class TestPersonalityEngine:
         assert "ne crée rien" in prompt
         assert "lis la source" in prompt
 
+    def test_the_shipped_recipe_skill_proposes_then_creates_after_the_yes(self):
+        """MAG-598, moved to a shipped skill by MAG-837: the fake LLM calls whatever its fixture says."""
+        skill = (Path(__file__).parents[1] / "app/skills/recette.md").read_text(encoding="utf-8")
+
+        assert "avant tout create_recipe" in skill
+        assert "search_ingredients" in skill and "search_ciqual_foods" in skill
+        assert "non rapproché" in skill and "jamais" in skill
+        assert "waitsFor" in skill and "background" in skill
+        assert "Je la crée ?" in skill
+        assert "Tu n'écris qu'après le « oui »" in skill
+        assert "TOUT, explicitement" in skill
+        assert "note-le dans notes" in skill
+        assert "Sans « oui », rien n'est créé." in skill
+
     @pytest.mark.asyncio
-    async def test_the_shipped_prompt_has_her_propose_a_recipe_and_create_it_only_after_the_yes(self):
-        """MAG-598: the half of the structuring that lives in the prompt — the fake LLM calls whatever its fixture says."""
+    async def test_the_shipped_prompt_sends_a_recipe_to_its_skill(self):
         engine = PersonalityEngine()
 
         with patch("app.personality.engine.personality_repo") as mock_repo:
             mock_repo.get = AsyncMock(return_value=None)
             prompt = await engine.get_system_prompt("user-1")
 
-        assert "Recette à structurer" in prompt
-        assert "avant tout create_recipe" in prompt
-        assert "search_ingredients" in prompt and "search_ciqual_foods" in prompt
-        assert "non rapproché" in prompt and "jamais deviné" in prompt
-        assert "waitsFor" in prompt and "background true" in prompt
-        assert "Je la crée ?" in prompt
-        assert "Tu n'écris qu'après le « oui »" in prompt
-        assert "TOUT, explicitement" in prompt
-        assert "tu le notes dans notes" in prompt
-        assert "Sans « oui », rien n'est créé." in prompt
+        line = next(line for line in prompt.splitlines() if "une recette à structurer" in line)
+        assert "compétence recette" in line and "get_skill" in line
+        assert "waitsFor" not in prompt and "non rapproché" not in prompt
 
     @pytest.mark.asyncio
     async def test_the_shipped_prompt_has_her_cite_late_tasks_first_and_offer_one_someday_task(self):
@@ -338,9 +344,10 @@ class TestPersonalityEngine:
         assert prompt.startswith("QUI TU ES ET COMMENT TU PARLES")
         section = prompt.split("Langue principale", 1)[0]
         for expected in ("tu vouvoies, toujours", "une fois par message au plus", "Horaires de travail", "sans « monsieur »",
-                         "« C'est noté : »", "« directive »", "Je vous en prie.", "Bonne nuit, monsieur.",
+                         "« directive »", "Je vous en prie.", "« Bonne nuit. »",
                          "Bonne route.", "Autre chose ?", "d'abord tu répares", "Je radote.", "Discrétion"):
             assert expected in section
+        assert "Bonne nuit, monsieur." not in prompt
         assert "Sois concise et directe" not in prompt
         assert "cette nuit tu chercheras" not in prompt
 
@@ -354,7 +361,7 @@ class TestPersonalityEngine:
             prompt = await engine.get_system_prompt("user-1")
 
         assert "dernière conversation" in prompt.lower()
-        assert "Bonjour monsieur" in prompt
+        assert "« Bonjour » au premier échange du jour" in prompt
         assert "reprendre le fil" in prompt.lower()
         # The date line itself stays out of the cached prefix.
         assert "Nous sommes le" not in prompt
@@ -431,7 +438,7 @@ async def test_the_shipped_prompt_files_a_remind_me_to_do_as_a_task():
     assert "create_task" in errand and "dueDate" in errand and "entre minuit et 5 h" in errand
     assert "ce matin ou vendredi" in errand
     assert "schedule_proaction" in next(line for line in prompt.splitlines() if "ce que MAGGIE doit faire" in line)
-    mandatory = next(line for line in prompt.splitlines() if "n'est permise qu'après l'appel réussi" in line)
+    mandatory = next(line for line in prompt.splitlines() if "ACTIONS :" in line)
     assert "create_task à échéance" in mandatory and "schedule_proaction" in mandatory and "date_time" in mandatory
 
 
@@ -488,5 +495,40 @@ class TestShippedPromptRules:
     async def test_module_rules_come_last_in_their_own_section(self, prompt):
         section = prompt.index("SELON LE MODULE")
         assert section > prompt.index("Style de communication")
-        for label in ("Trajectoire :", "Internet :", "Agenda :", "Identifiants et lecture :", "Recette à structurer :"):
+        for label in ("Trajectoire :", "Internet :", "Agenda :", "Identifiants et lecture :"):
             assert prompt.index(label) > section
+
+
+class TestPromptOnADiet:
+    """MAG-837: one prompt without repeats or contradictions."""
+
+    @pytest.fixture
+    async def prompt(self):
+        with patch("app.personality.engine.personality_repo") as mock_repo:
+            mock_repo.get = AsyncMock(return_value=None)
+            return await PersonalityEngine().get_system_prompt("user-1")
+
+    def test_the_shipped_prompt_stays_under_20000_chars(self):
+        shipped = yaml.safe_load((Path(__file__).parents[1] / "app/personality/default.yaml").read_text())
+
+        assert len(shipped["system_prompt"]) <= 20000
+
+    async def test_the_register_is_set_once(self, prompt):
+        assert prompt.count("tu vouvoies") == 1
+        assert "PRIORITAIRE" not in prompt
+        assert prompt.count("préférences enregistrées") == 1
+
+    async def test_the_shipped_prompt_never_says_tu_to_him(self, prompt):
+        assert "ton agenda" not in prompt
+        assert "votre agenda" in prompt
+
+    async def test_the_shipped_prompt_names_the_memory_tab(self, prompt):
+        line = next(line for line in prompt.splitlines() if "OÙ ÇA SE VOIT" in line)
+        assert "Mémoire" in line
+        assert "Ta mémoire n'y est pas affichée" not in prompt
+
+    async def test_the_shipped_prompt_imposes_no_reply_formula(self, prompt):
+        assert "je l'ai mise dans vos tâches de jeudi" not in prompt
+        assert "✗ MAUVAIS" not in prompt
+        assert "Vous avez raison, pardon. …" not in prompt
+        assert "« C'est noté » seul n'est pas une confirmation" in prompt

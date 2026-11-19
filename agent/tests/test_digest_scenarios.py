@@ -270,6 +270,13 @@ class TestTheDaysSession:
         assert "séance A à 18 h 30, 30 min" in result["response"]
         assert "send_voice_message" not in tools_called(result)
 
+    def test_the_shipped_digest_skill_gives_no_advice_and_reads_the_day_context(self):
+        skill = (DEFAULT_FIXTURES_DIR.parent.parent / "app" / "skills" / "digest.md").read_text(encoding="utf-8")
+
+        assert "Contexte du jour" in skill
+        for absent in ("fériés français", "conseille", "Annecy", "Malade", "monsieur"):
+            assert absent not in skill
+
     def test_the_shipped_skill_says_how_to_cite_it(self):
         skill = (DEFAULT_FIXTURES_DIR.parent.parent / "app" / "skills" / "digest.md").read_text(encoding="utf-8")
 

@@ -61,7 +61,8 @@ async def _system_prompt(definition: SubagentDefinition, user_id: str, tools: li
     if any(t["name"] == "get_skill" for t in tools):
         await skill_index.refresh()
         skills = skill_index.get_skills_index()
-    return f"{definition.prompt}{skills}{memory_context}\n\n{current_datetime_line()}"
+    now = current_datetime_line(tz=await resolve_user_timezone(user_id))
+    return f"{definition.prompt}{skills}{memory_context}\n\n{now}"
 
 
 async def handle_delegate(arguments: dict, user_id: str) -> str:

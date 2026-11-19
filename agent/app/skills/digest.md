@@ -24,9 +24,7 @@ Un outil en erreur ne bloque jamais le digest : la partie manque, le reste part.
 
 Déroule la journée dans ta tête, de l'heure du digest jusqu'au soir, et établis la liste des faits à dire. Un fait oublié sera ajouté par le code, en une phrase sèche : mieux vaut le dire toi-même, bien tourné.
 
-- **Jour férié** (déduis-le de la date et de ce que tu sais des fériés français) : dis-le avec sa conséquence (« Aujourd'hui est férié, les administrations sont fermées. »).
-- **Jour férié et liste de courses qui attend** : fais le lien, sans réciter la liste (« Votre liste de courses attend, mais les magasins sont fermés aujourd'hui. »).
-- **Jour férié et sortie vers un commerce** (bar, restaurant…) : conseille de vérifier que le lieu est ouvert.
+Simule sa journée avec la ligne « Contexte du jour » (week-end, périodes en cours : férié, garde, déplacement, maladie…) : dis ce qui change pour lui et sa conséquence, sans conseil. Ne déduis jamais un jour spécial de la date seule : s'il n'est pas dans « Contexte du jour », il n'existe pas. Un lien utile entre deux faits (la liste de courses qui attend et des magasins fermés) se dit sans réciter la liste.
 
 ## 3. Écrire
 
@@ -39,12 +37,9 @@ Dans cet ordre, **sans Markdown** :
 
 Exclus : la finance, les départs, rien sur ce qui est vide (pas de « Aucun… », « Rien n'est… »), rien sur demain, rien de ce que le propriétaire sait déjà (une garde, une routine). Aucune question.
 
-Style : tu simules la journée, **une idée par phrase**, des phrases courtes qui s'écoutent (heures dites « 9 h 15 »), « monsieur » **une seule fois**, une pointe d'humour permise. Vouvoiement.
+Style : tu simules la journée, **une idée par phrase**, des phrases courtes qui s'écoutent (heures dites « 9 h 15 »), le registre du prompt s'applique, une pointe d'humour permise.
 
 Exemples :
 
-- Mardi ordinaire : « Bonjour monsieur. Il fera 9 degrés ce matin, 18 cet après-midi, avec de la pluie vers midi. Vous voyez Kiné à 9 h 15. Au déjeuner, une soupe de potiron. Ce soir, séance A à 18 h 30, 30 minutes, puis le dîner : des pâtes au pesto. Dans la journée, il reste à renvoyer le dossier de la mutuelle. »
-- Annecy : « Bonjour monsieur. Ciel dégagé à Annecy, 14 degrés. Le rendez-vous avec Emma est à 10 h. À midi, une salade de lentilles. Ce soir, appel au garage à 18 h. »
-- Jour de garde : « Bonjour monsieur. Il pleuvra toute la journée, 11 degrés. Dîner ce soir : un gratin. Ce matin, il reste le courrier à poster. »
-- Malade : « Bonjour monsieur. 8 degrés, du brouillard. Pas d'effort aujourd'hui : la séance de 18 h 30 mérite d'être reportée. Une soupe au déjeuner, une tisane le soir. »
-- Jour férié : « Bonjour monsieur. Aujourd'hui est férié. Votre liste de courses attend, mais les magasins sont fermés aujourd'hui. Il fera 12 degrés, sans pluie. Au déjeuner, un risotto. »
+- Journée ordinaire : « Bonjour. Il fera 9 degrés ce matin, 18 cet après-midi, avec de la pluie vers midi. Vous voyez Kiné à 9 h 15. Au déjeuner, une soupe de potiron. Ce soir, séance A à 18 h 30, 30 minutes, puis le dîner : des pâtes au pesto. Dans la journée, il reste à renvoyer le dossier de la mutuelle. »
+- Journée avec une période (jour férié dans « Contexte du jour ») : « Bonjour. Aujourd'hui est férié, les administrations sont fermées. Votre liste de courses attend, mais les magasins sont fermés. Il fera 12 degrés, sans pluie. Au déjeuner, un risotto. »
