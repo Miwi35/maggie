@@ -4,8 +4,7 @@ namespace Maggie\Calendar\Tests\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
-use Maggie\Calendar\Mcp\Tool\GetEventsByDateTool;
-use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
+use Maggie\Calendar\Mcp\Tool\GetEventsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /** A row that already holds a time zone nobody can resolve must not take the reads down (MAG-256). */
@@ -21,9 +20,9 @@ class UnresolvableTimeZoneToolsTest extends KernelTestCase
         $this->loginFixtureUser();
     }
 
-    public function testGetUpcomingEventsStillAnswers(): void
+    public function testGetEventsFromNowStillAnswers(): void
     {
-        $result = self::getContainer()->get(GetUpcomingEventsTool::class)(7);
+        $result = self::getContainer()->get(GetEventsTool::class)();
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
@@ -32,11 +31,11 @@ class UnresolvableTimeZoneToolsTest extends KernelTestCase
         self::assertSame('Stand-up on Mars', $data['events'][0]['summary']);
     }
 
-    public function testGetEventsByDateStillAnswers(): void
+    public function testGetEventsOfADayStillAnswers(): void
     {
         $tomorrow = (new \DateTimeImmutable('tomorrow'))->format('Y-m-d');
 
-        $result = self::getContainer()->get(GetEventsByDateTool::class)($tomorrow);
+        $result = self::getContainer()->get(GetEventsTool::class)($tomorrow, $tomorrow);
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 

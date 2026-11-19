@@ -9,7 +9,7 @@ use Maggie\Core\Entity\User;
 use Symfony\Component\String\UnicodeString;
 
 /**
- * What the two event reads (`get_upcoming_events`, `get_events_by_date`) narrow their result
+ * What the event read (`get_events`) narrows its result
  * with: some of the user's agendas, and the title or place of the event looked for (MAG-325).
  */
 class EventReadFilter
