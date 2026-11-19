@@ -11,6 +11,7 @@ PRICING: dict[str, tuple[float, float]] = {
     "claude-opus-5": (5.0, 25.0),
     "claude-sonnet-5-5": (2.0, 10.0),
     "claude-haiku-4-5-20251001": (1.0, 5.0),
+    "claude-haiku-5-5": (0.10, 0.50),  # prompts up to 100k tokens
     "claude-sonnet-4-5-20250929": (3.0, 15.0),
     "claude-sonnet-4-5-20250514": (3.0, 15.0),
     "claude-opus-4-20250514": (15.0, 75.0),
@@ -25,8 +26,10 @@ DEFAULT_PRICING = (3.0, 15.0)  # Sonnet-level as safe default
 # Prompt caching, as multiples of the input price: a 5-minute cache write costs 1.25x, a cache read 0.1x
 CACHE_WRITE_MULTIPLIER = 1.25
 CACHE_READ_MULTIPLIER = 0.1
-# Opus 5.5 reads from the cache at 0.05x its input price, not 0.1x
-CACHE_READ_MULTIPLIER_BY_MODEL = {"claude-opus-5-5": 0.05}
+# A 1-hour cache write costs 2x
+CACHE_WRITE_1H_MULTIPLIER = 2.0
+# Opus 5.5 and Sonnet 5.5 read from the cache at 0.05x their input price, not 0.1x
+CACHE_READ_MULTIPLIER_BY_MODEL = {"claude-opus-5-5": 0.05, "claude-sonnet-5-5": 0.05}
 
 # ---------------------------------------------------------------------------
 # Counters
@@ -164,10 +167,12 @@ def usage_kwargs(usage) -> dict[str, int]:
         value = getattr(usage, name, 0)
         return value if isinstance(value, int) else 0
 
+    one_hour = getattr(getattr(usage, "cache_creation", None), "ephemeral_1h_input_tokens", 0)
     return {
         "input_tokens": count("input_tokens"),
         "output_tokens": count("output_tokens"),
         "cache_creation_input_tokens": count("cache_creation_input_tokens"),
+        "cache_creation_1h_input_tokens": one_hour if isinstance(one_hour, int) else 0,
         "cache_read_input_tokens": count("cache_read_input_tokens"),
     }
 
@@ -181,10 +186,12 @@ def record_llm_usage(
     status: str = "success",
     cache_creation_input_tokens: int = 0,
     cache_read_input_tokens: int = 0,
+    cache_creation_1h_input_tokens: int = 0,
 ) -> None:
     """Record metrics for a single LLM API call.
 
     `input_tokens` excludes the tokens read from or written to the prompt cache, as in the Anthropic usage.
+    `cache_creation_1h_input_tokens` is the part of `cache_creation_input_tokens` written with a 1-hour TTL.
     """
     LLM_CACHE_CREATION_TOKENS.labels(model=model, call_type=call_type).inc(cache_creation_input_tokens)
     LLM_CACHE_READ_TOKENS.labels(model=model, call_type=call_type).inc(cache_read_input_tokens)
@@ -198,7 +205,8 @@ def record_llm_usage(
     cache_read_multiplier = CACHE_READ_MULTIPLIER_BY_MODEL.get(model, CACHE_READ_MULTIPLIER)
     cost = (
         input_tokens * input_price
-        + cache_creation_input_tokens * input_price * CACHE_WRITE_MULTIPLIER
+        + (cache_creation_input_tokens - cache_creation_1h_input_tokens) * input_price * CACHE_WRITE_MULTIPLIER
+        + cache_creation_1h_input_tokens * input_price * CACHE_WRITE_1H_MULTIPLIER
         + cache_read_input_tokens * input_price * cache_read_multiplier
         + output_tokens * output_price
     ) / 1_000_000

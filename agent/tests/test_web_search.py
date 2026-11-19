@@ -63,10 +63,10 @@ class TestTheTool:
             assert web_search_tool() is None
             assert with_web_search([{"name": "search"}]) == [{"name": "search"}]
 
-    def test_it_comes_first_so_the_cache_breakpoint_stays_on_an_ordinary_tool(self):
+    def test_it_comes_last_after_the_shared_tools(self):
         tools = with_web_search([{"name": "a"}, {"name": "b"}])
 
-        assert [t["name"] for t in tools] == ["web_search", "a", "b"]
+        assert [t["name"] for t in tools] == ["a", "b", "web_search"]
 
 
 class TestTheAnswerAndItsSources:
@@ -162,8 +162,8 @@ class TestTheToolLoop:
         _, client = await self._run([self._response([{"type": "text", "text": "ok"}])], with_web_search([{"name": "search"}]))
 
         sent = client.messages.create.await_args.kwargs["tools"]
-        assert sent[0]["name"] == "web_search"
-        assert sent[0]["max_uses"] == settings.web_search_max_uses
+        assert sent[-1]["name"] == "web_search"
+        assert sent[-1]["max_uses"] == settings.web_search_max_uses
 
     async def test_the_answer_cites_its_sources(self):
         content = _searched_content(_cited("Du 17 octobre au 1er novembre.", PAGE))
@@ -223,8 +223,8 @@ class TestTheResearcher:
             await handle_delegate({"agent": "researcher", "task": "Vacances de la Toussaint"}, "user-1")
 
         tools = loop.await_args.args[2]
-        assert [t["name"] for t in tools] == ["web_search", "search"]
-        assert tools[0]["max_uses"] == settings.web_search_max_uses
+        assert [t["name"] for t in tools] == ["search", "web_search"]
+        assert tools[-1]["max_uses"] == settings.web_search_max_uses
 
 
 class TestTheFake:

@@ -72,7 +72,7 @@ async def _run(client, tool_router, messages=None, tools=None, **kwargs):
 class TestPromptCaching:
     async def test_passes_system_blocks_and_marks_last_tool_cacheable(self, client, tool_router, usage):
         client.messages.create.return_value = _text_response("ok")
-        system = [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral"}}]
+        system = [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral", "ttl": "1h"}}]
         tools = [{"name": "a"}, {"name": "b"}]
 
         await run_tool_loop(
@@ -87,7 +87,7 @@ class TestPromptCaching:
 
         kwargs = client.messages.create.call_args.kwargs
         assert kwargs["system"] == system
-        assert kwargs["tools"][-1]["cache_control"] == {"type": "ephemeral"}
+        assert kwargs["tools"][-1]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
         assert "cache_control" not in kwargs["tools"][0]
         assert "cache_control" not in tools[-1]
 

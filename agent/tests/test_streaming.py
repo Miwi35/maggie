@@ -229,7 +229,7 @@ class TestSystemPromptSummaries:
         """A summary changes while the personality and the skill index do not — caching it would waste the prefix."""
         blocks = await _system_blocks([_context("Courses", "Deux kilos de farine.")])
 
-        assert blocks[0]["cache_control"] == {"type": "ephemeral"}
+        assert blocks[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
         assert "Deux kilos de farine." not in blocks[0]["text"]
 
     async def test_only_the_most_recent_threads_carry_one(self):
@@ -778,7 +778,8 @@ class TestWebSearchStreamed:
         assert web["type"] == "web_search_20250305"
         assert web["max_uses"] == settings.web_search_max_uses
         assert web["user_location"] == {"type": "approximate", "country": "FR", "timezone": "Europe/Paris"}
-        assert tools[-1]["name"] == "search"
+        assert tools[-1]["name"] == "web_search"
+        assert tools[-2]["name"] == "search"
 
     async def test_the_answer_is_the_text_after_the_search_closed_by_its_sources(self):
         gw, _ = self._gateway()
