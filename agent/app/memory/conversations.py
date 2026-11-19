@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+from app.error_tracking import capture_error
 from app.memory import carte as carte_mod
 from app.memory import paths
 from app.memory.carte import Carte
@@ -213,8 +214,9 @@ async def record_thread(
         return
     try:
         await _record(service, user_id, context_id, last)
-    except Exception:
+    except Exception as exc:
         logger.exception("Could not write the conversation of %s (thread %s) into its file", user_id, context_id)
+        capture_error(exc, user_id=user_id, context_id=context_id)
 
 
 async def _record(service: MemoryService, user_id: str, context_id: str | None, last: Any) -> None:

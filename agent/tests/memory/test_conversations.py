@@ -192,6 +192,21 @@ class TestRecord:
 
         assert "Could not write the conversation" in caplog.text
 
+    async def test_a_failed_write_is_reported_to_glitchtip(self, env):
+        from unittest.mock import AsyncMock, patch
+
+        answer = message("m2", "assistant", "Oui", hour=16, user_id=USER_A, context_id=None)
+
+        with (
+            patch.object(conversations, "memory_service", env.service),
+            patch.object(conversations, "_record", AsyncMock(side_effect=RuntimeError("boom"))),
+            patch.object(conversations, "capture_error") as capture,
+        ):
+            await conversations.record(answer)
+
+        capture.assert_called_once()
+        assert capture.call_args.kwargs["user_id"] == USER_A
+
     async def test_an_answer_brings_the_whole_thread_into_the_file_without_any_tool_call(self, env):
         from unittest.mock import AsyncMock, patch
 
