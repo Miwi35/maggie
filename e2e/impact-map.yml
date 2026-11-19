@@ -473,6 +473,9 @@ web:
     areas: [calendar, dashboard]
   e2e/web/tests/routines-chat.spec.ts:
     areas: [calendar, chat]
+  e2e/web/tests/tasks-recurring-chat.spec.ts:
+    areas: [calendar, chat]
+    paths: [agent/fixtures/fake-llm/74-task-recurring.yaml]
   e2e/web/tests/search.spec.ts:
     areas: [search, calendar, cookbook, realtime]
   e2e/web/tests/mag-130-controls.spec.ts:
