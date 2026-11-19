@@ -407,6 +407,22 @@ class TripToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/api/trips/'.$nextWeek['trip']['id']);
     }
 
+    /** A single event has one occurrence: moved, its trip is replaced in place and follows it (MAG-862). */
+    public function testASingleEventMovedKeepsOneTripThatFollowsIt(): void
+    {
+        $this->atHomeWithTheCarAway();
+        $first = $this->setTrip($this->id('dentist'));
+        $this->moveEvent('dentist', '2026-11-03 15:00:00');
+
+        $second = $this->setTrip($this->id('dentist'));
+
+        self::assertSame($first['trip']['id'], $second['trip']['id']);
+        $trips = $this->storedTrips();
+        self::assertCount(1, $trips);
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T16:00:00+01:00'), $trips[0]->getOccurrenceStartAt());
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T15:34:00+01:00'), $trips[0]->getDepartAt());
+    }
+
     public function testTheReturnOfAStayLeavesAtTheChosenHourAndComesBackHome(): void
     {
         $result = $this->setTrip($this->id('holiday'), 'drive', null, 'user', null, 'return', '2026-11-04T11:00:00+01:00');

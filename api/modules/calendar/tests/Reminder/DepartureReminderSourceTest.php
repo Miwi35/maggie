@@ -25,6 +25,7 @@ use Maggie\Notification\Enum\NotificationType;
 use Maggie\Notification\Message\CreateNotificationCommand;
 use Maggie\Notification\Push\PushMessageFactory;
 use Maggie\Notification\Repository\NotificationRepository;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Clock;
@@ -72,6 +73,34 @@ final class DepartureReminderSourceTest extends KernelTestCase
 
         [$notification] = $this->departures();
         self::assertSame('2026-11-03T13:00:00+00:00', $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
+    }
+
+    /** @return iterable<string, array{EventStatus}> */
+    public static function exceptions(): iterable
+    {
+        yield 'cancelled' => [EventStatus::Cancelled];
+        yield 'modified, with its own row' => [EventStatus::Confirmed];
+    }
+
+    /** An occurrence that became an exception is no longer the series': its trip there is not alerted (MAG-862). */
+    #[DataProvider('exceptions')]
+    public function testTheSeriesTripOfAnOccurrenceThatBecameAnExceptionIsNotAlerted(EventStatus $status): void
+    {
+        $this->dentistEveryWeek();
+        $this->seed('dentist', '2026-11-03 13:34', occurrenceStartAt: '2026-11-03 14:00');
+        $series = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($series);
+        $exception = (new Event())
+            ->setSummary('Dentiste')
+            ->setAgenda($series->getAgenda())
+            ->setRecurringEvent($series)
+            ->setOriginalStartAt(new \DateTimeImmutable('2026-11-03 13:00:00 UTC'))
+            ->setStatus($status);
+        $exception->scheduleTimed(new \DateTimeImmutable('2026-11-03 15:00:00 UTC'), new \DateTimeImmutable('2026-11-03 16:00:00 UTC'));
+        $this->em()->persist($exception);
+        $this->em()->flush();
+
+        self::assertSame(0, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'))->created);
     }
 
     public function testATripNotYetDueAlertsNobody(): void

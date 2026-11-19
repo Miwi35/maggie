@@ -13,6 +13,7 @@ use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Repository\TripRepository;
 use Maggie\Calendar\Routing\RoutingException;
+use Maggie\Calendar\Service\TripDay;
 use Maggie\Calendar\Service\TripEstimate;
 use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripPlanner;
@@ -50,12 +51,12 @@ class SetTrip
     }
 
     /**
-     * Keeps an estimate already computed: the occurrence's trip is replaced in place. `$trip`, the one
-     * computed again, follows its single event when it moved.
+     * Keeps an estimate already computed: the occurrence's trip is replaced in place, and follows its
+     * occurrence when it moved — a single event has one, a series one a day. `$trip` is the one computed again.
      */
     public function keep(Event $event, \DateTimeImmutable $occurrenceStartAt, TripEstimate $estimate, TripDecider $decidedBy, ?Trip $trip = null): Trip
     {
-        $trip ??= $this->trips->findOneByOccurrence($event, $estimate->leg, $occurrenceStartAt);
+        $trip ??= $this->occurrenceTrip($event, $estimate->leg, $occurrenceStartAt);
         if (null === $trip) {
             $trip = new Trip($event, $occurrenceStartAt);
             $this->em->persist($trip);
@@ -65,5 +66,15 @@ class SetTrip
         $this->em->flush();
 
         return $trip;
+    }
+
+    private function occurrenceTrip(Event $event, TripLeg $leg, \DateTimeImmutable $occurrenceStartAt): ?Trip
+    {
+        if (!$event->isRecurring()) {
+            return $this->trips->findOneByEvent($event, $leg);
+        }
+        [$dayStart, $dayEnd] = TripDay::bounds($occurrenceStartAt->setTimezone(new \DateTimeZone(TripDay::TIME_ZONE))->format('Y-m-d'));
+
+        return $this->trips->findOneByEventBetween($event, $dayStart, $dayEnd, $leg);
     }
 }
