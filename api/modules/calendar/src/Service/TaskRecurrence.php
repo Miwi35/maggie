@@ -23,6 +23,9 @@ use Recurr\Transformer\ArrayTransformerConfig;
 final class TaskRecurrence
 {
     /** A task is counted in days: nothing finer than a day. */
+    /** The column's length. */
+    public const MAX_LENGTH = 255;
+
     private const FREQUENCIES = [Frequency::DAILY, Frequency::WEEKLY, Frequency::MONTHLY, Frequency::YEARLY];
 
     /**
@@ -47,6 +50,9 @@ final class TaskRecurrence
         }
 
         self::parse($nextRule);
+        if (null !== $rrule && $rrule !== $task->getRrule() && $task->isDone()) {
+            throw new InvalidTaskScheduleException('A done task cannot take a rrule: only the open occurrence carries the series. Reopen it, or give the rule to an open task.');
+        }
         if (null !== $task->getParent()) {
             throw new InvalidTaskScheduleException(\sprintf('A subtask cannot repeat: this task is a subtask of « %s ». Give the rrule to a task of its own.', $task->getParent()->getTitle()));
         }
@@ -100,6 +106,9 @@ final class TaskRecurrence
     /** @throws InvalidTaskScheduleException */
     private static function parse(string $rrule): void
     {
+        if (\strlen($rrule) > self::MAX_LENGTH) {
+            throw new InvalidTaskScheduleException(\sprintf('rrule is at most %d characters, not %d.', self::MAX_LENGTH, \strlen($rrule)));
+        }
         if (str_starts_with(strtoupper(ltrim($rrule)), 'RRULE:')) {
             throw new InvalidTaskScheduleException(\sprintf('rrule is written without the "RRULE:" prefix: "%s".', substr(ltrim($rrule), 6)));
         }

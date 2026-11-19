@@ -131,6 +131,24 @@ final class TaskRecurrenceTest extends TestCase
         TaskRecurrence::apply($task);
     }
 
+    public function testADoneTaskCannotTakeARule(): void
+    {
+        $task = self::plannedOn('2026-11-24')->setCompletedAt(new \DateTimeImmutable('2026-11-24 09:00'));
+
+        $this->expectException(InvalidTaskScheduleException::class);
+        $this->expectExceptionMessage('A done task cannot take a rrule');
+
+        TaskRecurrence::apply($task, self::EVERY_OTHER_TUESDAY);
+    }
+
+    public function testARuleLongerThanTheColumnIsRefused(): void
+    {
+        $this->expectException(InvalidTaskScheduleException::class);
+        $this->expectExceptionMessage('at most 255 characters');
+
+        TaskRecurrence::apply(self::plannedOn('2026-11-24'), self::EVERY_OTHER_TUESDAY.';BYMONTH='.str_repeat('1,', 130).'1');
+    }
+
     private static function plannedOn(string $day): Task
     {
         return (new Task())->setTitle('Sortir la poubelle jaune')->setScheduledDate(self::day($day));
