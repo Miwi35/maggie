@@ -190,6 +190,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.preparePost
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -203,6 +204,7 @@ import io.ktor.http.contentType
 import io.ktor.utils.io.readRemaining
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.readByteArray
 import kotlinx.serialization.Serializable
@@ -3849,6 +3851,27 @@ class MaggieApiService(
             setBody(TtsSynthesizeRequest(text = text, voice = voice))
         }
         return response.bodyAsChannel().readRemaining().readByteArray()
+    }
+
+    /** The synthesis as it arrives, chunk by chunk; a refused one raises its `detail`. */
+    fun streamSpeech(text: String, voice: String): Flow<ByteArray> = channelFlow {
+        client.preparePost("$baseUrl/agent/tts/synthesize") {
+            contentType(ContentType.Application.Json)
+            setBody(TtsSynthesizeRequest(text = text, voice = voice))
+        }.execute { response ->
+            if (!response.status.isSuccess()) {
+                val body = response.bodyAsText()
+                val detail = Regex("\"detail\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+                throw IllegalStateException(detail ?: body.ifBlank { "HTTP ${response.status.value}" })
+            }
+            val channel = response.bodyAsChannel()
+            val buffer = ByteArray(8 * 1024)
+            while (true) {
+                val read = channel.readAvailable(buffer)
+                if (read < 0) break
+                if (read > 0) send(buffer.copyOf(read))
+            }
+        }
     }
 
     /**
