@@ -146,11 +146,11 @@ class TripToolsTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function setTrip(string $eventId, string $mode = 'drive', ?string $origin = 'position', ?string $decidedBy = null, ?string $arriveAt = null, ?string $leg = null, ?string $departAt = null): array
+    private function setTrip(string $eventId, string $mode = 'drive', ?string $origin = 'position', ?string $decidedBy = null, ?string $arriveAt = null, ?string $leg = null, ?string $departAt = null, ?string $date = null): array
     {
         $this->fake();
 
-        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy, $arriveAt, $leg, $departAt), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy, $arriveAt, $leg, $departAt, $date), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /** @return array<string, mixed> */
@@ -182,6 +182,17 @@ class TripToolsTest extends KernelTestCase
         self::assertNotNull($event);
         $start = new \DateTimeImmutable($utcStart, new \DateTimeZone('UTC'));
         $event->scheduleTimed($start, $start->modify('+1 hour'));
+        $this->em()->flush();
+    }
+
+    /** The dentist becomes weekly, every Tuesday at 14:00 in Paris since 13 October: 3 November is its fourth. */
+    private function dentistEveryWeek(): void
+    {
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($event);
+        $start = new \DateTimeImmutable('2026-10-13 12:00:00', new \DateTimeZone('UTC'));
+        $event->scheduleTimed($start, $start->modify('+1 hour'));
+        $event->setRrule('FREQ=WEEKLY');
         $this->em()->flush();
     }
 
@@ -304,6 +315,96 @@ class TripToolsTest extends KernelTestCase
         self::assertSame('walk', $payload['mode']);
         self::assertSame('user', $payload['originDecidedBy']);
         self::assertArrayNotHasKey('deleted', $payload);
+    }
+
+    public function testSetTripOnAWeeklySeriesPlansTheOccurrenceOfTheGivenDay(): void
+    {
+        $this->atHomeWithTheCarAway();
+        $this->dentistEveryWeek();
+
+        $result = $this->setTrip($this->id('dentist'), date: '2026-11-03');
+
+        self::assertTrue($result['success'] ?? false, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame('2026-11-03T13:34:00+01:00', $result['trip']['departAt']);
+        self::assertSame('2026-11-03T14:00:00+01:00', $result['trip']['occurrenceStartAt']);
+        $trips = $this->storedTrips();
+        self::assertCount(1, $trips);
+        self::assertSame($this->id('dentist'), (string) $trips[0]->getEvent()->getId());
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T13:34:00+01:00'), $trips[0]->getDepartAt());
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T14:00:00+01:00'), $trips[0]->getOccurrenceStartAt());
+        $payload = $this->mercurePayloadsOn('/api/trips/'.$trips[0]->getId())[0];
+        self::assertSame('/api/events/'.$this->id('dentist'), $payload['event']);
+        self::assertSame('2026-11-03T13:00:00+00:00', $payload['occurrenceStartAt']);
+        self::assertSame([$result['trip']['id']], array_column($this->listTrips('2026-11-03')['trips'], 'id'));
+    }
+
+    public function testSetTripOnASeriesWithoutDateIsRefused(): void
+    {
+        $this->atHomeWithTheCarAway();
+        $this->dentistEveryWeek();
+
+        $result = $this->setTrip($this->id('dentist'));
+
+        self::assertSame('date', $result['field'] ?? null, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertStringContainsString('Dentiste', $result['error']);
+        self::assertSame([], $this->storedTrips());
+        self::assertSame([], $this->getMercureHub()->getUpdates());
+    }
+
+    /** @return iterable<string, array{bool, string}> */
+    public static function daysWithoutTheEvent(): iterable
+    {
+        yield 'a day the series skips' => [true, '2026-11-04'];
+        yield 'a day before the series' => [true, '2026-10-06'];
+        yield 'another day than a single event' => [false, '2026-11-04'];
+        yield 'not a day' => [false, 'mardi'];
+    }
+
+    #[DataProvider('daysWithoutTheEvent')]
+    public function testSetTripOnADayWithoutOccurrenceIsRefused(bool $series, string $date): void
+    {
+        $this->atHomeWithTheCarAway();
+        if ($series) {
+            $this->dentistEveryWeek();
+        }
+
+        $result = $this->setTrip($this->id('dentist'), date: $date);
+
+        self::assertSame('date', $result['field'] ?? null, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame([], $this->storedTrips());
+    }
+
+    public function testASingleEventTakesItsOwnDayAsDate(): void
+    {
+        $this->atHomeWithTheCarAway();
+
+        $result = $this->setTrip($this->id('dentist'), date: '2026-11-03');
+
+        self::assertTrue($result['success'] ?? false, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame('2026-11-03T14:00:00+01:00', $result['trip']['occurrenceStartAt']);
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T14:00:00+01:00'), $this->storedTrips()[0]->getOccurrenceStartAt());
+    }
+
+    public function testTwoOccurrencesOfOneSeriesKeepTwoTrips(): void
+    {
+        $this->atHomeWithTheCarAway();
+        $this->dentistEveryWeek();
+
+        $today = $this->setTrip($this->id('dentist'), date: '2026-11-03');
+        $nextWeek = $this->setTrip($this->id('dentist'), 'walk', 'place:'.$this->id('home'), date: '2026-11-10');
+        $todayAgain = $this->setTrip($this->id('dentist'), date: '2026-11-03');
+
+        self::assertTrue($today['success'] && $nextWeek['success'] && $todayAgain['success']);
+        self::assertNotSame($today['trip']['id'], $nextWeek['trip']['id']);
+        self::assertSame($today['trip']['id'], $todayAgain['trip']['id']);
+        self::assertSame('2026-11-10T13:51:00+01:00', $nextWeek['trip']['departAt']);
+        $trips = $this->storedTrips();
+        self::assertCount(2, $trips);
+        $departures = array_map(static fn (Trip $trip): string => $trip->getDepartAt()->setTimezone(new \DateTimeZone('Europe/Paris'))->format(\DATE_ATOM), $trips);
+        sort($departures);
+        self::assertSame(['2026-11-03T13:34:00+01:00', '2026-11-10T13:51:00+01:00'], $departures);
+        $this->assertMercureUpdatePublished('/api/trips/'.$today['trip']['id']);
+        $this->assertMercureUpdatePublished('/api/trips/'.$nextWeek['trip']['id']);
     }
 
     public function testTheReturnOfAStayLeavesAtTheChosenHourAndComesBackHome(): void
