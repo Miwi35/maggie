@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { veilleuseLightTheme } from '../../theme'
-import { emitMercure } from '../../test/mercure'
+import { emitMercureAndWait } from '../../test/mercure'
 import { FinanceHomeCard } from './FinanceHomeCard'
 import { dashboardFixture, nextProjectFixture } from './dashboardFixture'
 import { period, rhythm, scores } from './scoresFixture'
@@ -213,7 +213,7 @@ describe('FinanceHomeCard', () => {
       expect(screen.getByTestId('home-finance-next-project')).toBeInTheDocument()
 
       await act(async () => {
-        await emitMercure(topic, { '@id': '/api/x/1' })
+        await emitMercureAndWait(topic, { '@id': '/api/x/1' })
       })
 
       await waitFor(() => expect(screen.getByTestId('home-finance-to-qualify')).toHaveTextContent('2 à qualifier'))
@@ -228,7 +228,7 @@ describe('FinanceHomeCard', () => {
     await screen.findAllByTestId('home-finance-ring')
 
     await act(async () => {
-      await emitMercure('/api/transactions/{id}', {})
+      await emitMercureAndWait('/api/transactions/{id}', {})
     })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')

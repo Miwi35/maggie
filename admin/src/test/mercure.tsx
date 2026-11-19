@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, test, expect, vi } from 'vitest'
 import { useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
+import { LIVE_DEBOUNCE_MS } from '../modules/calendar/calendarLive'
 
 /**
  * Stand-in for `hooks/useMercure` in a screen test:
@@ -53,6 +54,12 @@ export const emitMercure = (topic: string, payload: Record<string, unknown>) =>
     }
     for (const entry of [...subscribed]) entry.current(JSON.stringify(payload))
   })
+
+/** A message on a screen that groups its reads (`useLiveRead`): emits it, then lets the burst end so the read leaves. */
+export const emitMercureAndWait = async (topic: string, payload: Record<string, unknown>) => {
+  await emitMercure(topic, payload)
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, LIVE_DEBOUNCE_MS + 50)))
+}
 
 /**
  * Renders a list screen over a read that never learns of the change — the index

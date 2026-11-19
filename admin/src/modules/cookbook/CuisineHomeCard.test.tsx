@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { veilleuseLightTheme } from '../../theme'
-import { emitMercure } from '../../test/mercure'
+import { emitMercureAndWait } from '../../test/mercure'
 import { CuisineHomeCard } from './CuisineHomeCard'
 import type { HomeDay } from '../home/homeDay'
 
@@ -253,7 +253,7 @@ describe('CuisineHomeCard', () => {
       fetchMock.mockImplementation(reads({ meals: [meal('m3', 'lunch', ['Quiche']), ...MEALS], needs: NEEDS }).getMockImplementation()!)
 
       await act(async () => {
-        await emitMercure(topic, { id: 'x' })
+        await emitMercureAndWait(topic, { id: 'x' })
       })
 
       expect(await screen.findByText('Quiche')).toBeInTheDocument()

@@ -251,3 +251,61 @@ test.describe('an empty card is not drawn', () => {
     await expect(home.card('tasks')).toHaveCount(0)
   })
 })
+
+/**
+ * A burst of Mercure messages is one read per card (MAG-860): eight writes in a row
+ * made the Accueil read every endpoint eight times over, and saturated the API.
+ */
+test('a burst of writes reads each card once', async ({ homeUser }) => {
+  const { page, api } = homeUser
+  const home = new HomePage(page)
+  // The Tâches card only exists once a task is due today: seed one so the ring is there to read.
+  const seed = await api.post('/api/tasks', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { title: 'Rafale départ', dueDate: parisDay() },
+  })
+  expect(seed.ok(), `POST /api/tasks answered ${seed.status()}`).toBe(true)
+  await home.open()
+  await expect(home.financeCard).toBeVisible()
+  const seedIri = ((await seed.json()) as { '@id': string })['@id']
+
+  // The card draws five lines at most and the ring stops there: the rows plus « + n autres » count the open tasks.
+  const totalOf = async () => {
+    const ring = Number(/sur (\d+)$/.exec((await home.tasksRing.textContent()) ?? '')?.[1])
+    const more = home.card('tasks').getByRole('link', { name: /^\+ \d+ autres?$/ })
+    const extra = (await more.count()) === 0 ? 0 : Number(/\d+/.exec((await more.textContent()) ?? '')?.[0])
+    return ring + extra
+  }
+  const openTasks = async () => ((await (await api.get('/api/tasks/view/today', { headers: { Accept: 'application/ld+json' } })).json()).member ?? []).length
+  await expect(home.tasksRing).toHaveText(/\d+ sur \d+/)
+  const before = await totalOf()
+  const apiBefore = await openTasks()
+
+  const dashboardReads: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/finance/dashboard') dashboardReads.push(request.url())
+  })
+
+  const responses = await Promise.all(
+    Array.from({ length: 8 }, (_, i) =>
+      api.post('/api/tasks', {
+        headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+        data: { title: `Rafale ${i + 1}`, dueDate: parisDay() },
+      }),
+    ),
+  )
+  for (const response of responses) expect(response.ok(), `POST /api/tasks answered ${response.status()}`).toBe(true)
+
+  // The collections are indexed by the worker after the messages leave: when the burst's read came first,
+  // a later message (the seed task touched again) is what a real session would send, and reads the burst.
+  await expect.poll(openTasks, { timeout: 60_000 }).toBeGreaterThanOrEqual(apiBefore + 8)
+  const touched = await api.patch(seedIri, {
+    headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' },
+    data: { title: 'Rafale départ relue' },
+  })
+  expect(touched.ok(), `PATCH ${seedIri} answered ${touched.status()}`).toBe(true)
+
+  await expect.poll(totalOf).toBe(before + 8)
+  expect(dashboardReads.length, 'the Finance dashboard is read once per burst, not once per message').toBeLessThanOrEqual(2)
+  await expect(page.getByText('Erreur')).toHaveCount(0)
+})
