@@ -15,7 +15,8 @@ from sqlalchemy.exc import IntegrityError
 from app.day_context import resolve_day_context
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
-from app.db.models import NOTHING_SAID
+from app.db.models import NOTHING_SAID, Message
+from app.error_tracking import capture_error
 from app.llm.capabilities import generate_capability_summary
 from app.llm.claim_guard import ClaimGuard, Verdict, question_of
 from app.llm.client import client_for, create_llm_client, llm_configured
@@ -542,7 +543,7 @@ class StreamingGateway:
         # device that streamed it recognises the echo by that id, the others learn of it.
         if answer:
             try:
-                await message_repo.create(
+                msg = await message_repo.create(
                     user_id=user_id,
                     role="assistant",
                     content=answer,
@@ -553,6 +554,7 @@ class StreamingGateway:
                     # here too, with the rounds that did run before it: they happened.
                     blocks=blocks,
                     ui_blocks=ui_blocks,
+                    announce=False,
                 )
             except IntegrityError:
                 # A turn taken up again after the first one had already stored its answer.
@@ -568,6 +570,19 @@ class StreamingGateway:
                 self._in_background(context_summarizer.maybe_summarize(current_context_id))
 
         yield {"type": "RUN_FINISHED", "runId": run_id}
+
+        # After RUN_FINISHED: the phone asks for the voice on it, and neither Mercure nor the
+        # memory write may delay that. Still in the turn's task, which drains this generator.
+        if answer:
+            await self._announce_answer(msg, user_id, msg_id)
+
+    @staticmethod
+    async def _announce_answer(msg: Message, user_id: str, msg_id: str) -> None:
+        try:
+            await message_repo.announce(msg)
+        except Exception as exc:
+            logger.exception("Could not announce answer %s", msg_id)
+            capture_error(exc, user_id=user_id, message_id=msg_id)
 
     @staticmethod
     async def _keep_what_was_done(

@@ -31,6 +31,7 @@ __all__ = [
     "SILENT_MP3_FRAME",
     "VOICE_IDS",
     "SpeechUnavailableError",
+    "close_providers",
     "fake_synthesis_requests",
     "get_voices",
     "reset_fake_synthesis_requests",
@@ -67,6 +68,10 @@ _edge = EdgeProvider()
 _elevenlabs = ElevenLabsProvider()
 _gradium = GradiumProvider()
 _fake = FakeProvider()
+
+
+async def close_providers() -> None:
+    await _elevenlabs.aclose()
 
 
 def fake_synthesis_requests() -> int:

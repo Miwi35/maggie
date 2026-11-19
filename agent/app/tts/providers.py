@@ -127,24 +127,37 @@ def _failure_reason(status: int) -> str:
 class ElevenLabsProvider:
     name = "elevenlabs"
 
+    def __init__(self) -> None:
+        self._client: httpx.AsyncClient | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def _http(self) -> httpx.AsyncClient:
+        """One client for every synthesis: the TLS connection to ElevenLabs is opened once."""
+        loop = asyncio.get_running_loop()
+        if self._client is None or self._client.is_closed or self._loop is not loop:
+            self._client = httpx.AsyncClient(timeout=httpx.Timeout(settings.elevenlabs_timeout_seconds))
+            self._loop = loop
+        return self._client
+
+    async def aclose(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
     async def stream(self, text: str, voice: str, usage: Usage) -> AsyncGenerator[bytes, None]:
         if not settings.elevenlabs_api_key:
             raise ProviderFailedError("not_configured")
         model = settings.elevenlabs_model_file if usage == "file" else settings.elevenlabs_model_live
-        timeout = httpx.Timeout(settings.elevenlabs_timeout_seconds)
         url = f"{settings.elevenlabs_base_url.rstrip('/')}/v1/text-to-speech/{voice}/stream"
         started = False
         try:
-            async with (
-                httpx.AsyncClient(timeout=timeout) as client,
-                client.stream(
-                    "POST",
-                    url,
-                    params={"output_format": ELEVENLABS_OUTPUT_FORMAT},
-                    headers={"xi-api-key": settings.elevenlabs_api_key},
-                    json={"text": text, "model_id": model, "language_code": ELEVENLABS_LANGUAGE},
-                ) as response,
-            ):
+            async with self._http().stream(
+                "POST",
+                url,
+                params={"output_format": ELEVENLABS_OUTPUT_FORMAT},
+                headers={"xi-api-key": settings.elevenlabs_api_key},
+                json={"text": text, "model_id": model, "language_code": ELEVENLABS_LANGUAGE},
+            ) as response:
                 if response.status_code != 200:
                     await response.aread()
                     raise ProviderFailedError(_failure_reason(response.status_code), f"status {response.status_code}")

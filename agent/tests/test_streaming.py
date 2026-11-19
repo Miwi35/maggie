@@ -518,6 +518,90 @@ class TestWhatTheToolsSaidIsStored:
         assert stored["blocks"] == []
 
 
+class TestTheVoiceStartsFirst:
+    """RUN_FINISHED leaves as soon as the answer is stored; Mercure and the memory come after (MAG-850)."""
+
+    @staticmethod
+    def _patches(publish, record):
+        from contextlib import ExitStack
+
+        stack = ExitStack()
+        contexts = stack.enter_context(patch("app.llm.contexts.context_repo"))
+        stack.enter_context(
+            patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Bonjour"}]))
+        )
+        skills = stack.enter_context(patch("app.llm.streaming.skill_index"))
+        summarizer = stack.enter_context(patch("app.llm.streaming.context_summarizer"))
+        stack.enter_context(patch("app.db.message_repository.message_repo.publisher.publish", new=publish))
+        stack.enter_context(patch("app.memory.conversations.record", new=record))
+        contexts.find_active = AsyncMock(return_value=[])
+        skills.get_skills_index.return_value = ""
+        skills.skills_for_moment.return_value = ""
+        skills.refresh = AsyncMock()
+        summarizer.maybe_summarize = AsyncMock(return_value=None)
+        return stack
+
+    async def test_run_finished_comes_before_mercure_and_the_memory(self, chat_db):
+        seen: list[str] = []
+        publish = AsyncMock(side_effect=lambda *a: seen.append("mercure"))
+        record = AsyncMock(side_effect=lambda *a: seen.append("record"))
+
+        with self._patches(publish, record):
+            gw = TestSummaryTrigger._gateway()
+            async for event in gw.chat_stream("Bonjour", "user-1", "msg-1"):
+                seen.append(event["type"])
+            await asyncio.gather(*gw._background)
+
+        assert seen.index("RUN_FINISHED") < seen.index("mercure") < seen.index("record")
+
+    async def test_the_run_finishes_while_mercure_hangs(self, chat_db):
+        never = asyncio.Event()
+
+        async def hang(*_args):
+            await never.wait()
+
+        with self._patches(AsyncMock(side_effect=hang), AsyncMock()):
+            gw = TestSummaryTrigger._gateway()
+            stream = gw.chat_stream("Bonjour", "user-1", "msg-1")
+            async with asyncio.timeout(5):
+                while (await anext(stream))["type"] != "RUN_FINISHED":
+                    pass
+            never.set()
+            async for _ in stream:
+                pass
+            await asyncio.gather(*gw._background)
+
+    async def test_a_failing_memory_write_neither_fails_the_turn_nor_goes_unreported(self, chat_db):
+        from app.db.message_repository import message_repo
+
+        with (
+            self._patches(AsyncMock(), AsyncMock()),
+            patch("app.db.message_repository.message_repo.announce", AsyncMock(side_effect=RuntimeError("boom"))),
+            patch("app.llm.streaming.capture_error") as capture,
+        ):
+            gw = TestSummaryTrigger._gateway()
+            events = [event async for event in gw.chat_stream("Bonjour", "user-1", "msg-1")]
+            await asyncio.gather(*gw._background)
+
+        assert events[-1]["type"] == "RUN_FINISHED"
+        assert not [e for e in events if e["type"] == "RUN_ERROR"]
+        streamed_id = next(e["messageId"] for e in events if e["type"] == "TEXT_MESSAGE_START")
+        assert (await message_repo.get(streamed_id)) is not None
+        capture.assert_called_once()
+
+    async def test_the_conversation_still_reaches_the_memory(self, chat_db):
+        record = AsyncMock()
+
+        with self._patches(AsyncMock(), record):
+            gw = TestSummaryTrigger._gateway()
+            events = [event async for event in gw.chat_stream("Bonjour", "user-1", "msg-1")]
+            await asyncio.gather(*gw._background)
+
+        streamed_id = next(e["messageId"] for e in events if e["type"] == "TEXT_MESSAGE_START")
+        record.assert_awaited_once()
+        assert record.await_args.args[0].id == streamed_id
+
+
 class TestStreamedExchangeReachesOtherDevices:
     """A second tab or the phone only learns of a streamed exchange over Mercure (MAG-109)."""
 
