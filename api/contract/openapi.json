@@ -32413,7 +32413,7 @@
             },
             "Trip": {
                 "type": "object",
-                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event and {@see TripLeg}, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed.",
+                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, {@see TripLeg} and occurrence, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nA trip serves one occurrence (MAG-862): `event` stays the series, `occurrenceStartAt`\nsays which day — a single event's own start.\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -32434,6 +32434,11 @@
                             "outbound",
                             "return"
                         ]
+                    },
+                    "occurrenceStartAt": {
+                        "description": "The start of the occurrence served, midnight in Paris for a whole-day one ({@see \\Maggie\\Calendar\\Service\\TripOccurrence::startOf()}).",
+                        "type": "string",
+                        "format": "date-time"
                     },
                     "mode": {
                         "readOnly": true,
@@ -32541,7 +32546,7 @@
             },
             "Trip.html": {
                 "type": "object",
-                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event and {@see TripLeg}, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed.",
+                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, {@see TripLeg} and occurrence, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nA trip serves one occurrence (MAG-862): `event` stays the series, `occurrenceStartAt`\nsays which day — a single event's own start.\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed.",
                 "properties": {
                     "id": {
                         "readOnly": true,
@@ -32562,6 +32567,11 @@
                             "outbound",
                             "return"
                         ]
+                    },
+                    "occurrenceStartAt": {
+                        "description": "The start of the occurrence served, midnight in Paris for a whole-day one ({@see \\Maggie\\Calendar\\Service\\TripOccurrence::startOf()}).",
+                        "type": "string",
+                        "format": "date-time"
                     },
                     "mode": {
                         "readOnly": true,
@@ -32695,6 +32705,11 @@
                                     "return"
                                 ]
                             },
+                            "occurrenceStartAt": {
+                                "description": "The start of the occurrence served, midnight in Paris for a whole-day one ({@see \\Maggie\\Calendar\\Service\\TripOccurrence::startOf()}).",
+                                "type": "string",
+                                "format": "date-time"
+                            },
                             "mode": {
                                 "readOnly": true,
                                 "type": "string",
@@ -32800,7 +32815,7 @@
                         }
                     }
                 ],
-                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event and {@see TripLeg}, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed."
+                "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, {@see TripLeg} and occurrence, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nA trip serves one occurrence (MAG-862): `event` stays the series, `occurrenceStartAt`\nsays which day — a single event's own start.\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed."
             },
             "User": {
                 "type": "object",
@@ -34880,7 +34895,7 @@
         },
         {
             "name": "Trip",
-            "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event and {@see TripLeg}, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed."
+            "description": "The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most\none per event, {@see TripLeg} and occurrence, removed with it ({@see \\Maggie\\Calendar\\Doctrine\\TripCleanupListener}).\nA trip serves one occurrence (MAG-862): `event` stays the series, `occurrenceStartAt`\nsays which day — a single event's own start.\nWritten by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.\n\n`departAt` is when to leave — a new value is a new departure alert. The\norigin is copied, not referenced: « ma position » moves, the trip keeps where\nit was computed from. `originDecidedBy` user means the user chose it: it is\nkept, only the durations are computed again.\n\nOwned through its event. Served by Doctrine: not searched, so not indexed."
         },
         {
             "name": "Ingredient",

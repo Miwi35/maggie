@@ -22,6 +22,7 @@ interface Trip {
   originDecidedBy: string
   leg?: string
   arriveAt?: string | null
+  occurrenceStartAt: string
 }
 
 const HOME = { latitude: 48.11, longitude: -1.68 }
@@ -109,6 +110,46 @@ test('the return of a whole-day stay leaves at the hour the user chose and is li
   expect(new Date(trip!.departAt).getTime()).toBe(new Date(parisTime(day, '11:00:00')).getTime())
   expect(new Date(trip!.arriveAt!).getTime()).toBe(new Date(trip!.departAt).getTime() + trip!.durationMinutes * 60_000)
   expect(trip!.originDecidedBy).toBe('user')
+
+  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
+})
+
+/**
+ * MAG-862: a weekly event's trip is planned on the occurrence of the day Maggie names, not on the
+ * series' first start, and without that day `set_trip` is refused.
+ */
+test('the trip of a weekly event is planned on the occurrence of the given day', async ({ api }) => {
+  const day = parisDay()
+  const weekAgo = parisDay(new Date(e2eNow().getTime() - 7 * 86_400_000))
+  const created = await callMcpTool(api, 'create_event', {
+    title: 'Kiné',
+    start_date: weekAgo,
+    start_time: '15:00',
+    end_date: weekAgo,
+    end_time: '16:00',
+    location: '5 allée du Sourire Fictif, 35000 Rennes',
+    rrule: 'FREQ=WEEKLY',
+  })
+  expect(created.error, JSON.stringify(created)).toBeUndefined()
+  const eventId = (created.event as { id: string }).id
+
+  const now = e2eNow().toISOString()
+  expect((await api.put('/api/me/location', { data: { ...HOME, accuracy: 10, capturedAt: now } })).status()).toBe(204)
+  expect((await api.put('/api/me/car', { data: { ...CAR, parkedAt: now } })).status()).toBe(204)
+
+  const withoutDate = await callMcpTool(api, 'set_trip', { eventId, mode: 'drive', origin: 'position' })
+  expect(withoutDate.field, JSON.stringify(withoutDate)).toBe('date')
+
+  const kept = await callMcpTool(api, 'set_trip', { eventId, mode: 'drive', origin: 'position', date: day })
+  expect(kept.error, JSON.stringify(kept)).toBeUndefined()
+
+  const listed = await api.get(`/api/trips?date=${day}`, { headers: { Accept: 'application/ld+json' } })
+  expect(listed.status()).toBe(200)
+  const trips = ((await listed.json()) as { member: Trip[] }).member
+  const trip = trips.find((candidate) => candidate.event === `/api/events/${eventId}`)
+  expect(trip, JSON.stringify(trips)).toBeDefined()
+  expect(new Date(trip!.departAt).getTime()).toBe(new Date(parisTime(day, '14:34:00')).getTime())
+  expect(new Date(trip!.occurrenceStartAt).getTime()).toBe(new Date(parisTime(day, '15:00:00')).getTime())
 
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
