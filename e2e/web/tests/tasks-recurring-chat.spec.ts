@@ -3,6 +3,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { assistantText, calledTools, toolResults } from '../helpers/agui.js'
 import { waitForIndexed } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * A reminder that comes back is one recurring task (MAG-870, extends MAG-99).
@@ -65,6 +66,7 @@ test('« un mardi sur deux » creates one recurring task, and checking it opens 
   const first = nextTuesday()
 
   // When the owner asks Maggie…
+  await new HomePage(page).open()
   const chat = new ChatPanel(page)
   const events = await chat.send('Rappelle-moi un mardi sur deux de sortir la poubelle jaune')
 
