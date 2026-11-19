@@ -113,6 +113,18 @@ class TestTheSignals:
         assert_signal(event, "claim_guard_retry")
         assert event["tags"]["claim"] == "reminder"
 
+    def test_an_announcement_still_unbacked_is_signalled(self, sent):
+        guard = ClaimGuard([{"name": "schedule_proaction"}])
+        claim = "C'est noté, je te le rappellerai dans 10 minutes."
+        guard.review(claim)
+        sent.clear()
+
+        assert guard.review(claim) is Verdict.ACCEPT
+        event = only_event(sent)
+        assert_signal(event, "claim_unbacked")
+        assert event["level"] == "warning"
+        assert event["tags"]["claim"] == "reminder"
+
     @pytest.mark.asyncio
     async def test_an_mcp_tool_that_answers_an_error(self, sent):
         client = McpClient()

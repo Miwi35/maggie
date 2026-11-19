@@ -18,7 +18,7 @@ from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID, Message
 from app.error_tracking import capture_error
 from app.llm.capabilities import generate_capability_summary
-from app.llm.claim_guard import ClaimGuard, Verdict, question_of
+from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, route_message
@@ -246,9 +246,9 @@ class StreamingGateway:
         # something stored (MAG-340). The answer streams as it is written, so a false
         # announcement may already be on screen when the guard reads it: it is corrected
         # rather than held back. A relaunch replaces it with the next step's text, like any
-        # intermediate step (MAG-229), and a second failure restarts the bubble on the
-        # guard's `honest_answer()` — the only text then stored.
-        guard = ClaimGuard(tools, question_of(messages))
+        # intermediate step (MAG-229), and a second failure goes out as the model wrote it,
+        # signalled (MAG-842).
+        guard = ClaimGuard(tools)
 
         # What is stored, shown and read aloud is the last step's text alone: the steps
         # before a tool call are the model thinking out loud (announcements, errors, retries),
@@ -483,19 +483,12 @@ class StreamingGateway:
                     logger.warning("Action announced, nothing backs it: sending the model back")
                     guard.send_back(messages, response_content)
                     continue
-                if verdict is Verdict.GIVE_UP:
-                    logger.warning("Action announced twice, never done: answering it is not")
-                    answer = guard.honest_answer()
-                    yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
-                    text_started = True
-                    yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
-                else:
-                    # The pages the answer cites, as one last line: text is what the clients
-                    # show, store and send back to the model at the next turn (MAG-384).
-                    sources = missing_sources(answer, response_content)
-                    if sources and step_text.strip() and not (spoken or in_car):
-                        answer = f"{answer}\n\n{sources}"
-                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{sources}"}
+                # The pages the answer cites, as one last line: text is what the clients
+                # show, store and send back to the model at the next turn (MAG-384).
+                sources = missing_sources(answer, response_content)
+                if sources and step_text.strip() and not (spoken or in_car):
+                    answer = f"{answer}\n\n{sources}"
+                    yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{sources}"}
                 break
 
             except asyncio.CancelledError:
@@ -527,13 +520,8 @@ class StreamingGateway:
                 break
         else:
             # The budget ran out on a tool call, so the answer is an earlier step's text that
-            # nobody reviewed: an action it announces is checked here, with no relaunch left.
-            if guard.review(answer, can_retry=False) is Verdict.GIVE_UP:
-                logger.warning("Action announced, never done, out of iterations: answering it is not")
-                answer = guard.honest_answer()
-                yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
-                text_started = True
-                yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
+            # nobody reviewed: an action it announces is signalled here, with no relaunch left.
+            guard.review(answer, can_retry=False)
 
         # End the single text message of the run
         if text_started:

@@ -13,10 +13,10 @@ from zoneinfo import ZoneInfo
 import pytest
 import yaml
 
+from app.error_tracking import CLAIM_UNBACKED
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.claim_guard import (
-    NOT_SCHEDULED_MESSAGE,
-    NUDGE,
+    REMINDER_SIGNAL,
     SCHEDULE_TOOL,
     ClaimGuard,
     Verdict,
@@ -35,7 +35,8 @@ SCHEDULED_ANSWER = "C'est programmé, monsieur : je vous rappellerai de boire de
 FALSE_CLAIM = "C'est noté, monsieur. Je vous rappellerai de boire de l'eau à 16h05."
 
 OFFERED = [{"name": "date_time", "input_schema": {}}, {"name": SCHEDULE_TOOL, "input_schema": {}}]
-REMINDER_NUDGE = {"role": "user", "content": [{"type": "text", "text": NUDGE}]}
+SECOND_ANNOUNCEMENT = "Bien sûr, je vous rappellerai d'arroser les plantes à 16h05."
+REMINDER_NUDGE = {"role": "user", "content": [{"type": "text", "text": REMINDER_SIGNAL}]}
 SCHEDULED = json.dumps({"id": "pro-1", "status": "pending", "scheduledAt": "2099-10-07T14:05:00+00:00"})
 
 
@@ -86,7 +87,7 @@ class TestTheClaim:
         "text",
         [
             "",
-            NOT_SCHEDULED_MESSAGE,
+            "Pardon, je ne l'ai pas encore posé. Je le fais tout de suite.",
             "Je ne vous rappellerai pas, il manque l'heure.",
             "Le rappel n'a pas été programmé.",
             "Le rappel est déjà programmé pour 16h05.",
@@ -116,11 +117,13 @@ class TestTheClaim:
 
 
 class TestTheGuard:
-    def test_a_claim_without_the_tool_is_sent_back_once_then_given_up(self):
+    def test_a_claim_without_the_tool_is_sent_back_once_then_accepted_and_signalled(self):
         guard = ClaimGuard(OFFERED)
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
-        assert guard.review(FALSE_CLAIM) is Verdict.GIVE_UP
+        with patch("app.llm.claim_guard.capture_signal") as signal:
+            assert guard.review(FALSE_CLAIM) is Verdict.ACCEPT
+        signal.assert_called_once_with(CLAIM_UNBACKED, claim="reminder")
 
     def test_a_scheduled_reminder_is_never_sent_back(self):
         guard = ClaimGuard(OFFERED)
@@ -178,8 +181,9 @@ class TestTheGuard:
 
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 
-    def test_the_nudge_does_not_push_an_errand_towards_a_proaction(self):
-        assert "create_task" in NUDGE
+    def test_the_signal_states_the_fact_and_names_no_tool(self):
+        for tool in ("schedule_proaction", "create_task", "create_skill", "add_instruction", "memory_write_fiche", "get_events_by_date"):
+            assert tool not in REMINDER_SIGNAL
 
     def test_an_event_without_reminders_does_not(self):
         guard = ClaimGuard(OFFERED)
@@ -209,17 +213,21 @@ class TestTheGuard:
         assert ClaimGuard(None).review(FALSE_CLAIM) is Verdict.ACCEPT
         assert ClaimGuard([{"name": "date_time"}]).review(FALSE_CLAIM) is Verdict.ACCEPT
 
-    def test_silence_after_the_relaunch_is_a_failure(self):
+    def test_silence_after_the_relaunch_is_signalled(self):
         guard = ClaimGuard(OFFERED)
         guard.review(FALSE_CLAIM)
 
-        assert guard.review("  ") is Verdict.GIVE_UP
+        with patch("app.llm.claim_guard.capture_signal") as signal:
+            assert guard.review("  ") is Verdict.ACCEPT
+        signal.assert_called_once_with(CLAIM_UNBACKED, claim="reminder")
 
     def test_silence_without_a_relaunch_is_left_alone(self):
         assert ClaimGuard(OFFERED).review("") is Verdict.ACCEPT
 
     def test_no_relaunch_without_room_for_it(self):
-        assert ClaimGuard(OFFERED).review(FALSE_CLAIM, can_retry=False) is Verdict.GIVE_UP
+        with patch("app.llm.claim_guard.capture_signal") as signal:
+            assert ClaimGuard(OFFERED).review(FALSE_CLAIM, can_retry=False) is Verdict.ACCEPT
+        signal.assert_called_once_with(CLAIM_UNBACKED, claim="reminder")
 
     def test_the_refused_answer_is_sent_back_with_the_nudge(self):
         messages: list = []
@@ -245,7 +253,7 @@ class TestTheGuard:
         nudge = guard.nudge()
 
         assert nudge["role"] == "user"
-        assert nudge["content"] == [{"type": "text", "text": NUDGE}]
+        assert nudge["content"] == [{"type": "text", "text": REMINDER_SIGNAL}]
 
 
 @pytest.fixture()
@@ -311,11 +319,10 @@ class TestTheToolLoop:
         proactions.create.assert_awaited_once()
         assert result["response"] == "C'est programmé : je vous notifie à 16h04 pour sortir le linge."
 
-    async def test_two_forgotten_reminders_end_on_the_truth(self, fake_client, proactions):
+    async def test_two_forgotten_reminders_go_out_as_written(self, fake_client, proactions):
         result, _ = await self._run(fake_client, PLANTS)
 
-        assert result["response"] == NOT_SCHEDULED_MESSAGE
-        assert "noté" not in result["response"]
+        assert result["response"] == SECOND_ANNOUNCEMENT
         proactions.create.assert_not_awaited()
 
     async def test_a_reminder_scheduled_first_time_is_not_relaunched(self, proactions):
@@ -414,13 +421,12 @@ class TestTheStreamedPath:
         assert [message["content"] for message in saved] == [SCHEDULED_ANSWER]
         assert the_bubble(events) == SCHEDULED_ANSWER
 
-    async def test_two_forgotten_reminders_end_on_the_truth(self, fake_client, proactions):
+    async def test_two_forgotten_reminders_go_out_as_written(self, fake_client, proactions):
         events, saved = await self._stream(fake_client, PLANTS)
 
         proactions.create.assert_not_awaited()
-        assert [message["content"] for message in saved] == [NOT_SCHEDULED_MESSAGE]
-        # The claim may have streamed for a moment; what the bubble ends on is the truth.
-        assert the_bubble(events) == NOT_SCHEDULED_MESSAGE
+        assert [message["content"] for message in saved] == [SECOND_ANNOUNCEMENT]
+        assert the_bubble(events) == SECOND_ANNOUNCEMENT
         types = [event["type"] for event in events]
         assert types.count("TEXT_MESSAGE_END") == 1
         assert types[-1] == "RUN_FINISHED"
@@ -465,15 +471,15 @@ class TestTheStreamedPath:
         events, saved = await self._stream(client, WATER)
 
         proactions.create.assert_not_awaited()
-        assert [message["content"] for message in saved] == [NOT_SCHEDULED_MESSAGE]
-        assert the_bubble(events) == NOT_SCHEDULED_MESSAGE
+        assert [message["content"] for message in saved] == [FALSE_CLAIM]
+        assert the_bubble(events) == FALSE_CLAIM
 
-    async def test_a_claim_left_when_the_iterations_run_out_is_reviewed(self, tmp_path, proactions):
+    async def test_a_claim_left_when_the_iterations_run_out_is_signalled_not_replaced(self, tmp_path, proactions):
         lookup = {"tools": [{"name": "date_time", "input": {"action": "now"}}]}
         client = self._scripted(tmp_path, [{"text": FALSE_CLAIM, **lookup}, lookup, lookup, lookup, lookup])
 
         events, saved = await self._stream(client, WATER)
 
-        assert [message["content"] for message in saved] == [NOT_SCHEDULED_MESSAGE]
-        assert the_bubble(events) == NOT_SCHEDULED_MESSAGE
+        assert [message["content"] for message in saved] == [FALSE_CLAIM]
+        assert the_bubble(events) == FALSE_CLAIM
         assert [event["type"] for event in events].count("TEXT_MESSAGE_END") == 1

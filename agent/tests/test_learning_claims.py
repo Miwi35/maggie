@@ -12,12 +12,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.db.skill_model import Skill
+from app.error_tracking import CLAIM_UNBACKED
 from app.llm.claim_guard import (
-    LEARNING_NUDGE,
+    LEARNING_SIGNAL,
     LEARNING_TOOLS,
-    NOT_LEARNED_MESSAGE,
-    NOT_SCHEDULED_MESSAGE,
-    NUDGE,
+    REMINDER_SIGNAL,
     SCHEDULE_TOOL,
     ClaimGuard,
     Verdict,
@@ -31,6 +30,7 @@ from app.skills.index import SkillIndex
 from tests.test_reminder_guard import stream_turn, the_bubble
 
 RULE = "Quand je demande un rappel, je veux une notification."
+SECOND_ANNOUNCEMENT = "Je retiens : les recettes en quantités pour deux."
 RECIPES = "Quand je te demande une recette, donne-moi les quantités pour deux."
 TAUGHT = "Désormais, un rappel demandé vous arrivera en notification."
 
@@ -89,19 +89,18 @@ class TestTheReproduction:
             assert [skill.name for skill in session.query(Skill).all()] == ["rappel-avec-notification"]
         assert result["response"] == TAUGHT
 
-    async def test_two_unbacked_announcements_end_on_the_truth(self, fake_client, skills):
+    async def test_two_unbacked_announcements_go_out_as_written(self, fake_client, skills):
         result, _ = await run_turn(fake_client, RECIPES)
 
-        assert result["response"] == NOT_LEARNED_MESSAGE
-        assert not claims_learning(result["response"])
+        assert result["response"] == SECOND_ANNOUNCEMENT
         with skills() as session:
             assert session.query(Skill).count() == 0
 
-    async def test_the_relaunch_names_the_tools_to_choose_from(self, fake_client, skills):
+    async def test_the_relaunch_states_the_fact_and_names_no_tool(self, fake_client, skills):
         _, messages = await run_turn(fake_client, RULE)
 
         assert messages[1]["role"] == "assistant"
-        assert messages[2] == {"role": "user", "content": [{"type": "text", "text": LEARNING_NUDGE}]}
+        assert messages[2] == {"role": "user", "content": [{"type": "text", "text": LEARNING_SIGNAL}]}
 
 
 class TestTheStreamedPath:
@@ -116,11 +115,11 @@ class TestTheStreamedPath:
         assert [message["content"] for message in saved] == [TAUGHT]
         assert the_bubble(events) == TAUGHT
 
-    async def test_two_unbacked_announcements_end_on_the_truth(self, fake_client, skills):
+    async def test_two_unbacked_announcements_go_out_as_written(self, fake_client, skills):
         events, saved = await stream_turn(fake_client, RECIPES, LEARNING_OFFERED)
 
-        assert [message["content"] for message in saved] == [NOT_LEARNED_MESSAGE]
-        assert the_bubble(events) == NOT_LEARNED_MESSAGE
+        assert [message["content"] for message in saved] == [SECOND_ANNOUNCEMENT]
+        assert the_bubble(events) == SECOND_ANNOUNCEMENT
         assert [event["type"] for event in events].count("TEXT_MESSAGE_END") == 1
 
 
@@ -155,8 +154,8 @@ class TestTheClaim:
         "text",
         [
             "",
-            NOT_LEARNED_MESSAGE,
-            NOT_SCHEDULED_MESSAGE,
+            "Je ne l'ai pas encore retenu, vous me le redites ?",
+            "Pardon, je ne l'ai pas encore posé. Je le fais tout de suite.",
             "Je n'ai rien enregistré pour l'instant.",
             "Ce n'est pas noté.",
             "Je ne retiens rien de cette conversation.",
@@ -174,13 +173,14 @@ class TestTheClaim:
 
 
 class TestTheGuard:
-    def test_a_claim_without_a_tool_is_sent_back_once_then_given_up(self):
+    def test_a_claim_without_a_tool_is_sent_back_once_then_accepted_and_signalled(self):
         guard = ClaimGuard(LEARNING_OFFERED)
 
         assert guard.review(NOTED) is Verdict.RETRY
-        assert guard.nudge()["content"] == [{"type": "text", "text": LEARNING_NUDGE}]
-        assert guard.review(NOTED) is Verdict.GIVE_UP
-        assert guard.honest_answer() == NOT_LEARNED_MESSAGE
+        assert guard.nudge()["content"] == [{"type": "text", "text": LEARNING_SIGNAL}]
+        with patch("app.llm.claim_guard.capture_signal") as signal:
+            assert guard.review(NOTED) is Verdict.ACCEPT
+        signal.assert_called_once_with(CLAIM_UNBACKED, claim="learning")
 
     @pytest.mark.parametrize("tool", LEARNING_TOOLS)
     def test_each_learning_tool_backs_the_claim(self, tool):
@@ -258,20 +258,22 @@ class TestTheGuard:
         claim = "C'est noté, je vous rappellerai à 16h05."
 
         assert guard.review(claim) is Verdict.RETRY
-        assert guard.nudge()["content"] == [{"type": "text", "text": NUDGE}]
-        assert guard.review(claim) is Verdict.GIVE_UP
-        assert guard.honest_answer() == NOT_SCHEDULED_MESSAGE
+        assert guard.nudge()["content"] == [{"type": "text", "text": REMINDER_SIGNAL}]
+        with patch("app.llm.claim_guard.capture_signal") as signal:
+            assert guard.review(claim) is Verdict.ACCEPT
+        signal.assert_called_once_with(CLAIM_UNBACKED, claim="reminder")
 
     def test_a_turn_not_offered_a_learning_tool_is_left_alone(self):
         assert ClaimGuard(None).review(NOTED) is Verdict.ACCEPT
         assert ClaimGuard([{"name": SCHEDULE_TOOL}]).review(NOTED) is Verdict.ACCEPT
 
-    def test_silence_after_the_relaunch_is_a_failure(self):
+    def test_silence_after_the_relaunch_is_signalled(self):
         guard = ClaimGuard(LEARNING_OFFERED)
         guard.review(NOTED)
 
-        assert guard.review(" ") is Verdict.GIVE_UP
-        assert guard.honest_answer() == NOT_LEARNED_MESSAGE
+        with patch("app.llm.claim_guard.capture_signal") as signal:
+            assert guard.review(" ") is Verdict.ACCEPT
+        signal.assert_called_once_with(CLAIM_UNBACKED, claim="learning")
 
     def test_silence_once_stored_is_fine(self):
         guard = ClaimGuard(LEARNING_OFFERED)
