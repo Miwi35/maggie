@@ -42,6 +42,43 @@ final class McpToolsContractTest extends KernelTestCase
         'notification' => 'manage_notifications',
     ];
 
+    private const DESCRIPTION_BUDGET_PER_TOOL = 1_500;
+
+    /** Ratchet: lowered by MAG-840 (80 000) and MAG-841 (60 000). */
+    private const TOTAL_DESCRIPTION_BUDGET = 122_000;
+
+    /**
+     * Tools still above the per-tool budget. Emptied by MAG-840 (finance) and
+     * MAG-841 (the rest), then removed.
+     */
+    private const OVER_BUDGET_TOOLS = [
+        'add_grocery_item',
+        'create_recipe',
+        'detect_internal_transfers',
+        'get_finance_dashboard',
+        'get_finance_scores',
+        'get_independence_counter',
+        'get_project_planning',
+        'get_recurring_operations',
+        'get_treasury_outlook',
+        'get_upcoming_projection',
+        'manage_body_measurements',
+        'manage_envelopes',
+        'manage_investments',
+        'manage_loans',
+        'manage_operations',
+        'manage_peer_debts',
+        'manage_project_funding',
+        'manage_projects',
+        'manage_scenarios',
+        'manage_transactions',
+        'manage_treasury_settings',
+        'manage_workouts',
+        'plan_annual_budget',
+        'preview_project',
+        'suggest_recurring_operations',
+    ];
+
     public function testTheToolListMatchesTheContract(): void
     {
         $this->assertMatchesContract(
@@ -124,6 +161,59 @@ final class McpToolsContractTest extends KernelTestCase
         self::assertSame([], self::unknownReferences('Use agenda_id (from manage_agendas).', $tools));
     }
 
+    public function testNoToolDescriptionExceedsTheBudgetPerTool(): void
+    {
+        foreach ($this->tools() as $name => $tool) {
+            if (\in_array($name, self::OVER_BUDGET_TOOLS, true)) {
+                continue;
+            }
+            $length = self::descriptionLength($tool);
+            self::assertLessThanOrEqual(self::DESCRIPTION_BUDGET_PER_TOOL, $length, sprintf(
+                'The tool "%s" describes itself in %d characters (description + arguments), over the %d budget. Say what it does, its arguments, its return and its refusals — not how Maggie should use it (agent-os/standards/api/mcp-tools.md § Descriptions).',
+                $name,
+                $length,
+                self::DESCRIPTION_BUDGET_PER_TOOL,
+            ));
+        }
+    }
+
+    public function testTheToolDescriptionsStayUnderTheTotalBudget(): void
+    {
+        $total = array_sum(array_map(self::descriptionLength(...), $this->tools()));
+
+        self::assertLessThanOrEqual(self::TOTAL_DESCRIPTION_BUDGET, $total, sprintf(
+            'The tool descriptions weigh %d characters, over the %d budget: they are sent to the model on every call (agent-os/standards/api/mcp-tools.md § Descriptions).',
+            $total,
+            self::TOTAL_DESCRIPTION_BUDGET,
+        ));
+    }
+
+    public function testTheOverBudgetListOnlyNamesToolsStillOverIt(): void
+    {
+        $tools = $this->tools();
+        foreach (self::OVER_BUDGET_TOOLS as $name) {
+            self::assertArrayHasKey($name, $tools, sprintf('OVER_BUDGET_TOOLS names "%s", which no longer exists: remove it.', $name));
+            self::assertGreaterThan(self::DESCRIPTION_BUDGET_PER_TOOL, self::descriptionLength($tools[$name]), sprintf(
+                '"%s" is now within the per-tool budget: remove it from OVER_BUDGET_TOOLS.',
+                $name,
+            ));
+        }
+    }
+
+    public function testNoDescriptionRepeatsThePromptsDateRule(): void
+    {
+        foreach ($this->tools() as $name => $tool) {
+            $text = json_encode($tool['description'] ?? '').json_encode(array_column($tool['inputSchema']['properties'] ?? [], 'description'));
+            foreach (['date_time', 'day of the week yourself'] as $phrase) {
+                self::assertStringNotContainsString($phrase, (string) $text, sprintf(
+                    'The tool "%s" repeats the prompt\'s date rule ("%s"): that rule lives once in default.yaml (agent-os/standards/api/mcp-tools.md § Descriptions).',
+                    $name,
+                    $phrase,
+                ));
+            }
+        }
+    }
+
     /**
      * An argument that describes its items is a list, and the SDK validates
      * every call against the schema before the handler: typed `object`, a JSON
@@ -181,6 +271,19 @@ final class McpToolsContractTest extends KernelTestCase
         $candidates = array_filter($matches[0], static fn (string $word): bool => \in_array(explode('_', $word)[0], $verbs, true));
 
         return array_values(array_unique(array_diff($candidates, $known)));
+    }
+
+    /**
+     * @param array<string, mixed> $tool
+     */
+    private static function descriptionLength(array $tool): int
+    {
+        $length = mb_strlen((string) ($tool['description'] ?? ''));
+        foreach ($tool['inputSchema']['properties'] ?? [] as $property) {
+            $length += mb_strlen((string) ($property['description'] ?? ''));
+        }
+
+        return $length;
     }
 
     /**
