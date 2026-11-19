@@ -5,7 +5,7 @@
 
 ## Steps
 
-1. `api/modules/<module>/src/Mcp/Tool/<Name>Tool.php` — `final class`, one tool per class, `#[McpTool(name: '<snake_case>', description: '…')]` (`Mcp\Capability\Attribute\McpTool`). The description is Maggie's only manual: what it does, every argument and its units/format, what it returns, what a refusal looks like, nothing deduced.
+1. `api/modules/<module>/src/Mcp/Tool/<Name>Tool.php` — `final class`, one tool per class, `#[McpTool(name: '<snake_case>', description: '…')]` (`Mcp\Capability\Attribute\McpTool`). The description says what the tool does, every argument with its format/units, what it returns and what a refusal looks like — never when or how Maggie should use it, nor what to tell the user (that is prompt: `api/mcp-tools.md` § Descriptions). 1 500 characters at most, arguments included.
 2. Constructor: `McpUserContext` (`Maggie\Core\Mcp`), plus `MessageBusInterface` for a write, the repository for a read. Never `Security`, never `EntityManagerInterface` for writing.
 3. `__invoke(...)`: typed scalar arguments (camelCase); closed sets as `#[Schema(enum: [...])]` (`Mcp\Capability\Attribute\Schema`). First `$user = $this->userContext->requireUser()` inside `try`, `catch (MissingMcpUserException)` → `{"error": …}`.
 4. CRUD tool: an `action` argument, `match ($action)` to a private method per action, `default` → error listing the valid actions; a missing required argument → error naming it.

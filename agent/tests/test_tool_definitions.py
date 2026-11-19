@@ -1,4 +1,7 @@
+import json
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.llm.tools import ToolRouter
 
@@ -50,3 +53,13 @@ class TestToolDefinitions:
 
         assert "get_event" in names
         assert not names & {"claim_due_proactions", "record_proaction_result", "list_daily_rendezvous"}
+
+    @pytest.mark.parametrize("name", ["claim_due_proactions", "record_proaction_result", "list_daily_rendezvous"])
+    async def test_the_executor_s_tools_are_refused_when_called(self, name):
+        router = ToolRouter()
+        with patch("app.llm.tools.mcp_client") as mcp:
+            mcp.call_tool = AsyncMock(return_value="{}")
+            result = json.loads(await router.call_tool(name, {}, user_id="u1"))
+
+        assert "error" in result
+        mcp.call_tool.assert_not_called()
