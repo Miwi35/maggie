@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, patch
 
@@ -359,3 +360,39 @@ class TestE2eRoutes:
         response = client.put("/e2e/skills/bucket/..%2Fx.md", json={"text": "x"}, headers=self.HEADERS)
 
         assert response.status_code in (400, 404)
+
+
+class TestTheTurnNeverWaitsForTheSkills:
+    async def test_refresh_returns_while_the_bucket_hangs(self, skills):
+        release = asyncio.Event()
+
+        async def hangs(user_id):
+            await release.wait()
+
+        skills.files.status(SCOPE).last_ok = None
+        try:
+            with patch.object(skills.files, "sync_user", hangs):
+                await asyncio.wait_for(skills.index.refresh(), 0.5)
+        finally:
+            release.set()
+
+    async def test_a_skill_corrected_in_the_bucket_reaches_the_turn_after(self, skills):
+        await skills.index.create(*RAPPEL, user_id="u")
+        await skills.files.sync_user(SCOPE)
+        corrected = render_markdown(RAPPEL[0], RAPPEL[1], RAPPEL[2], "Un SMS, jamais de push.")
+        skills.bucket.seed(skills.key("rappel-livraison.md"), corrected)
+        skills.files.status(SCOPE).last_ok = None
+
+        await skills.index.refresh()
+        await skills.files._tasks[SCOPE]
+        await skills.index.refresh()
+
+        assert "Un SMS, jamais de push." in skills.index.skills_for_moment("proaction")
+
+    async def test_a_fresh_skills_copy_starts_no_pass(self, skills):
+        await skills.files.sync_user(SCOPE)
+        calls = len(skills.bucket.calls)
+
+        await skills.index.refresh()
+
+        assert len(skills.bucket.calls) == calls

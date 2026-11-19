@@ -75,8 +75,10 @@ class SkillFiles(MemoryService):
     # ------------------------------------------------------------------ the files
 
     async def catch_up(self) -> None:
-        """Before a prompt is built: take what the bucket changed, without waiting long for it."""
-        await self.before_turn(SCOPE)
+        """Before a prompt is built: start a catch-up with the bucket, never wait for it.
+
+        The owner's correction reaches the table once the pass has reindexed: the next turn at the latest."""
+        self.catch_up_soon(SCOPE)
 
     def _scan(self) -> list[tuple[str, SkillEntry, str]]:
         """(file, entry, body) of every skill file that can be read; Conflits/ holds set-aside versions, not skills."""
