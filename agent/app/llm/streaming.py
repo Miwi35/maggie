@@ -574,15 +574,15 @@ class StreamingGateway:
         # After RUN_FINISHED: the phone asks for the voice on it, and neither Mercure nor the
         # memory write may delay that. Still in the turn's task, which drains this generator.
         if answer:
-            await self._announce_answer(msg)
+            await self._announce_answer(msg, user_id, msg_id)
 
     @staticmethod
-    async def _announce_answer(msg: Message) -> None:
+    async def _announce_answer(msg: Message, user_id: str, msg_id: str) -> None:
         try:
             await message_repo.announce(msg)
         except Exception as exc:
-            logger.exception("Could not announce answer %s", msg.id)
-            capture_error(exc, user_id=msg.user_id, message_id=msg.id)
+            logger.exception("Could not announce answer %s", msg_id)
+            capture_error(exc, user_id=user_id, message_id=msg_id)
 
     @staticmethod
     async def _keep_what_was_done(
