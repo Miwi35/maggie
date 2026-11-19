@@ -259,6 +259,12 @@ test.describe('an empty card is not drawn', () => {
 test('a burst of writes reads each card once', async ({ homeUser }) => {
   const { page, api } = homeUser
   const home = new HomePage(page)
+  // The Tâches card only exists once a task is due today: seed one so the ring is there to read.
+  const seed = await api.post('/api/tasks', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { title: 'Rafale départ', dueDate: parisDay() },
+  })
+  expect(seed.ok(), `POST /api/tasks answered ${seed.status()}`).toBe(true)
   await home.open()
   await expect(home.financeCard).toBeVisible()
 
