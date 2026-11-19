@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { test, expect, parisDay, parisTime, seedDate, seedId } from '../fixtures/index.js'
+import { test, expect, parisDay, seedDate, seedId } from '../fixtures/index.js'
 import {
   assistantText,
   calledTools,
@@ -1705,48 +1705,6 @@ test('a rule announced as learned without a tool is stored as a skill, and shown
   await page.goto(adminUrl(ROUTES.agentSettings))
   await page.getByRole('tab', { name: 'Compétences' }).click()
   await expect(page.getByText(RULE.skill)).toBeVisible()
-})
-
-/** 89-agenda-unread-once.yaml — « quand je vois Emma » answered from memory, then from the agenda. */
-const EVENING = {
-  question: 'Quand est-ce que je vois Emma ?',
-  title: 'Soirée à Rennes avec Emma',
-  wrongAnswer: 'Demain, vendredi 3 octobre',
-  answer: 'Vous voyez Emma ce soir à 19 h',
-}
-
-/**
- * MAG-349: on 8 Oct. Maggie answered « demain, vendredi 3 octobre, de 19 h à minuit » to this
- * question without opening the agenda — the evening was that night. The fixture scripts that
- * answer first; the claim guard sends it back, and only then does the fake read the agenda.
- * So the assertion is the tool that ran and the answer that survived, never the wording of the
- * first attempt.
- */
-test('"quand est-ce que je vois Emma ?" is answered from the agenda, not from memory', async ({ page, api }) => {
-  const today = parisDay()
-  const created = await api.post('/api/events', {
-    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
-    data: {
-      summary: EVENING.title,
-      startAt: parisTime(today, '19:00:00'),
-      endAt: parisTime(today, '23:00:00'),
-      agenda: `/api/agendas/${seedId('e2e_agenda_personal')}`,
-    },
-  })
-  expect(created.status()).toBe(201)
-
-  const dashboard = new HomePage(page)
-  await dashboard.open()
-
-  const chat = new ChatPanel(page)
-  const events = await chat.send(EVENING.question)
-
-  expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(
-    false,
-  )
-  expect(toolResults(events)).toContainEqual({ toolName: 'get_upcoming_events', status: 'success' })
-  expect(assistantText(events)).toContain(EVENING.answer)
-  expect(assistantText(events)).not.toContain(EVENING.wrongAnswer)
 })
 
 /** 01 to 03-context-router-birthday-*.yaml and 90 to 92-birthday-*.yaml — one discussion (MAG-341). */

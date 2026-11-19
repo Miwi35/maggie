@@ -2,8 +2,8 @@
 #
 # The model ends on « je vous rappellerai » after `date_time`, is sent back by the
 # reminder guard, and announces it again. The guard does not send it back a second
-# time: the answer becomes the guard's own sentence, that the reminder was not
-# scheduled — never « c'est noté ».
+# time: the second announcement goes out as the model wrote it, and the gap is
+# signalled to GlitchTip (`claim_unbacked`).
 name: reminder-forgotten-twice
 description: Remind me to water the plants — announced twice, never scheduled.
 
