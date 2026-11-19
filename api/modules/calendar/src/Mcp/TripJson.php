@@ -25,6 +25,7 @@ final class TripJson
                 'location' => $event->getLocation(),
             ],
             'leg' => $trip->getLeg()->value,
+            'occurrenceStartAt' => $trip->getOccurrenceStartAt()->setTimezone($paris)->format(\DATE_ATOM),
             'mode' => $trip->getMode()->value,
             'origin' => [
                 'kind' => $trip->getOriginKind(),

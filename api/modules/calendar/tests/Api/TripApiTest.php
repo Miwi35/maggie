@@ -13,6 +13,7 @@ use Maggie\Calendar\Enum\TripDecider;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -48,15 +49,15 @@ class TripApiTest extends WebTestCase
         return (string) $this->getFixture($ref)->getId();
     }
 
-    /** A trip as set_trip keeps it, leaving at $departAt (Paris). */
-    private function seed(string $eventRef, string $departAt, TripMode $mode = TripMode::Walk): string
+    /** A trip as set_trip keeps it, leaving at $departAt (Paris), for the occurrence starting at $occurrenceStartAt (Paris), the event's start by default. */
+    private function seed(string $eventRef, string $departAt, TripMode $mode = TripMode::Walk, ?string $occurrenceStartAt = null): string
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
         self::assertNotNull($event);
         $steps = TripMode::Drive === $mode
             ? [new RouteLeg(TripMode::Walk, 240), new RouteLeg(TripMode::Drive, 840), new RouteLeg(TripMode::Walk, 180)]
             : [new RouteLeg($mode, 240)];
-        $trip = (new Trip($event))->apply(new TripEstimate(
+        $trip = (new Trip($event, null === $occurrenceStartAt ? TripOccurrence::startOf($event) : new \DateTimeImmutable($occurrenceStartAt, new \DateTimeZone('Europe/Paris'))))->apply(new TripEstimate(
             mode: $mode,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
             steps: $steps,
@@ -71,6 +72,17 @@ class TripApiTest extends WebTestCase
         $this->em()->flush();
 
         return (string) $trip->getId();
+    }
+
+    /** The dentist becomes weekly, every Tuesday at 14:00 in Paris since 13 October: 3 November is its fourth (MAG-862). */
+    private function dentistEveryWeek(): void
+    {
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($event);
+        $start = new \DateTimeImmutable('2026-10-13 12:00:00', new \DateTimeZone('UTC'));
+        $event->scheduleTimed($start, $start->modify('+1 hour'));
+        $event->setRrule('FREQ=WEEKLY');
+        $this->em()->flush();
     }
 
     /** @return array<string, mixed> */
@@ -121,6 +133,23 @@ class TripApiTest extends WebTestCase
         self::assertSame('maggie', $trip['originDecidedBy']);
 
         self::assertSame([$swim], array_column($this->get('/api/trips?date=2026-11-04')['member'], 'id'));
+    }
+
+    public function testTheTripsOfADayListTheOccurrenceOfASeries(): void
+    {
+        $this->dentistEveryWeek();
+        $trip = $this->seed('dentist', '2026-11-03 13:34', TripMode::Walk, '2026-11-03 14:00');
+
+        $today = $this->get('/api/trips?date=2026-11-03');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([$trip], array_column($today['member'], 'id'));
+        self::assertSame('/api/events/'.$this->id('dentist'), $today['member'][0]['event']);
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T14:00:00+01:00'), new \DateTimeImmutable($today['member'][0]['occurrenceStartAt']));
+        self::assertSame([], $this->get('/api/trips?date=2026-10-13')['member']);
+
+        $this->client->request('GET', '/api/trips?date=2026-11-03');
+        self::assertResponseStatusCodeSame(401);
     }
 
     public function testWithoutADateTheListHasAllTheUsersTripsOnly(): void

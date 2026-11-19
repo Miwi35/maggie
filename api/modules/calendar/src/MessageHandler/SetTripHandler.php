@@ -9,6 +9,7 @@ use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Exception\InvalidTripException;
 use Maggie\Calendar\Message\SetTripCommand;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripPlanner;
 use Maggie\Calendar\UseCase\SetTrip;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -24,6 +25,7 @@ class SetTripHandler
     public function __construct(
         private readonly EventRepository $events,
         private readonly SetTrip $setTrip,
+        private readonly TripOccurrence $occurrences,
     ) {
     }
 
@@ -37,6 +39,7 @@ class SetTripHandler
 
         return $this->setTrip->execute(
             $event,
+            $this->occurrences->on($event, $command->date),
             $command->mode,
             $command->origin,
             $command->decidedBy,

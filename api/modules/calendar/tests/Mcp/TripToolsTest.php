@@ -334,7 +334,7 @@ class TripToolsTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-11-03T14:00:00+01:00'), $trips[0]->getOccurrenceStartAt());
         $payload = $this->mercurePayloadsOn('/api/trips/'.$trips[0]->getId())[0];
         self::assertSame('/api/events/'.$this->id('dentist'), $payload['event']);
-        self::assertSame('2026-11-03T13:00:00+00:00', $payload['occurrenceStartAt']);
+        self::assertSame('2026-11-03T14:00:00+01:00', $payload['occurrenceStartAt']);
         self::assertSame([$result['trip']['id']], array_column($this->listTrips('2026-11-03')['trips'], 'id'));
     }
 

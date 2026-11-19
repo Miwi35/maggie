@@ -238,7 +238,7 @@ class TripPlanner
     private function drive(User $user, TripOrigin $origin, float $latitude, float $longitude, \DateTimeImmutable $start): array
     {
         $this->locatePlaces($user);
-        $knownCar = $this->carAtOrigin($user, $origin) ?? $this->car($user);
+        $knownCar = $this->carAtOrigin($user, $origin, $start) ?? $this->car($user);
         // A car nobody knows the place of is taken where the trip starts.
         $car = $knownCar ?? [$origin->latitude, $origin->longitude];
         $steps = [];
@@ -313,17 +313,22 @@ class TripPlanner
 
     /**
      * Chained from an event the user reaches by car, the car is there when they leave it:
-     * at the parking of its known place, else at the event.
+     * at the parking of its known place, else at the event. A series is reached by car on the
+     * day of $start when its occurrence of that day is (MAG-862).
      *
      * @return array{float, float}|null
      */
-    private function carAtOrigin(User $user, TripOrigin $origin): ?array
+    private function carAtOrigin(User $user, TripOrigin $origin, \DateTimeImmutable $start): ?array
     {
         if (TripOrigin::EVENT !== $origin->kind || null === $origin->id) {
             return null;
         }
         $event = $this->events->find($origin->id);
-        if (!$event instanceof Event || TripMode::Drive !== $this->trips->findOneByEvent($event)?->getMode()) {
+        if (!$event instanceof Event) {
+            return null;
+        }
+        [$dayStart, $dayEnd] = TripDay::bounds($start->setTimezone(new \DateTimeZone(TripDay::TIME_ZONE))->format('Y-m-d'));
+        if (TripMode::Drive !== $this->trips->findOneByEventBetween($event, $dayStart, $dayEnd)?->getMode()) {
             return null;
         }
 

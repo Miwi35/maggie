@@ -18,6 +18,7 @@ use Maggie\Calendar\Routing\GeocodingClient;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Routing\RoutingClient;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mcp\MissingMcpUserException;
@@ -189,9 +190,9 @@ class EstimateTripToolTest extends KernelTestCase
      *
      * @return array<string, mixed>
      */
-    private function call(string $eventId, array $modes, ?string $origin = null, ?string $arriveAt = null): array
+    private function call(string $eventId, array $modes, ?string $origin = null, ?string $arriveAt = null, ?string $date = null): array
     {
-        return json_decode(($this->tool())($eventId, $modes, $origin, $arriveAt), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode(($this->tool())($eventId, $modes, $origin, $arriveAt, date: $date), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /** Where the phone was, $minutesAgo before the clock, and where the car is parked. */
@@ -221,7 +222,7 @@ class EstimateTripToolTest extends KernelTestCase
             navigationUrl: 'https://waze.com/ul?ll=48.119,-1.6672&navigate=yes',
             parkingKnown: true,
         );
-        $this->em()->persist((new Trip($event))->apply($estimate, TripDecider::Maggie, Clock::get()->now()));
+        $this->em()->persist((new Trip($event, TripOccurrence::startOf($event)))->apply($estimate, TripDecider::Maggie, Clock::get()->now()));
         $this->em()->flush();
     }
 
@@ -281,6 +282,28 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertSame([48.1127, -1.68], [$drive['carLatitude'], $drive['carLongitude']]);
         self::assertSame(['kind' => 'position', 'id' => null, 'label' => 'ma position', 'latitude' => 48.11, 'longitude' => -1.68], array_diff_key($drive['origin'], ['capturedAt' => true]));
         self::assertSame(['WALK', 'DRIVE', 'WALK'], $this->routedModes());
+    }
+
+    /** A series is estimated on the occurrence of the day it is asked for, and only with that day (MAG-862). */
+    public function testASeriesIsEstimatedOnTheOccurrenceOfTheGivenDay(): void
+    {
+        $this->at(self::HOME, car: [48.1127, -1.68]);
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertInstanceOf(Event::class, $event);
+        $start = new \DateTimeImmutable('2026-10-13 12:00:00', new \DateTimeZone('UTC'));
+        $event->scheduleTimed($start, $start->modify('+1 hour'));
+        $event->setRrule('FREQ=WEEKLY');
+        $this->em()->flush();
+
+        $withoutDate = $this->call($this->id('dentist'), ['drive']);
+        $offDay = $this->call($this->id('dentist'), ['drive'], date: '2026-11-04');
+        $result = $this->call($this->id('dentist'), ['drive'], date: '2026-11-03');
+
+        self::assertSame('date', $withoutDate['field'] ?? null);
+        self::assertStringContainsString('Dentiste', $withoutDate['error']);
+        self::assertSame('date', $offDay['field'] ?? null);
+        self::assertArrayNotHasKey('error', $result, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame('2026-11-03T13:34:00+01:00', $result['estimates'][0]['departAt']);
     }
 
     public function testChainedFromAnEventReachedByCarTheCarIsAtThatEvent(): void

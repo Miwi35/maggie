@@ -22,13 +22,29 @@ class TripRepository extends ServiceEntityRepository
         parent::__construct($registry, Trip::class);
     }
 
-    public function findOneByEvent(Event $event, TripLeg $leg = TripLeg::Outbound): ?Trip
+    public function findOneByOccurrence(Event $event, TripLeg $leg, \DateTimeImmutable $occurrenceStartAt): ?Trip
     {
-        return $this->findOneBy(['event' => $event, 'leg' => $leg]);
+        return $this->findOneBy(['event' => $event, 'leg' => $leg, 'occurrenceStartAt' => $occurrenceStartAt]);
+    }
+
+    /** The event's trip of that leg for an occurrence starting within [$from, $to) — a day of a series has one. */
+    public function findOneByEventBetween(Event $event, \DateTimeImmutable $from, \DateTimeImmutable $to, TripLeg $leg = TripLeg::Outbound): ?Trip
+    {
+        /* @var Trip|null */
+        return $this->createQueryBuilder('t')
+            ->where('t.event = :event AND t.leg = :leg')
+            ->andWhere('t.occurrenceStartAt >= :from AND t.occurrenceStartAt < :to')
+            ->setParameter('event', $event->getId(), 'ulid')
+            ->setParameter('leg', $leg)
+            ->setParameter('from', $from, Types::DATETIMETZ_IMMUTABLE)
+            ->setParameter('to', $to, Types::DATETIMETZ_IMMUTABLE)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /**
-     * Every trip whose time to leave has come and whose event has not started —
+     * Every trip whose time to leave has come and whose occurrence has not started (MAG-862) —
      * the ones a departure alert is owed for (MAG-655). A cancelled event is not. A stay has no start:
      * its arrival stands in; a return is owed its alert for {@see Trip::RETURN_ALERT_MINUTES} minutes.
      *
@@ -40,7 +56,7 @@ class TripRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->join('t.event', 'e')
             ->where('t.departAt <= :now')
-            ->andWhere('((t.leg = :return AND t.departAt > :returnSince) OR (t.leg = :outbound AND COALESCE(e.startAt, t.arriveAt) > :now))')
+            ->andWhere('((t.leg = :return AND t.departAt > :returnSince) OR (t.leg = :outbound AND COALESCE(t.arriveAt, t.occurrenceStartAt) > :now))')
             ->andWhere('e.status != :cancelled')
             ->setParameter('now', $now, Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('returnSince', $now->modify(sprintf('-%d minutes', Trip::RETURN_ALERT_MINUTES)), Types::DATETIMETZ_IMMUTABLE)
@@ -53,7 +69,7 @@ class TripRepository extends ServiceEntityRepository
     }
 
     /**
-     * Trips leaving within `$window` whose event has not started: the candidates of a check
+     * Trips leaving within `$window` whose occurrence has not started: the candidates of a check
      * before departure (MAG-730). A cancelled event is not.
      *
      * @return list<Trip>
@@ -64,7 +80,7 @@ class TripRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('t')
             ->join('t.event', 'e')
             ->where('t.departAt > :now AND t.departAt <= :limit')
-            ->andWhere('(t.leg = :return OR COALESCE(e.startAt, t.arriveAt) > :now)')
+            ->andWhere('(t.leg = :return OR COALESCE(t.arriveAt, t.occurrenceStartAt) > :now)')
             ->andWhere('e.status != :cancelled')
             ->setParameter('now', $now, Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('return', TripLeg::Return)

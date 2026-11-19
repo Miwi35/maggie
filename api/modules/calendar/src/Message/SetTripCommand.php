@@ -15,6 +15,7 @@ final readonly class SetTripCommand
      * @param string      $origin   `position`, `place:<ulid>` or `event:<ulid>`
      * @param string|null $arriveAt ISO 8601, for a whole-day event only
      * @param string|null $departAt ISO 8601, for a return only
+     * @param string|null $date     YYYY-MM-DD in Paris, the occurrence of a series (MAG-862)
      */
     public function __construct(
         public string $userId,
@@ -25,6 +26,7 @@ final readonly class SetTripCommand
         public ?string $arriveAt = null,
         public TripLeg $leg = TripLeg::Outbound,
         public ?string $departAt = null,
+        public ?string $date = null,
     ) {
     }
 }

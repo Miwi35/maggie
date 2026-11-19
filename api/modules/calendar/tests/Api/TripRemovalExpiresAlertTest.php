@@ -14,6 +14,7 @@ use Maggie\Calendar\Enum\TripDecider;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Notification\Entity\Notification;
 use Maggie\Notification\Message\CreateNotificationCommand;
@@ -71,7 +72,7 @@ class TripRemovalExpiresAlertTest extends WebTestCase
 
     private function seedTrip(Event $event, ?\DateTimeImmutable $departAt = null): string
     {
-        $trip = (new Trip($event))->apply(new TripEstimate(
+        $trip = (new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
             mode: TripMode::Walk,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
             steps: [new RouteLeg(TripMode::Walk, 240)],

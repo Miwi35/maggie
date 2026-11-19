@@ -25,7 +25,9 @@ use Symfony\Component\Uid\Ulid;
 
 /**
  * The trip Maggie chose to an event (« Partir à l'heure », MAG-654): at most
- * one per event and {@see TripLeg}, removed with it ({@see \Maggie\Calendar\Doctrine\TripCleanupListener}).
+ * one per event, {@see TripLeg} and occurrence, removed with it ({@see \Maggie\Calendar\Doctrine\TripCleanupListener}).
+ * A trip serves one occurrence (MAG-862): `event` stays the series, `occurrenceStartAt`
+ * says which day — a single event's own start.
  * Written by `set_trip` only, read by `list_trips`, `/api/trips` and the screens.
  *
  * `departAt` is when to leave — a new value is a new departure alert. The
@@ -37,7 +39,7 @@ use Symfony\Component\Uid\Ulid;
  */
 #[ORM\Entity(repositoryClass: TripRepository::class)]
 #[ORM\Index(name: 'idx_trip_depart_at', columns: ['depart_at'])]
-#[ORM\UniqueConstraint(name: 'uniq_trip_event_leg', columns: ['event_id', 'leg'])]
+#[ORM\UniqueConstraint(name: 'uniq_trip_event_leg_occurrence', columns: ['event_id', 'leg', 'occurrence_start_at'])]
 #[ApiFilter(TripDayFilter::class, properties: ['date'])]
 #[ApiResource(operations: [
     new GetCollection(order: ['departAt' => 'ASC']),
@@ -60,6 +62,10 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     /** A return trip goes from the event's place to the home; its `departAt` is the user's, not computed. */
     #[ORM\Column(length: 10, enumType: TripLeg::class, options: ['default' => 'outbound'])]
     private TripLeg $leg = TripLeg::Outbound;
+
+    /** The start of the occurrence served, midnight in Paris for a whole-day one ({@see \Maggie\Calendar\Service\TripOccurrence::startOf()}). */
+    #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE)]
+    private \DateTimeImmutable $occurrenceStartAt;
 
     #[ORM\Column(length: 10, enumType: TripMode::class)]
     private TripMode $mode;
@@ -115,10 +121,11 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $lastCheckedAt = null;
 
-    public function __construct(Event $event)
+    public function __construct(Event $event, \DateTimeImmutable $occurrenceStartAt)
     {
         $this->id = new Ulid();
         $this->event = $event;
+        $this->occurrenceStartAt = $occurrenceStartAt;
     }
 
     #[Ignore]
@@ -163,6 +170,19 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     public function getLeg(): TripLeg
     {
         return $this->leg;
+    }
+
+    public function getOccurrenceStartAt(): \DateTimeImmutable
+    {
+        return $this->occurrenceStartAt;
+    }
+
+    /** A single event moved: its trip follows it, it is still the same occurrence. */
+    public function moveTo(\DateTimeImmutable $occurrenceStartAt): void
+    {
+        if ($occurrenceStartAt != $this->occurrenceStartAt) {
+            $this->occurrenceStartAt = $occurrenceStartAt;
+        }
     }
 
     public function getMode(): TripMode
@@ -252,7 +272,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         return $this->arriveAt;
     }
 
-    /** When the departure alert stops being worth saying: the event's start, the arrival of a stay, or 30 minutes after a return's `departAt`. */
+    /** When the departure alert stops being worth saying: the occurrence's start, the arrival of a stay, or 30 minutes after a return's `departAt`. */
     #[Ignore]
     public function getDepartureAlertExpiry(): ?\DateTimeImmutable
     {
@@ -260,7 +280,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
             return $this->departAt->modify(sprintf('+%d minutes', self::RETURN_ALERT_MINUTES));
         }
 
-        return $this->event->getStartAt() ?? $this->arriveAt;
+        return $this->arriveAt ?? $this->occurrenceStartAt;
     }
 
     #[Ignore]
@@ -280,6 +300,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         return self::filterPayload([
             'event' => '/api/events/'.$this->event->getId(),
             'leg' => $this->leg->value,
+            'occurrenceStartAt' => $this->occurrenceStartAt->format(\DATE_ATOM),
             'mode' => $this->mode->value,
             'steps' => $this->steps,
             'durationMinutes' => $this->durationMinutes,

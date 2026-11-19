@@ -19,6 +19,7 @@ use Maggie\Calendar\Message\ScheduleProactionCommand;
 use Maggie\Calendar\Message\UpdateEventCommand;
 use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOccurrence;
 use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Calendar\Tests\Support\FakeRoutingTrait;
 use Maggie\Core\Message\ParkCarCommand;
@@ -90,11 +91,11 @@ class ReplanTripsTest extends KernelTestCase
         return $this->em()->getRepository(Proaction::class)->findBy(['summary' => ReplanTripsCommand::SUMMARY]);
     }
 
-    private function seedTrip(string $eventRef, TripMode $mode = TripMode::Transit, string $departAt = '2026-11-03 13:20:00'): void
+    private function seedTrip(string $eventRef, TripMode $mode = TripMode::Transit, string $departAt = '2026-11-03 13:20:00', ?string $occurrenceStartAt = null): void
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
         $drive = TripMode::Drive === $mode;
-        $trip = (new Trip($event))->apply(new TripEstimate(
+        $trip = (new Trip($event, null === $occurrenceStartAt ? TripOccurrence::startOf($event) : $this->at($occurrenceStartAt)))->apply(new TripEstimate(
             mode: $mode,
             origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', 48.11, -1.68),
             steps: [new RouteLeg($mode, 600)],
@@ -405,6 +406,31 @@ class ReplanTripsTest extends KernelTestCase
         self::assertSame(10, $this->storedTrip('dentist')->getDurationMinutes());
     }
 
+    /** A series' trip is computed again on its occurrence of the day, never on the series' first start (MAG-862). */
+    public function testAnOccurrenceTripOfTodayIsRechecked(): void
+    {
+        // Made weekly on a day nothing falls on, so the change itself triggers nothing.
+        Clock::set(new MockClock('2020-01-01 12:00:00', 'Europe/Paris'));
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        self::assertNotNull($event);
+        $event->scheduleTimed($this->at('2026-10-13 14:00:00'), $this->at('2026-10-13 15:00:00'));
+        $event->setRrule('FREQ=WEEKLY');
+        $this->em()->flush();
+        Clock::set(new MockClock('2026-11-03 10:00:00', 'Europe/Paris'));
+        $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00', '2026-11-03 14:00:00');
+        $this->routeSeconds = 1500;
+
+        $this->report(48.128);
+
+        $this->em()->clear();
+        $trips = $this->em()->getRepository(Trip::class)->findAll();
+        self::assertCount(1, $trips);
+        self::assertSame(25, $trips[0]->getDurationMinutes());
+        self::assertEquals($this->at('2026-11-03 13:30:00'), $trips[0]->getDepartAt());
+        self::assertEquals($this->at('2026-11-03 14:00:00'), $trips[0]->getOccurrenceStartAt());
+        self::assertSame([], $this->replans());
+    }
+
     public function testATripThatGrewByLessThanFifteenMinutesIsKeptWithoutWakingMaggie(): void
     {
         $this->seedTrip('dentist', TripMode::Transit, '2026-11-03 13:45:00');
@@ -432,7 +458,7 @@ class ReplanTripsTest extends KernelTestCase
     public function testATripWhoseOriginTheUserChoseKeepsItAndItsDecider(): void
     {
         $event = $this->em()->find(Event::class, $this->id('dentist'));
-        $this->em()->persist((new Trip($event))->apply(new TripEstimate(
+        $this->em()->persist((new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
             mode: TripMode::Transit,
             origin: new TripOrigin(TripOrigin::PLACE, $this->id('home'), 'Maison', 48.11, -1.68),
             steps: [new RouteLeg(TripMode::Transit, 600)],
