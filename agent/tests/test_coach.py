@@ -24,8 +24,7 @@ TOOLS = [
     "get_next_prescription",
     "get_training_status",
     "manage_workouts",
-    "get_events_by_date",
-    "get_upcoming_events",
+    "get_events",
     "get_health_day",
     "get_user_timezone",
     "memory_search",
@@ -189,7 +188,7 @@ async def test_the_coach_run_reads_the_method_and_prescribes_without_writing():
         )
 
     names = [name for name, _ in api.calls]
-    assert names[:2] == ["get_training_status", "get_events_by_date"]
+    assert names[:2] == ["get_training_status", "get_events"]
     assert names.count("get_next_prescription") == 6
     assert "manage_workouts" not in names
     assert "calibration" in result["response"].lower()

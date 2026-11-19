@@ -49,7 +49,7 @@ def daily_planning_prompt(today: date) -> str:
     return (
         f"C'est le début de la journée du {day}. "
         '1. Appelle list_instructions avec kind="planning" pour lire tes consignes de planification. '
-        f"2. Lis l'agenda de l'utilisateur pour ce jour (get_events_by_date, date={day}) : "
+        f"2. Lis l'agenda de l'utilisateur pour ce jour (get_events, from={day}, to={day}) : "
         "une consigne qui dépend de l'agenda (« les jours où j'ai mon fils… ») ne vaut que les jours où il le dit. "
         f'3. Appelle list_proactions avec from="{day}" et to="{day}" pour voir les proactions déjà posées ce jour-là. '
         "4. Pose avec schedule_proaction les proactions du jour que demandent les consignes, et seulement celles-là "
@@ -142,7 +142,7 @@ async def planning_agenda(user_id: str, day: date) -> str:
     """
     try:
         raw = await asyncio.wait_for(
-            mcp_client.call_tool("get_events_by_date", {"date": day.isoformat()}, user_id=user_id),
+            mcp_client.call_tool("get_events", {"from": day.isoformat(), "to": day.isoformat()}, user_id=user_id),
             PLANNING_AGENDA_TIMEOUT,
         )
         events = json.loads(raw).get("events", [])

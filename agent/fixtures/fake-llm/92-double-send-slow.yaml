@@ -11,6 +11,6 @@ stream_delay_ms: 400
 
 turns:
   - tools:
-      - name: get_upcoming_events
-        input: {days: 7}
+      - name: get_events
+        input: {}
   - text: "J'ai regardé votre agenda une seule fois pour répondre à ce message envoyé deux fois, sans rien refaire."

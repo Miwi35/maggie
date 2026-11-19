@@ -75,9 +75,9 @@ class SilentToolGateway:
 
     async def chat_stream(self, message, user_id, user_msg_id, **_kwargs):
         yield {"type": "RUN_STARTED", "runId": "run-1"}
-        yield {"type": "TOOL_CALL_START", "toolCallId": "t1", "toolName": "get_upcoming_events"}
+        yield {"type": "TOOL_CALL_START", "toolCallId": "t1", "toolName": "get_events"}
         await asyncio.sleep(0.2)
-        yield {"type": "TOOL_CALL_END", "toolCallId": "t1", "toolName": "get_upcoming_events"}
+        yield {"type": "TOOL_CALL_END", "toolCallId": "t1", "toolName": "get_events"}
         yield {"type": "RUN_FINISHED", "runId": "run-1"}
 
 

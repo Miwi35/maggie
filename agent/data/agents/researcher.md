@@ -9,12 +9,11 @@ tools:
   - memory_open
   - check_conflicts
   - get_finance_scores
-  - get_events_by_date
+  - get_events
   - get_finance_dashboard
   - get_grocery_list
   - get_recipe
   - get_tasks
-  - get_upcoming_events
   - get_user_timezone
   - get_skill
   - web_search

@@ -5,7 +5,7 @@ import json
 from datetime import date, timedelta
 from typing import Any
 
-HABITS_TOOLS = ("get_events_by_date", "get_upcoming_events", "list_past_errands", "manage_meals", "manage_transactions")
+HABITS_TOOLS = ("get_events", "list_past_errands", "manage_meals", "manage_transactions")
 
 
 class FakeMcp:
@@ -50,18 +50,19 @@ class FakeMcp:
     def _answer(self, name: str, arguments: dict[str, Any]) -> str:
         if name in self.down:
             return json.dumps({"error": "No response from MCP server"})
-        if name == "get_events_by_date":
-            first = date.fromisoformat(arguments["date"])
-            last = date.fromisoformat(arguments.get("endDate") or arguments["date"])
+        if name == "get_events":
+            first = date.fromisoformat(arguments["from"])
+            last = date.fromisoformat(arguments["to"])
             assert (last - first).days < 31, "the API refuses a stretch of more than 31 days"
+            by_day: dict[str, list[dict[str, Any]]] = {day: list(found) for day, found in self.events.items()}
+            for event in self.upcoming:
+                by_day.setdefault(str(event.get("startDate") or event["startAt"][:10]), []).append(event)
             found = [
                 event
                 for n in range((last - first).days + 1)
-                for event in self.events.get((first + timedelta(days=n)).isoformat(), [])
+                for event in by_day.get((first + timedelta(days=n)).isoformat(), [])
             ]
-            return json.dumps({"date": arguments["date"], "events": found})
-        if name == "get_upcoming_events":
-            return json.dumps({"events": self.upcoming, "count": len(self.upcoming)})
+            return json.dumps({"from": arguments["from"], "to": arguments["to"], "events": found, "count": len(found)})
         if name == "list_past_errands":
             return json.dumps({"errands": self.errands, "count": len(self.errands)})
         if name == "manage_meals":

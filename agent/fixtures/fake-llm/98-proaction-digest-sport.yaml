@@ -1,4 +1,4 @@
-# The morning digest on a day with a planned training session (MAG-777): `get_events_by_date` reads
+# The morning digest on a day with a planned training session (MAG-777): `get_events` reads
 # « Séance A », an event `activity: "sport"` of the « Santé » agenda, and the written digest cites it with
 # its hour and its length, in its place among the appointments — one text, no vocal tool (MAG-807). Matched by its own tag « digest MAG-777 »,
 # so the digest of MAG-709's journey (98-proaction-digest-due.yaml) is untouched.
@@ -17,8 +17,8 @@ turns:
   - tools:
       - name: get_weather
         input: {date: '${today}'}
-      - name: get_events_by_date
-        input: {date: '${today}'}
+      - name: get_events
+        input: {from: '${today}', to: '${today}'}
       - name: get_tasks
         input: {view: today}
   - text: "Bonjour monsieur. Il fera 12 degrés. Ce soir, séance A à 18 h 30, 30 min. (digest MAG-777)"

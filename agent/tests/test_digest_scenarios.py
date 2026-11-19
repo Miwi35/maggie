@@ -34,7 +34,7 @@ OFFERED = [
     {"name": name, "input_schema": {}}
     for name in (
         "list_instructions",
-        "get_events_by_date",
+        "get_events",
         "list_proactions",
         "schedule_proaction",
         "date_time",
@@ -128,8 +128,9 @@ class TestTheMorningDigest:
     async def test_the_digest_reads_the_day_and_answers_one_text_without_calling_the_voice_tool(self, api):
         result = await plan_and_run(api)
 
-        assert tools_called(result)[:3] == ["get_skill", "get_weather", "get_events_by_date"]
+        assert tools_called(result)[:3] == ["get_skill", "get_weather", "get_events"]
         assert ("get_weather", {"date": "2030-11-14"}, USER) in api.calls
+        assert ("get_events", {"from": "2030-11-14", "to": "2030-11-14"}, USER) in api.calls
         assert ("get_tasks", {"view": "today"}, USER) in api.calls
         assert not {"send_voice_message", "list_trips", "get_finance_scores"} & set(tools_called(result))
         assert "degrés" in result["response"]
@@ -292,7 +293,7 @@ class TestTheDaysSession:
 
         result = await run("[Proaction due maintenant] Fais le digest du matin (digest MAG-777).")
 
-        assert ("get_events_by_date", {"date": "2030-11-14"}, USER) in api.calls
+        assert ("get_events", {"from": "2030-11-14", "to": "2030-11-14"}, USER) in api.calls
         assert "séance A à 18 h 30, 30 min" in result["response"]
         assert "send_voice_message" not in tools_called(result)
 

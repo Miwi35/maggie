@@ -27,8 +27,8 @@ match:                       # every condition declared has to hold
 turns:                       # one entry per model turn, in order
   - text: "Je regarde."      # optional: what she says this turn
     tools:                   # optional: the tools she asks for this turn
-      - name: get_upcoming_events
-        input: {days: 1}
+      - name: get_events
+        input: {from: "2026-11-20"}
   - text: "Tu as un déjeuner avec Alex à midi."
 ```
 
@@ -195,9 +195,9 @@ wrote it, signalled to GlitchTip (`claim_unbacked`).
 
 `96-agenda-limit-directive.yaml` and `96-agenda-limit-applied.yaml` are the pair for « ne me parle que de Défaut
 et Garde Tom » (MAG-325): the rule is stored as a `behavior` directive, and the second can only answer, with
-`get_upcoming_events` called with `agendas`, once that directive is in the system prompt.
+`get_events` called with `agendas`, once that directive is in the system prompt.
 `97-delete-event-by-name.yaml` replays the 7 Oct. conversation: an event the owner names is looked up with `query`
-and no `days`, whatever its date.
+and no `to`, whatever its date.
 `97-move-meal-by-name.yaml` (MAG-639) is its twin for a planned meal, which the event tools leave out: `manage_meals list` with
 `query` and no dates, then `update` on the id found, to tomorrow's `lunch`.
 `97-health-step-goal.yaml` (MAG-707): « Mon objectif de pas, c'est 10 000 » — `update_health_profile` with `stepGoal: 10000` alone.
@@ -266,14 +266,14 @@ at 3,9 %, 160 € rent, resale in 2036-06) through `manage_investments` set: one
 with `import_bank_transactions` on the two refs the WireMock statement gives the N26 transfers. The account id is said by the journey.
 
 **Trips** (MAG-657). `06-planning-trips.yaml` is the morning card on a day with a « Dentiste »: like the custody day it
-only matches once the agenda is in the history, and takes the event's id from this run's own `get_events_by_date`
+only matches once the agenda is in the history, and takes the event's id from this run's own `get_events`
 (`results_matches`); it estimates, keeps the trip by car (the checks before departure are the API's cron, MAG-730).
 `06-replan-trips.yaml` answers the « Replanifier les trajets du … » proaction: estimate again from the position, `set_trip`.
 A proaction run has 20 rounds (`PROACTION_MAX_ITERATIONS`), not the chat's 5.
 
 **Digest du matin** (MAG-709). `06-planning-digest.yaml` is the planning of a user whose instruction names « digest
 MAG-709 »: it schedules « Digest du matin » two minutes from now (`${in_2_minutes}`), for the executor to claim. `98-proaction-digest-due.yaml` runs it: `get_skill`
-digest, the day's reads (`get_weather`, `get_events_by_date`, `list_trips`, `get_tasks`, `manage_meals`), the vocal with
+digest, the day's reads (`get_weather`, `get_events`, `list_trips`, `get_tasks`, `manage_meals`), the vocal with
 `screen: "digest"`, then the written digest — stored on the digest screen, its notification links `/digest?message=`.
 `98-proaction-digest-sport.yaml` (MAG-777) is the digest of a day with a planned session, tagged « digest MAG-777 »: it
 reads the agenda and cites « Séance A à 18 h 30, 30 min » among the appointments.

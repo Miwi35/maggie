@@ -1,6 +1,6 @@
 # "What do I have coming up?" — one tool round, then an answer.
 #
-# The tool call is real: `get_upcoming_events` runs against the seeded agenda,
+# The tool call is real: `get_events` runs against the seeded agenda,
 # so a journey checks the whole chain (agent → MCP → Doctrine → back) and not
 # just that Maggie said something. The answer names seeded events so the
 # assertion has something stable to look for.
@@ -16,6 +16,6 @@ match:
 
 turns:
   - tools:
-      - name: get_upcoming_events
-        input: {days: 7}
+      - name: get_events
+        input: {}
   - text: "Vous avez un déjeuner avec Alex et votre cours de piano cette semaine."

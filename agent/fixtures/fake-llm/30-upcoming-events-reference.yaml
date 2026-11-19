@@ -13,6 +13,6 @@ match:
 
 turns:
   - tools:
-      - name: get_upcoming_events
-        input: {days: 7}
+      - name: get_events
+        input: {}
   - text: "Vous avez un déjeuner avec Alex et votre cours de piano cette semaine. (réf \\2)"

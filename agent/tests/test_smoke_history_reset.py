@@ -25,7 +25,7 @@ from app.llm.history import build_history
 
 SMOKE_ID = "01SMOKE0000000000000000000"
 OWNER_ID = "01OWNER0000000000000000000"
-QUESTION = "Appelle l'outil get_upcoming_events, puis réponds en une phrase : combien d'événements vois-tu ?"
+QUESTION = "Appelle l'outil get_events, puis réponds en une phrase : combien d'événements vois-tu ?"
 ANSWER = "Vous n'avez aucun événement prévu pour les 7 prochains jours."
 
 _private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)

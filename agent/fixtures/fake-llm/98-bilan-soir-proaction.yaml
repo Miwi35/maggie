@@ -14,8 +14,8 @@ turns:
       - name: get_activity_status
         input: {activity: bilan}
   - tools:
-      - name: get_events_by_date
-        input: {date: '${today}'}
+      - name: get_events
+        input: {from: '${today}', to: '${today}'}
       - name: get_tasks
         input: {view: today}
   - text: "Bonsoir monsieur, c'est l'heure de faire le point sur la journée. Première étape : voilà ce qui était prévu aujourd'hui et les tâches qui restent. On commence ?"

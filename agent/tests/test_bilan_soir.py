@@ -28,7 +28,7 @@ OFFERED = [
         "get_skill",
         "get_activity_status",
         "save_bilan_step",
-        "get_events_by_date",
+        "get_events",
         "get_tasks",
         "create_task",
         "schedule_proaction",
@@ -137,7 +137,7 @@ class BilanApi(FakeProactionApi):
         self.health_day = arguments
         return {"success": True, "day": arguments}
 
-    def _get_events_by_date(self, arguments: dict, user_id: str | None) -> dict:
+    def _get_events(self, arguments: dict, user_id: str | None) -> dict:
         return {"events": []}
 
     def _get_tasks(self, arguments: dict, user_id: str | None) -> dict:
@@ -188,7 +188,7 @@ class TestOnDemand:
     async def test_on_fait_le_point_opens_the_journee_step_without_the_proaction(self, api):
         result = await say("On fait le point")
 
-        assert names(result) == ["get_skill", "get_activity_status", "save_bilan_step", "get_events_by_date", "get_tasks"]
+        assert names(result) == ["get_skill", "get_activity_status", "save_bilan_step", "get_events", "get_tasks"]
         assert api.status["state"]["step"] == "journee"
         assert "*" not in result["response"] and "#" not in result["response"]
 

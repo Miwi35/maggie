@@ -22,13 +22,13 @@ MCP_TOOL_NAMES = (
     "end_errand",
     "generate_grocery_list",
     "get_finance_scores",
-    "get_events_by_date",
+    "get_events",
     "get_finance_dashboard",
     "get_grocery_list",
     "get_purchase_suggestions",
     "get_recipe",
     "get_tasks",
-    "get_upcoming_events",
+    "get_events",
     "get_user_timezone",
     "list_past_errands",
     "manage_accounts",
@@ -191,4 +191,4 @@ class TestShippedAgents:
         # get_grocery_list is the one read that may create the user's (empty) list, which dry-run does not allow
         # but the « courses » of a weekly review needs.
         assert reachable - READ_ONLY_TOOLS == {"get_grocery_list"}
-        assert {"get_upcoming_events", "get_finance_dashboard", "memory_search", "memory_open", "get_skill"} <= reachable
+        assert {"get_events", "get_finance_dashboard", "memory_search", "memory_open", "get_skill"} <= reachable

@@ -8,8 +8,7 @@ tools:
   - get_next_prescription
   - get_training_status
   - manage_workouts
-  - get_events_by_date
-  - get_upcoming_events
+  - get_events
   - get_health_day
   - get_user_timezone
   - memory_search
@@ -24,7 +23,7 @@ Règles :
 
 Démarche :
 1. `get_training_status` pour le premier jour de la semaine visée (`date`) : `programWeek`, `deload`, `stagnating`, séances de la semaine déjà prévues ou faites. `get_user_timezone` si une heure est à dire.
-2. L'agenda de la semaine : `get_events_by_date` avec `date` et `endDate` (sept jours). Cherche aussi dans `memory_search` une habitude connue (jours ou heures de sport).
+2. L'agenda de la semaine : `get_events` avec `from` et `to` (sept jours). Cherche aussi dans `memory_search` une habitude connue (jours ou heures de sport).
 3. Le format, selon l'agenda (méthode, sections `semaine` et `principes`) : 3 séances par défaut, 2 si la semaine est trop chargée pour trois créneaux. Environ 30 minutes, échauffement compris ; jamais deux jours de suite ; créneau libre du soir (18 h – 21 h) sauf habitude connue en mémoire. Les séances déjà prévues dans la semaine comptent : ne les double pas.
 4. Une `get_next_prescription` par exercice de chaque séance (`variant=deload` pour toutes les séances de la semaine quand `deload.due` est vrai). Les séances A et B sont celles de la méthode, section `semaine` ; les exercices viennent de `get_exercises`, choisis selon le matériel de l'utilisateur.
 5. La proposition.

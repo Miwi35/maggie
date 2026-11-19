@@ -37,7 +37,7 @@ def _extract_noun(tool_name: str) -> str:
 
     Examples:
         create_event -> event
-        get_events_by_date -> event
+        get_events -> event
         search -> search
         add_recurring_grocery -> recurring_grocery
     """

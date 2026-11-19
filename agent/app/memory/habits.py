@@ -161,13 +161,13 @@ def agenda_item(event: Any) -> tuple[date, str, str, str, str] | None:
 async def _read_agenda(mcp: Any, user_id: str, today: date, start: date, future_days: int) -> list[Item]:
     # One call at a time: a single MCP session mixes up the replies of parallel calls. The past is read in stretches
     # of days, not day by day, so the pass costs a handful of calls and not eighty-five.
-    calls: list[tuple[str, dict[str, Any]]] = [("get_upcoming_events", {"days": future_days})]
-    first = start
-    while first <= today:
-        last = min(first + timedelta(days=STRETCH_DAYS - 1), today)
-        calls.append(("get_events_by_date", {"date": first.isoformat(), "endDate": last.isoformat()}))
-        first = last + timedelta(days=1)
-    pages = [(await _call(mcp, name, arguments, user_id)).get("events") for name, arguments in calls]
+    calls: list[dict[str, Any]] = []
+    for first, ceiling in ((start, today), (today + timedelta(days=1), today + timedelta(days=future_days))):
+        while first <= ceiling:
+            last = min(first + timedelta(days=STRETCH_DAYS - 1), ceiling)
+            calls.append({"from": first.isoformat(), "to": last.isoformat()})
+            first = last + timedelta(days=1)
+    pages = [(await _call(mcp, "get_events", arguments, user_id)).get("events") for arguments in calls]
     found: dict[tuple[str, date], Item] = {}
     for event in (e for page in pages if isinstance(page, list) for e in page):
         parsed = agenda_item(event)

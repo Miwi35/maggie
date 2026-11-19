@@ -16,8 +16,8 @@ turns:
   - tools:
       - name: list_instructions
         input: {kind: planning}
-      - name: get_events_by_date
-        input: {date: '\1'}
+      - name: get_events
+        input: {from: '\1', to: '\1'}
       - name: list_proactions
         input: {from: '\1', to: '\1'}
   - tools:

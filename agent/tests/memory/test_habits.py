@@ -110,14 +110,25 @@ class TestAHabitIsWrittenWithItsProof:
         await run(night)
 
         assert {user for _, _, user in mcp.calls} == {USER_A}
-        reads = [arguments for name, arguments, _ in mcp.calls if name == "get_events_by_date"]
-        assert [(r["date"], r["endDate"]) for r in reads] == [
+        reads = [arguments for name, arguments, _ in mcp.calls if name == "get_events"]
+        assert [(r["from"], r["to"]) for r in reads][:3] == [
             ("2026-07-22", "2026-08-21"),
             ("2026-08-22", "2026-09-21"),
             ("2026-09-22", "2026-10-14"),
         ]
-        assert mcp.called("get_upcoming_events") == 1
-        assert ("get_upcoming_events", {"days": settings.memory_habits_future_days}, USER_A) in mcp.calls
+
+    async def test_future_is_read_in_stretches(self, env):
+        mcp = FakeMcp(errands=saturday_errands())
+        night, _ = await night_with(env, mcp)
+
+        await run(night)
+
+        reads = [arguments for name, arguments, _ in mcp.calls if name == "get_events"]
+        assert [(r["from"], r["to"]) for r in reads][3:] == [
+            ("2026-10-15", "2026-11-14"),
+            ("2026-11-15", "2026-12-15"),
+            ("2026-12-16", "2027-01-12"),
+        ]
 
 
 class TestNoProofNoHabit:
@@ -419,7 +430,7 @@ async def test_the_agenda_is_read_in_stretches_one_call_at_a_time():
     obs = await habits.observe(mcp, USER_A, TODAY, PARIS)
 
     assert obs.ok == set(habits.MODULES)
-    assert mcp.called("get_events_by_date") == 3
+    assert mcp.called("get_events") == 6
     assert not mcp.overlapped
 
 

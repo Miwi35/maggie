@@ -16,7 +16,7 @@ class TestExtractNoun:
         assert _extract_noun("search_memory") == "memory"
 
     def test_by_qualifier_stripped(self):
-        assert _extract_noun("get_events_by_date") == "events"
+        assert _extract_noun("get_events") == "events"
 
     def test_no_verb_prefix(self):
         assert _extract_noun("search") == "search"
@@ -72,7 +72,7 @@ class TestGenerateCapabilitySummary:
     def test_calendar_groups_events_and_tasks(self):
         tools = [
             {"name": "create_event"},
-            {"name": "get_events_by_date"},
+            {"name": "get_events"},
             {"name": "update_event"},
             {"name": "delete_event"},
             {"name": "get_tasks"},

@@ -12,7 +12,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date
 
-EVENTS_TOOL = "get_events_by_date"
+EVENTS_TOOL = "get_events"
 TASKS_TOOL = "get_tasks"
 MEALS_TOOL = "manage_meals"
 WEATHER_TOOL = "get_weather"

@@ -21,8 +21,8 @@ match:
 
 turns:
   - tools:
-      - name: get_events_by_date
-        input: {date: "${today}"}
+      - name: get_events
+        input: {from: "${today}", to: "${today}"}
       - name: get_tasks
         input: {view: today}
   - tools:

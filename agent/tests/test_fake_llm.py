@@ -841,8 +841,8 @@ class TestMatching:
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
         question = "Qu'est-ce que j'ai de prévu aujourd'hui ? (réf 1a2b3c4d)"
 
-        first = await ask(client, question, tools=[{"name": "get_upcoming_events"}])
-        assert first.content[0].name == "get_upcoming_events"
+        first = await ask(client, question, tools=[{"name": "get_events"}])
+        assert first.content[0].name == "get_events"
 
         second = await client.messages.create(
             model="fake",
@@ -886,19 +886,19 @@ class TestTurns:
             {
                 "match": {"user_contains": "agenda"},
                 "turns": [
-                    {"text": "Je regarde.", "tools": [{"name": "get_upcoming_events", "input": {"days": 7}}]},
+                    {"text": "Je regarde.", "tools": [{"name": "get_events", "input": {"days": 7}}]},
                     {"text": "Rien de prévu."},
                 ],
             },
         )
         client = build_client(fixtures_dir)
 
-        first = await ask(client, "mon agenda ?", tools=[{"name": "get_upcoming_events"}])
+        first = await ask(client, "mon agenda ?", tools=[{"name": "get_events"}])
 
         assert first.stop_reason == "tool_use"
         assert [type(block) for block in first.content] == [FakeTextBlock, FakeToolUseBlock]
         tool_block = first.content[1]
-        assert (tool_block.name, tool_block.input) == ("get_upcoming_events", {"days": 7})
+        assert (tool_block.name, tool_block.input) == ("get_events", {"days": 7})
 
     async def test_the_turn_follows_the_tool_rounds_already_done(self, fixtures_dir):
         write_scenario(
@@ -907,7 +907,7 @@ class TestTurns:
             {
                 "match": {"user_contains": "agenda"},
                 "turns": [
-                    {"tools": [{"name": "get_upcoming_events", "input": {}}]},
+                    {"tools": [{"name": "get_events", "input": {}}]},
                     {"text": "Rien de prévu."},
                 ],
             },
@@ -931,7 +931,7 @@ class TestTurns:
         write_scenario(
             fixtures_dir,
             "10-agenda.yaml",
-            {"match": {"user_contains": "agenda"}, "turns": [{"tools": [{"name": "get_upcoming_events"}]}]},
+            {"match": {"user_contains": "agenda"}, "turns": [{"tools": [{"name": "get_events"}]}]},
         )
         client = build_client(fixtures_dir)
 
@@ -951,7 +951,7 @@ class TestTurns:
         write_scenario(
             fixtures_dir,
             "10-agenda.yaml",
-            {"match": {"user_contains": "agenda"}, "turns": [{"tools": [{"name": "get_upcoming_events"}]}]},
+            {"match": {"user_contains": "agenda"}, "turns": [{"tools": [{"name": "get_events"}]}]},
         )
         client = build_client(fixtures_dir)
 
@@ -1109,7 +1109,7 @@ class TestTheRealStreamingGateway:
             gateway.tool_router = MagicMock()
             gateway.tool_router.get_tool_definitions = AsyncMock(
                 return_value=[
-                    {"name": "get_upcoming_events", "input_schema": {}},
+                    {"name": "get_events", "input_schema": {}},
                     {"name": "create_event", "input_schema": {}},
                 ]
             )
@@ -1133,7 +1133,7 @@ class TestTheRealStreamingGateway:
             {
                 "match": {"user_contains": "agenda"},
                 "turns": [
-                    {"tools": [{"name": "get_upcoming_events", "input": {"days": 7}}]},
+                    {"tools": [{"name": "get_events", "input": {"days": 7}}]},
                     {"text": "Vous avez un déjeuner avec Alex aujourd'hui."},
                 ],
             },
@@ -1172,7 +1172,7 @@ class TestTheRealStreamingGateway:
         results = [e for e in events if e.get("name") == "tool_result"]
         assert results and results[0]["value"] == {
             "toolCallId": "toolu_fake_0_0",
-            "toolName": "get_upcoming_events",
+            "toolName": "get_events",
             "status": "success",
         }
 
@@ -1541,7 +1541,7 @@ class TestTheShippedFixtures:
 
         assert answer.stop_reason == "tool_use"
         assert [block.name for block in answer.content if isinstance(block, FakeToolUseBlock)] == [
-            "get_upcoming_events"
+            "get_events"
         ]
 
     async def test_booking_an_appointment_calls_the_write_tool(self):
@@ -1693,7 +1693,7 @@ class TestTheShippedFixtures:
         )
 
         call = next(block for block in with_directive.content if isinstance(block, FakeToolUseBlock))
-        assert call.name == "get_upcoming_events"
+        assert call.name == "get_events"
         assert call.input["agendas"] == ["Défaut", "Garde Tom"]
 
     async def test_an_event_named_by_the_owner_is_searched_by_title_with_no_window(self):
@@ -1703,7 +1703,7 @@ class TestTheShippedFixtures:
         answer = await ask(client, "Supprime le piano du jeudi")
 
         call = next(block for block in answer.content if isinstance(block, FakeToolUseBlock))
-        assert call.name == "get_upcoming_events"
+        assert call.name == "get_events"
         assert call.input == {"query": "piano"}
 
     async def test_a_product_nearly_out_is_told_to_update_stock_not_added_to_the_list(self):

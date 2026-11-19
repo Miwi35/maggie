@@ -12,7 +12,7 @@ def call(name: str, result: dict | str) -> dict:
 
 
 def events(*items: dict) -> dict:
-    return call("get_events_by_date", {"date": DAY, "events": list(items)})
+    return call("get_events", {"date": DAY, "events": list(items)})
 
 
 def event(summary: str, start: str = f"{DAY}T09:15:00+01:00", **extra) -> dict:

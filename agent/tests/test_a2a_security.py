@@ -114,7 +114,7 @@ class TestA2AToolRestriction:
     async def test_a2a_is_offered_read_only_mcp_tools_and_no_native_tool(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(
             return_value=[
-                {"name": "get_upcoming_events", "description": "read", "inputSchema": {"type": "object"}},
+                {"name": "get_events", "description": "read", "inputSchema": {"type": "object"}},
                 {"name": "create_event", "description": "write", "inputSchema": {"type": "object"}},
                 {"name": "manage_accounts", "description": "write", "inputSchema": {"type": "object"}},
             ]
@@ -122,7 +122,7 @@ class TestA2AToolRestriction:
 
         tools = await ToolRouter().get_tool_definitions(source="a2a")
 
-        assert [t["name"] for t in tools] == ["get_upcoming_events"]
+        assert [t["name"] for t in tools] == ["get_events"]
 
     def test_allowlist_holds_no_native_and_no_mutating_tool(self):
         native = {t["name"] for t in MEMORY_TOOLS}
@@ -145,7 +145,7 @@ class TestA2AToolRestriction:
     async def test_a2a_call_to_a_read_tool_goes_through(self, mock_mcp_client):
         mock_mcp_client.call_tool = AsyncMock(return_value='{"events": []}')
 
-        result = await ToolRouter().call_tool("get_upcoming_events", {}, user_id="a2a", source="a2a")
+        result = await ToolRouter().call_tool("get_events", {}, user_id="a2a", source="a2a")
 
         assert result == '{"events": []}'
 

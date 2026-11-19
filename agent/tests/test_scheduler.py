@@ -687,7 +687,7 @@ class TestDailyPlanningPrompt:
 
         assert "2026-10-14" in prompt
         assert 'kind="planning"' in prompt
-        assert "get_events_by_date" in prompt
+        assert "get_events" in prompt
         assert 'list_proactions avec from="2026-10-14" et to="2026-10-14"' in prompt
         assert "sans recréer celles qui existent déjà" in prompt
 
@@ -725,7 +725,7 @@ class TestPlanningRecall:
         text = await planning_agenda("user-1", date(2026, 10, 14))
 
         assert text == "Fête des mères Chez Françoise\nDentiste Cabinet rue Haute"
-        assert calls.await_args.args[:2] == ("get_events_by_date", {"date": "2026-10-14"})
+        assert calls.await_args.args[:2] == ("get_events", {"from": "2026-10-14", "to": "2026-10-14"})
         assert calls.await_args.kwargs == {"user_id": "user-1"}
 
     async def test_an_api_that_does_not_answer_costs_the_recall_and_nothing_else(self, monkeypatch):

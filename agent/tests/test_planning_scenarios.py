@@ -29,7 +29,7 @@ OFFERED = [
     {"name": name, "input_schema": {}}
     for name in (
         "list_instructions",
-        "get_events_by_date",
+        "get_events",
         "list_proactions",
         "schedule_proaction",
         "date_time",
@@ -81,8 +81,8 @@ class TestTheDailyPlanning:
     async def test_it_reads_the_instructions_the_day_s_agenda_and_proactions_before_anything(self, api):
         result = await plan(ORDINARY_DAY)
 
-        assert tools_called(result)[:3] == ["list_instructions", "get_events_by_date", "list_proactions"]
-        assert ("get_events_by_date", {"date": "2030-11-15"}, USER) in api.calls
+        assert tools_called(result)[:3] == ["list_instructions", "get_events", "list_proactions"]
+        assert ("get_events", {"from": "2030-11-15", "to": "2030-11-15"}, USER) in api.calls
         assert ("list_proactions", {"from": "2030-11-15", "to": "2030-11-15"}, USER) in api.calls
 
     async def test_a_custody_day_gets_the_drop_off_reminder(self, api):
@@ -169,7 +169,7 @@ class TestTheMorningCardOfTrips:
 
         result = await replan(TRIP_DAY)
 
-        assert tools_called(result) == ["list_trips", "get_events_by_date", "estimate_trip", "set_trip"]
+        assert tools_called(result) == ["list_trips", "get_events", "estimate_trip", "set_trip"]
         assert ("estimate_trip", {"eventId": DENTIST_ID, "modes": ["drive", "walk"], "origin": "position"}, USER) in trip_api.calls
         assert trip_api.trips[DENTIST_ID]["departAt"] == "2030-11-14T14:34:00+01:00"
 

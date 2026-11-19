@@ -23,7 +23,7 @@ ALL_TOOLS = [
     {"name": name, "description": "", "input_schema": {"type": "object", "properties": {}}}
     for name in (
         "search_recipes",
-        "get_upcoming_events",
+        "get_events",
         "list_skills",
         "memory_search",
         "create_event",
@@ -52,7 +52,7 @@ def router():
 
 @pytest.fixture()
 def loop():
-    result = {"response": "Votre semaine est calme.", "tool_calls": [{"name": "get_upcoming_events"}, {"name": "search_recipes"}]}
+    result = {"response": "Votre semaine est calme.", "tool_calls": [{"name": "get_events"}, {"name": "search_recipes"}]}
     with (
         patch("app.agents.delegate.run_tool_loop", AsyncMock(return_value=result)) as run,
         patch("app.agents.delegate._llm_client", return_value="client"),
@@ -67,7 +67,7 @@ class TestSelectTools:
     def test_keeps_only_tools_matching_a_pattern(self):
         names = [t["name"] for t in select_tools(RESEARCHER, ALL_TOOLS)]
 
-        assert names == ["search_recipes", "get_upcoming_events", "list_skills", "memory_search"]
+        assert names == ["search_recipes", "get_events", "list_skills", "memory_search"]
 
     def test_delegate_is_always_removed(self):
         everything = SubagentDefinition(**{**RESEARCHER.__dict__, "tools": ["*"]})
@@ -93,7 +93,7 @@ class TestHandleDelegate:
         assert system.startswith("Tu cherches.")
         assert "allergique aux noix" in system
         assert messages == [{"role": "user", "content": "Ma semaine"}]
-        assert [t["name"] for t in tools] == ["search_recipes", "get_upcoming_events", "list_skills", "memory_search"]
+        assert [t["name"] for t in tools] == ["search_recipes", "get_events", "list_skills", "memory_search"]
         assert kwargs["model"] == settings.model_aliases["haiku"]
         assert kwargs["max_iterations"] == 6
         assert kwargs["call_type"] == "subagent"
@@ -102,7 +102,7 @@ class TestHandleDelegate:
         assert result == {
             "agent": "researcher",
             "result": "Votre semaine est calme.",
-            "tool_calls": ["get_upcoming_events", "search_recipes"],
+            "tool_calls": ["get_events", "search_recipes"],
         }
 
     async def test_the_subagent_date_follows_the_users_timezone(self, registry, router, loop):
@@ -200,7 +200,7 @@ class TestDelegateThroughTheToolRouter:
     async def test_subagent_reads_through_mcp_and_answers(self, mcp, registry):
         mcp.list_tools = AsyncMock(
             return_value=[
-                {"name": "get_upcoming_events", "description": "", "inputSchema": {"type": "object"}},
+                {"name": "get_events", "description": "", "inputSchema": {"type": "object"}},
                 {"name": "create_event", "description": "", "inputSchema": {"type": "object"}},
             ]
         )
@@ -209,7 +209,7 @@ class TestDelegateThroughTheToolRouter:
         client.messages.create = AsyncMock(
             side_effect=[
                 _tool_use("create_event", {"title": "x"}),
-                _tool_use("get_upcoming_events", {}),
+                _tool_use("get_events", {}),
                 _text("Rien de prévu."),
             ]
         )
@@ -229,9 +229,9 @@ class TestDelegateThroughTheToolRouter:
 
         result = json.loads(raw)
         assert result["result"] == "Rien de prévu."
-        assert result["tool_calls"] == ["create_event", "get_upcoming_events"]
+        assert result["tool_calls"] == ["create_event", "get_events"]
         # The read ran; the write the model made up was refused before reaching MCP.
-        mcp.call_tool.assert_awaited_once_with("get_upcoming_events", {}, user_id="user-1")
+        mcp.call_tool.assert_awaited_once_with("get_events", {}, user_id="user-1")
         assert client.messages.create.await_args.kwargs["model"] == model
         assert metric._value.get() - before == 3
 
