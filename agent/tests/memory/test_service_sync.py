@@ -4,7 +4,9 @@ import time
 import unicodedata
 
 import pytest
+from unittest.mock import patch
 
+from app.config import settings
 from app.db.memory_index_repository import memory_index_repo, memory_outbox_repo, memory_usage_repo
 from app.memory import carte, generated, paths
 from app.memory.bucket import BucketUnavailable
@@ -458,6 +460,41 @@ class TestDegradedMode:
         await env.service.before_turn(USER_A)
 
         assert len(env.bucket.calls) == calls
+
+    async def test_a_copy_synced_less_than_ninety_seconds_ago_is_not_synced_again(self, env):
+        await env.service.sync_user(USER_A)
+        env.service.turn_max_age_seconds = settings.memory_turn_sync_max_age_seconds
+        env.service.status(USER_A).last_ok = time.monotonic() - 89
+        calls = len(env.bucket.calls)
+
+        await env.service.before_turn(USER_A)
+
+        assert len(env.bucket.calls) == calls
+        assert env.service.catch_up_soon(USER_A) is None
+
+    async def test_the_turn_threshold_stays_above_the_loop_interval(self):
+        assert settings.memory_turn_sync_max_age_seconds > settings.memory_sync_interval_seconds
+
+    async def test_a_turn_waits_for_the_pass_started_at_its_entry_and_starts_no_other(self, env):
+        with patch.object(env.service, "sync_user", wraps=env.service.sync_user) as sync:
+            task = env.service.catch_up_soon(USER_A)
+            await env.service.before_turn(USER_A)
+            await task
+
+        assert sync.call_count == 1
+
+    async def test_catch_up_soon_returns_without_waiting_for_the_bucket(self, env):
+        release = asyncio.Event()
+
+        async def hangs(user_id):
+            await release.wait()
+
+        with patch.object(env.service, "sync_user", hangs):
+            task = env.service.catch_up_soon(USER_A)
+            await asyncio.sleep(0)
+            assert task is not None and not task.done()
+            release.set()
+            await task
 
     async def test_a_service_without_a_bucket_does_nothing(self, memory_db, tmp_path):
         service = MemoryService(None, tmp_path)

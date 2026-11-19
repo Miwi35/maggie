@@ -141,6 +141,13 @@ class AgentMemory:
             logger.warning(f"Could not build the memory profile: {e}")
             return ""
 
+    def catch_up_soon(self, user_id: str) -> None:
+        """Start the folder's catch-up with its bucket now; `blocks` waits for it later (never fails a turn)."""
+        try:
+            memory_service.catch_up_soon(user_id)
+        except Exception as e:
+            logger.warning(f"Could not start the memory catch-up: {e}")
+
     async def _folder_notice(self, user_id: str) -> str:
         """Catch the memory folder up with its bucket, then say so if it could not be (never fails a turn)."""
         try:

@@ -178,7 +178,8 @@ class Settings(BaseSettings):
     memory_sync_interval_seconds: int = 60
     memory_sync_max_backoff_seconds: int = 300
     # A turn syncs first only if the last pass is older than this, and waits for it at most `timeout`.
-    memory_turn_sync_max_age_seconds: int = 30
+    # Kept above the loop's interval: when the loop runs, a pass of its own is enough and no turn waits.
+    memory_turn_sync_max_age_seconds: int = 90
     memory_turn_sync_timeout_seconds: float = 2.0
     # Recall (MAG-16). Level 2 runs on the path of every answer, voice included: past the delay the turn
     # goes on without it. A carte must score at least the threshold to come back, at most `max` of them.

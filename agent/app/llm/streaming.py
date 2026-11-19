@@ -203,6 +203,10 @@ class StreamingGateway:
             yield {"type": "RUN_FINISHED", "runId": run_id}
             return
 
+        # Start the memory's bucket catch-up now so it overlaps the thread router;
+        # `agent_memory.blocks` waits for it later, bounded.
+        self.agent_memory.catch_up_soon(user_id)
+
         # The thread first. Everything below is built around it — the history is its
         # messages, and the system prompt names it — so routing afterwards, as this used to,
         # meant the routing decided nothing at all (MAG-13).
