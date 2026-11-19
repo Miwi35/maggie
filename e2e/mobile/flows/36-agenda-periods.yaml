@@ -85,6 +85,12 @@ tags:
 - assertVisible: "À venir"
 - assertVisible: "Passées"
 
+# The Agenda's frame: Maggie's bar stays at the bottom, the add button above it (MAG-863).
+- assertVisible:
+    id: "chat_open"
+- assertVisible:
+    id: "chat_mic"
+
 # A creation: a name, the default agenda, the day of today.
 - tapOn:
     id: "period_add"
