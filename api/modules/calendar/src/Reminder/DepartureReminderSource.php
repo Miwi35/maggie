@@ -22,6 +22,9 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * One alert per value of `departAt`, filed against the trip with `departAt` as its
  * occurrence: a trip moved by `set_trip` alerts again, the same value never twice.
  *
+ * No alert for a trip computed when its `departAt` was already more than the planner's margin
+ * past (MAG-855): leaving then no longer arrives on time. It is reported, never notified.
+ *
  * It stops being worth saying when the event starts, a stay's arrival passes, or 30 minutes after a return's `departAt` (MAG-679, MAG-734): `expiresAt`, which the screens
  * that interrupt honour even for a message delivered late. A trip or event removed expires it
  * sooner ({@see \Maggie\Calendar\EventSubscriber\ExpireNotificationsOnTripRemoved}).
@@ -51,6 +54,12 @@ final class DepartureReminderSource implements ReminderSourceInterface
         foreach ($tripsByUser as $userId => $trips) {
             try {
                 foreach ($trips as $trip) {
+                    if (!$trip->couldStillArriveOnTimeWhenComputed()) {
+                        $lines[] = \sprintf('  Skipped departure alert for "%s": computed after it could arrive on time', $trip->getEvent()->getSummary());
+
+                        continue;
+                    }
+
                     if ($this->alert($trip, $userId)) {
                         ++$created;
                         $lines[] = \sprintf(

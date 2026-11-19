@@ -240,6 +240,41 @@ final class DepartureReminderSourceTest extends KernelTestCase
         self::assertSame(['12:34', '12:45'], $departAts);
     }
 
+    /** MAG-855: computed when the trip could no longer arrive on time, « Pars maintenant » would be false. */
+    public function testATripComputedWhenItCouldNoLongerArriveOnTimeAlertsNobody(): void
+    {
+        $this->seed('dentist', '2026-11-03 09:00', computedAt: '2026-11-03 10:00 UTC');
+
+        $first = $this->source()->remind(new \DateTimeImmutable('2026-11-03 10:01:00 UTC'));
+        $later = $this->source()->remind(new \DateTimeImmutable('2026-11-03 11:30:00 UTC'));
+
+        self::assertSame([0, 0], [$first->created, $later->created]);
+        self::assertSame([], $this->departures());
+        self::assertNotEmpty(array_filter($first->lines, static fn (string $l): bool => str_contains($l, 'Skipped departure alert for "Dentiste"')));
+    }
+
+    public function testATripComputedWithinTheMarginStillAlerts(): void
+    {
+        $this->seed('dentist', '2026-11-03 13:34', computedAt: '2026-11-03 12:37 UTC');
+
+        $report = $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:37:00 UTC'));
+
+        self::assertSame(1, $report->created);
+        self::assertCount(1, $this->departures());
+    }
+
+    public function testATripSkippedThenRecomputedAheadAlertsAtItsNewDepartAt(): void
+    {
+        $tripId = $this->seed('dentist', '2026-11-03 09:00', computedAt: '2026-11-03 10:00 UTC');
+        $skipped = $this->source()->remind(new \DateTimeImmutable('2026-11-03 10:01:00 UTC'));
+
+        $this->moveTrip($tripId, '2026-11-03 13:45', '2026-11-03 10:30:00 UTC');
+        $due = $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:45:00 UTC'));
+
+        self::assertSame([0, 1], [$skipped->created, $due->created]);
+        self::assertCount(1, $this->departures());
+    }
+
     public function testAnEventAlreadyStartedIsNotAlertedFor(): void
     {
         $this->seed('dentist', '2026-11-03 13:34');
@@ -356,23 +391,23 @@ final class DepartureReminderSourceTest extends KernelTestCase
     }
 
     /** A trip as set_trip keeps it, leaving at $departAt (Paris). */
-    private function seed(string $eventRef, string $departAt, TripLeg $leg = TripLeg::Outbound, ?string $arriveAt = null): string
+    private function seed(string $eventRef, string $departAt, TripLeg $leg = TripLeg::Outbound, ?string $arriveAt = null, string $computedAt = '2026-11-03 10:00:00 UTC'): string
     {
         $event = $this->em()->find(Event::class, $this->id($eventRef));
         self::assertInstanceOf(Event::class, $event);
-        $trip = (new Trip($event))->apply($this->estimate($departAt, $leg, $arriveAt), TripDecider::Maggie, new \DateTimeImmutable('2026-11-03 10:00:00 UTC'));
+        $trip = (new Trip($event))->apply($this->estimate($departAt, $leg, $arriveAt), TripDecider::Maggie, new \DateTimeImmutable($computedAt));
         $this->em()->persist($trip);
         $this->em()->flush();
 
         return (string) $trip->getId();
     }
 
-    private function moveTrip(string $tripId, string $departAt): void
+    private function moveTrip(string $tripId, string $departAt, string $computedAt = '2026-11-03 12:36:00 UTC'): void
     {
         $this->em()->clear();
         $trip = $this->em()->find(Trip::class, $tripId);
         self::assertInstanceOf(Trip::class, $trip);
-        $trip->apply($this->estimate($departAt), TripDecider::Maggie, new \DateTimeImmutable('2026-11-03 12:36:00 UTC'));
+        $trip->apply($this->estimate($departAt), TripDecider::Maggie, new \DateTimeImmutable($computedAt));
         $this->em()->flush();
     }
 }
