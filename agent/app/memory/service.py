@@ -141,7 +141,7 @@ class MemoryService:
         clock: Callable[[], datetime] | None = None,
         interval_seconds: float = 60,
         max_backoff_seconds: float = 300,
-        turn_max_age_seconds: float = 30,
+        turn_max_age_seconds: float = 90,
         turn_timeout_seconds: float = 2.0,
         push_after_write: bool = True,
     ) -> None:
@@ -404,17 +404,22 @@ class MemoryService:
             )
         return "\n".join(lines)
 
-    async def before_turn(self, user_id: str) -> None:
-        """Catch up with the bucket before a turn, without ever making the turn wait long for it."""
+    def catch_up_soon(self, user_id: str) -> asyncio.Task | None:
+        """Start a pass if the local copy is too old, without waiting for it. None: nothing to start."""
         if not self.enabled or not self._is_scope(user_id):
-            return
+            return None
         self._known.add(user_id)
         status = self.status(user_id)
         fresh = status.last_ok is not None and time.monotonic() - status.last_ok < self.turn_max_age_seconds
         if fresh:
-            return
-        task = self._pass_task(user_id)
-        await asyncio.wait({task}, timeout=self.turn_timeout_seconds)
+            return None
+        return self._pass_task(user_id)
+
+    async def before_turn(self, user_id: str) -> None:
+        """Catch up with the bucket before a turn, without ever making the turn wait long for it."""
+        task = self.catch_up_soon(user_id)
+        if task is not None:
+            await asyncio.wait({task}, timeout=self.turn_timeout_seconds)
 
     # ------------------------------------------------------------------ scheduling
 
