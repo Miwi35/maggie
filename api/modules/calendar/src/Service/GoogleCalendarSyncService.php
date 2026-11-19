@@ -288,12 +288,17 @@ class GoogleCalendarSyncService
 
         // Skip if Google hasn't changed since our last sync
         if (null !== $existing) {
+            $localEtag = $existing->getGoogleEtag();
+            if (null !== $localEtag && $googleEvent->getEtag() === $localEtag) {
+                return null;
+            }
+
             /** @var ?string $googleUpdated */
             $googleUpdated = $googleEvent->getUpdated();
             $localUpdated = $existing->getGoogleUpdatedAt();
             if (null !== $localUpdated && null !== $googleUpdated) {
                 if (new \DateTimeImmutable($googleUpdated) <= $localUpdated) {
-                    return (string) $existing->getId();
+                    return null;
                 }
             }
         }
