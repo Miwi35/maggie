@@ -15,7 +15,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_task', description: 'Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1 to 1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (with time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; moving the day moves this occurrence only. clear: fields to empty among description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule.')]
+#[McpTool(name: 'update_task', description: 'Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; a moved day moves this occurrence only. clear: fields to empty (description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule).')]
 class UpdateTaskTool
 {
     public function __construct(

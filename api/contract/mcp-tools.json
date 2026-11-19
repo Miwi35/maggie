@@ -492,7 +492,7 @@
                 "title"
             ]
         },
-        "description": "Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates are YYYY-MM-DD. parentId: a task that is not itself a subtask. estimatedMinutes 1 to 1440; firstStep. dueDate is the deadline; scheduledDate the planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (only with time) are minutes before it, 0 at the time. timed=true runs a timer for estimatedMinutes. rrule (RFC 5545 without \"RRULE:\", DAILY to YEARLY, UNTIL not COUNT) repeats it from scheduledDate, else dueDate, a day of the rule; done or past, a new task takes it on."
+        "description": "Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates YYYY-MM-DD. parentId: a top-level task. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before, 0 at it. timed=true: timer. rrule (RFC 5545, no \"RRULE:\", DAILY-YEARLY, UNTIL not COUNT) repeats from scheduledDate, else dueDate, a day of the rule; done or past, the next task takes it."
     },
     "delete_event": {
         "name": "delete_event",
@@ -1119,7 +1119,7 @@
                 }
             }
         },
-        "description": "Gets tasks. status: pending, done, overdue, all; days limits the upcoming scope. Ordered by orderScore descending. view overrides status: today (not done, planned or due today, or late; each followed by its subtasks; plus reminders [{taskId, title, reason: to_schedule|not_done, days, urgency}]), upcoming (not done, due or planned after today), someday (not done, no due or planned day), done (50 most recent; total = count). counts: size of the four views. A task has urgency (low, normal, high, critical), orderScore, overdueDays (null if not late), parentId, position, links, dueDate, scheduledDate, scheduledMoment, scheduledTime HH:MM, reminders."
+        "description": "Gets tasks. status: pending, done, overdue, all; days limits the upcoming scope. Highest orderScore first. view overrides status: today (not done, planned or due today, or late; each followed by its subtasks; plus reminders [{taskId, title, reason: to_schedule|not_done, days, urgency}]), upcoming (not done, due or planned after today), someday (not done, no due or planned day), done (50 most recent; total = count). counts: size of the four views. Task urgency: low, normal, high or critical; overdueDays null if not late."
     },
     "get_training_status": {
         "name": "get_training_status",
@@ -5632,6 +5632,6 @@
                 "id"
             ]
         },
-        "description": "Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1 to 1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (with time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; moving the day moves this occurrence only. clear: fields to empty among description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule."
+        "description": "Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; a moved day moves this occurrence only. clear: fields to empty (description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule)."
     }
 }

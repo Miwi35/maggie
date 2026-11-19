@@ -12,7 +12,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_tasks', description: 'Gets tasks. status: pending, done, overdue, all; days limits the upcoming scope. Ordered by orderScore descending. view overrides status: today (not done, planned or due today, or late; each followed by its subtasks; plus reminders [{taskId, title, reason: to_schedule|not_done, days, urgency}]), upcoming (not done, due or planned after today), someday (not done, no due or planned day), done (50 most recent; total = count). counts: size of the four views. A task has urgency (low, normal, high, critical), orderScore, overdueDays (null if not late), parentId, position, links, dueDate, scheduledDate, scheduledMoment, scheduledTime HH:MM, reminders.')]
+#[McpTool(name: 'get_tasks', description: 'Gets tasks. status: pending, done, overdue, all; days limits the upcoming scope. Highest orderScore first. view overrides status: today (not done, planned or due today, or late; each followed by its subtasks; plus reminders [{taskId, title, reason: to_schedule|not_done, days, urgency}]), upcoming (not done, due or planned after today), someday (not done, no due or planned day), done (50 most recent; total = count). counts: size of the four views. Task urgency: low, normal, high or critical; overdueDays null if not late.')]
 class GetTasksTool
 {
     private const DONE_LIMIT = 50;
