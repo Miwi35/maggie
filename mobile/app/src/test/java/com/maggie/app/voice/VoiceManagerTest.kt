@@ -11,7 +11,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
-import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -124,13 +126,16 @@ private class FakeSpeechPlayer : SpeechPlayer {
     var stopped = false
     var released = false
     var failure: Exception? = null
-    override var durationMs = 10_000
+    var audio: SpeechStream? = null
+    var fixedDurationMs: Int? = 10_000
+    override val durationMs: Int get() = fixedDurationMs ?: audio?.estimatedDurationMs?.toInt() ?: 0
     override var positionMs = 0
     private var onFinished: (() -> Unit)? = null
 
-    override fun play(file: File, onFinished: () -> Unit) {
+    override fun play(audio: SpeechStream, onFinished: () -> Unit) {
         failure?.let { throw it }
         played = true
+        this.audio = audio
         this.onFinished = onFinished
     }
 
@@ -381,16 +386,21 @@ class VoiceManagerTest {
         assertEquals(VoiceState.PROCESSING, voiceManager.state.value)
     }
 
-    private fun speakWhenSynthesized(text: String): CompletableDeferred<ByteArray> {
-        val synthesized = CompletableDeferred<ByteArray>()
-        coEvery { apiService.synthesizeSpeech(any(), any()) } coAnswers { synthesized.await() }
+    private fun speakWhenSynthesized(text: String): Channel<ByteArray> {
+        val chunks = Channel<ByteArray>(Channel.UNLIMITED)
+        every { apiService.streamSpeech(any(), any()) } returns chunks.consumeAsFlow()
         voiceManager.speak(text)
         testScope.runCurrent()
-        return synthesized
+        return chunks
+    }
+
+    private fun Channel<ByteArray>.deliver(bytes: ByteArray = ByteArray(4)) {
+        trySend(bytes)
+        close()
     }
 
     private fun speakNow(text: String): FakeSpeechPlayer {
-        speakWhenSynthesized(text).complete(ByteArray(4))
+        speakWhenSynthesized(text).deliver()
         testScope.runCurrent()
         return players.single()
     }
@@ -426,22 +436,119 @@ class VoiceManagerTest {
         val synthesized = speakWhenSynthesized("Il était une fois un roi.")
 
         voiceManager.pressDown {}
-        synthesized.complete(ByteArray(4))
+        synthesized.deliver()
         testScope.runCurrent()
 
         assertTrue(players.none { it.played })
         assertEquals(VoiceState.LISTENING, voiceManager.state.value)
-        assertEquals(0, cacheDir.listFiles { f -> f.name.startsWith("tts_") }?.size ?: 0)
     }
 
     @Test
     fun `a synthesis that fails after being cancelled does not reset the new listening`() {
-        coEvery { apiService.synthesizeSpeech(any(), any()) } coAnswers { error("network down") }
+        every { apiService.streamSpeech(any(), any()) } returns flow { error("network down") }
         voiceManager.speak("Il était une fois un roi.")
         voiceManager.pressDown {}
         testScope.runCurrent()
 
         assertEquals(VoiceState.LISTENING, voiceManager.state.value)
+    }
+
+    @Test
+    fun `playback starts at the first chunk before the stream ends`() {
+        val chunks = speakWhenSynthesized("Il était une fois un roi.")
+
+        chunks.trySend(ByteArray(4))
+        testScope.runCurrent()
+
+        assertTrue(players.single().played)
+        assertFalse(players.single().audio!!.isComplete)
+        assertEquals(VoiceState.SPEAKING, voiceManager.state.value)
+    }
+
+    @Test
+    fun `chunks arriving after the start reach the player and the end is signalled`() {
+        val chunks = speakWhenSynthesized("Il était une fois un roi.")
+        chunks.trySend(ByteArray(4))
+        testScope.runCurrent()
+
+        chunks.trySend(ByteArray(6))
+        chunks.close()
+        testScope.runCurrent()
+
+        val audio = players.single().audio!!
+        assertEquals(10L, audio.receivedBytes)
+        assertTrue(audio.isComplete)
+    }
+
+    @Test
+    fun `press down while the stream is still arriving stops the playback and the download`() {
+        val chunks = speakWhenSynthesized("Il était une fois un roi.")
+        chunks.trySend(ByteArray(4))
+        testScope.runCurrent()
+        val player = players.single()
+
+        voiceManager.pressDown {}
+        chunks.trySend(ByteArray(4))
+        testScope.runCurrent()
+
+        assertTrue(player.stopped)
+        assertTrue(player.released)
+        assertEquals(VoiceState.LISTENING, voiceManager.state.value)
+        assertEquals(4L, player.audio!!.receivedBytes)
+        assertTrue(chunks.isClosedForReceive || chunks.isEmpty)
+    }
+
+    @Test
+    fun `a stream that fails before its first chunk frees the voice`() {
+        every { apiService.streamSpeech(any(), any()) } returns flow { error("502") }
+
+        voiceManager.speak("Il était une fois un roi.")
+        testScope.runCurrent()
+
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+        assertTrue(players.isEmpty())
+    }
+
+    @Test
+    fun `an empty stream plays nothing and frees the voice`() {
+        speakWhenSynthesized("Il était une fois un roi.").close()
+        testScope.runCurrent()
+
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+        assertTrue(players.isEmpty())
+    }
+
+    @Test
+    fun `a stream that fails after the start ends the playback and frees the voice`() {
+        every { apiService.streamSpeech(any(), any()) } returns flow {
+            emit(ByteArray(4))
+            error("connection lost")
+        }
+
+        voiceManager.speak("Il était une fois un roi.")
+        testScope.runCurrent()
+        val player = players.single()
+
+        assertTrue(player.audio!!.failed)
+        player.finish()
+        assertEquals(VoiceState.IDLE, voiceManager.state.value)
+        assertTrue(player.released)
+    }
+
+    @Test
+    fun `the heard text uses the duration of the bytes received`() {
+        val interruptions = mutableListOf<String?>()
+        voiceManager.addInterruptListener { interruptions.add(it) }
+        val chunks = speakWhenSynthesized("Il était une fois un roi qui avait trois fils.")
+        chunks.trySend(ByteArray(16_000))
+        testScope.runCurrent()
+        val player = players.single()
+        player.fixedDurationMs = null
+        player.positionMs = 550
+
+        voiceManager.pressDown {}
+
+        assertEquals(listOf<String?>("Il était une fois un roi"), interruptions)
     }
 
     @Test
@@ -548,7 +655,7 @@ class VoiceManagerTest {
 
         assertTrue(voiceManager.interrupt())
         releaseOverlay()
-        speakWhenSynthesized("Il était une fois un roi.").complete(ByteArray(4))
+        speakWhenSynthesized("Il était une fois un roi.").deliver()
         testScope.runCurrent()
         assertTrue(voiceManager.interrupt())
 

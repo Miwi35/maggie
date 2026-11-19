@@ -17,13 +17,19 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.writeFully
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.Qualification
 import com.maggie.app.data.model.QualificationKind
 import com.maggie.app.data.model.RecurringFrequency
 import com.maggie.app.data.model.nextDueLabel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.*
@@ -53,6 +59,45 @@ class MaggieApiServiceTest {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
         },
     )
+
+    @Test
+    fun `speech arrives chunk by chunk before the server has finished`() = runBlocking {
+        val body = ByteChannel(autoFlush = true)
+        val service = MaggieApiService(
+            HttpClient(
+                MockEngine {
+                    respond(content = body, status = HttpStatusCode.OK, headers = headersOf(HttpHeaders.ContentType, "audio/mpeg"))
+                },
+            ) {
+                install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true; isLenient = true }) }
+            },
+        )
+        val received = Channel<ByteArray>(Channel.UNLIMITED)
+        val collecting = launch(Dispatchers.Default) {
+            service.streamSpeech("Bonjour", "v").collect { received.send(it) }
+            received.close()
+        }
+
+        body.writeFully(byteArrayOf(1, 2, 3))
+        val first = withTimeout(5_000) { received.receive() }
+        assertTrue(collecting.isActive)
+        assertEquals(listOf<Byte>(1, 2, 3), first.toList())
+
+        body.writeFully(byteArrayOf(4))
+        body.close()
+        collecting.join()
+        assertEquals(listOf<Byte>(4), received.receive().toList())
+    }
+
+    @Test
+    fun `a refused synthesis raises its detail`() = runBlocking {
+        val service = loanService(HttpStatusCode.BadGateway, """{"detail":"Synthèse impossible"}""")
+
+        val error = runCatching { service.streamSpeech("Bonjour", "v").collect {} }.exceptionOrNull()
+
+        assertTrue(error is IllegalStateException)
+        assertEquals("Synthèse impossible", error?.message)
+    }
 
     @Test
     fun `a loan sheet reads the loan, its schedule and its early repayment from their routes`() = runBlocking {

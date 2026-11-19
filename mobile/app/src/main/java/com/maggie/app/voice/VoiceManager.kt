@@ -76,7 +76,7 @@ class VoiceManager(
     private val clock: () -> Long = System::currentTimeMillis,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val playerFactory: () -> SpeechPlayer = { MediaSpeechPlayer() },
+    private val playerFactory: () -> SpeechPlayer = { StreamingSpeechPlayer(context) },
 ) {
     companion object {
         private const val TAG = "VoiceManager"
@@ -164,7 +164,7 @@ class VoiceManager(
     private var speakGeneration = 0
     private var speakJob: Job? = null
     private var speechPlayer: SpeechPlayer? = null
-    private var speechFile: File? = null
+    private var speechStream: SpeechStream? = null
     private var spokenText: String = ""
     private var ttsVoice: String = DEFAULT_VOICE
 
@@ -471,36 +471,45 @@ class VoiceManager(
         spokenText = text
         _state.value = VoiceState.SPEAKING
         speakJob = scope.launch(ioDispatcher) {
-            var tempFile: File? = null
+            val stream = SpeechStream()
+            var started = false
             try {
-                val audioBytes = apiService.synthesizeSpeech(text, ttsVoice)
-                tempFile = File(context.cacheDir, "tts_${System.currentTimeMillis()}.mp3")
-                tempFile.writeBytes(audioBytes)
-
-                // The user may have cut Maggie off while the voice was being made: that audio
-                // is never played, however late it arrives.
-                synchronized(speakLock) {
-                    if (generation != speakGeneration) {
-                        tempFile.delete()
-                        return@launch
+                apiService.streamSpeech(text, ttsVoice).collect { chunk ->
+                    stream.append(chunk)
+                    if (started) return@collect
+                    // The user may have cut Maggie off while the voice was being made: that audio
+                    // is never played, however late it arrives.
+                    synchronized(speakLock) {
+                        if (generation != speakGeneration) {
+                            stream.cancel()
+                            throw CancellationException("Speech superseded")
+                        }
+                        val player = playerFactory()
+                        speechPlayer = player
+                        speechStream = stream
+                        player.play(stream) { onPlaybackFinished(generation) }
+                        started = true
                     }
-                    val player = playerFactory()
-                    speechPlayer = player
-                    speechFile = tempFile
-                    player.play(tempFile) { onPlaybackFinished(generation) }
                 }
+                stream.complete()
+                if (!started) freeVoice(generation)
             } catch (e: CancellationException) {
-                tempFile?.delete()
+                stream.cancel()
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "TTS synthesis failed", e)
-                tempFile?.delete()
-                synchronized(speakLock) {
-                    if (generation == speakGeneration) {
-                        releasePlayer()
-                        _state.value = VoiceState.IDLE
-                    }
-                }
+                stream.fail(e)
+                // After the start, the player ends on the error and its callback frees the voice.
+                if (!started) freeVoice(generation)
+            }
+        }
+    }
+
+    private fun freeVoice(generation: Int) {
+        synchronized(speakLock) {
+            if (generation == speakGeneration) {
+                releasePlayer()
+                _state.value = VoiceState.IDLE
             }
         }
     }
@@ -508,6 +517,7 @@ class VoiceManager(
     private fun onPlaybackFinished(generation: Int) {
         synchronized(speakLock) {
             if (generation != speakGeneration) return
+            speakJob?.cancel()
             releasePlayer()
             _state.value = VoiceState.IDLE
         }
@@ -532,8 +542,8 @@ class VoiceManager(
     private fun releasePlayer() {
         speechPlayer?.release()
         speechPlayer = null
-        speechFile?.delete()
-        speechFile = null
+        speechStream?.cancel()
+        speechStream = null
     }
 
     fun destroy() {
