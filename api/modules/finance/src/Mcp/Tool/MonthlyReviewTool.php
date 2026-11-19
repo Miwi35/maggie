@@ -15,7 +15,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'monthly_review', description: 'Run the monthly look back over a month (defaults to the one just ended). The review action lists the non-mandatory spends still waiting for a verdict, biggest first, and reports how much was kept, how much was judged avoidable, an optimisation score (the share of the judged amount worth keeping, null when nothing has been judged yet), and how the month compares with the previous one, the average of the last three and the same month last year. The rate action records one verdict: keep, avoidable, or unrated to undo it. Only non-mandatory spends are offered — asking whether someone could have skipped their rent helps nobody.')]
+#[McpTool(name: 'monthly_review', description: 'Monthly look back (year, month; default the month just ended). Action review lists non-mandatory spends without a verdict, biggest first, with the amount kept, the amount judged avoidable, an optimisation score (share of judged amount worth keeping, null if none judged) and the comparison with the previous month, the average of the last three months and the same month last year. Action rate (transactionId, verdict: keep, avoidable, or unrated to undo) records one verdict. Only non-mandatory spends are offered.')]
 class MonthlyReviewTool
 {
     public function __construct(
