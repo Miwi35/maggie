@@ -228,6 +228,7 @@ tasks:
     desc: Print the e2e stack's logs and return — what CI uploads on failure
     cmds:
       - '{{.COMPOSE}} logs --no-log-prefix --tail=400 {{.CLI_ARGS}}'
+      - 'echo "--- agent WARNING/ERROR lines of the whole run ---"; {{.COMPOSE}} logs --no-log-prefix agent 2>&1 | grep -E "^(WARNING|ERROR)" || true'
 
   url:
     desc: Print the URL the e2e stack answers on
