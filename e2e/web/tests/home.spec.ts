@@ -268,8 +268,13 @@ test('a burst of writes reads each card once', async ({ homeUser }) => {
   await home.open()
   await expect(home.financeCard).toBeVisible()
 
-  // The card lists five lines at most: the ring's total is what says the burst came in.
-  const totalOf = async () => Number(/sur (\d+)$/.exec((await home.tasksRing.textContent()) ?? '')?.[1])
+  // The card draws five lines at most and the ring stops there: the rows plus « + n autres » count the open tasks.
+  const totalOf = async () => {
+    const ring = Number(/sur (\d+)$/.exec((await home.tasksRing.textContent()) ?? '')?.[1])
+    const more = home.card('tasks').getByRole('link', { name: /^\+ \d+ autres?$/ })
+    const extra = (await more.count()) === 0 ? 0 : Number(/\d+/.exec((await more.textContent()) ?? '')?.[0])
+    return ring + extra
+  }
   await expect(home.tasksRing).toHaveText(/\d+ sur \d+/)
   const before = await totalOf()
 
