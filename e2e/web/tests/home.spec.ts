@@ -260,24 +260,29 @@ test('a burst of writes reads each card once', async ({ homeUser }) => {
   const { page, api } = homeUser
   const home = new HomePage(page)
   await home.open()
+  await expect(home.financeCard).toBeVisible()
+
+  // The card lists five lines at most: the ring's total is what says the burst came in.
+  const totalOf = async () => Number(/sur (\d+)$/.exec((await home.tasksRing.textContent()) ?? '')?.[1])
+  await expect(home.tasksRing).toHaveText(/\d+ sur \d+/)
+  const before = await totalOf()
 
   const dashboardReads: string[] = []
   page.on('request', (request) => {
     if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/finance/dashboard') dashboardReads.push(request.url())
   })
 
-  const titles = Array.from({ length: 8 }, (_, i) => `Rafale ${i + 1}`)
   const responses = await Promise.all(
-    titles.map((title) =>
+    Array.from({ length: 8 }, (_, i) =>
       api.post('/api/tasks', {
         headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
-        data: { title, dueDate: parisDay() },
+        data: { title: `Rafale ${i + 1}`, dueDate: parisDay() },
       }),
     ),
   )
   for (const response of responses) expect(response.ok(), `POST /api/tasks answered ${response.status()}`).toBe(true)
 
-  for (const title of titles) await expect(home.tick(title)).toBeVisible()
+  await expect.poll(totalOf).toBe(before + 8)
   expect(dashboardReads.length, 'the Finance dashboard is read once per burst, not once per message').toBeLessThanOrEqual(2)
   await expect(page.getByText('Erreur')).toHaveCount(0)
 })

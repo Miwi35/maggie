@@ -57,13 +57,8 @@ export const emitMercure = (topic: string, payload: Record<string, unknown>) =>
 
 /** A message on a screen that groups its reads (`useLiveRead`): emits it, then lets the burst end so the read leaves. */
 export const emitMercureAndWait = async (topic: string, payload: Record<string, unknown>) => {
-  vi.useFakeTimers({ shouldAdvanceTime: true })
-  try {
-    await emitMercure(topic, payload)
-    await act(() => vi.advanceTimersByTimeAsync(LIVE_DEBOUNCE_MS))
-  } finally {
-    vi.useRealTimers()
-  }
+  await emitMercure(topic, payload)
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, LIVE_DEBOUNCE_MS + 50)))
 }
 
 /**

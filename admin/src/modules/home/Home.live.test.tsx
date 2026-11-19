@@ -30,6 +30,10 @@ const readsByPath = () => {
   return counts
 }
 
+// Two cards (Cuisine and Courses) each read the recipe needs: once per card.
+const READ_BY_TWO_CARDS = '/api/grocery/recipe-needs'
+const offCount = () => Object.fromEntries([...readsByPath()].filter(([path, n]) => n !== (path === READ_BY_TWO_CARDS ? 2 : 1)))
+
 const burst = async (size: number) => {
   for (let i = 0; i < size; i++) await emitMercure('/api/tasks/{id}', { '@id': `/api/tasks/${i}` })
 }
@@ -75,7 +79,7 @@ describe('Home — live reads', () => {
     const counts = readsByPath()
     expect(counts.size).toBeGreaterThanOrEqual(10)
     expect(counts.get('/api/finance/dashboard')).toBe(1)
-    expect(Object.fromEntries([...counts].filter(([, n]) => n !== 1))).toEqual({})
+    expect(offCount()).toEqual({})
   })
 
   test('a single message still reads every card once', async () => {
@@ -86,7 +90,7 @@ describe('Home — live reads', () => {
     await settle()
 
     expect(readsByPath().get('/api/finance/dashboard')).toBe(1)
-    expect(Object.fromEntries([...readsByPath()].filter(([, n]) => n !== 1))).toEqual({})
+    expect(offCount()).toEqual({})
   })
 
   test('a message after the read triggers another read', async () => {
