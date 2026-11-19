@@ -9,10 +9,16 @@ use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Place;
+use Maggie\Calendar\Entity\Trip;
+use Maggie\Calendar\Enum\TripDecider;
+use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Mcp\Tool\EstimateTripTool;
 use Maggie\Calendar\Mcp\Tool\UpdateEventTool;
 use Maggie\Calendar\Routing\GeocodingClient;
+use Maggie\Calendar\Routing\RouteLeg;
 use Maggie\Calendar\Routing\RoutingClient;
+use Maggie\Calendar\Service\TripEstimate;
+use Maggie\Calendar\Service\TripOrigin;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Service\UserLocations;
@@ -200,6 +206,25 @@ class EstimateTripToolTest extends KernelTestCase
         });
     }
 
+    /** A trip in $mode already kept for the event, as set_trip leaves it. */
+    private function tripOn(string $eventRef, TripMode $mode): void
+    {
+        $event = $this->em()->find(Event::class, $this->id($eventRef));
+        self::assertInstanceOf(Event::class, $event);
+        $departAt = new \DateTimeImmutable('2026-11-03 13:00:00', new \DateTimeZone('Europe/Paris'));
+        $estimate = new TripEstimate(
+            mode: $mode,
+            origin: new TripOrigin(TripOrigin::POSITION, null, 'ma position', self::HOME[0], self::HOME[1]),
+            steps: [new RouteLeg($mode, 840)],
+            durationMinutes: 14,
+            departAt: $departAt,
+            navigationUrl: 'https://waze.com/ul?ll=48.119,-1.6672&navigate=yes',
+            parkingKnown: true,
+        );
+        $this->em()->persist((new Trip($event))->apply($estimate, TripDecider::Maggie, Clock::get()->now()));
+        $this->em()->flush();
+    }
+
     /** @return list<string> the travel modes Routes was asked for, in order */
     private function routedModes(): array
     {
@@ -256,6 +281,54 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertSame([48.1127, -1.68], [$drive['carLatitude'], $drive['carLongitude']]);
         self::assertSame(['kind' => 'position', 'id' => null, 'label' => 'ma position', 'latitude' => 48.11, 'longitude' => -1.68], array_diff_key($drive['origin'], ['capturedAt' => true]));
         self::assertSame(['WALK', 'DRIVE', 'WALK'], $this->routedModes());
+    }
+
+    public function testChainedFromAnEventReachedByCarTheCarIsAtThatEvent(): void
+    {
+        $this->at(self::HOME, car: [48.40, -1.68]);
+        $this->tripOn('office', TripMode::Drive);
+
+        $drive = $this->estimate('dentist', ['drive'], 'event:'.$this->id('office'))['estimates'][0];
+
+        self::assertSame([
+            ['kind' => 'drive', 'minutes' => 14],
+            ['kind' => 'walk', 'minutes' => 3],
+        ], self::steps($drive));
+        self::assertSame([48.13, -1.65], [$drive['carLatitude'], $drive['carLongitude']]);
+        self::assertSame(['DRIVE', 'WALK'], $this->routedModes());
+    }
+
+    public function testChainedFromAnEventAtAKnownPlaceTheCarIsAtItsParking(): void
+    {
+        $this->at(self::HOME, car: [48.40, -1.68]);
+        $this->tripOn('dentist', TripMode::Drive);
+
+        $drive = $this->estimate('swim', ['drive'], 'event:'.$this->id('dentist'))['estimates'][0];
+
+        self::assertSame('drive', self::steps($drive)[0]['kind']);
+        self::assertCount(2, self::steps($drive));
+        self::assertSame(self::PARKING, [$drive['carLatitude'], $drive['carLongitude']]);
+    }
+
+    public function testChainedFromAnEventReachedOnFootTheCarStaysWhereThePhoneSawIt(): void
+    {
+        $this->at(self::HOME, car: [48.40, -1.68]);
+        $this->tripOn('office', TripMode::Walk);
+
+        $drive = $this->estimate('dentist', ['drive'], 'event:'.$this->id('office'))['estimates'][0];
+
+        self::assertSame('walk', self::steps($drive)[0]['kind']);
+        self::assertSame([48.40, -1.68], [$drive['carLatitude'], $drive['carLongitude']]);
+    }
+
+    public function testChainedFromAnEventWithoutATripTheCarStaysWhereThePhoneSawIt(): void
+    {
+        $this->at(self::HOME, car: [48.40, -1.68]);
+
+        $drive = $this->estimate('dentist', ['drive'], 'event:'.$this->id('office'))['estimates'][0];
+
+        self::assertSame('walk', self::steps($drive)[0]['kind']);
+        self::assertSame([48.40, -1.68], [$drive['carLatitude'], $drive['carLongitude']]);
     }
 
     public function testAWholeDayEventWithAnArrivalCountsBackFromIt(): void
