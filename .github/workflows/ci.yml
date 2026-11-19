@@ -1327,8 +1327,8 @@ jobs:
 
       # The booted emulator, saved as a snapshot (MAG-233): a cold boot is a minute
       # on a runner, a snapshot load a few seconds. One per device profile; the
-      # first run after the key changes boots cold once and saves it. Bump `v1`
-      # when the emulator options below change: a snapshot taken with other
+      # first run after the key changes boots cold once and saves it. Bump `v2`
+      # when the AVD got dirty or the emulator options below change: a snapshot taken with other
       # options is refused and the emulator boots cold again.
       - name: AVD snapshot cache
         id: avd-cache
@@ -1337,7 +1337,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-v1-34-google_apis-x86_64-${{ matrix.device.profile }}
+          key: avd-v2-34-google_apis-x86_64-${{ matrix.device.profile }}
 
       - name: Create the AVD and its snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
