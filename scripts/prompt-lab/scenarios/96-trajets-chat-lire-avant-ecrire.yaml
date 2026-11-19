@@ -1,0 +1,16 @@
+# Trips in chat: she reads before she writes (MAG-856).
+#
+# 19 Nov. in production: a remark about the display (« je n'ai toujours pas les trajets dans l'Agenda »)
+# made her call set_trip without list_trips nor estimate_trip, replacing a valid trip with an unusable
+# one and marking the origin decidedBy=user. A remark is no request to recompute.
+name: trajets-chat-lire-avant-ecrire
+description: Told she cannot see the trips on the home screen, she reads the trips of the day and says what is saved, without recomputing or writing.
+channel: chat
+
+steps:
+  - user_message: "je n'ai toujours pas les trajets dans l'Agenda de l'accueil"
+    expected_tools: [list_trips]
+    forbidden_tools: [set_trip]
+    expected_behavior: >
+      Elle lit les trajets du jour (list_trips), dit ce qui est enregistré (événement, mode, heure de départ)
+      et ne recalcule ni n'enregistre rien : ni estimate_trip suivi d'un set_trip, ni decidedBy=user.
