@@ -14,7 +14,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /** The executor's report of a run it claimed with claim_due_proactions (MAG-326). */
-#[McpTool(name: 'record_proaction_result', description: 'Reserved for the proaction executor — never call it in a conversation. Records how a claimed (running) proaction went: status completed with response (Maggie\'s message, may be empty), or status failed with error.')]
+#[McpTool(name: 'record_proaction_result', description: 'Records the outcome of a claimed (running) proaction: completed with response (may be empty), or failed with error. Executor only, never offered to the model.')]
 class RecordProactionResultTool
 {
     public function __construct(

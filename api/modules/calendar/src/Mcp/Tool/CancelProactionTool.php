@@ -10,7 +10,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
-#[McpTool(name: 'cancel_proaction', description: 'Cancel a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. This time only — to stop a lasting habit, change the instruction instead.')]
+#[McpTool(name: 'cancel_proaction', description: 'Cancels a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. Affects this occurrence only; a lasting habit is stopped by changing the instruction.')]
 class CancelProactionTool
 {
     public function __construct(

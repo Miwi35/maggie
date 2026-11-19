@@ -11,7 +11,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'delete_task', description: 'Delete a task by its ID. Returns confirmation of deletion.')]
+#[McpTool(name: 'delete_task', description: 'Deletes a task by its id. Returns a confirmation.')]
 class DeleteTaskTool
 {
     public function __construct(

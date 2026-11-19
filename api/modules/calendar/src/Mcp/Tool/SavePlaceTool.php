@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'save_place', description: 'Remember a place the user goes to — home, the dentist, the office — so a trip can start or end there. Without id: creates it. With id (list_places gives it): changes it. name and address are always required (send the current ones to keep them). latitude and longitude go together, in degrees; leave them out when you do not know them, never guess. parkingAddress is where the user leaves the car when going there by car, with parkingLatitude and parkingLongitude (together) when known; an empty parkingAddress removes the parking. isHome=true makes it the user\'s home (« Maison »): the previous home stops being one. With id, a field left out keeps its value — the coordinates excepted when the address changes. A refused call changes nothing and answers {error, field}. Returns {success, place} as list_places reads it. Deleting a place is not possible.')]
+#[McpTool(name: 'save_place', description: 'Creates a place (without id) or changes one (with id, from list_places). name and address required. latitude and longitude (degrees) go together. parkingAddress with parkingLatitude and parkingLongitude (together); empty parkingAddress removes it. isHome=true replaces the home. Omitted fields kept. Refusal changes nothing, answers {error, field}. Returns {success, place}.')]
 final class SavePlaceTool
 {
     public function __construct(

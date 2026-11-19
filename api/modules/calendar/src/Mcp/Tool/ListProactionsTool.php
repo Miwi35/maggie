@@ -12,7 +12,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'list_proactions', description: 'List the proactions Maggie scheduled for the user, by time: each with its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). Optional from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; optional status filters. Use it before scheduling, so as not to schedule one that already exists.')]
+#[McpTool(name: 'list_proactions', description: 'Lists the proactions scheduled for the user, by time, each with its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters.')]
 class ListProactionsTool
 {
     public function __construct(
