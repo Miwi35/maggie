@@ -7,6 +7,7 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import anthropic
@@ -22,7 +23,7 @@ from app.llm.capabilities import generate_capability_summary
 from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.client import client_for, create_llm_client, llm_configured
 from app.llm.context_summary import context_summarizer
-from app.llm.contexts import active_contexts_section, route_message
+from app.llm.contexts import active_contexts_section, open_threads, route_message, with_routed
 from app.llm.directives import behavior_directives_section
 from app.llm.gateway import API_ERROR_MESSAGE
 from app.llm.history import build_history, label_settled, strip_thread_label
@@ -83,6 +84,19 @@ def answer_message_id(user_msg_id: str) -> str:
     return hashlib.sha1(f"answer:{user_msg_id}".encode()).hexdigest()[:26]
 
 
+@dataclass(frozen=True)
+class _ThreadFreeParts:
+    """The parts of the system prompt that do not depend on the thread (loaded beside the router)."""
+
+    base: str
+    skills: list
+    tz: object
+    directives: str
+    last_exchange: str
+    work_hours: str
+    day_context: str | None
+
+
 class StreamingGateway:
     """Claude API gateway with AG-UI streaming event emission."""
 
@@ -101,6 +115,43 @@ class StreamingGateway:
         self._background.add(task)
         task.add_done_callback(self._background.discard)
 
+    async def _thread_free_parts(
+        self, user_id: str, tools: list[dict] | None, *, exclude_message_id: str | None = None, tz=None
+    ) -> _ThreadFreeParts:
+        """What the system prompt holds that does not depend on the thread the message is routed into,
+        so it loads while the router thinks."""
+        if tz is None:
+            tz = await resolve_user_timezone(user_id)
+        capabilities = generate_capability_summary(tools) if tools else ""
+
+        async def base_and_skills() -> tuple[str, list]:
+            base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
+            await skill_index.refresh()
+            return base + skill_index.get_skills_index(), skill_index.skills_for_moment(MOMENT_CHAT)
+
+        async def work_hours() -> str:
+            return work_hours_line(await resolve_work_hours(user_id), datetime.now(tz))
+
+        async def day_context() -> str:
+            return await resolve_day_context(user_id, datetime.now(tz).date())
+
+        (base, skills), directives, last_exchange, work, day = await asyncio.gather(
+            base_and_skills(),
+            behavior_directives_section(user_id),
+            last_exchange_section(user_id, exclude_message_id=exclude_message_id, tz=tz),
+            work_hours(),
+            day_context(),
+        )
+        return _ThreadFreeParts(
+            base=base,
+            skills=skills,
+            tz=tz,
+            directives=directives,
+            last_exchange=last_exchange,
+            work_hours=work,
+            day_context=day,
+        )
+
     async def _build_system_prompt(
         self,
         user_id: str,
@@ -111,53 +162,49 @@ class StreamingGateway:
         about: str = "",
         spoken: bool = False,
         in_car: bool = False,
+        parts: _ThreadFreeParts | None = None,
+        open_threads: list | None = None,
+        tz=None,
     ) -> list[dict]:
         """Build the system blocks: cached prefix (personality + skills), the memory (the profile, then what
         `about` calls back: MAG-16), then directives, contexts, date.
 
         `spoken`: the answer will be read aloud, so it is asked for as a spoken text (ADR-014). In the
         volatile part, never in the cached prefix, which stays the same for the written chat.
-        `in_car`: the owner is driving (MAG-684): short answers for the ear, same place."""
-        capabilities = generate_capability_summary(tools) if tools else ""
-        base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
-        await skill_index.refresh()
-        skill_context = skill_index.get_skills_index()
-        tz = await resolve_user_timezone(user_id)
-        memory = await self.agent_memory.blocks(
-            user_id, about, context_id=current_context_id, today=datetime.now(tz).date()
+        `in_car`: the owner is driving (MAG-684): short answers for the ear, same place.
+
+        `parts` is what does not depend on the thread, when the caller loaded it already;
+        `open_threads` the threads it already read (the section is built from them)."""
+        if parts is None:
+            parts = await self._thread_free_parts(user_id, tools, exclude_message_id=exclude_message_id, tz=tz)
+        tz = parts.tz
+        # The memory and the open threads, each marking the current thread (MAG-13, MAG-16).
+        memory, context_section = await asyncio.gather(
+            self.agent_memory.blocks(user_id, about, context_id=current_context_id, today=datetime.now(tz).date()),
+            active_contexts_section(user_id, current_context_id, contexts=open_threads),
         )
 
-        # How the user asked to be spoken to. In the volatile block rather than the
-        # cached prefix: a preference stated in this very conversation has to hold on
-        # the next message, and the prefix would serve the copy cached before it (MAG-22).
-        directives = await behavior_directives_section(user_id)
-
-        # Inject active contexts so Claude knows ongoing topics — with what each one is
-        # about, for the threads whose summary has been written (MAG-11), and with the
-        # current thread marked, since the history is made of its messages (MAG-13).
-        context_section = await active_contexts_section(user_id, current_context_id)
-
-        # The silence before this message, so she can greet by the gap (MAG-10).
-        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id, tz=tz)
-
         date_line = current_datetime_line(tz=tz)
-        # Whether the user is at work, next to the date: the tone follows it (MAG-790).
-        work_hours = work_hours_line(await resolve_work_hours(user_id), datetime.now(tz))
         # What today and tomorrow are — weekend, periods — on its own line (MAG-811); none when the API is silent.
-        day_context = await resolve_day_context(user_id, datetime.now(tz).date())
-        day_context_block = f"\n{day_context}" if day_context else ""
+        day_context_block = f"\n{parts.day_context}" if parts.day_context else ""
+        # How the user asked to be spoken to, in the volatile block rather than the cached prefix:
+        # a preference stated in this very conversation has to hold on the next message (MAG-22).
         volatile = (
-            f"{memory.notice}{directives}{context_section}\n\n{date_line}\n{work_hours}"
-            f"{day_context_block}{last_exchange}"
+            f"{memory.notice}{parts.directives}{context_section}\n\n{date_line}\n{parts.work_hours}"
+            f"{day_context_block}{parts.last_exchange}"
         )
         if spoken or in_car:
             volatile = f"{volatile}\n\n{self.personality.get_spoken_prompt()}"
         if in_car:
             volatile = f"{volatile}\n\n{self.personality.get_driving_prompt()}"
         # The skills learnt for the chat, in full (MAG-345).
-        return build_system(
-            base + skill_context, volatile, skill_index.skills_for_moment(MOMENT_CHAT), memory.profile, memory.recalled
-        )
+        return build_system(parts.base, volatile, parts.skills, memory.profile, memory.recalled)
+
+    async def _route_turn(self, message: str, user_id: str, user_msg_id: str) -> tuple[dict | None, list | None]:
+        """The thread of this turn, and the open threads as they are once it is routed (read once)."""
+        threads = await open_threads(user_id)
+        resolution = await self._resolve_context(message, user_id, user_msg_id, contexts=threads)
+        return resolution, (with_routed(threads, resolution) if threads is not None else None)
 
     async def chat_stream(
         self,
@@ -208,10 +255,18 @@ class StreamingGateway:
         # `agent_memory.blocks` waits for it later, bounded.
         self.agent_memory.catch_up_soon(user_id)
 
-        # The thread first. Everything below is built around it — the history is its
-        # messages, and the system prompt names it — so routing afterwards, as this used to,
-        # meant the routing decided nothing at all (MAG-13).
-        ctx_resolution = await self._resolve_context(message, user_id, user_msg_id)
+        # The thread decides the history, the memory recall and the open-threads section (MAG-13), and
+        # nothing else: the router runs in a task while the rest loads beside it. No TaskGroup — it
+        # would turn an error into an ExceptionGroup.
+        routing = asyncio.create_task(self._route_turn(message, user_id, user_msg_id))
+        try:
+            tz, tools = await asyncio.gather(resolve_user_timezone(user_id), self.tool_router.get_tool_definitions())
+            # Anthropic runs the web search itself: it is offered here, never routed (MAG-384).
+            tools = with_web_search(tools, tz)
+            parts = await self._thread_free_parts(user_id, tools, exclude_message_id=user_msg_id, tz=tz)
+            ctx_resolution, threads = await routing
+        finally:
+            routing.cancel()
         current_context_id = ctx_resolution.get("id") if ctx_resolution else None
         if ctx_resolution:
             yield {"type": "CUSTOM", "name": "context_update", "value": ctx_resolution}
@@ -220,30 +275,30 @@ class StreamingGateway:
         # persisted and, by now, tagged with the thread, so the history holds it — and
         # `fallback_message` is the floor under a history that would not load at all, since
         # the API refuses a conversation with no message in it.
-        messages = await build_history(
-            user_id,
-            context_id=current_context_id,
-            fallback_message=message,
-            current_message_id=user_msg_id,
-            screen_context=screen_context,
-            tz=await resolve_user_timezone(user_id),
-            image=image,
-            carried_over=carried_over,
-        )
-
-        # Get tools (contexts are managed by the gateway, not by Claude)
-        tools = await self.tool_router.get_tool_definitions()
-        # Anthropic runs the web search itself: it is offered here, never routed (MAG-384).
-        tools = with_web_search(tools, await resolve_user_timezone(user_id))
-
-        system_prompt = await self._build_system_prompt(
-            user_id,
-            tools=tools,
-            exclude_message_id=user_msg_id,
-            current_context_id=current_context_id,
-            about=message,
-            spoken=spoken,
-            in_car=in_car,
+        messages, system_prompt = await asyncio.gather(
+            build_history(
+                user_id,
+                context_id=current_context_id,
+                fallback_message=message,
+                current_message_id=user_msg_id,
+                screen_context=screen_context,
+                tz=tz,
+                image=image,
+                carried_over=carried_over,
+                open_threads=threads,
+            ),
+            self._build_system_prompt(
+                user_id,
+                tools=tools,
+                exclude_message_id=user_msg_id,
+                current_context_id=current_context_id,
+                about=message,
+                spoken=spoken,
+                in_car=in_car,
+                parts=parts,
+                open_threads=threads,
+                tz=tz,
+            ),
         )
         cached_tools = cache_tools(tools)
 
@@ -604,10 +659,12 @@ class StreamingGateway:
         except Exception as exc:
             logger.warning(f"Could not keep what the stopped turn did: {exc}")
 
-    async def _resolve_context(self, message: str, user_id: str, user_msg_id: str) -> dict | None:
+    async def _resolve_context(
+        self, message: str, user_id: str, user_msg_id: str, *, contexts: list | None = None
+    ) -> dict | None:
         """Route the user's message to an existing or new context, and tag the message with it.
 
         Both the routing and the tagging are `app.llm.contexts.route_message`, shared with
         the plain chat path (MAG-13) and with the proactions (MAG-14).
         """
-        return await route_message(self.client, message, user_id, message_id=user_msg_id)
+        return await route_message(self.client, message, user_id, message_id=user_msg_id, contexts=contexts)

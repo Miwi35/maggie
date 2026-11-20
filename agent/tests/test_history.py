@@ -541,6 +541,19 @@ class TestWhenTheDatabaseWillNotAnswer:
         assert turns[0]["content"] == "Où en est mon budget ?"
         assert turns[2]["content"] == "[autre fil] Ajoute du beurre"
 
+    async def test_labels_come_from_the_threads_given(self, say, thread):
+        budget = await thread("Budget")
+        courses = await thread("Courses")
+        await say("user", "Où en est mon budget ?", context=budget.id, minutes=1)
+        await say("user", "Ajoute du beurre", context=courses.id, minutes=3)
+
+        with patch("app.llm.history.context_repo") as contexts:
+            contexts.find_active = AsyncMock()
+            turns = await build_history(OWNER, context_id=budget.id, open_threads=[budget, courses])
+
+        contexts.find_active.assert_not_awaited()
+        assert "[fil « Courses »] Ajoute du beurre" in turns[0]["content"]
+
 
 SCREEN = "[Contexte de l'écran]\nApplication : Chrome (com.android.chrome)\nPage : https://dice.fm/event/x"
 

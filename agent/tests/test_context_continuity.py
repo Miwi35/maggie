@@ -7,7 +7,9 @@ earlier. These tests replay that discussion through the real router, the real re
 and a model stand-in that behaves the way the fast model did that evening.
 """
 
+import asyncio
 import json
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -17,6 +19,7 @@ from sqlalchemy import select
 
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
+from app.config import settings
 from app.db.models import Message
 from app.llm.contexts import route_message
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
@@ -251,6 +254,7 @@ async def _route(client, text: str, previous: list, threads: list | None = None)
         messages.find_recent = AsyncMock(return_value=[*previous, _current()])
         messages.update_context = AsyncMock()
         resolution = await route_message(client, text, "user-1", message_id="msg-current")
+        contexts.messages = messages
     return resolution, contexts
 
 
@@ -262,6 +266,52 @@ def _current() -> MagicMock:
     row.context_id = None
     row.created_at = datetime.now(UTC)
     return row
+
+
+class TestARouterPastItsBound:
+    """The fast model that does not answer in time must not hold the turn (MAG-869)."""
+
+    @staticmethod
+    def _slow() -> MagicMock:
+        async def never_answers(**_kwargs):
+            await asyncio.sleep(10)
+
+        client = MagicMock()
+        client.messages.create = AsyncMock(side_effect=never_answers)
+        return client
+
+    async def _slow_route(self, text: str, previous: list, threads: list | None = None):
+        with patch.object(settings, "context_router_timeout_seconds", 0.05):
+            return await _route(self._slow(), text, previous, threads)
+
+    async def test_during_a_discussion_it_stays_in_the_thread_in_progress(self):
+        resolution, contexts = await self._slow_route("et du beurre aussi", [_previous("ctx-courses", 2)])
+
+        assert resolution["id"] == "ctx-courses"
+        contexts.messages.update_context.assert_awaited_once_with("msg-current", "ctx-courses")
+
+    async def test_with_no_discussion_it_goes_to_the_most_recent_open_thread(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            resolution, contexts = await self._slow_route("du beurre", [_previous("ctx-courses", 20)])
+
+        assert resolution["id"] == "ctx-courses"
+        contexts.touch.assert_awaited_once_with("ctx-courses")
+        contexts.messages.update_context.assert_awaited_once_with("msg-current", "ctx-courses")
+        assert "took too long" in caplog.text
+
+    async def test_with_no_open_thread_it_answers_without_one(self):
+        resolution, contexts = await self._slow_route("du beurre", [_previous("ctx-courses", 20)], threads=[])
+
+        assert resolution is None
+        contexts.create.assert_not_awaited()
+
+    async def test_on_a_change_of_subject_it_opens_a_thread(self):
+        resolution, _ = await self._slow_route("changeons de sujet, la météo", [_previous("ctx-courses", 2)])
+
+        assert resolution["action"] == "created"
+
+    def test_the_bound_is_the_setting(self):
+        assert settings.context_router_timeout_seconds == 1.5
 
 
 class TestTheTimeThreshold:

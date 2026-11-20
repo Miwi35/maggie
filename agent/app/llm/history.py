@@ -160,6 +160,7 @@ async def build_history(
     tz: ZoneInfo | None = None,
     image: ChatImage | None = None,
     carried_over: str | None = None,
+    open_threads: list | None = None,
 ) -> list[dict]:
     """The `messages` list to send, for a message already routed into `context_id`.
 
@@ -197,6 +198,9 @@ async def build_history(
     `carried_over` is what the turn this message replaces had already done (MAG-320). That turn
     is gone from the conversation, so its actions are told on the message that replaces it, and
     on that one only.
+
+    `open_threads` is the user's open threads when the caller has already read them this turn: the
+    labels come from them instead of a second read.
     """
     try:
         rows = await _rows(user_id, context_id)
@@ -211,7 +215,7 @@ async def build_history(
     labels: dict[str, str] = {}
     if _has_foreign(rows, context_id, current_message_id):
         try:
-            labels = await _labels(user_id)
+            labels = await _labels(user_id, open_threads)
         except Exception as exc:
             logger.warning(f"Could not name the threads the history borrows from: {exc}")
 
@@ -284,9 +288,11 @@ def _is_foreign(row: Message, context_id: str | None, current_message_id: str | 
     return current_message_id is None or str(row.id) != str(current_message_id)
 
 
-async def _labels(user_id: str) -> dict[str, str]:
+async def _labels(user_id: str, open_threads: list | None = None) -> dict[str, str]:
     """What each of the user's open threads is called, to name the messages that came from one."""
-    return {str(ctx.id): ctx.label for ctx in await context_repo.find_active(user_id)}
+    if open_threads is None:
+        open_threads = await context_repo.find_active(user_id)
+    return {str(ctx.id): ctx.label for ctx in open_threads}
 
 
 def _turns(

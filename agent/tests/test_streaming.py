@@ -388,6 +388,7 @@ class TestSummaryTrigger:
             "screen_context": None,
             "image": None,
             "carried_over": None,
+            "open_threads": [],
         }
 
     async def test_a_routing_failure_still_answers_from_the_global_window(self):
