@@ -2,7 +2,7 @@ package com.maggie.app.ui.screens.grocery
 
 import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.Product
-import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.Store
 
 const val NO_AISLE_TITLE = "Sans rayon"
 
@@ -25,14 +25,21 @@ fun groupByAisle(products: List<Product>, storeId: String, aisles: List<Aisle>):
     return sections + listOfNotNull(byAisle[null]?.let { ProductSection(null, NO_AISLE_TITLE, it) })
 }
 
+private const val STORE_IRI_PREFIX = "/api/stores/"
+
 /**
- * The products cut by category, the way the Produits mockup groups them: the categories in their
- * usual order, « Autre » last, an empty one showing no header. A product keeps the place the API gave it.
+ * Where to buy a product, as the Produits mockup words it: « Super U · Légumes — à défaut Biocoop · Fruits et légumes ».
+ * A store with no aisle is named alone; a store the list does not know is left out; null when nothing is left.
  */
-fun groupByCategory(products: List<Product>): List<ProductSection> {
-    val byCategory = products.groupBy { it.category }
-    val ordered = ProductCategory.entries.filter { it != ProductCategory.OTHER } + ProductCategory.OTHER
-    return ordered.mapNotNull { category ->
-        byCategory[category]?.let { ProductSection(null, category.label(), it) }
+fun productWhere(product: Product, stores: List<Store>, aislesByStore: Map<String, List<Aisle>>): String? {
+    fun part(iri: String?): String? {
+        val storeId = iri?.removePrefix(STORE_IRI_PREFIX) ?: return null
+        val store = stores.firstOrNull { it.id == storeId } ?: return null
+        val aisleId = product.aisles.firstOrNull { it.store == storeId }?.aisle
+        val aisle = aisleId?.let { id -> aislesByStore[storeId].orEmpty().firstOrNull { it.id == id } }
+        return listOfNotNull(store.name, aisle?.name).joinToString(" · ")
     }
+    val usual = part(product.preferredStore)
+    val fallback = part(product.fallbackStore)?.let { "à défaut $it" }
+    return listOfNotNull(usual, fallback).joinToString(" — ").ifEmpty { null }
 }
