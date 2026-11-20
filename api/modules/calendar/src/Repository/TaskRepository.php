@@ -8,6 +8,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Enum\TaskMoment;
+use Maggie\Calendar\Mcp\TaskCriteria;
 use Maggie\Core\Entity\User;
 use Symfony\Component\Uid\Ulid;
 
@@ -38,6 +39,67 @@ class TaskRepository extends ServiceEntityRepository
             ->orderBy('t.dueDate', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * The user's tasks matching every filter of $criteria (the `get_tasks` read), unordered.
+     *
+     * @return Task[]
+     */
+    public function findByCriteria(User $user, TaskCriteria $criteria): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->where('t.user = :user')
+            ->setParameter('user', $user->getId(), 'ulid');
+
+        if ('pending' === $criteria->status) {
+            $qb->andWhere('t.completedAt IS NULL');
+        } elseif ('done' === $criteria->status) {
+            $qb->andWhere('t.completedAt IS NOT NULL');
+        }
+
+        $dates = [
+            'day' => $criteria->day,
+            'dueFrom' => $criteria->dueFrom,
+            'dueTo' => $criteria->dueTo,
+            'scheduledFrom' => $criteria->scheduledFrom,
+            'scheduledTo' => $criteria->scheduledTo,
+        ];
+        foreach ($dates as $name => $date) {
+            if (null !== $date) {
+                $qb->setParameter($name, $date, Types::DATE_IMMUTABLE);
+            }
+        }
+
+        if (null !== $criteria->day) {
+            $qb->andWhere('t.scheduledDate = :day OR (t.completedAt IS NULL AND t.dueDate <= :day)');
+        }
+        if (null !== $criteria->dueFrom) {
+            $qb->andWhere('t.dueDate >= :dueFrom');
+        }
+        if (null !== $criteria->dueTo) {
+            $qb->andWhere('t.dueDate <= :dueTo');
+        }
+        if (null !== $criteria->scheduledFrom) {
+            $qb->andWhere('t.scheduledDate >= :scheduledFrom');
+        }
+        if (null !== $criteria->scheduledTo) {
+            $qb->andWhere('t.scheduledDate <= :scheduledTo');
+        }
+        if (true === $criteria->dated) {
+            $qb->andWhere('t.dueDate IS NOT NULL OR t.scheduledDate IS NOT NULL');
+        } elseif (false === $criteria->dated) {
+            $qb->andWhere('t.dueDate IS NULL AND t.scheduledDate IS NULL');
+        }
+        if (null !== $criteria->parentId) {
+            if (!Ulid::isValid($criteria->parentId)) {
+                return [];
+            }
+            $qb->andWhere('IDENTITY(t.parent) = :parent')
+                ->setParameter('parent', Ulid::fromString($criteria->parentId), 'ulid');
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**

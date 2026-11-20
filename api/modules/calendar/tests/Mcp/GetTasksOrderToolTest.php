@@ -30,11 +30,11 @@ class GetTasksOrderToolTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function call(string $status = 'pending', ?string $view = null): array
+    private function call(string $status = 'pending', ?string $day = null): array
     {
         $tool = self::getContainer()->get(GetTasksTool::class);
 
-        return json_decode($tool($status, null, $view), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode($tool($status, $day), true, 512, JSON_THROW_ON_ERROR);
     }
 
     public function testRefusesAnUnauthenticatedCall(): void
@@ -46,7 +46,7 @@ class GetTasksOrderToolTest extends KernelTestCase
     {
         $this->loginFixtureUser();
 
-        $tasks = $this->call(view: 'today')['tasks'];
+        $tasks = $this->call(day: '2026-10-13')['tasks'];
 
         self::assertSame(['Payer la cantine', 'Rendre le livre', 'Arroser'], array_column($tasks, 'title'));
         self::assertSame([78, 67, 55], array_column($tasks, 'orderScore'));
