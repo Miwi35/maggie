@@ -124,12 +124,16 @@ class MergeDuplicateAccounts
         $byUid = [];
 
         foreach (null === $user ? $this->connectionRepository->findAll() : $this->connectionRepository->findByUser($user) as $connection) {
-            $sessionId = $connection->getSessionId();
-            if (!$readSessions || !$connection->isUsable() || null === $sessionId) {
+            if (!$readSessions || !$connection->isUsable()) {
                 continue;
             }
 
             try {
+                // An unreadable stored session (MAG-889) is a RuntimeException too: it falls back the same way.
+                $sessionId = $connection->getSessionId();
+                if (null === $sessionId) {
+                    continue;
+                }
                 $session = $this->client->getSession($sessionId);
             } catch (\RuntimeException|HttpClientException $e) {
                 // A forgotten session answers without JSON: its accounts fall

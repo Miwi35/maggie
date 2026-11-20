@@ -161,6 +161,48 @@ class BankAuthorizationTest extends KernelTestCase
         self::assertSame($connection->getId(), $accounts[0]->getBankConnection()->getId());
     }
 
+    public function testTheBankSessionIsStoredSealed(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), 'N26')['connection'];
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['session_id' => 'session-42', 'accounts' => []])));
+        $this->completer($completeHttp)->execute($connection->getState(), 'the-code');
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $stored = $em->getConnection()->fetchOne('SELECT session_id FROM bank_connection WHERE id = ?', [$connection->getId()->toRfc4122()]);
+        self::assertStringStartsWith('v1.', $stored);
+        self::assertStringNotContainsString('session-42', $stored);
+
+        $em->clear();
+        self::assertSame('session-42', $em->find(BankConnection::class, $connection->getId())->getSessionId());
+    }
+
+    public function testABankWhoseSessionNoLongerOpensCanBeReconnected(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), 'N26')['connection'];
+        $this->completer(new MockHttpClient(fn () => new MockResponse(json_encode(['session_id' => 'session-42', 'accounts' => []]))))
+            ->execute($connection->getState(), 'the-code');
+
+        // Sealed for another connection: it does not open here.
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->getConnection()->executeStatement(
+            'UPDATE bank_connection SET session_id = ? WHERE id = ?',
+            [self::getContainer()->get(\Maggie\Core\Security\TokenCipher::class)->seal('session-42', 'bank_connection:elsewhere:x:session_id'), $connection->getId()->toRfc4122()],
+        );
+        $em->clear();
+
+        $result = $this->starter($startHttp)->execute($em->find(User::class, $this->getFixture('test_user')->getId()), 'N26');
+
+        self::assertSame('https://bank.example/c', $result['url']);
+        self::assertSame(BankConnectionStatus::Pending, $result['connection']->getStatus());
+        self::assertNull($result['connection']->getSessionId());
+    }
+
     public function testAnAccountAlreadyTrackedByHandIsAdoptedRatherThanDuplicated(): void
     {
         // The fixture holds a hand-typed "Compte courant" at Crédit Agricole.

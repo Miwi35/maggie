@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\Patch;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Contract\HoldsConnectedServiceTokens;
 use Maggie\Core\Contract\IndexableInterface;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Elasticsearch\Attribute\Indexed;
@@ -29,7 +30,7 @@ use Symfony\Component\Uid\Ulid;
     new Get(name: 'me', uriTemplate: '/users/me', provider: UserItemProvider::class),
     new Patch(processor: UpdateUserProcessor::class),
 ])]
-class User implements UserInterface, MercurePublishable, IndexableInterface
+class User implements UserInterface, MercurePublishable, IndexableInterface, HoldsConnectedServiceTokens
 {
     use HasGoogleOAuthTokensTrait;
     use MercurePayloadFilterTrait;
@@ -170,13 +171,13 @@ class User implements UserInterface, MercurePublishable, IndexableInterface
     #[Ignore]
     public function getGoogleAccessToken(): ?string
     {
-        return $this->googleAccessToken;
+        return $this->readGoogleToken('google_access_token');
     }
 
     #[Ignore]
     public function getGoogleRefreshToken(): ?string
     {
-        return $this->googleRefreshToken;
+        return $this->readGoogleToken('google_refresh_token');
     }
 
     #[Ignore]
@@ -188,7 +189,13 @@ class User implements UserInterface, MercurePublishable, IndexableInterface
     #[Ignore]
     public function hasGoogleCalendarTokens(): bool
     {
-        return null !== $this->googleRefreshToken;
+        return $this->holdsGoogleRefreshToken();
+    }
+
+    /** The user is both the record and the owner of its Google tokens. */
+    public function tokenContext(string $usage): string
+    {
+        return sprintf('user:%s:%s:%s', $this->id, $this->id, $usage);
     }
 
     /** @return array<string, mixed> */

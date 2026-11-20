@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Maggie\Finance\Entity;
 
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Core\Contract\HoldsConnectedServiceTokens;
 use Maggie\Core\Contract\MercurePublishable;
 use Maggie\Core\Contract\OwnedByUserInterface;
 use Maggie\Core\Entity\User;
 use Maggie\Core\Mercure\Trait\MercurePayloadFilterTrait;
+use Maggie\Core\Security\ConnectedServiceTokenUnavailable;
 use Maggie\Finance\Enum\BankConnectionStatus;
 use Maggie\Finance\Repository\BankConnectionRepository;
 use Symfony\Component\Uid\Ulid;
@@ -21,7 +24,7 @@ use Symfony\Component\Uid\Ulid;
  * "this bank needs reconnecting" instead of quietly showing stale figures.
  */
 #[ORM\Entity(repositoryClass: BankConnectionRepository::class)]
-class BankConnection implements MercurePublishable, OwnedByUserInterface
+class BankConnection implements MercurePublishable, OwnedByUserInterface, HoldsConnectedServiceTokens
 {
     use MercurePayloadFilterTrait;
 
@@ -46,9 +49,22 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface
     #[ORM\Column(length: 64, unique: true)]
     private string $state;
 
-    /** The provider's session, once the consent journey has succeeded. */
-    #[ORM\Column(length: 255, nullable: true)]
+    private const SESSION_ID = 'session_id';
+
+    // Stored sealed (MAG-889): the plain value lives in memory only, sealed at
+    // flush and opened at load by ConnectedServiceTokensListener. The docblock
+    // below is the public description of the field (OpenAPI contract).
+    /**
+     * The provider's session, once the consent journey has succeeded.
+     */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $sessionId = null;
+
+    private ?string $sessionIdPlain = null;
+
+    private bool $sessionIdChanged = false;
+
+    private bool $sessionIdUnreadable = false;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $consentExpiresAt = null;
@@ -118,12 +134,18 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface
 
     public function getSessionId(): ?string
     {
-        return $this->sessionId;
+        if ($this->sessionIdUnreadable) {
+            throw new ConnectedServiceTokenUnavailable('The bank session of this connection cannot be read: TOKEN_ENCRYPTION_KEY is missing or not the one it was sealed with. Reconnect the bank once the key is fixed.');
+        }
+
+        return $this->sessionIdPlain;
     }
 
     public function setSessionId(?string $sessionId): static
     {
-        $this->sessionId = $sessionId;
+        $this->sessionIdPlain = $sessionId;
+        $this->sessionIdChanged = true;
+        $this->sessionIdUnreadable = false;
 
         return $this;
     }
@@ -178,7 +200,7 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface
     {
         $this->state = bin2hex(random_bytes(24));
         $this->status = BankConnectionStatus::Pending;
-        $this->sessionId = null;
+        $this->setSessionId(null);
         $this->consentExpiresAt = null;
 
         return $this;
@@ -187,7 +209,7 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface
     /** Marks the link as live, with the date the bank's consent runs out. */
     public function activate(string $sessionId, ?\DateTimeImmutable $consentExpiresAt): static
     {
-        $this->sessionId = $sessionId;
+        $this->setSessionId($sessionId);
         $this->consentExpiresAt = $consentExpiresAt;
         $this->status = BankConnectionStatus::Active;
 
@@ -215,6 +237,40 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface
         }
 
         return (int) $now->diff($this->consentExpiresAt)->format('%r%a');
+    }
+
+    public function tokenContext(string $usage): string
+    {
+        return sprintf('bank_connection:%s:%s:%s', $this->id, $this->user->getId(), $usage);
+    }
+
+    /** @return array<string, ?string> */
+    public function tokensToSeal(): array
+    {
+        return $this->sessionIdChanged ? [self::SESSION_ID => $this->sessionIdPlain] : [];
+    }
+
+    public function storeSealedToken(string $usage, ?string $sealed): void
+    {
+        $this->sessionId = $sealed;
+        $this->sessionIdChanged = false;
+    }
+
+    /** @return array<string, ?string> */
+    public function sealedTokens(): array
+    {
+        return [self::SESSION_ID => $this->sessionId];
+    }
+
+    /**
+     * @param array<string, ?string> $plain
+     * @param list<string>           $unreadable
+     */
+    public function openTokens(array $plain, array $unreadable): void
+    {
+        $this->sessionIdPlain = $plain[self::SESSION_ID] ?? null;
+        $this->sessionIdChanged = false;
+        $this->sessionIdUnreadable = in_array(self::SESSION_ID, $unreadable, true);
     }
 
     /** @return array<string, mixed> */
