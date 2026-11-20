@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { alpha } from '@mui/material/styles'
 import type { Theme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
@@ -100,7 +101,7 @@ export const BalanceParts = ({ day }: { day: BalanceDay }) => (
 )
 
 /** The bilan du jour, at the head of Santé › Nutrition. */
-export const NutritionBalanceCard = ({ day }: { day: BalanceDay }) => (
+export const NutritionBalanceCard = ({ day, children }: { day: BalanceDay; children?: ReactNode }) => (
   <Box component="section" aria-label="Bilan du jour" sx={cardSx}>
     <Box sx={{ fontSize: 15, fontWeight: 500 }}>Bilan du jour</Box>
     {day.balanceKcal === null ? (
@@ -121,5 +122,6 @@ export const NutritionBalanceCard = ({ day }: { day: BalanceDay }) => (
       </>
     )}
     <BalanceParts day={day} />
+    {children}
   </Box>
 )

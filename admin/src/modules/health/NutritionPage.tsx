@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useNotify } from 'react-admin'
 import Box from '@mui/material/Box'
+import { alpha } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
@@ -17,7 +19,7 @@ import { NutritionJournal } from './NutritionJournal'
 import { NutritionWeekCard } from './NutritionWeekCard'
 import { createIntake, deleteIntake, NUTRITION_TOPICS, useBalanceRange, useDailyBalance, useFoodIntakes } from './nutritionApi'
 import type { FoodIntake, IntakePayload, WriteResult } from './nutritionApi'
-import { cardSx, dayLabel, formatGrams, shiftDay, weekRange } from './nutritionBalance'
+import { formatGrams, shiftDay, weekRange } from './nutritionBalance'
 import type { DailyBalance } from './nutritionBalance'
 
 /** The page's topics besides the profile's, on its one stream. */
@@ -34,43 +36,55 @@ interface DayPickerProps {
   onChange: (day: string) => void
 }
 
-/** ‹ « Aujourd’hui » ›: the day shown, never after today. */
+const LONG_DAY = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' })
+
+/** « Mardi 21 octobre ». */
+const longDay = (day: string): string => {
+  const text = LONG_DAY.format(new Date(`${day}T12:00:00Z`))
+
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+const stepSx = (theme: Theme) => ({
+  width: 32,
+  height: 32,
+  borderRadius: 2,
+  bgcolor: alpha(theme.palette.text.primary, 0.08),
+})
+
+/** ‹ « Mardi 21 octobre » ›: the day shown, never after today. */
 const DayPicker = ({ day, today, onChange }: DayPickerProps) => (
   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-    <IconButton size="small" aria-label="Jour précédent" onClick={() => onChange(shiftDay(day, -1))}>
+    <IconButton size="small" aria-label="Jour précédent" sx={stepSx} onClick={() => onChange(shiftDay(day, -1))}>
       <ChevronLeftIcon fontSize="small" />
     </IconButton>
-    <Typography component="span" data-testid="nutrition-day" sx={{ fontSize: 14, minWidth: 110, textAlign: 'center' }}>
-      {dayLabel(day, today)}
+    <Typography component="span" data-testid="nutrition-day" sx={{ fontSize: 14, minWidth: 150, textAlign: 'center' }}>
+      {longDay(day)}
     </Typography>
-    <IconButton size="small" aria-label="Jour suivant" disabled={day >= today} onClick={() => onChange(shiftDay(day, 1))}>
+    <IconButton size="small" aria-label="Jour suivant" sx={stepSx} disabled={day >= today} onClick={() => onChange(shiftDay(day, 1))}>
       <ChevronRightIcon fontSize="small" />
     </IconButton>
   </Box>
 )
 
-/** « Macros »: the day's proteins, carbohydrates and fat, eaten and planned. */
-const MacrosCard = ({ balance }: { balance: DailyBalance }) => (
-  <Box component="section" aria-label="Macros" sx={cardSx}>
-    <Box sx={{ fontSize: 15, fontWeight: 500 }}>Macros</Box>
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1.5 }}>
-      {(
-        [
-          ['Protéines', balance.proteinG, 'macro-protein'],
-          ['Glucides', balance.carbsG, 'macro-carbs'],
-          ['Lipides', balance.fatG, 'macro-fat'],
-        ] as const
-      ).map(([label, grams, testId]) => (
-        <Box key={label} sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
-            {label}
-          </Typography>
-          <Typography component="span" data-testid={testId} sx={{ fontSize: 20, fontWeight: 300 }}>
-            {formatGrams(grams)}
-          </Typography>
-        </Box>
-      ))}
-    </Box>
+/** « Protéines 38,4 g  Glucides 71,5 g  Lipides 16,3 g »: the day's macros, eaten and planned. */
+const MacrosLine = ({ balance }: { balance: DailyBalance }) => (
+  <Box
+    component="section"
+    aria-label="Macros"
+    sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.75, fontSize: 12, color: (theme) => theme.palette.veilleuse.caption, fontVariantNumeric: 'tabular-nums' }}
+  >
+    {(
+      [
+        ['Protéines', balance.proteinG, 'macro-protein'],
+        ['Glucides', balance.carbsG, 'macro-carbs'],
+        ['Lipides', balance.fatG, 'macro-fat'],
+      ] as const
+    ).map(([label, grams, testId]) => (
+      <span key={label}>
+        {label} <span data-testid={testId}>{formatGrams(grams)}</span>
+      </span>
+    ))}
   </Box>
 )
 
@@ -159,24 +173,42 @@ export const NutritionPage = () => {
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <DayPicker day={day} today={today} onChange={setDay} />
       </Box>
-      {balance.status === 'loading' && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Chargement…</Typography>}
-      {balance.status === 'error' && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{LOAD_ERROR}</Typography>}
-      {balance.status === 'ready' && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 3fr) minmax(0, 2fr)' }, gap: 1.75, minWidth: 0 }}>
-          <NutritionBalanceCard day={balance.data} />
-          <NutritionWeekCard state={week} day={day} today={today} />
-          <MacrosCard balance={balance.data} />
-          <FastingCard profile={profile} fasting={fasting} days={fastDays} day={day} today={today} onSave={saveFasting} />
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 2fr) minmax(0, 1fr)' },
+          gridTemplateRows: { md: 'auto minmax(0, 1fr)' },
+          gap: 1.75,
+          alignItems: 'start',
+        }}
+      >
+        <Box sx={{ gridColumn: { md: 1 }, minWidth: 0 }}>
+          {balance.status === 'loading' && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Chargement…</Typography>}
+          {balance.status === 'error' && <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>{LOAD_ERROR}</Typography>}
+          {balance.status === 'ready' && (
+            <NutritionBalanceCard day={balance.data}>
+              <NutritionWeekCard embedded state={week} day={day} today={today} />
+              <MacrosLine balance={balance.data} />
+            </NutritionBalanceCard>
+          )}
         </Box>
-      )}
-      <NutritionJournal
-        intakes={intakes}
-        planned={balance.status === 'ready' ? balance.data.plannedMeals : []}
-        eating={eating}
-        onEaten={eat}
-        onDelete={remove}
-      />
-      <NutritionAddForm day={day} onAdd={add} />
+        <Box sx={{ gridColumn: { md: 1 }, minWidth: 0 }}>
+          <NutritionJournal
+            intakes={intakes}
+            planned={balance.status === 'ready' ? balance.data.plannedMeals : []}
+            eating={eating}
+            onEaten={eat}
+            onDelete={remove}
+          >
+            <NutritionAddForm embedded day={day} onAdd={add} />
+          </NutritionJournal>
+        </Box>
+        <Box data-testid="nutrition-fasting-cell" sx={{ gridColumn: { md: 2 }, gridRow: { md: '1 / 3' }, minWidth: 0 }}>
+          {balance.status === 'ready' && (
+            <FastingCard profile={profile} fasting={fasting} days={fastDays} day={day} today={today} onSave={saveFasting} />
+          )}
+        </Box>
+      </Box>
     </Box>
   )
 }
