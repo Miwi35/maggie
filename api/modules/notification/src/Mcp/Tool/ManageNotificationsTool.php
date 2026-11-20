@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_notifications', description: 'Actions: create, list, mark_read, delete. create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri (message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. mark_read, delete need notificationId.')]
+#[McpTool(name: 'manage_notifications', description: 'Actions: create, list, delete, and mark as read (an unknown action is refused with the list of valid ones). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri (message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId.')]
 class ManageNotificationsTool
 {
     public function __construct(

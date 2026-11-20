@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_meals', description: 'Actions: list, create, update, delete. A meal is a day and a slot: dates are YYYY-MM-DD, slot is lunch or dinner, recipeIds comma-separated. list needs fromDate and toDate, or query (title words, case, accents and typos ignored; every agenda, next year when no dates). create needs date and slot, returns groceryPreview (ingredients with stock). guests (1 or more) scales recipes and, on update, the grocery list; unset follows the manage_meal_settings default, useDefaultGuests true restores it. update and delete need mealId.')]
+#[McpTool(name: 'manage_meals', description: 'Actions: list, create, update, delete. A meal is a date (YYYY-MM-DD) and a slot (lunch, dinner); recipeIds comma-separated. list needs fromDate and toDate, or query (title words, tolerant to case, accents, typos; all agendas, next year when no dates). create needs date and slot, returns groceryPreview (ingredients with stock). guests (1 or more) scales recipes and, on update, the grocery list; unset follows the manage_meal_settings default, useDefaultGuests true restores it. update and delete need mealId.')]
 class ManageMealsTool
 {
     /** How far a search by title looks when the caller gave no window of its own. */

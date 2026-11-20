@@ -14,7 +14,7 @@ use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'update_health_profile', description: 'Changes the health profile; only arguments given change, at least one. sex (male, female), birthYear, heightCm (100-250), weightKg (max 500 (also recorded as a weighing)), activityLevel (sedentary, light, moderate, active, very_active), mode (computed, entered), enteredNeedKcal (1000-5000), stepGoal (500-50000), suggestionWindowStart, suggestionWindowEnd (HH:MM, end after start), sessionMinutes (15, 20, 30), stepSource (health_connect, none), fastingProtocol (14:10, 16:8, 18:6, 20:4, none), fastingWindowStart (HH:MM). Returns {success, profile} or {error, field}; nothing changes then.')]
+#[McpTool(name: 'update_health_profile', description: 'Changes the health profile: given arguments only, at least one. sex (male, female), birthYear, heightCm (100-250), weightKg (max 500, also recorded as a weighing), activityLevel (sedentary, light, moderate, active, very_active), mode (computed, entered), enteredNeedKcal (1000-5000), stepGoal (500-50000), suggestionWindowStart, suggestionWindowEnd (HH:MM, end after start), sessionMinutes (15, 20, 30), stepSource (health_connect, none), fastingProtocol (14:10, 16:8, 18:6, 20:4, none), fastingWindowStart (HH:MM). Returns {success, profile}, or {error, field} with nothing changed.')]
 final class UpdateHealthProfileTool
 {
     public function __construct(
