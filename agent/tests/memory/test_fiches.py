@@ -441,3 +441,18 @@ class TestNoSecretInAFiche:
         message = await self.refused(env, affirmations=[claim("Sa carte est 4111 1111 1111 1111", source)])
 
         assert "4111" not in message
+
+
+class TestAnOldClaimIsNotRefusedForASecret:
+    async def test_a_claim_already_in_the_fiche_is_kept_even_if_it_looks_like_a_secret(self, env):
+        source = await conversation(env)
+        await write(env, source)
+        path = f"Famille/{TITLE}.md"
+        text = env.local(path)
+        old = f"- Son code est 4111 1111 1111 1111 — dit · {source} · {HEURE}"
+        await env.service.write(USER_A, path, text.replace("## Ce qui n'est plus vrai", old + "\n\n## Ce qui n'est plus vrai") if "## Ce qui n'est plus vrai" in text else text.rstrip("\n") + "\n" + old + "\n", reason="legacy")
+        held = claim("Son code est 4111 1111 1111 1111", source, citation="")
+
+        written = await write(env, source, chemin=path, affirmations=[claim("Françoise n'aime pas les roses", source), held])
+
+        assert written["affirmations"] == 2

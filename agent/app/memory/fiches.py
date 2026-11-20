@@ -279,7 +279,6 @@ def _claim(raw: Any) -> Claim:
         raise FicheError(f"«{texte}» needs its `source`: no source, no claim.")
     heure = _one_line(raw.get("heure")) or None
     citation = _one_line(raw.get("citation"))[:MAX_CLAIM]
-    _refuse_secrets(texte, citation)
     return Claim(texte, provenance, source, heure, citation=citation)
 
 
@@ -370,6 +369,7 @@ async def write_fiche(
         ):
             entry = await stored_entry(service, user_id, claim)
         else:
+            _refuse_secrets(claim.texte, claim.citation)
             claim.source, entry = await _check_source(service, user_id, claim, allow_legacy=allow_legacy)
         entries[(entry["titre"], claim.provenance)] = entry
 

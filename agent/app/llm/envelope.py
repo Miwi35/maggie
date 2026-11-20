@@ -8,7 +8,7 @@ import re
 DATA_TAG = "donnees_externes"
 
 _SOURCE = re.compile(r"^[a-z_]+$")
-_TAG = re.compile(rf"<(/?)\s*{DATA_TAG}", re.IGNORECASE)
+_TAG = re.compile(rf"<\s*(/?)\s*{DATA_TAG}", re.IGNORECASE)
 
 
 def wrap_data(text: str, source: str) -> str:
