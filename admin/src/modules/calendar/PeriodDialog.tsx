@@ -81,10 +81,10 @@ export const PeriodDialog = ({ open, period, onClose }: PeriodDialogProps) => {
 
   // No agenda chosen yet: the default one, as soon as the list is there.
   useEffect(() => {
-    if (!open || values.agenda || !agendas) return
+    if (!open || period || values.agenda || !agendas) return
     const fallback = agendas.find((a) => a.default) ?? agendas[0]
     if (fallback) setValues((current) => ({ ...current, agenda: String(fallback.id) }))
-  }, [open, values.agenda, agendas])
+  }, [open, period, values.agenda, agendas])
 
   const set = (patch: Partial<PeriodFormValues>) => setValues((current) => ({ ...current, ...patch }))
 
