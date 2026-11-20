@@ -3,6 +3,9 @@ package com.maggie.app.ui.screens.health
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
@@ -97,40 +100,65 @@ class NutritionScreenTest {
     private fun waitForBilan() =
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.NUTRITION_BALANCE).fetchSemanticsNodes().isNotEmpty() }
 
+    private fun inBilan(tag: String) = compose.onNode(hasTestTag(tag) and hasAnyAncestor(hasTestTag(UiTags.NUTRITION_BALANCE)))
+
     @Test
-    fun `the bilan comes first, then the seven days, the macros and the journal`() {
+    fun `the bilan holds the seven days and the macros, then the journal`() {
         compose.setContent { NutritionScreen(viewModel()) }
         waitForBilan()
 
         assertTopToBottom(
             "bilan" to compose.onNodeWithTag(UiTags.NUTRITION_BALANCE),
-            "week" to compose.onNodeWithTag(UiTags.NUTRITION_WEEK),
-            "macros" to compose.onNodeWithTag(UiTags.NUTRITION_MACROS),
             "journal" to compose.onNodeWithTag(UiTags.NUTRITION_JOURNAL),
         )
         compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_VALUE).assertTextEquals("−1 602 kcal")
         compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_FIGURES).assertTextEquals("Mangé 78 · Prévu 515 · Dépensé 2 195 kcal")
+        inBilan(UiTags.NUTRITION_WEEK).assertExists()
+        inBilan(UiTags.NUTRITION_MACROS).assertExists()
         compose.onNodeWithText("7 jours").assertIsDisplayed()
-        compose.onNodeWithText("Protéines").assertExists()
-        compose.onNodeWithText("20,4 g").assertExists()
-        compose.onNodeWithText("68,5 g").assertExists()
-        compose.onNodeWithText("25,3 g").assertExists()
+        compose.onNodeWithText("Protéines 20,4 g").assertExists()
+        compose.onNodeWithText("Glucides 68,5 g").assertExists()
+        compose.onNodeWithText("Lipides 25,3 g").assertExists()
+        assertEquals(0, compose.onAllNodesWithText("Macros").fetchSemanticsNodes().size)
     }
 
     @Test
-    fun `the journal lists the intakes with their time and origin, then the planned meal with Mangé`() {
+    fun `the week reads auj for today`() {
         compose.setContent { NutritionScreen(viewModel()) }
         waitForBilan()
 
-        compose.onNodeWithText("Pomme").assertExists()
-        compose.onNodeWithText("10:00 · Saisie").assertExists()
-        compose.onNodeWithText("78 kcal").assertExists()
-        compose.onNodeWithText("Bol MAG-748").assertExists()
-        compose.onNodeWithText("Déjeuner · 515 kcal").assertExists()
+        compose.onNodeWithText("auj.").assertExists()
+    }
+
+    @Test
+    fun `a row shows the time, the food, its kcal and its source`() {
+        compose.setContent { NutritionScreen(viewModel()) }
+        waitForBilan()
+
+        fun inIntake(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag(UiTags.nutritionIntake("apple"))), useUnmergedTree = true)
+        inIntake("10 h 00").assertExists()
+        inIntake("Pomme").assertExists()
+        inIntake("78 kcal").assertExists()
+        inIntake("Saisie").assertExists()
+        assertEquals(0, compose.onAllNodesWithText("10:00 · Saisie").fetchSemanticsNodes().size)
+
+        fun inPlanned(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(hasTestTag(UiTags.nutritionPlanned("meal-1"))), useUnmergedTree = true)
+        inPlanned("Déjeuner").assertExists()
+        inPlanned("Bol MAG-748").assertExists()
+        inPlanned("515 kcal").assertExists()
+        inPlanned("Prévu").assertExists()
         assertTopToBottom(
             "intake" to compose.onNodeWithTag(UiTags.nutritionIntake("apple")),
             "planned" to compose.onNodeWithTag(UiTags.nutritionPlanned("meal-1")),
         )
+    }
+
+    @Test
+    fun `an intake with its grams says them under its name`() {
+        compose.setContent { NutritionScreen(viewModel(intakes = listOf(apple.copy(quantityGrams = 150.0)))) }
+        waitForBilan()
+
+        compose.onNodeWithText("150 g").assertExists()
     }
 
     @Test
@@ -182,7 +210,8 @@ class NutritionScreenTest {
             compose.onAllNodesWithText("Mangé 593 · Prévu 0 · Dépensé 2 195 kcal").fetchSemanticsNodes().isNotEmpty()
         }
         coVerify(exactly = 1) { repository.eatPlannedMeal("meal-1") }
-        compose.onNodeWithText("12:30 · Repas").assertExists()
+        compose.onNodeWithText("12 h 30").assertExists()
+        compose.onNodeWithText("Repas").assertExists()
         assertEquals(0, compose.onAllNodesWithTag(UiTags.nutritionEat("meal-1")).fetchSemanticsNodes().size)
     }
 
@@ -203,19 +232,17 @@ class NutritionScreenTest {
     }
 
     @Test
-    fun `the trash button deletes the intake`() {
-        coEvery { repository.deleteFoodIntake("apple") } coAnswers {
-            coEvery { repository.getFoodIntakes(any()) } returns Result.success(emptyList())
-            Result.success(Unit)
+    fun `the edit form hands over Supprimer`() {
+        var deleted = false
+        compose.setContent {
+            MaggieTheme {
+                EditFoodForm(apple, ZoneId.of("Europe/Paris"), saving = false, onSave = { _, _, _, _, _, _, _, _ -> }, onDismiss = {}, onDelete = { deleted = true })
+            }
         }
-        compose.setContent { NutritionScreen(viewModel()) }
-        waitForBilan()
 
         compose.onNodeWithTag(UiTags.nutritionIntakeDelete("apple")).performClick()
 
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.NUTRITION_JOURNAL_EMPTY).fetchSemanticsNodes().isNotEmpty() }
-        coVerify { repository.deleteFoodIntake("apple") }
-        compose.onNodeWithText("Rien de noté aujourd’hui").assertExists()
+        assertEquals(true, deleted)
     }
 
     @Test
@@ -275,12 +302,13 @@ class NutritionScreenTest {
     }
 
     @Test
-    fun `the header offers to add a food`() {
+    fun `the add food button floats`() {
         compose.setContent { NutritionScreen(viewModel()) }
         waitForBilan()
 
         compose.onNodeWithTag(UiTags.NUTRITION_ADD).assertIsDisplayed()
         compose.onNodeWithContentDescription("Ajouter un aliment").assertExists()
+        // Its window is the journey's (see the add form's test), « + » opening it is NutritionViewModelTest's `openAdd`.
     }
 
     @Test
@@ -339,6 +367,7 @@ class NutritionScreenTest {
         val journal = compose.onNodeWithTag(UiTags.NUTRITION_JOURNAL).fetchSemanticsNode().boundsInRoot
         assert(bilan.right <= root.center.x + 1f) { "bilan $bilan overflows the left column of $root" }
         assert(journal.left >= root.center.x - 1f) { "journal $journal is not in the right column of $root" }
+        compose.onNodeWithText("Journal").assertExists()
     }
 
     private fun waitForFasting() =
@@ -353,7 +382,7 @@ class NutritionScreenTest {
         assertTopToBottom(
             "bilan" to compose.onNodeWithTag(UiTags.NUTRITION_BALANCE),
             "fasting" to compose.onNodeWithTag(UiTags.FASTING_CARD),
-            "week" to compose.onNodeWithTag(UiTags.NUTRITION_WEEK),
+            "journal" to compose.onNodeWithTag(UiTags.NUTRITION_JOURNAL),
         )
         compose.onNodeWithTag(UiTags.FASTING_STATE).assertTextEquals("Fenêtre ouverte")
         compose.onNodeWithTag(UiTags.FASTING_REMAINING).assertTextEquals("7 h 30")
