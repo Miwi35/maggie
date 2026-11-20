@@ -284,6 +284,7 @@ private fun TaskRepeatDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.uiTagRoot(),
         title = { Text("Répétition personnalisée") },
         text = { RepeatRuleFields(initial, anchor, onRuleChange = { rule = it }) },
         confirmButton = {
