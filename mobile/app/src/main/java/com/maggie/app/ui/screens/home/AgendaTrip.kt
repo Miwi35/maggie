@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -34,11 +33,12 @@ import com.maggie.app.ui.screens.fullcalendar.GoButton
 import com.maggie.app.ui.screens.fullcalendar.StepChips
 import com.maggie.app.ui.screens.fullcalendar.minutesLeft
 import com.maggie.app.ui.screens.fullcalendar.timeLeftLabel
+import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.maggieSurface
 import java.time.Instant
 import java.time.ZoneId
 
-private val TILE_FILL = Color(0xFF0F0E17).copy(alpha = 0.55f)
+private const val TILE_FILL_ALPHA = 0.55f
 private const val TILE_BORDER_ALPHA = 0.28f
 private const val PAST_ALPHA = 0.6f
 private val ZONE: ZoneId = ZoneId.of("Europe/Paris")
@@ -56,7 +56,7 @@ internal fun HomeDepartureTile(trip: Trip, now: Instant, onGo: () -> Unit, modif
             .fillMaxWidth()
             .padding(top = 4.dp, bottom = 2.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(TILE_FILL)
+            .background(MaggieTokens.Night.background.copy(alpha = TILE_FILL_ALPHA))
             .border(BorderStroke(1.dp, accent.copy(alpha = TILE_BORDER_ALPHA)), RoundedCornerShape(18.dp))
             .padding(14.dp)
             .testTag(UiTags.HOME_DEPARTURE_TILE),
