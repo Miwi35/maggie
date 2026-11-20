@@ -34,4 +34,10 @@ class ChatNavigationTest {
         assertTrue(showsChatBottomBar(Screen.Cushion.route))
         assertFalse(showsChatBottomBar(null))
     }
+
+    @Test
+    fun `the chat bottom bar stays on Agenda › Périodes, not on its form`() {
+        assertTrue(showsChatBottomBar(Screen.PeriodList.route))
+        assertFalse(showsChatBottomBar(Screen.PeriodForm.route))
+    }
 }

@@ -248,6 +248,20 @@ class AdaptiveNavigationTest {
     }
 
     @Test
+    fun `Agenda › Périodes has the frame of the Agenda`() {
+        val onPhone = chromeFor(phone, Screen.PeriodList.route)
+        assertTrue(onPhone.showsChatBar)
+        assertFalse(onPhone.showsRail)
+
+        val onTablet = chromeFor(tabletLandscape, Screen.PeriodList.route)
+        val calendar = chromeFor(tabletLandscape, Screen.Calendar.route)
+        assertTrue(onTablet.showsRail)
+        assertTrue(onTablet.showsChatPanel)
+        assertFalse(onTablet.showsChatBar)
+        assertEquals(calendar, onTablet)
+    }
+
+    @Test
     fun `a short wide window keeps the compact bottom bar on finance, no rail and no chat in a rail`() {
         val chrome = chromeFor(phoneLandscape, Screen.FinanceDashboard.route)
 
