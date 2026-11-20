@@ -23,16 +23,7 @@ export interface Trip {
   arriveAt?: string | null
 }
 
-const STEP_ICONS: Record<string, string> = {
-  walk: '\u{1F6B6}',
-  drive: '\u{1F697}',
-  transit: '\u{1F68C}',
-  bicycle: '\u{1F6B2}',
-}
-
-export const stepIcon = (kind: string) => STEP_ICONS[kind] ?? '\u{1F4CD}'
-
-const hourOf = (iso: string): string => {
+export const hourOf = (iso: string): string => {
   const at = new Date(iso)
 
   return Number.isNaN(at.getTime())
@@ -72,6 +63,9 @@ const isWebUrl = (url: unknown): url is string => typeof url === 'string' && /^h
 export interface NavigationLookup {
   url: string | null
   gone: boolean
+  durationMinutes?: number
+  /** The event's IRI. */
+  event?: string
 }
 
 export async function lookupNavigation(tripIri: string): Promise<NavigationLookup> {
@@ -82,12 +76,44 @@ export async function lookupNavigation(tripIri: string): Promise<NavigationLooku
       headers: { Accept: 'application/ld+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     })
     if (!response.ok) return { url: null, gone: response.status === 404 || response.status === 410 }
-    const url = ((await response.json()) as { navigationUrl?: unknown }).navigationUrl
+    const body = (await response.json()) as { navigationUrl?: unknown; durationMinutes?: unknown; event?: unknown }
 
-    return { url: isWebUrl(url) ? url : null, gone: false }
+    return {
+      url: isWebUrl(body.navigationUrl) ? body.navigationUrl : null,
+      gone: false,
+      durationMinutes: typeof body.durationMinutes === 'number' ? body.durationMinutes : undefined,
+      event: typeof body.event === 'string' ? body.event : undefined,
+    }
   } catch {
     return { url: null, gone: false }
   }
+}
+
+const EVENT_IRI = /^\/api\/events\/[0-9A-Za-z-]{1,64}$/
+
+/** « 17:30 · École Jean-Moulin · 21 min porte à porte »: what the departure alert says of the event and the trip. */
+export async function describeDeparture(lookup: NavigationLookup): Promise<string | null> {
+  let hour: string | null = null
+  let place: string | null = null
+  if (lookup.event && EVENT_IRI.test(lookup.event)) {
+    try {
+      const token = getToken()
+      const response = await fetch(lookup.event, {
+        headers: { Accept: 'application/ld+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      })
+      if (response.ok) {
+        const event = (await response.json()) as { startAt?: unknown; location?: unknown; allDay?: unknown }
+        if (typeof event.startAt === 'string' && event.allDay !== true) hour = hourOf(event.startAt)
+        if (typeof event.location === 'string' && event.location.trim()) place = event.location.trim()
+      }
+    } catch {
+      // The line then reads without the event.
+    }
+  }
+  const duration = lookup.durationMinutes === undefined ? null : `${lookup.durationMinutes} min porte à porte`
+  const parts = [hour, place, duration].filter((part): part is string => part !== null && part !== '?')
+
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 /**

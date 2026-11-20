@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDataProvider, useNotify } from 'react-admin'
 import { useNavigate } from 'react-router-dom'
-import { lookupNavigation, openNavigation } from '../../modules/calendar/trips'
+import { describeDeparture, lookupNavigation, openNavigation } from '../../modules/calendar/trips'
 import { MaggieInterruption } from './MaggieInterruption'
 import { useMaggieInterruption } from './useMaggieInterruption'
 import { chooseWorkoutMakeup, fetchWorkoutMakeup, makeupLabel, type MakeupOption, type WorkoutMakeup } from './workoutMakeup'
@@ -63,6 +63,7 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
   // (MAG-679): there is nothing to say, nowhere to go — the bell keeps it.
   const departureTrip = current?.source === 'notification' ? current.departureTrip : undefined
   const navigation = useRef<{ id: string; url?: string | null; promise: Promise<string | null> } | null>(null)
+  const [departureLine, setDepartureLine] = useState<{ id: string; text: string } | null>(null)
   useEffect(() => {
     if (!currentId || !departureTrip) {
       navigation.current = null
@@ -70,9 +71,14 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
     }
     const lookup = lookupNavigation(departureTrip)
     const entry: NonNullable<typeof navigation.current> = { id: currentId, promise: lookup.then(({ url }) => url) }
-    lookup.then(({ url, gone }) => {
-      entry.url = url
-      if (gone) withdraw(entry.id)
+    lookup.then((found) => {
+      entry.url = found.url
+      if (found.gone) withdraw(entry.id)
+      else {
+        void describeDeparture(found).then((text) => {
+          if (text && navigation.current === entry) setDepartureLine({ id: entry.id, text })
+        })
+      }
     })
     navigation.current = entry
   }, [currentId, departureTrip, withdraw])
@@ -185,6 +191,7 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
 
   const openLink = useCallback(() => {
     if (current?.source === 'approval') return void answer('deny')
+    if (current?.source === 'notification' && current.departureTrip) return markRead()
     if (current?.source !== 'notification' || !current.link) return
     markRead()
     navigate(current.link.path)
@@ -203,14 +210,15 @@ export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterrupt
               ? "C'est noté"
               : 'Compris'
         : 'Ouvrir le chat'
-  const secondaryLabel = current?.source === 'approval' ? 'Refuser' : link?.label
+  const secondaryLabel = current?.source === 'approval' ? 'Refuser' : departureTrip ? 'Déjà en route' : link?.label
+  const message = departureLine && departureLine.id === currentId ? departureLine.text : (current?.message ?? '')
 
   return (
     <MaggieInterruption
       open={current !== null}
       id={current?.id}
       title={current?.title}
-      message={current?.message ?? ''}
+      message={message}
       actionLabel={actionLabel}
       onAction={act}
       secondaryLabel={secondaryLabel}

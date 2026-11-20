@@ -82,8 +82,10 @@ const send = (data: object) =>
     MockEventSource.instances.forEach((es) => es.onmessage?.({ data: JSON.stringify(data) } as MessageEvent))  
   })
 
-/** The trip line under an event in the day view (MAG-659). */
-describe('CalendarView — trip line under the event', { timeout: 60_000 }, () => {
+const lineOf = (title: string) => screen.getByLabelText(`Trajet vers ${title}`)
+
+/** The trips of the day list (MAG-659, MAG-858). */
+describe('CalendarView — trips in the day list', { timeout: 60_000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     MockEventSource.instances = []
@@ -99,16 +101,47 @@ describe('CalendarView — trip line under the event', { timeout: 60_000 }, () =
     localStorage.removeItem('user')
   })
 
-  test('shows when to leave and the steps under the event it belongs to, and nothing under the others', async () => {
+  test('draws the trip of a 5-minute event as its own line, before the event, at its departure', async () => {
+    const short = { ...event('01SHORT', 'Passage éclair', at(18, 25)), endAt: at(18, 30).toISOString() }
+    serve([short], () => [trip('01SHORT', at(17, 39))])
+    render(<CalendarView />)
+    await openDayView()
+
+    const line = await screen.findByLabelText('Trajet vers Passage éclair')
+    expect(line.closest('.fc-event')).toBeNull()
+    expect(line).toHaveTextContent('Partir à 17:39')
+    const row = screen.getByText('Passage éclair').closest('.day-row') as HTMLElement
+    expect(line.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test('opening Jour with a trip of the day stays on Jour and reads the day once', async () => {
+    serve([DENTIST], () => [trip('01DENTIST', at(13, 34))])
+    render(<CalendarView />)
+    await screen.findByText('Dentiste')
+    await openDayView()
+    await screen.findByLabelText('Trajet vers Dentiste')
+    await new Promise((resolve) => setTimeout(resolve, 2_000))
+
+    expect(screen.getByRole('button', { name: 'Jour' })).toHaveClass('MuiButton-contained')
+    expect(mockGetList.mock.calls.filter(([resource]) => resource === 'trips')).toHaveLength(1)
+    const monthReads = mockGetList.mock.calls.filter(
+      ([resource, params]) =>
+        resource === 'events' && JSON.stringify(params).includes('2037-01-31'),
+    )
+    expect(monthReads.length).toBeLessThanOrEqual(1)
+  })
+
+  test('shows when to leave and the steps on a line of its own, and nothing for the others', async () => {
     serve([DENTIST, SPORT], () => [trip('01DENTIST', at(13, 34))])
     render(<CalendarView />)
     await openDayView()
 
-    const line = await screen.findByText('Partir à 13:34 · depuis la maison')
-    expect(line.closest('.fc-event')).toHaveTextContent('Dentiste')
-    expect(line.closest('.fc-event')).toHaveTextContent('🚶 4 · 🚗 14 · 🚶 3')
-    expect(screen.getAllByText(/Partir à/)).toHaveLength(1)
-    expect(screen.getByText('Sport').closest('.fc-event')).not.toHaveTextContent('Partir à')
+    const line = await screen.findByLabelText('Trajet vers Dentiste')
+    expect(line).toHaveTextContent('Partir à 13:34')
+    expect(line).toHaveTextContent('depuis la maison')
+    expect(line).toHaveTextContent('4 min')
+    expect(line).toHaveTextContent('14 min')
+    expect(screen.queryByLabelText('Trajet vers Sport')).toBeNull()
   })
 
   test('asks for the trips of the day shown, in the day view only', async () => {
@@ -124,7 +157,15 @@ describe('CalendarView — trip line under the event', { timeout: 60_000 }, () =
     )
   })
 
-  test('the return of a whole-day stay shows under it, Retour before the hours', async () => {
+  test('the title of the day is capitalised, without the year', async () => {
+    serve([DENTIST], () => [])
+    render(<CalendarView />)
+    await openDayView()
+
+    expect(await screen.findByText('Jeudi 15 janvier')).toBeInTheDocument()
+  })
+
+  test('the return of a whole-day stay shows in the list, Retour before the hours', async () => {
     const stay = {
       ...event('01STAY', 'Gîte du Pouldu', at(0)),
       allDay: true,
@@ -133,14 +174,12 @@ describe('CalendarView — trip line under the event', { timeout: 60_000 }, () =
       startAt: null,
       endAt: null,
     }
-    serve([stay], () => [
-      trip('01STAY', at(11), { leg: 'return', arriveAt: at(11, 14).toISOString(), steps: [] }),
-    ])
+    serve([stay], () => [trip('01STAY', at(11), { leg: 'return', arriveAt: at(11, 14).toISOString(), steps: [] })])
     render(<CalendarView />)
     await openDayView()
 
-    const line = await screen.findByText('Retour · Partir à 11:00 · arrivée 11:14')
-    expect(line.closest('.fc-event')).toHaveTextContent('Gîte du Pouldu')
+    expect(await screen.findByText('Retour · Partir à 11:00 · arrivée 11:14')).toBeInTheDocument()
+    expect(screen.getByText('Journée')).toBeInTheDocument()
   })
 
   test('shows nothing for an event with no trip', async () => {
@@ -152,26 +191,27 @@ describe('CalendarView — trip line under the event', { timeout: 60_000 }, () =
     expect(screen.queryByText(/Partir à/)).toBeNull()
   })
 
-  test('a live update moves the time without reloading, a deletion removes the line', async () => {
-    let current: unknown[] = [trip('01DENTIST', at(13, 34))]
-    serve([DENTIST], () => current)
+  test('a Mercure update moves the line, a deleted trip leaves the list', async () => {
+    let current: unknown[] = [trip('01DENTIST', at(13, 34)), trip('01SPORT', at(17, 30))]
+    serve([DENTIST, SPORT], () => current)
     render(<CalendarView />)
     await openDayView()
-    await screen.findByText('Partir à 13:34 · depuis la maison')
+    await screen.findByText(/Partir à 13:34/)
     await waitFor(() => expect(MockEventSource.instances.length).toBeGreaterThan(0))
 
-    current = [trip('01DENTIST', at(14, 34))]
+    current = [trip('01DENTIST', at(14, 34)), trip('01SPORT', at(17, 30))]
     send({ '@id': '/api/trips/01T01DENTIST', departAt: at(14, 34).toISOString() })
-    expect(await screen.findByText('Partir à 14:34 · depuis la maison', {}, { timeout: 5_000 })).toBeInTheDocument()
-    expect(screen.queryByText('Partir à 13:34 · depuis la maison')).toBeNull()
+    expect(await screen.findByText(/Partir à 14:34/, {}, { timeout: 5_000 })).toBeInTheDocument()
+    expect(screen.queryByText(/Partir à 13:34/)).toBeNull()
 
-    current = []
+    current = [trip('01SPORT', at(17, 30))]
     send({ '@id': '/api/trips/01T01DENTIST', deleted: true })
-    await waitFor(() => expect(screen.queryByText(/Partir à/)).toBeNull(), { timeout: 5_000 })
+    await waitFor(() => expect(screen.queryByLabelText('Trajet vers Dentiste')).toBeNull(), { timeout: 5_000 })
     expect(screen.getByText('Dentiste')).toBeInTheDocument()
+    expect(lineOf('Sport')).toBeInTheDocument()
   })
 
-  test('when the trips cannot be read, the day shows without the line and the agenda works', async () => {
+  test('a failed trips read leaves the events, without the line', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     serve([DENTIST], () => Promise.reject(new Error('boom')) as Promise<never>)
     render(<CalendarView />)

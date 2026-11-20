@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { departureText, fetchNavigationUrl, isTripIri, openNavigation, stepIcon, tripsByEvent, type Trip } from './trips'
+import { departureText, fetchNavigationUrl, isTripIri, openNavigation, tripsByEvent, type Trip } from './trips'
 
 const trip = (over: Partial<Trip> = {}): Trip => ({
   id: 't1',
@@ -24,12 +24,6 @@ describe('departureText', () => {
   test('does not crash on a date it cannot read', () => {
     expect(departureText(trip({ departAt: 'nope' }))).toBe('Partir à ? · depuis la maison')
   })
-})
-
-test('stepIcon: a pictogram per kind, a pin for the unknown', () => {
-  expect(stepIcon('walk')).toBe('🚶')
-  expect(stepIcon('drive')).toBe('🚗')
-  expect(stepIcon('teleport')).toBe('📍')
 })
 
 test('tripsByEvent: indexes by the event IRI', () => {

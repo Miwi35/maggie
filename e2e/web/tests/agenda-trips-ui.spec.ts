@@ -8,7 +8,7 @@ import { HomePage } from '../pages/HomePage.js'
 /**
  * The trip on screen — MAG-659 (« Partir à l'heure », part 10, extends MAG-100).
  *
- * The day view of the agenda draws the trip Maggie kept under its event, and
+ * The day view of the agenda lists the trip Maggie kept at its departure, and
  * follows it live; the « Partez maintenant » alert interrupts the open admin with
  * « Y aller ». Google is WireMock (walk 4, drive 14, walk 3), as in
  * agenda-trips.spec.ts.
@@ -64,7 +64,7 @@ async function keepTrip(
   return { eventId }
 }
 
-test('the day view draws the trip under its event, and follows it without a reload', async ({ page, api }) => {
+test('the day view lists the trip before its event, and follows it without a reload', async ({ page, api }) => {
   const title = `Dentiste, trajet ${test.info().retry}`
   const calendar = new CalendarPage(page)
   const { eventId } = await keepTrip(api, title, '14:00', '15:00')
@@ -73,8 +73,12 @@ test('the day view draws the trip under its event, and follows it without a relo
   await calendar.chooseView('Jour')
 
   const line = calendar.tripLine(title)
-  await expect(line).toContainText('Partir à 13:34 · depuis ma position')
-  await expect(line).toContainText('🚶 4 · 🚗 14 · 🚶 3')
+  await expect(line).toContainText('Partir à 13:34')
+  await expect(line).toContainText('depuis ma position')
+  for (const minutes of ['4 min', '14 min', '3 min']) await expect(line).toContainText(minutes)
+  const before = await line.boundingBox()
+  const event = await calendar.eventBar(title).first().boundingBox()
+  expect(before!.y).toBeLessThan(event!.y)
 
   // The event moves an hour later and Maggie keeps the trip again: the line moves with it, the page stays.
   const moved = await callMcpTool(api, 'update_event', {
@@ -88,6 +92,22 @@ test('the day view draws the trip under its event, and follows it without a relo
   expect((await callMcpTool(api, 'set_trip', { eventId, mode: 'drive', origin: 'position' })).error).toBeUndefined()
 
   await expect(line).toContainText('Partir à 14:34', { timeout: 10_000 })
+
+  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
+})
+
+test('the trip of a 5-minute event is a line of its own, outside the event', async ({ page, api }) => {
+  const title = `Passage éclair, trajet ${test.info().retry}`
+  const calendar = new CalendarPage(page)
+  const { eventId } = await keepTrip(api, title, '18:25', '18:30')
+
+  await openSubscribed(page, () => calendar.open())
+  await calendar.chooseView('Jour')
+
+  const line = calendar.tripLine(title)
+  await expect(line).toBeVisible()
+  await expect(line).toContainText('Partir à')
+  await expect(calendar.eventBar(title).locator('.day-trip')).toHaveCount(0)
 
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
@@ -130,6 +150,9 @@ test('« Partez maintenant » interrupts with « Y aller », which opens the nav
 
   const interruption = page.getByRole('alertdialog').filter({ hasText: `Partez maintenant pour ${title}` })
   await expect(interruption).toBeVisible({ timeout: 5_000 })
+  await expect(interruption.getByRole('button', { name: 'Déjà en route' })).toBeVisible()
+  await expect(interruption).toContainText('14:00')
+  await expect(interruption).toContainText('porte à porte')
   await interruption.getByRole('button', { name: 'Y aller' }).click()
 
   await expect(interruption).toBeHidden()

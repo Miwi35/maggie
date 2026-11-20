@@ -67,6 +67,8 @@ export interface NewTask {
 export class CalendarPage extends AdminShell {
   /** The whole FullCalendar root — chips, columns, day cells. */
   readonly grid: Locator
+  /** What lists the events: FullCalendar's grid, or the day list of the Jour view (MAG-858). */
+  readonly entries: Locator
   /** The toolbar's own title: "octobre 2026", "5 – 11 oct. 2026", a full date in day view. */
   readonly title: Locator
   readonly createButton: Locator
@@ -90,6 +92,7 @@ export class CalendarPage extends AdminShell {
     super(page)
     this.readyAgenda = readyAgenda
     this.grid = page.locator('.fc')
+    this.entries = page.locator('.fc, .day-agenda')
     // The toolbar's title is the page's only level-6 heading.
     this.title = this.content.getByRole('heading', { level: 6 }).first()
     this.createButton = this.content.getByRole('button', { name: 'Créer', exact: true })
@@ -226,12 +229,12 @@ export class CalendarPage extends AdminShell {
    * the number is the assertion.
    */
   chip(title: string): Locator {
-    return this.grid.getByText(title, { exact: true })
+    return this.entries.getByText(title, { exact: true })
   }
 
   /** The chips of `title` the grid draws as tentative (MAG-246) — a class of ours, not FullCalendar's. */
   tentativeChip(title: string): Locator {
-    return this.grid.locator('.fc-event.event-tentative').filter({ hasText: title })
+    return this.entries.locator('.fc-event.event-tentative, .day-row.event-tentative').filter({ hasText: title })
   }
 
   /** The chips on one day, whatever the view — several `td` carry the date in week view. */
@@ -244,15 +247,15 @@ export class CalendarPage extends AdminShell {
    * whose width is how many days it covers in the month view.
    */
   eventBar(title: string): Locator {
-    return this.grid.locator('.fc-event').filter({ has: this.page.getByText(title, { exact: true }) })
+    return this.entries.locator('.fc-event, .day-row').filter({ has: this.page.getByText(title, { exact: true }) })
   }
 
   /**
-   * The trip line under the event `title` in the day view (MAG-659): « Partir à 13:34 · depuis la maison »
-   * and the legs. Scoped to the event's own bar, so another event's line is never taken for it.
+   * The trip line of the event `title` in the day view (MAG-659, MAG-858): « Partir à 13:34 », « depuis … »
+   * and the legs, a line of its own at the hour of departure — named by its event.
    */
   tripLine(title: string): Locator {
-    return this.eventBar(title).locator('.trip-line')
+    return this.page.getByLabel(`Trajet vers ${title}`)
   }
 
   /** One day's cell in the month view. */
