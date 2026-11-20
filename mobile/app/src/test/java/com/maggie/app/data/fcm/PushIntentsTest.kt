@@ -39,7 +39,7 @@ class PushIntentsTest {
     @Test
     fun `a departure tapped from the tray still knows when it stops being worth saying (MAG-679)`() {
         val payload = PushPayload.from(
-            mapOf("notificationId" to "n-1", "type" to "departure", "title" to "Pars maintenant", "expiresAt" to "2026-10-27T18:00:00+00:00"),
+            mapOf("notificationId" to "n-1", "type" to "departure", "title" to "Partez maintenant", "expiresAt" to "2026-10-27T18:00:00+00:00"),
         )!!
 
         val tap = PushIntents.departure(context, payload, go = false)
@@ -187,7 +187,7 @@ class PushIntentsTest {
 
     @Test
     fun `the departure screen intent carries the push, and Y aller asks it to navigate at once`() {
-        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "type" to "departure", "title" to "Pars maintenant pour Dentiste", "link" to "https://waze.com/ul?navigate=yes"))!!
+        val payload = PushPayload.from(mapOf("notificationId" to "n-1", "type" to "departure", "title" to "Partez maintenant pour Dentiste", "link" to "https://waze.com/ul?navigate=yes"))!!
 
         val screen = PushIntents.departure(context, payload, go = false)
         val go = PushIntents.departure(context, payload, go = true)

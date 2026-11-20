@@ -160,7 +160,7 @@ export function readFeedMessage(raw: string): FeedEvent | null {
     const type = typeof data.type === 'string' ? data.type : ''
     const iri = typeof data.relatedEntityIri === 'string' ? data.relatedEntityIri : null
     const shortageId = Array.isArray(data.actions) && data.actions.includes('add') ? shortageAlertId(iri) : null
-    // « Pars maintenant » (MAG-655): its answer is the trip's navigation link, "Y aller".
+    // « Partez maintenant » (MAG-655): its answer is the trip's navigation link, "Y aller".
     const departureTrip = type === 'departure' && isTripIri(iri) ? iri : null
     const makeupId = type === 'workout_makeup' ? workoutMakeupId(iri) : null
     const makeupChoices = makeupId ? makeupOptions(data.actions) : []

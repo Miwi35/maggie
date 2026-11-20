@@ -227,7 +227,7 @@ class InterruptionsTest {
 
     @Test
     fun `a departure alert is not said twice, the system raises it with its full screen (MAG-658)`() {
-        assertNull(Interruptions.of(Notification(id = "n", type = "departure", title = "Pars maintenant pour Dentiste", relatedEntityIri = "/api/trips/t-1")))
+        assertNull(Interruptions.of(Notification(id = "n", type = "departure", title = "Partez maintenant pour Dentiste", relatedEntityIri = "/api/trips/t-1")))
     }
 
     @Test

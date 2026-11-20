@@ -506,13 +506,13 @@ describe('useMaggieInterruption', () => {
 
   describe('a departure alert that expires (MAG-679)', () => {
     const departure = (expiresAt: string) =>
-      notification({ '@id': '/api/notifications/n9', type: 'departure', title: 'Pars maintenant pour Dentiste', body: null, relatedEntityIri: '/api/trips/01TRIP', expiresAt })
+      notification({ '@id': '/api/notifications/n9', type: 'departure', title: 'Partez maintenant pour Dentiste', body: null, relatedEntityIri: '/api/trips/01TRIP', expiresAt })
     const inMinutes = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString()
 
     test('stops being said when its event starts, even while shown', () => {
       const { result } = setup()
       stream().emit(departure(inMinutes(5)))
-      expect(result.current.current?.title).toBe('Pars maintenant pour Dentiste')
+      expect(result.current.current?.title).toBe('Partez maintenant pour Dentiste')
 
       act(() => vi.advanceTimersByTime(5 * 60_000))
 

@@ -15,7 +15,7 @@ use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * « Pars maintenant » (MAG-655): the alert of a trip whose `departAt` has come
+ * « Partez maintenant » (MAG-655): the alert of a trip whose `departAt` has come
  * and whose event has not started. Maggie plans, the API alerts — it fires from
  * the cron even when no check of the agent ran.
  *
@@ -89,7 +89,7 @@ final class DepartureReminderSource implements ReminderSourceInterface
 
         $this->messageBus->dispatch(new CreateNotificationCommand(
             type: 'departure',
-            title: 'Pars maintenant pour '.$trip->getEvent()->getSummary(),
+            title: 'Partez maintenant pour '.$trip->getEvent()->getSummary(),
             relatedEntityIri: $tripIri,
             userId: $userId,
             occurrenceStartAt: $trip->getDepartAt(),

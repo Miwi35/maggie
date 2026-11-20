@@ -382,7 +382,7 @@ class PushNotifierTest {
         data = buildMap {
             put("notificationId", "n-5")
             put("type", "departure")
-            put("title", "Pars maintenant pour Dentiste")
+            put("title", "Partez maintenant pour Dentiste")
             link?.let { put("link", it) }
         },
     )!!
@@ -397,7 +397,7 @@ class PushNotifierTest {
         assertEquals(PushChannels.DEPARTURE, notification.channelId)
         assertEquals(listOf("Y aller", "Déjà en route"), notification.actions.map { it.title.toString() })
         val fullScreen = notification.fullScreenIntent
-        assertNotNull("the screen « Pars maintenant » opens over the lock screen", fullScreen)
+        assertNotNull("the screen « Partez maintenant » opens over the lock screen", fullScreen)
         val screen = shadowOf(fullScreen).savedIntent
         assertEquals(com.maggie.app.ui.screens.departure.DepartureActivity::class.java.name, screen.component?.className)
         assertNull(screen.action)

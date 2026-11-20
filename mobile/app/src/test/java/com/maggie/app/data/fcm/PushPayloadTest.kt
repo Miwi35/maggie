@@ -301,7 +301,7 @@ class PushPayloadTest {
 
     @Test
     fun `a departure alert carries Y aller when it has a navigation link, then Déjà en route (MAG-658)`() {
-        val departure = payload("departure", "title" to "Pars maintenant pour Dentiste", "link" to "https://waze.com/ul?ll=48.1,-1.6&navigate=yes")
+        val departure = payload("departure", "title" to "Partez maintenant pour Dentiste", "link" to "https://waze.com/ul?ll=48.1,-1.6&navigate=yes")
 
         assertEquals(listOf(PushActionKind.GO, PushActionKind.ALREADY_ON_THE_WAY), departure.actions())
         assertEquals(PushChannels.DEPARTURE, departure.channel)

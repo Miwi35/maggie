@@ -64,7 +64,7 @@ class PushDeliveryTest {
 
     @Test
     fun `a departure alert is the system's strong interruption, the app open or not (MAG-658)`() {
-        val departure = PushPayload.from(mapOf("notificationId" to "n-2", "title" to "Pars maintenant pour Dentiste", "type" to "departure"))!!
+        val departure = PushPayload.from(mapOf("notificationId" to "n-2", "title" to "Partez maintenant pour Dentiste", "type" to "departure"))!!
 
         PushDelivery(center, { notifier }, noCar(), isForeground = { true }).deliver(departure)
 
@@ -78,7 +78,7 @@ class PushDeliveryTest {
     private fun departure(expiresAt: String?) = PushPayload.from(
         buildMap {
             put("notificationId", "n-3")
-            put("title", "Pars maintenant pour Dentiste")
+            put("title", "Partez maintenant pour Dentiste")
             put("type", "departure")
             expiresAt?.let { put("expiresAt", it) }
         },

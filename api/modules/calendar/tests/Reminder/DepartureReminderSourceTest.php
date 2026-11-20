@@ -35,7 +35,7 @@ use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * « Pars maintenant » (MAG-655): the departure alert the cron files when a trip's
+ * « Partez maintenant » (MAG-655): the departure alert the cron files when a trip's
  * `departAt` has come. The dentist is at 14:00 in Paris on 3 November 2026 (13:00
  * UTC), the trip leaves at 13:34 Paris (12:34 UTC).
  */
@@ -142,7 +142,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         self::assertCount(1, $departures);
         $notification = $departures[0];
         self::assertSame(NotificationType::Departure, $notification->getType());
-        self::assertSame('Pars maintenant pour Dentiste', $notification->getTitle());
+        self::assertSame('Partez maintenant pour Dentiste', $notification->getTitle());
         self::assertSame('/api/trips/'.$tripId, $notification->getRelatedEntityIri());
         self::assertSame('2026-11-03T12:34:00+00:00', $notification->getOccurrenceStartAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
         self::assertSame('fixture@example.com', $notification->getUser()->getEmail());
@@ -152,7 +152,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         $this->assertElasticsearchIndexDispatched(Notification::class);
     }
 
-    /** The alert says « Pars maintenant » until the dentist starts, no longer (MAG-679). */
+    /** The alert says « Partez maintenant » until the dentist starts, no longer (MAG-679). */
     public function testTheAlertExpiresWhenItsEventStarts(): void
     {
         $tripId = $this->seed('dentist', '2026-11-03 13:34');
@@ -176,7 +176,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         self::assertSame(1, $this->source()->remind(new \DateTimeImmutable('2026-11-03 12:34:00 UTC'))->created);
 
         [$notification] = $this->departures();
-        self::assertSame('Pars maintenant pour Vacances', $notification->getTitle());
+        self::assertSame('Partez maintenant pour Vacances', $notification->getTitle());
         self::assertSame('2026-11-03T13:04:00+00:00', $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('c'));
     }
 
@@ -251,8 +251,8 @@ final class DepartureReminderSourceTest extends KernelTestCase
         foreach ($this->departures() as $notification) {
             $expiries[$notification->getTitle()] = $notification->getExpiresAt()?->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i');
         }
-        self::assertSame('2026-11-03 12:40', $expiries['Pars maintenant pour Dentiste']);
-        self::assertSame('2026-11-03 13:00', $expiries['Pars maintenant pour Dentiste du voisin']);
+        self::assertSame('2026-11-03 12:40', $expiries['Partez maintenant pour Dentiste']);
+        self::assertSame('2026-11-03 13:00', $expiries['Partez maintenant pour Dentiste du voisin']);
     }
 
     /** The wiring: the factory of the container finds the trip's URL through the calendar module. */
@@ -300,7 +300,7 @@ final class DepartureReminderSourceTest extends KernelTestCase
         self::assertSame(['12:34', '12:45'], $departAts);
     }
 
-    /** MAG-855: computed when the trip could no longer arrive on time, « Pars maintenant » would be false. */
+    /** MAG-855: computed when the trip could no longer arrive on time, « Partez maintenant » would be false. */
     public function testATripComputedWhenItCouldNoLongerArriveOnTimeAlertsNobody(): void
     {
         $this->seed('dentist', '2026-11-03 09:00', computedAt: '2026-11-03 10:00 UTC');
@@ -371,8 +371,8 @@ final class DepartureReminderSourceTest extends KernelTestCase
             $byOwner[$notification->getUser()->getEmail()] = $notification->getTitle();
         }
         self::assertEquals([
-            'fixture@example.com' => 'Pars maintenant pour Dentiste',
-            'other@example.com' => 'Pars maintenant pour Dentiste du voisin',
+            'fixture@example.com' => 'Partez maintenant pour Dentiste',
+            'other@example.com' => 'Partez maintenant pour Dentiste du voisin',
         ], $byOwner);
     }
 

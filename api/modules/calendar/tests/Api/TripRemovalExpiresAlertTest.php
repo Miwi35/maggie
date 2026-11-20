@@ -23,7 +23,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * The owner deletes an event through the door he uses (REST): the « Pars maintenant » alert about
+ * The owner deletes an event through the door he uses (REST): the « Partez maintenant » alert about
  * its trip stops being worth saying on the spot, not at the event's start (MAG-679 recette).
  */
 class TripRemovalExpiresAlertTest extends WebTestCase
@@ -57,13 +57,13 @@ class TripRemovalExpiresAlertTest extends WebTestCase
         // The deleted event's own trip goes with it: a replanning is only filed if another trip of the day is still to leave
         // and cannot be computed again (Google is not reachable here).
         $this->seedTrip($this->em()->find(Event::class, (string) $this->getFixture('office')->getId()), new \DateTimeImmutable('today 23:59', new \DateTimeZone('Europe/Paris')));
-        $this->alert('Pars maintenant pour Dentiste', '/api/trips/'.$trip, $expiresAt);
+        $this->alert('Partez maintenant pour Dentiste', '/api/trips/'.$trip, $expiresAt);
 
         $this->client->request('DELETE', '/api/events/'.$event->getId(), [], [], $this->authHeaders());
 
         self::assertResponseStatusCodeSame(204);
         $this->em()->clear();
-        $alert = $this->em()->getRepository(Notification::class)->findOneBy(['title' => 'Pars maintenant pour Dentiste']);
+        $alert = $this->em()->getRepository(Notification::class)->findOneBy(['title' => 'Partez maintenant pour Dentiste']);
         self::assertNotNull($alert);
         self::assertLessThanOrEqual(new \DateTimeImmutable(), $alert->getExpiresAt(), 'Gone is gone: the alert expires at the deletion, not at the start of the event.');
         self::assertNull($alert->getReadAt(), 'It stays in the bell as history.');

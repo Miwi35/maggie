@@ -35,13 +35,13 @@ final class ExpireNotificationsHandlerTest extends KernelTestCase
 
     public function testAnUnreadAlertExpiresNowAndItsPushIsWithdrawn(): void
     {
-        $this->alert('Pars maintenant pour Dentiste', self::TRIP, new \DateTimeImmutable('+1 hour'));
+        $this->alert('Partez maintenant pour Dentiste', self::TRIP, new \DateTimeImmutable('+1 hour'));
         $this->resetMercure();
         $this->resetAsyncTransport();
 
         $this->expire(self::TRIP);
 
-        $notification = $this->only('Pars maintenant pour Dentiste');
+        $notification = $this->only('Partez maintenant pour Dentiste');
         self::assertLessThanOrEqual(new \DateTimeImmutable(), $notification->getExpiresAt());
         self::assertNull($notification->getReadAt(), 'It stays unread in the bell: history, not deleted.');
         $payloads = $this->mercurePayloadsOn('/api/notifications/'.$notification->getId());

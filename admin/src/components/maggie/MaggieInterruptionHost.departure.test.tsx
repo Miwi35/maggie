@@ -34,7 +34,7 @@ const departure = {
   '@id': '/api/notifications/n9',
   id: 'n9',
   type: 'departure',
-  title: 'Pars maintenant pour Dentiste',
+  title: 'Partez maintenant pour Dentiste',
   body: null,
   relatedEntityIri: '/api/trips/01TRIP',
   readAt: null,
@@ -81,7 +81,7 @@ describe('MaggieInterruptionHost — departure alert (MAG-659)', () => {
     FakeEventSource.instances[0].emit(departure)
 
     const dialog = await screen.findByRole('alertdialog')
-    expect(dialog).toHaveTextContent('Pars maintenant pour Dentiste')
+    expect(dialog).toHaveTextContent('Partez maintenant pour Dentiste')
 
     await userEvent.click(screen.getByRole('button', { name: 'Y aller' }))
 

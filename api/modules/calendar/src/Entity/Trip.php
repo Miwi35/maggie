@@ -257,7 +257,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
 
     /**
      * MAG-655, MAG-855: whether leaving at `departAt` (within the planner's margin) was still
-     * possible at the minute the trip was computed — otherwise « Pars maintenant » would be false.
+     * possible at the minute the trip was computed — otherwise « Partez maintenant » would be false.
      */
     public function couldStillArriveOnTimeWhenComputed(): bool
     {

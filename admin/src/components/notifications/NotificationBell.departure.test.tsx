@@ -22,7 +22,7 @@ const open = vi.fn()
 const departure = {
   id: '/api/notifications/01K0DEPART',
   type: 'departure',
-  title: 'Pars maintenant pour Dentiste',
+  title: 'Partez maintenant pour Dentiste',
   body: null,
   relatedEntityIri: '/api/trips/01TRIP',
   readAt: null,
@@ -49,7 +49,7 @@ describe('NotificationBell — departure alert (MAG-659)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Notifications' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/trips/01TRIP', expect.anything()))
 
-    await userEvent.click(screen.getByText('Pars maintenant pour Dentiste'))
+    await userEvent.click(screen.getByText('Partez maintenant pour Dentiste'))
 
     expect(open).toHaveBeenCalledWith(GOOGLE_MAPS, '_blank', 'noopener,noreferrer')
     expect(update).toHaveBeenCalledWith('notifications', expect.objectContaining({ id: departure.id }))
@@ -61,7 +61,7 @@ describe('NotificationBell — departure alert (MAG-659)', () => {
     render(<NotificationBell />)
     await userEvent.click(screen.getByRole('button', { name: 'Notifications' }))
 
-    await userEvent.click(screen.getByText('Pars maintenant pour Dentiste'))
+    await userEvent.click(screen.getByText('Partez maintenant pour Dentiste'))
 
     expect(open).not.toHaveBeenCalled()
     expect(update).toHaveBeenCalled()
@@ -72,7 +72,7 @@ describe('NotificationBell — departure alert (MAG-659)', () => {
     render(<NotificationBell />)
     await userEvent.click(screen.getByRole('button', { name: 'Notifications' }))
 
-    await userEvent.click(screen.getByText('Pars maintenant pour Dentiste'))
+    await userEvent.click(screen.getByText('Partez maintenant pour Dentiste'))
 
     expect(open).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()

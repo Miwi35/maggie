@@ -26,7 +26,7 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-/** A departure alert still waiting: « Pars maintenant » with the trip's duration and the link to navigate. */
+/** A departure alert still waiting: « Partez maintenant » with the trip's duration and the link to navigate. */
 data class TripEntry(
     val notificationId: String,
     val title: String,
