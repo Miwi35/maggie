@@ -75,14 +75,14 @@ internal fun ProductFilterBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterDropChip(
-            label = store?.let { "Magasin : ${it.name}" } ?: "Magasin",
+            label = store?.name ?: "Magasin",
             active = store != null,
             enabled = true,
             tag = UiTags.PRODUCT_FILTER_STORE,
             onClick = { open = FilterSheetKind.STORE },
         )
         FilterDropChip(
-            label = aisleName?.let { "Rayon : $it" } ?: "Rayon",
+            label = aisleName ?: "Rayon",
             active = aisleName != null,
             enabled = store != null,
             tag = UiTags.PRODUCT_FILTER_AISLE,
@@ -101,7 +101,7 @@ internal fun ProductFilterBar(
     val close = { open = null }
     val (title, options) = when (kind) {
         FilterSheetKind.STORE -> "Magasin" to
-            listOf(FilterOption("Tous les magasins", query.storeId == null) { onStore(null) }) +
+            listOf(FilterOption("Tous", query.storeId == null) { onStore(null) }) +
             state.stores.map { s -> FilterOption(s.name, s.id == query.storeId) { onStore(s.id) } }
 
         FilterSheetKind.AISLE -> "Rayon" to

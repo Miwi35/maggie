@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +51,9 @@ import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.frenchName
 import com.maggie.app.ui.components.GroceryTopBar
 import com.maggie.app.ui.navigation.GrocerySection
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import java.util.Locale
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,16 +113,20 @@ fun ProductListScreen(
                 }
                 else -> {
                     val row: @Composable (Product) -> Unit = { product ->
-                        ProductRow(product = product, onOpen = { viewModel.openProduct(product.id) })
+                        ProductRow(
+                            product = product,
+                            where = productWhere(product, uiState.stores, uiState.aislesByStore),
+                            onOpen = { viewModel.openProduct(product.id) },
+                        )
                     }
-                    // A chosen store groups by its aisles; otherwise by category, as the Produits mockup does.
-                    val groups = sections ?: groupByCategory(uiState.products)
+                    // A chosen store groups by its aisles; otherwise one flat list, in the API's order, as the Produits mockup does.
+                    val groups = sections ?: listOf(ProductSection(null, "", uiState.products))
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     ) {
                         groups.forEachIndexed { index, section ->
-                            item(key = "section-$index") { SectionHeader(section) }
+                            if (section.title.isNotEmpty()) item(key = "section-$index") { SectionHeader(section) }
                             items(section.products, key = { it.id }) { row(it) }
                         }
                     }
@@ -156,20 +165,16 @@ fun ProductListScreen(
     }
 }
 
-/** The title of a group — a category, or an aisle of the chosen store — and how many products it holds. */
+/** The title of an aisle of the chosen store, in capitals; « Sans rayon » in orange. */
 @Composable
 private fun SectionHeader(section: ProductSection) {
-    Row(
+    val courses = MaggieTokens.Module.courses.let { if (isMaggieDark()) it.second else it.first }
+    Text(
+        text = section.title.uppercase(Locale.FRANCE),
+        style = MaterialTheme.typography.labelMedium,
+        color = if (section.aisleId == null) MaggieTokens.Signal.warning else courses,
         modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(text = section.title, style = MaterialTheme.typography.titleSmall)
-        Text(
-            text = section.products.size.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    )
 }
 
 /** The state of a product's stock, as a coloured chip. */
@@ -206,16 +211,47 @@ internal fun StockStateChip(state: ProductStockState) {
     }
 }
 
-/** One line of the list: the product, its category and its unit in French; everything else is in the detail. */
+/** The stock of a product on its line, as the Produits mockup words it. */
 @Composable
-internal fun ProductRow(product: Product, onOpen: () -> Unit) {
+private fun ProductStockPill(state: ProductStockState) {
+    val (label, tint) = when (state) {
+        ProductStockState.IN_STOCK -> "en stock" to MaggieTokens.Signal.neutral
+        ProductStockState.LOW -> "bas" to MaggieTokens.Signal.info
+        ProductStockState.OUT -> "épuisé" to MaggieTokens.Signal.warning
+    }
+    Surface(shape = MaterialTheme.shapes.small, color = tint.copy(alpha = 0.15f), contentColor = tint) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+    }
+}
+
+/** One line of the list: the product, where to buy it ([where]), its stock and a chevron; the rest is in the detail. */
+@Composable
+internal fun ProductRow(product: Product, where: String?, onOpen: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-            Text(text = product.name, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = listOfNotNull(product.category.label(), product.defaultUnit?.frenchName).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = product.name, style = MaterialTheme.typography.bodyLarge)
+                if (where != null) {
+                    Text(
+                        text = where,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            ProductStockPill(product.stockState)
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         HorizontalDivider()
