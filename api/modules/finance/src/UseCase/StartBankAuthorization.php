@@ -6,6 +6,7 @@ namespace Maggie\Finance\UseCase;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Core\Entity\User;
+use Maggie\Core\Security\ConnectedServiceTokenUnavailable;
 use Maggie\Finance\Bank\EnableBanking\EnableBankingClient;
 use Maggie\Finance\Entity\BankConnection;
 use Maggie\Finance\Enum\BankConnectionStatus;
@@ -42,7 +43,7 @@ class StartBankAuthorization
         $existing = $this->connectionRepository->findOneByUserAndBank($user, $bankName, $country);
         $previous = null === $existing ? null : [
             $existing->getStatus(),
-            $existing->getSessionId(),
+            $this->previousSession($existing),
             $existing->getConsentExpiresAt(),
         ];
 
@@ -80,6 +81,19 @@ class StartBankAuthorization
         }
 
         return ['connection' => $connection, 'url' => $url];
+    }
+
+    /**
+     * A stored session that no longer opens (MAG-889) is worth nothing to go
+     * back to — and reconnecting is the very way out of it.
+     */
+    private function previousSession(BankConnection $connection): ?string
+    {
+        try {
+            return $connection->getSessionId();
+        } catch (ConnectedServiceTokenUnavailable) {
+            return null;
+        }
     }
 
     /**

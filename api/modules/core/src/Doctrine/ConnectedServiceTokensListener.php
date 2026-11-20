@@ -42,6 +42,10 @@ final class ConnectedServiceTokensListener
                 continue;
             }
             foreach ($entities as $entity) {
+                // A proxy never loaded has no token set: reading it would load it for nothing.
+                if ($uow->isUninitializedObject($entity)) {
+                    continue;
+                }
                 $holders[spl_object_id($entity)] = $entity;
             }
         }

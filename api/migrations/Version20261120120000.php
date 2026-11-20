@@ -13,7 +13,8 @@ use Maggie\Core\Security\TokenCipher;
  * Connected-service tokens are stored sealed (MAG-889): the Google tokens and
  * the bank session already in place are sealed with TOKEN_ENCRYPTION_KEY.
  * Without the key and with a token to seal, the migration stops before
- * writing — and the deploy with it.
+ * writing — and the deploy with it. The tokens are rewritten through the
+ * connection in postUp / preDown: never run it with --dry-run on real data.
  */
 final class Version20261120120000 extends AbstractMigration
 {
