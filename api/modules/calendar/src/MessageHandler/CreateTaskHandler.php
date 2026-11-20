@@ -10,6 +10,7 @@ use Maggie\Calendar\Message\PushTaskToGoogleCommand;
 use Maggie\Calendar\Service\ModuleAgendas;
 use Maggie\Calendar\Service\TaskEstimate;
 use Maggie\Calendar\Service\TaskHierarchy;
+use Maggie\Calendar\Service\TaskRecurrence;
 use Maggie\Calendar\Service\TaskSchedule;
 use Maggie\Calendar\UseCase\CreateTask;
 use Maggie\Core\Repository\UserRepository;
@@ -64,6 +65,11 @@ class CreateTaskHandler
             $task->setParent($this->hierarchy->parentFor(null, $user, $command->parentId));
         }
         $task->setPosition($command->position ?? $this->hierarchy->lastPosition($user, $task->getParent()));
+        // After the dates and the parent: the rule is checked against them.
+        if (null !== $command->recurrenceDate) {
+            $task->repeat($command->rrule, $command->recurrenceDate);
+        }
+        TaskRecurrence::apply($task, $command->rrule);
 
         // Persisted here and flushed with the task; never the user's own agenda named « Tâches ».
         $this->moduleAgendas->forUser($user, Task::AGENDA_MODULE, Task::AGENDA_NAME, Task::AGENDA_COLOR, adoptLegacy: false);

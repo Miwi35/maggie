@@ -212,7 +212,7 @@ class DtoContractTest {
         assertDeclaredFieldsExist("DayTask", serializer<DayTask>(), tasks.toSet(), "day_plans.read")
         assertEquals(20, day.now?.task?.estimatedMinutes)
         assertEquals("Ouvrir le dossier", day.now?.task?.firstStep)
-        assertEquals("2026-03-20", day.now?.task?.postponedSince)
+        assertEquals("2026-03-19", day.now?.task?.postponedSince)
         assertEquals(day.total - day.done, day.left)
     }
 
@@ -241,7 +241,7 @@ class DtoContractTest {
 
         assertEquals(20, open.estimatedMinutes)
         assertEquals("Ouvrir le dossier", open.firstStep)
-        assertEquals("2026-03-20", open.postponedSince)
+        assertEquals("2026-03-19", open.postponedSince)
     }
 
     @Test

@@ -276,6 +276,22 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
+     * The open occurrences of the recurring tasks, every user's (MAG-870): the
+     * daily run hands on the rule of those whose day has passed.
+     *
+     * @return list<Task>
+     */
+    public function findOpenRecurring(): array
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.completedAt IS NULL')
+            ->andWhere('t.rrule IS NOT NULL')
+            ->orderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * One page of the done tasks, the most recently done first (MAG-408).
      *
      * @return Task[]

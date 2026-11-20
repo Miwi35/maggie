@@ -15,7 +15,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_task', description: 'Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1 to 1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning, afternoon, evening, or time with scheduledTime HH:MM; reminders (with time only): minutes before; another moment drops them. timed=true: timer. clear: fields to empty among description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment.')]
+#[McpTool(name: 'update_task', description: 'Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; a moved day moves this occurrence only. clear: fields to empty (description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule).')]
 class UpdateTaskTool
 {
     public function __construct(
@@ -48,6 +48,7 @@ class UpdateTaskTool
         ?string $scheduledTime = null,
         ?array $reminders = null,
         ?bool $timed = null,
+        ?string $rrule = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -60,7 +61,7 @@ class UpdateTaskTool
             $scheduledDateObj = null !== $scheduledDate ? TaskJson::day($scheduledDate, 'scheduledDate') : null;
 
             $completedAt = null;
-            $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate', 'parent', 'estimatedMinutes', 'firstStep', 'scheduledDate', 'scheduledMoment']));
+            $clearFields = array_values(array_intersect($clear ?? [], ['description', 'dueDate', 'parent', 'estimatedMinutes', 'firstStep', 'scheduledDate', 'scheduledMoment', 'rrule']));
             if (true === $done) {
                 $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Paris'));
             } elseif (false === $done) {
@@ -85,6 +86,7 @@ class UpdateTaskTool
                 scheduledTime: $scheduledTime,
                 reminders: $reminders,
                 timed: $timed,
+                rrule: $rrule,
             ));
 
             /** @var Task $task */

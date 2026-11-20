@@ -10,6 +10,7 @@ use Maggie\Calendar\Message\UpdateTaskCommand;
 use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Calendar\Service\TaskEstimate;
 use Maggie\Calendar\Service\TaskHierarchy;
+use Maggie\Calendar\Service\TaskRecurrence;
 use Maggie\Calendar\Service\TaskSchedule;
 use Maggie\Calendar\UseCase\UpdateTask;
 use Psr\Log\LoggerInterface;
@@ -111,6 +112,12 @@ class UpdateTaskHandler
             $task->setPosition($this->hierarchy->lastPosition($task->getUser(), $task->getParent(), $task));
         }
 
+        // After the dates and the parent, which the rule is checked against
+        // again: a new rule is anchored on the task's day, a moved day alone
+        // keeps the series on its own days.
+        TaskRecurrence::apply($task, $command->rrule, $command->clears('rrule'));
+        $rruleChanged = null !== $command->rrule || $command->clears('rrule');
+
         // Track which fields were explicitly set in the command
         $changedFields = [];
         if (null !== $command->title) {
@@ -132,10 +139,10 @@ class UpdateTaskHandler
 
         $task = $this->updateTask->execute($task);
 
-        // Only Maggie's own fields changed — the deadline among them: nothing for Google.
+        // Only Maggie's own fields changed — the deadline and the rule among them: nothing for Google.
         $dueDateChanged = null !== $command->dueDate || $command->clears('dueDate');
         $ownOnly = [] === $changedFields && null === $command->priority && null === $command->criticality
-            && ($scheduleChanged || $dueDateChanged || null !== $command->estimatedMinutes || null !== $command->firstStep || null !== $command->timed
+            && ($scheduleChanged || $dueDateChanged || $rruleChanged || null !== $command->estimatedMinutes || null !== $command->firstStep || null !== $command->timed
                 || $command->clears('estimatedMinutes') || $command->clears('firstStep'));
 
         if ($task->isGoogleSynced() && !$ownOnly) {

@@ -224,6 +224,9 @@ task id). The fake cannot compute a date, so any text or argument of a scenario 
 `${tomorrow}`: both are expanded to the Paris calendar day of the stack's clock.
 `74-task-timed-meditate.yaml` answers « Médite 20 minutes ce soir » with one `create_task` (MAG-766): `timed` true,
 `estimatedMinutes` 20 (the timer's length), planned today in the evening.
+`74-task-recurring.yaml` answers « Rappelle-moi un mardi sur deux de sortir la poubelle jaune » with one
+`create_task` (MAG-870): `rrule` `FREQ=WEEKLY;INTERVAL=2;BYDAY=TU`, `scheduledDate` `${next_tuesday}` (the Tuesday
+of next week).
 
 **Projects** (MAG-519). `91-projects-create.yaml` creates « Voyage au Japon » with a deadline through
 `manage_projects`. Reordering takes every project id, which a run cannot capture from its own results: « Mets

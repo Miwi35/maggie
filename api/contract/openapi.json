@@ -30408,6 +30408,14 @@
                             "maximum": 10080
                         }
                     },
+                    "rrule": {
+                        "description": "The recurrence, RFC 5545 without \"RRULE:\" (e.g. FREQ=WEEKLY;INTERVAL=2;BYDAY=TU): FREQ DAILY to YEARLY, UNTIL allowed, COUNT refused. Needs a scheduledDate or a dueDate on a day of the rule. Only the open occurrence carries it: done or its day past, it passes to the next one. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
+                    },
                     "completedAt": {
                         "type": [
                             "string",
@@ -30629,6 +30637,14 @@
                             "maximum": 10080
                         }
                     },
+                    "rrule": {
+                        "description": "The recurrence, RFC 5545 without \"RRULE:\" (e.g. FREQ=WEEKLY;INTERVAL=2;BYDAY=TU): FREQ DAILY to YEARLY, UNTIL allowed, COUNT refused. Needs a scheduledDate or a dueDate on a day of the rule. Only the open occurrence carries it: done or its day past, it passes to the next one. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
+                    },
                     "completedAt": {
                         "type": [
                             "string",
@@ -30849,6 +30865,14 @@
                             "minimum": 0,
                             "maximum": 10080
                         }
+                    },
+                    "rrule": {
+                        "description": "The recurrence, RFC 5545 without \"RRULE:\" (e.g. FREQ=WEEKLY;INTERVAL=2;BYDAY=TU): FREQ DAILY to YEARLY, UNTIL allowed, COUNT refused. Needs a scheduledDate or a dueDate on a day of the rule. Only the open occurrence carries it: done or its day past, it passes to the next one. Maggie's own: Google never sees it.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
                     },
                     "completedAt": {
                         "type": [
@@ -31072,6 +31096,14 @@
                                     "minimum": 0,
                                     "maximum": 10080
                                 }
+                            },
+                            "rrule": {
+                                "description": "The recurrence, RFC 5545 without \"RRULE:\" (e.g. FREQ=WEEKLY;INTERVAL=2;BYDAY=TU): FREQ DAILY to YEARLY, UNTIL allowed, COUNT refused. Needs a scheduledDate or a dueDate on a day of the rule. Only the open occurrence carries it: done or its day past, it passes to the next one. Maggie's own: Google never sees it.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
                             },
                             "completedAt": {
                                 "type": [

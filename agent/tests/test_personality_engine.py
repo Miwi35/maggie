@@ -484,6 +484,25 @@ async def test_the_shipped_prompt_tells_a_timed_task_from_an_estimate():
     assert "méditer 20 min" in rule and "appeler le garage, 10 min" in rule and "jamais timed" in rule
 
 
+@pytest.mark.asyncio
+async def test_the_shipped_prompt_files_a_repeating_reminder_as_one_recurring_task():
+    """MAG-870: « un mardi sur deux » is one task with an rrule, never a task per date nor a directive."""
+    engine = PersonalityEngine()
+
+    with patch("app.personality.engine.personality_repo") as mock_repo:
+        mock_repo.get = AsyncMock(return_value=None)
+        prompt = await engine.get_system_prompt("user-1")
+
+    rule = next(line for line in prompt.splitlines() if "TÂCHES, RÉPÉTÉE :" in line)
+    assert "create_task" in rule and "rrule" in rule and "scheduledDate" in rule
+    assert "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU" in rule
+    assert "UNTIL" in rule and "jamais COUNT" in rule
+    assert "Jamais une tâche par date" in rule and "routine" in rule and "directive" in rule
+    assert 'clear ["rrule"]' in rule
+    planning = next(line for line in prompt.splitlines() if 'kind="planning"' in line and "date fixe" in line)
+    assert "TÂCHES, RÉPÉTÉE" in planning
+
+
 class TestShippedPromptRules:
     """MAG-792: the defensive rules, rewritten once, stay without alarm capitals and with one way to ask."""
 

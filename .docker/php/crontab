@@ -6,7 +6,7 @@
 # One job start per minute: each console command takes ~58 MiB, and five of
 # them started together got the pod OOMKilled (MAG-186). Minutes used:
 # sync 0,5,… · sync --tasks 1,6,… · check-sync 3,18,33,48 · renew-watch 7,37 ·
-# finance jobs on minute 4 or 34 · dashboard day turn 14 · recurring groceries 8 · past-meal groceries 9 · close open bilans 10.
+# finance jobs on minute 4 or 34 · dashboard day turn 14 · recurring groceries 8 · past-meal groceries 9 · close open bilans 10 · recurring tasks 11.
 # The one exception is check-reminders: a reminder is minute-precise, so it runs
 # every minute and shares a minute with at most one other job (MAG-27); the
 # pod's memory limit holds it.
@@ -29,3 +29,5 @@
 14 * * * * cd /var/www/api && php bin/console app:finance:refresh-dashboards
 # Evening review left open (MAG-747): once a day, 04:10 UTC (after the Paris day has turned), closes the bilans of a day that has gone; today's is left alone. Idempotent.
 10 4 * * * cd /var/www/api && php bin/console maggie:core:close-open-bilans
+# Recurring tasks (MAG-870): once a day, 04:11 UTC (after the Paris day has turned), hands the rule of an occurrence whose day has passed undone to the next one; the missed one stays open. Idempotent: an occurrence that handed its rule on has none left.
+11 4 * * * cd /var/www/api && php bin/console maggie:calendar:advance-recurring-tasks

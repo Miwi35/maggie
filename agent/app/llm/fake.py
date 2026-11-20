@@ -277,8 +277,8 @@ class Scenario:
 
 def expand_days(text: str) -> str:
     """`${today}`, `${tomorrow}`, `${friday}` (coming, or today) become YYYY-MM-DD, `${month}` YYYY-MM, in Paris.
-    `${next_monday}`, `${next_wednesday}`, `${next_friday}`, `${next_sunday}` are the days of the Monday-Sunday
-    week after the current one (MAG-778).
+    `${next_monday}`, `${next_tuesday}`, `${next_wednesday}`, `${next_friday}`, `${next_sunday}` are the days of
+    the Monday-Sunday week after the current one (MAG-778, MAG-870).
 
     A scenario cannot hardcode « demain »: the fake does not read tool results, so it cannot
     ask `date_time` either. The agent runs under the e2e clock, so this is the day the API sees.
@@ -296,6 +296,7 @@ def expand_days(text: str) -> str:
         .replace("${tomorrow}", (today + timedelta(days=1)).isoformat())
         .replace("${friday}", (today + timedelta(days=(4 - today.weekday()) % 7)).isoformat())
         .replace("${next_monday}", next_week.isoformat())
+        .replace("${next_tuesday}", (next_week + timedelta(days=1)).isoformat())
         .replace("${next_wednesday}", (next_week + timedelta(days=2)).isoformat())
         .replace("${next_friday}", (next_week + timedelta(days=4)).isoformat())
         .replace("${next_sunday}", (next_week + timedelta(days=6)).isoformat())
