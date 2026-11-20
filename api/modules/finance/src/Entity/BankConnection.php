@@ -51,10 +51,11 @@ class BankConnection implements MercurePublishable, OwnedByUserInterface, HoldsC
 
     private const SESSION_ID = 'session_id';
 
+    // Stored sealed (MAG-889): the plain value lives in memory only, sealed at
+    // flush and opened at load by ConnectedServiceTokensListener. The docblock
+    // below is the public description of the field (OpenAPI contract).
     /**
-     * The provider's session, once the consent journey has succeeded — stored
-     * sealed (MAG-889): the plain value lives in memory only, sealed at flush
-     * and opened at load by ConnectedServiceTokensListener.
+     * The provider's session, once the consent journey has succeeded.
      */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $sessionId = null;
