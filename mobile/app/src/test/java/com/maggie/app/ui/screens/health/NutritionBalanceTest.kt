@@ -88,6 +88,21 @@ class NutritionBalanceTest {
     }
 
     @Test
+    fun `journalTime reads the hour as the fast does`() {
+        val paris = ZoneId.of("Europe/Paris")
+        assertEquals("10 h 00", journalTime("2026-11-07T10:00:00+01:00", paris))
+        assertEquals("8 h 05", journalTime("2026-11-07T08:05:00+01:00", paris))
+        assertEquals("", journalTime("nope", paris))
+    }
+
+    @Test
+    fun `weekdayShort says auj for today`() {
+        assertEquals("auj.", weekdayShort("2026-11-07", "2026-11-07"))
+        assertEquals("ven.", weekdayShort("2026-11-06", "2026-11-07"))
+        assertEquals("", weekdayShort("nope", "2026-11-07"))
+    }
+
+    @Test
     fun `grams keep one decimal, a whole number none`() {
         assertEquals("12,9 g", formatGrams(12.9))
         assertEquals("71 g", formatGrams(71.0))
