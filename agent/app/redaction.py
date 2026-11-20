@@ -61,6 +61,9 @@ def _luhn_ok(digits: str) -> bool:
 
 def _mask_card(match: re.Match) -> str:
     digits = re.sub(r"\D", "", match.group(0))
+    # A SIRET is 14 Luhn-valid digits; only the 14-digit Diners prefixes count as a card.
+    if len(digits) == 14 and not digits.startswith(("30", "36", "38")):
+        return match.group(0)
     if 13 <= len(digits) <= 19 and _luhn_ok(digits):
         return MASK
     return match.group(0)
@@ -98,11 +101,19 @@ class RedactingFilter(logging.Filter):
         if masked != message:
             record.msg = masked
             record.args = None
+        if record.exc_info and not record.exc_text:
+            record.exc_text = logging.Formatter().formatException(record.exc_info)
+        if record.exc_text:
+            record.exc_text = redact(record.exc_text)
+        if record.stack_info:
+            record.stack_info = redact(record.stack_info)
         return True
 
 
 def install_log_redaction() -> None:
-    """On every root handler: a filter on a logger does not see records propagated from its children."""
+    """On every root and uvicorn handler: a logger filter does not see records propagated from its children."""
     log_filter = RedactingFilter()
-    for handler in logging.getLogger().handlers:
-        handler.addFilter(log_filter)
+    for name in ("", "uvicorn", "uvicorn.error", "uvicorn.access"):
+        for handler in logging.getLogger(name).handlers:
+            if not any(isinstance(f, RedactingFilter) for f in handler.filters):
+                handler.addFilter(log_filter)

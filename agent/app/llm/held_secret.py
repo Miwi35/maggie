@@ -17,10 +17,15 @@ _NOT_A_CODE = (
     r"(?!\s*(?:postal|promo|de réduction|réduction|article|produit|client|insee|source|couleur|de la route)\b)"
 )
 _LABELLED_CODE = re.compile(
-    r"\b(code|pin|cvv|cvc|cryptogramme|digicode)\b" + _NOT_A_CODE + r"([^.!?\n\d]{0,20}?)(\d{3,8}[A-Za-z]?)(?![\w])",
+    r"\b(code|pin|cvv|cvc|cryptogramme|digicode)\b"
+    + _NOT_A_CODE
+    + r"([^.!?\n\d]{0,20}?)(\d(?:[ .-]?\d){2,7}[A-Za-z]?)(?![\w])",
     re.IGNORECASE,
 )
-_PASSWORD = re.compile(r"\b(mot de passe|mdp|password)(\s*(?:est|:|=|c'est)\s*)(\S+)", re.IGNORECASE)
+_PASSWORD = re.compile(
+    r"\b(mot de passe|mdp|password)((?:\s+[^\s:=.,;!?]+){0,3}?\s*(?:est|:|=|c'est)\s*)([^\s,;]+)",
+    re.IGNORECASE,
+)
 
 
 def mask_owner_secrets(said: str) -> str:

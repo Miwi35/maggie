@@ -24,6 +24,11 @@ def test_three_or_nine_digits_alone_are_kept(said):
         ("digicode 1234B", f"digicode {MASK}"),
         ("mot de passe : Tr0ub4dor&3", f"mot de passe : {MASK}"),
         ("mdp = hunter22", f"mdp = {MASK}"),
+        ("mon code est 48 21", f"mon code est {MASK}"),
+        ("mon code est 48 21, merci", f"mon code est {MASK}, merci"),
+        ("le mot de passe du wifi est maison2024", f"le mot de passe du wifi est {MASK}"),
+        ("mon mot de passe Netflix : abc123", f"mon mot de passe Netflix : {MASK}"),
+        ("mon mot de passe est abc123, merci", f"mon mot de passe est {MASK}, merci"),
     ],
 )
 def test_a_labelled_value_is_masked_and_the_rest_kept(said, expected):
@@ -36,7 +41,8 @@ def test_a_card_number_in_a_message_is_masked():
 
 @pytest.mark.parametrize(
     "said",
-    ["code postal 35000", "le code promo BIENVENUE10", "j'ai 3 rendez-vous demain", "mon mot de passe Google ne marche plus"],
+    ["code postal 35000", "le code promo BIENVENUE10", "j'ai 3 rendez-vous demain", "mon mot de passe Google ne marche plus",
+     "code du 12 janvier 2025", "mon mot de passe, c'est pénible", "rdv le 12 03 2026 à 14 h"],
 )
 def test_an_ordinary_message_is_kept(said):
     assert mask_owner_secrets(said) == said
