@@ -118,6 +118,7 @@ private fun PeriodList(
         viewModel.clearMessage()
     }
     val groups = remember(state.periods, state.tab) { viewModel.groups() }
+    val now = remember(groups) { viewModel.now() }
 
     Scaffold(
         modifier = modifier.testTag(UiTags.PERIODS),
@@ -169,7 +170,7 @@ private fun PeriodList(
                             )
                         }
                         items(group.periods, key = { "${group.title}-${it.id}" }) { period ->
-                            PeriodRow(period, state.agendas, selected = period.id == state.selectedId) { onOpen(period.id) }
+                            PeriodRow(period, now, state.agendas, selected = period.id == state.selectedId) { onOpen(period.id) }
                         }
                     }
                 }
@@ -179,7 +180,7 @@ private fun PeriodList(
 }
 
 @Composable
-private fun PeriodRow(period: Period, agendas: List<Agenda>, selected: Boolean, onClick: () -> Unit) {
+private fun PeriodRow(period: Period, now: java.time.Instant, agendas: List<Agenda>, selected: Boolean, onClick: () -> Unit) {
     val color = periodColor(period, agendas, MaterialTheme.colorScheme.primary)
     val agendaName = agendas.firstOrNull { it.id == period.agendaId }?.name
     Row(
@@ -197,7 +198,7 @@ private fun PeriodRow(period: Period, agendas: List<Agenda>, selected: Boolean, 
         Column(Modifier.weight(1f)) {
             Text(period.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                periodDatesLabel(period),
+                periodDatesLabel(period, now),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

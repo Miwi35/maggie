@@ -87,9 +87,45 @@ data class Period(
         return !end.isAfter(now)
     }
 
+    /**
+     * The occurrence whose end is after [now] — the one in progress or the next — as (start, end exclusive); the
+     * period's own dates when it does not repeat; null when a series has no occurrence left.
+     */
+    fun occurrenceAt(now: Instant): Pair<Instant, Instant>? {
+        val start = startsAt() ?: return null
+        val end = endsAt() ?: start
+        val rule = rrule ?: return start to end
+        val length = java.time.Duration.between(start, end)
+        val next = runCatching {
+            if (allDay) {
+                val first = firstDay ?: return null
+                val days = length.toDays()
+                val from = now.atZone(zone).toLocalDate().minusDays(days)
+                RruleUtils.expandRruleDates(rule, first, maxOf(from, first), from.plusYears(10))
+                    .map { it.atStartOfDay(zone).toInstant() }
+                    .map { it to it.atZone(zone).toLocalDate().plusDays(days).atStartOfDay(zone).toInstant() }
+                    .firstOrNull { it.second.isAfter(now) }
+            } else {
+                RruleUtils.expandRrule(rule, start, maxOf(start, now.minus(length)), now.plus(java.time.Duration.ofDays(3650)), timeZone)
+                    .firstOrNull { it.plus(length).isAfter(now) }?.let { it to it.plus(length) }
+            }
+        }.getOrNull()
+        return next
+    }
+
+    /** The period as its current or next occurrence: same series, the dates of that occurrence. */
+    fun atOccurrence(now: Instant): Period {
+        if (rrule == null) return this
+        val (from, to) = occurrenceAt(now) ?: return this
+        return if (allDay) copy(startDate = from.atZone(zone).toLocalDate().toString(), endDate = to.atZone(zone).toLocalDate().toString())
+        else copy(startAt = from.toString(), endAt = to.toString())
+    }
+
     fun isOngoing(now: Instant): Boolean {
         val start = startsAt() ?: return false
         if (start.isAfter(now)) return false
-        return !hasEnded(now)
+        if (rrule == null) return !hasEnded(now)
+        val (from, to) = occurrenceAt(now) ?: return false
+        return !from.isAfter(now) && to.isAfter(now)
     }
 }
