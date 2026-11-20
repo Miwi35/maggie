@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/index.js'
+import { test, expect, parisDay, parisTime } from '../fixtures/index.js'
 import { e2eNow } from '../fixtures/clock.js'
 import { HealthNutritionPage } from '../pages/HealthNutritionPage.js'
 import { HealthSuiviPage } from '../pages/HealthSuiviPage.js'
@@ -86,4 +86,44 @@ test('Santé › Suivi opens on today’s balance, which opens Santé › Nutrit
 
   await expect(page).toHaveURL(/#\/health\/nutrition$/)
   await expect(new HealthNutritionPage(page).balanceCard).toBeVisible()
+})
+
+/**
+ * Santé › Activité — MAG-897.
+ *
+ * Given le seed et un lot `POST /api/health/sync` (aujourd'hui 4 380 pas, une marche faite de 25 min),
+ * When j'ouvre Santé › Activité depuis le menu,
+ * Then l'anneau affiche 4 380 / 8 000, la ligne « À ce rythme » est présente,
+ * And « Sessions actives » montre la marche avec « Fait ».
+ */
+test('Santé › Activité shows the synced steps against the goal and the walk as done — MAG-897', async ({ page, api }) => {
+  const today = parisDay(e2eNow())
+  const title = `Marche e2e ${test.info().retry}`
+  const synced = await api.post('/api/health/sync', {
+    data: {
+      days: [{ date: today, steps: 4380, activeKcal: 210 }],
+      workouts: [
+        {
+          externalId: `hc-walk-e2e-${test.info().retry}`,
+          type: 'walk',
+          title,
+          startedAt: parisTime(today, '00:20:00'),
+          durationMinutes: 25,
+          source: 'watch',
+        },
+      ],
+    },
+  })
+  expect(synced.status(), `POST /api/health/sync answered ${synced.status()}`).toBe(200)
+
+  const suivi = new HealthSuiviPage(page)
+  await suivi.goto('/')
+  await suivi.expectLoaded()
+  await suivi.navigateTo('Activité', 'Santé')
+
+  await expect(suivi.activityRing.getByTestId('activity-steps')).toHaveText(/^4\s380$/)
+  await expect(suivi.activityRing).toContainText(/8\s000/)
+  await expect(page.getByTestId('activity-projection')).toContainText('À ce rythme')
+  const session = suivi.activitySessions.getByTestId('activity-session').filter({ hasText: title })
+  await expect(session).toContainText('Fait')
 })

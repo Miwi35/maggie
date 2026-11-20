@@ -284,13 +284,14 @@ describe('the sidebar table', () => {
     ])
   })
 
-  test('Santé follows the mockup: Suivi, Sport, Nutrition, Journal, Configuration last', () => {
+  test('Santé follows the mockup: Suivi, Sport, Activité, Nutrition, Journal, Configuration last', () => {
     const health = SIDEBAR.find((module) => module.label === 'Santé')
 
     expect(health?.path).toBe(HEALTH_SUIVI_PATH)
     expect(health?.entries.map((entry) => [entry.label, entry.path])).toEqual([
       ['Suivi', '/health/suivi'],
       ['Sport', '/workouts'],
+      ['Activité', '/health/activity'],
       ['Nutrition', HEALTH_NUTRITION_PATH],
       ['Journal', HEALTH_JOURNAL_PATH],
       ['Configuration', HEALTH_CONFIGURATION_PATH],
