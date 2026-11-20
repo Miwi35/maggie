@@ -64,6 +64,11 @@ Local Symfony bundles live in `api/modules/{name}/` — `calendar`, `core`, `coo
 - `OwnedByUserInterface` — direct FK to User
 - `OwnedThroughInterface` — indirect ownership (e.g. Task owned through Agenda)
 
+## Connected-service tokens
+
+- A connected-service token (OAuth, bank session) implements `HoldsConnectedServiceTokens`: the mapped column holds the value `TokenCipher` sealed, the plain one stays in memory (`ConnectedServiceTokensListener`, MAG-889) — never a token column in plain
+- Its context is `{table}:{record id}:{owner id}:{usage}`; a getter whose value did not open throws `ConnectedServiceTokenUnavailable`
+
 ## Messenger Commands
 
 **Every entity MUST have Create/Update/Delete commands for the write path:**
