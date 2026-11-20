@@ -2124,7 +2124,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            textTransform: 'capitalize',
+            textTransform: currentView === 'timeGridDay' ? 'none' : 'capitalize',
             fontWeight: 400,
             fontSize: { xs: '1rem', md: '1.25rem' },
           }}

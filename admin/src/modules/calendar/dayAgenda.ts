@@ -7,6 +7,7 @@ export interface DayEntry {
   start?: unknown
   end?: unknown
   allDay?: boolean
+  extendedProps?: { masterEventId?: string; isVirtualOccurrence?: boolean }
 }
 
 export type DayRow<T extends DayEntry = DayEntry> =
@@ -47,6 +48,19 @@ export function entriesOfDay<T extends DayEntry>(entries: T[], start: Date, end:
  */
 export function dayRows<T extends DayEntry>(entries: T[], trips: Trip[], now: Date): DayRow<T>[] {
   const byId = new Map(entries.map((entry) => [entry.id, entry]))
+  const iri = (id: string) => (id.startsWith('/') ? id : `/api/events/${id}`)
+  const occurrenceOf = (trip: Trip): T | undefined => {
+    const from = toDate(trip.occurrenceStartAt)?.getTime()
+    if (from === undefined) return undefined
+
+    return entries.find(
+      (entry) =>
+        entry.extendedProps?.isVirtualOccurrence &&
+        entry.extendedProps.masterEventId !== undefined &&
+        iri(entry.extendedProps.masterEventId) === trip.event &&
+        toDate(entry.start)?.getTime() === from,
+    )
+  }
   const allDay: DayRow<T>[] = []
   const timed: { row: DayRow<T>; at: number; order: number }[] = []
 
@@ -65,7 +79,7 @@ export function dayRows<T extends DayEntry>(entries: T[], trips: Trip[], now: Da
   }
 
   for (const trip of trips) {
-    const entry = byId.get(trip.event)
+    const entry = byId.get(trip.event) ?? occurrenceOf(trip)
     const at = toDate(trip.departAt)
     // An outbound trip of an all-day entry has no hour to leave for: only the way home shows.
     if (!entry || !at || (entry.allDay && !isReturn(trip))) continue
