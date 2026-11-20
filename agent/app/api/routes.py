@@ -36,6 +36,7 @@ from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
 from app.llm.gateway import LLMGateway
+from app.llm.held_secret import hold_secrets
 from app.llm.image import ChatImage
 from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
 from app.llm.models import CHAT, effort_for, model_for
@@ -204,6 +205,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
     same message: it gets that answer, and no second turn runs (MAG-386).
     """
     said, screen = split_screen_context(request.message, request.screen_context)
+    said, screen = hold_secrets(said, screen)
     screen = with_reply(screen, request.in_reply_to)
     grant_approval_answer(user_id, request.in_reply_to)
     logger.info(f"Chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
@@ -300,6 +302,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     # The screen the assistant was summoned from reaches the model, not the message that
     # is stored and published — this is the route the overlay streams on (MAG-30).
     said, screen = split_screen_context(request.message, request.screen_context)
+    said, screen = hold_secrets(said, screen)
     screen = with_reply(screen, request.in_reply_to)
     grant_approval_answer(user_id, request.in_reply_to)
     logger.info(f"Stream chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")

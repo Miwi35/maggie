@@ -335,6 +335,11 @@ web:
     areas: [chat, dashboard]
   e2e/web/tests/chat-in-car.spec.ts:
     areas: [chat, dashboard]
+  e2e/web/tests/chat-secret-held.spec.ts:
+    areas: [chat, dashboard]
+    paths:
+      - 'agent/app/redaction.py'
+      - 'agent/fixtures/fake-llm/08-secret-held.yaml'
   e2e/web/tests/chat-stream-cut.spec.ts:
     areas: [chat, dashboard]
   e2e/web/tests/memory-folder.spec.ts:

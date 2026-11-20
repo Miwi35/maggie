@@ -43,12 +43,14 @@ from app.mercure.publisher import MercurePublisher
 from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
+from app.redaction import install_log_redaction
 from app.skills.index import skill_index
 from app.skills.store import skill_files
 from app.tts.synthesis import close_providers
 
 # Configure logging so app messages are visible
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
+install_log_redaction()
 logger = logging.getLogger(__name__)
 
 # Before the app exists, so the FastAPI integration wraps it. No DSN, no-op.

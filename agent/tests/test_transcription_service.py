@@ -52,6 +52,18 @@ class TestTranscriptionService:
     @pytest.mark.asyncio
     @patch("app.llm.transcription._cleanup_with_llm", new_callable=AsyncMock)
     @patch("app.llm.transcription._whisper_transcribe", new_callable=AsyncMock)
+    async def test_a_dictated_code_is_never_sent_to_the_cleanup_model(self, mock_whisper, mock_cleanup):
+        raw = "euh mon code est 4821"
+        mock_whisper.return_value = heard(raw)
+
+        result = await transcribe_audio(b"audio-bytes", "test.webm", cleanup="auto")
+
+        mock_cleanup.assert_not_called()
+        assert result["clean"] == strip_hesitations(raw)
+
+    @pytest.mark.asyncio
+    @patch("app.llm.transcription._cleanup_with_llm", new_callable=AsyncMock)
+    @patch("app.llm.transcription._whisper_transcribe", new_callable=AsyncMock)
     async def test_a_clean_text_is_not_sent_to_the_model(self, mock_whisper, mock_cleanup):
         """In « auto », a transcript with nothing to fix costs no call (MAG-222)."""
         mock_whisper.return_value = heard("Ajoute des tomates à la liste de courses.")

@@ -19,6 +19,7 @@ import openai
 
 from app.config import settings
 from app.llm.client import create_llm_client
+from app.llm.held_secret import has_owner_secret
 from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage
 
@@ -342,7 +343,8 @@ async def transcribe_audio(
         return {"raw": "", "clean": ""}
 
     raw = transcript.text
-    if cleanup == "auto" and needs_cleanup(raw):
+    # A dictation holding a code never goes to the model: it comes back cleaned by the rules alone.
+    if cleanup == "auto" and needs_cleanup(raw) and not has_owner_secret(raw):
         return {"raw": raw, "clean": await _cleanup_with_llm(raw)}
 
     return {"raw": raw, "clean": strip_hesitations(raw)}

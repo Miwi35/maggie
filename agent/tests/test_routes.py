@@ -170,6 +170,29 @@ class TestRoutes:
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
     @patch("app.api.routes.llm_gateway")
+    def test_a_code_alone_never_reaches_the_model_nor_the_stored_message(
+        self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client, caplog
+    ):
+        mock_gateway.chat = AsyncMock(return_value={"response": "Je ne prends pas les codes.", "tool_calls": []})
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+        mock_summarizer.maybe_summarize = AsyncMock()
+
+        with caplog.at_level("INFO"):
+            response = authed_client.post("/chat", json={"message": "4821"})
+
+        assert response.status_code == 200
+        mock_msg_repo.create.assert_any_await(user_id="test-user", role="user", content="[masqué]", has_image=False)
+        assert mock_gateway.chat.await_args.args[0] == "[masqué]"
+        assert mock_gateway.chat.await_args.kwargs["screen_context"].startswith("[Message retenu]")
+        assert "4821" not in repr(mock_gateway.chat.await_args)
+        assert "4821" not in repr(mock_msg_repo.create.await_args_list)
+        assert "4821" not in caplog.text
+
+    @patch("app.api.routes.context_summarizer")
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.llm_gateway")
     def test_a_reply_reaches_the_model_with_its_message_and_is_stored_as_said(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -272,6 +295,32 @@ class TestRoutes:
         assert (stored["role"], stored["content"]) == ("user", "c'est quoi ce produit ?")
         assert stored["has_image"] is False
         assert mock_streaming.chat_stream.call_args.kwargs["screen_context"] == block
+
+    @pytest.mark.parametrize("spoken", [False, True])
+    @patch("app.api.routes.message_repo")
+    @patch("app.api.routes.streaming_gateway")
+    def test_the_streamed_route_holds_a_labelled_code_spoken_or_written(
+        self, mock_streaming, mock_msg_repo, spoken, authed_client
+    ):
+        async def no_events(*_args, **_kwargs):
+            if False:
+                yield {}
+
+        mock_streaming.chat_stream = MagicMock(side_effect=no_events)
+        mock_msg_repo.create = AsyncMock(
+            return_value=Message(id="msg-1", user_id="test-user", role="user", content="x")
+        )
+
+        with authed_client.stream(
+            "POST", "/chat/stream", json={"message": "mon code est 4821", "spoken": spoken}
+        ) as response:
+            assert response.status_code == 200
+            response.read()
+
+        assert mock_msg_repo.create.await_args.kwargs["content"] == "mon code est [masqué]"
+        kwargs = mock_streaming.chat_stream.call_args.kwargs
+        assert kwargs["screen_context"].startswith("[Message retenu]")
+        assert "4821" not in repr(mock_streaming.chat_stream.call_args)
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")

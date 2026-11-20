@@ -185,6 +185,37 @@ class TestToolRouter:
         assert not names & {"store_memory", "search_memory", "update_memory", "delete_memory"}
 
 
+class TestTheResultsAreMasked:
+    TOKEN = "svc-0123456789abcdef"
+
+    @patch("app.llm.tools.mcp_client")
+    async def test_a_known_secret_in_an_mcp_result_is_masked(self, mock_mcp_client):
+        mock_mcp_client.call_tool = AsyncMock(return_value=f"jeton {self.TOKEN}, carte 4111 1111 1111 1111, iban FR76 3000 6000 0112 3456 7890 189")
+
+        with patch("app.redaction.settings.service_token", self.TOKEN):
+            result = await ToolRouter().call_tool("create_event", {}, user_id="user-1")
+
+        assert result == "jeton [masqué], carte [masqué], iban FR76 3000 6000 0112 3456 7890 189"
+
+    @patch("app.llm.tools.mcp_client")
+    async def test_a_failed_call_masks_the_secret_in_its_error(self, mock_mcp_client):
+        mock_mcp_client.call_tool = AsyncMock(side_effect=RuntimeError(f"refusé : {self.TOKEN}"))
+
+        with patch("app.redaction.settings.service_token", self.TOKEN):
+            result = await ToolRouter().call_tool("create_event", {}, user_id="user-1")
+
+        assert self.TOKEN not in result
+        assert "[masqué]" in result
+
+    async def test_a_native_tool_result_is_masked_too(self):
+        handler = AsyncMock(return_value="clé sk-ant-api03-abcdefghijklmnopqrstuvwx")
+
+        with patch.dict("app.llm.tools._NATIVE_HANDLERS", {"list_instructions": handler}):
+            result = await ToolRouter().call_tool("list_instructions", {}, user_id="user-1")
+
+        assert result == "clé [masqué]"
+
+
 class TestThePolicyGuard:
     """`call_tool` is the one place every tool call passes, so it is where the policy stands (MAG-4).
 
