@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -296,6 +297,8 @@ async def _consume(
     prompt: str = "Rappelle-lui d'appeler le plombier",
     summary: str | None = None,
     body: bytes | None = None,
+    kind: str | None = None,
+    signaled_topics: list[dict] | None = None,
 ):
     """Run the queue callback once over a claimed proaction whose gateway returns `result`."""
     from app.queue.proaction_consumer import start_consumer
@@ -305,10 +308,15 @@ async def _consume(
         gateway_instance.proaction = AsyncMock(side_effect=result)
     else:
         gateway_instance.proaction = AsyncMock(return_value=result)
+    gateway_instance.proaction_context = AsyncMock(return_value="ctx-check")
 
     claimed = API_PROACTION | {"id": proaction_id, "prompt": prompt, "status": "running"}
     if summary is not None:
         claimed["summary"] = summary
+    if kind is not None:
+        claimed["kind"] = kind
+    if signaled_topics is not None:
+        claimed["signaledTopics"] = signaled_topics
     message = MagicMock()
     message.body = body if body is not None else json.dumps(claimed).encode()
     message.process = MagicMock(return_value=MagicMock(__aenter__=AsyncMock(), __aexit__=AsyncMock()))
@@ -325,8 +333,10 @@ async def _consume(
     queue.consume = capture_consume
     channel.declare_queue = AsyncMock(return_value=queue)
 
-    async def record(proaction, status, *, response=None, error=None):
-        return Proaction.from_api(claimed | {"status": status, "response": response, "error": error})
+    async def record(proaction, status, *, response=None, error=None, **trace):
+        return Proaction.from_api(
+            claimed | {"status": status, "response": response, "error": error, "delivery": trace.get("delivery")}
+        )
 
     with (
         patch("app.queue.proaction_consumer.message_repo") as messages,
@@ -338,7 +348,7 @@ async def _consume(
     ):
         proactions.record = AsyncMock(side_effect=record)
         publisher.publish = AsyncMock()
-        messages.create = AsyncMock()
+        messages.create = AsyncMock(return_value=MagicMock(id="msg-1", audio=None))
         summarizer.maybe_summarize = AsyncMock(return_value=None)
 
         await start_consumer()
@@ -358,7 +368,9 @@ class TestProactionConsumer:
         consumed = await _consume({"response": "C'est l'heure d'appeler le plombier !", "tool_calls": []})
 
         # Verify gateway.proaction called without silent (defaults to False)
-        consumed.gateway.proaction.assert_called_once_with("Rappelle-lui d'appeler le plombier", "user-1", summary="Check calendar")
+        consumed.gateway.proaction.assert_called_once_with(
+            "Rappelle-lui d'appeler le plombier", "user-1", summary="Check calendar", kind="reminder", signaled_topics=()
+        )
 
         consumed.messages.create.assert_called_once_with(
             user_id="user-1",
@@ -455,7 +467,15 @@ class TestProactionConsumer:
 
         proaction, status = consumed.proactions.record.await_args.args
         assert (proaction.id, status) == ("pro-1", "completed")
-        assert consumed.proactions.record.await_args.kwargs == {"response": "Pense au plombier.", "error": None}
+        assert consumed.proactions.record.await_args.kwargs == {
+            "response": "Pense au plombier.",
+            "error": None,
+            "delivery": "interrupt",
+            "topic_key": None,
+            "verdict": None,
+            "message_link": "/chat?message=msg-1",
+            "notice": "Pense au plombier.",
+        }
         topic, data = consumed.publisher.publish.await_args.args
         assert topic.endswith("proactions/user-1")
         assert (data["id"], data["status"], data["response"]) == ("pro-1", "completed", "Pense au plombier.")
@@ -511,6 +531,103 @@ class TestProactionConsumer:
         consumed.proactions.record.assert_not_awaited()
 
 
+def _verdict_call(**arguments) -> dict:
+    return {"name": "proaction_verdict", "input": arguments, "result": '{"noted": true}'}
+
+
+class TestProactionTriage:
+    """MAG-886: a reminder always interrupts; a check is triaged on Maggie's verdict, by the code."""
+
+    async def test_a_reminder_interrupts_even_with_a_low_verdict_on_a_topic_already_told(self):
+        notify = AsyncMock()
+        result = {
+            "response": "C'est l'heure d'appeler le garage.",
+            "tool_calls": [_verdict_call(impact="low", evidence="weak", topic="garage")],
+        }
+
+        with patch("app.queue.proaction_consumer.notify_message", notify):
+            consumed = await _consume(
+                result, signaled_topics=[{"topic": "garage", "at": "2030-11-13T08:00:00+00:00", "delivery": "thread"}]
+            )
+
+        consumed.messages.create.assert_called_once()
+        kwargs = consumed.proactions.record.await_args.kwargs
+        assert (kwargs["delivery"], kwargs["topic_key"], kwargs["verdict"]) == ("interrupt", None, None)
+        assert kwargs["message_link"] == "/chat?message=msg-1"
+        assert consumed.publisher.publish.await_args.args[1]["silent"] is False
+        # The API notifies on the transition: the agent no longer does it itself.
+        notify.assert_not_awaited()
+
+    async def test_a_check_with_a_low_verdict_goes_to_the_thread_silently(self):
+        notify = AsyncMock()
+        result = {
+            "response": "Votre enveloppe Loisirs est à 72 %, monsieur.",
+            "tool_calls": [_verdict_call(impact="low", evidence="solid", topic="Enveloppe Loisirs")],
+        }
+
+        with patch("app.queue.proaction_consumer.notify_message", notify):
+            consumed = await _consume(result, kind="check", signaled_topics=[])
+
+        consumed.messages.create.assert_called_once()
+        assert consumed.messages.create.await_args.kwargs["context_id"] == "ctx-check"
+        kwargs = consumed.proactions.record.await_args.kwargs
+        assert kwargs["delivery"] == "thread"
+        assert kwargs["topic_key"] == "enveloppe-loisirs"
+        assert kwargs["verdict"] == {"impact": "low", "evidence": "solid"}
+        assert consumed.publisher.publish.await_args.args[1]["silent"] is True
+        notify.assert_not_awaited()
+
+    async def test_a_check_on_a_topic_told_yesterday_with_nothing_new_stores_nothing(self):
+        result = {
+            "response": "Votre enveloppe Loisirs est toujours à 72 %, monsieur.",
+            "tool_calls": [_verdict_call(impact="medium", evidence="solid", topic="enveloppe-loisirs")],
+        }
+        yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+
+        consumed = await _consume(
+            result,
+            kind="check",
+            signaled_topics=[{"topic": "enveloppe-loisirs", "at": yesterday, "delivery": "thread", "notice": "72 %"}],
+        )
+
+        consumed.messages.create.assert_not_called()
+        consumed.gateway.proaction_context.assert_not_awaited()
+        kwargs = consumed.proactions.record.await_args.kwargs
+        assert (kwargs["delivery"], kwargs["topic_key"]) == ("none", "enveloppe-loisirs")
+        assert "message_link" not in kwargs
+        assert consumed.publisher.publish.await_args.args[1]["silent"] is True
+
+    async def test_a_check_with_a_medium_solid_verdict_interrupts_with_its_headline(self):
+        result = {
+            "response": "Votre facture EDF de 182 € est due demain.\n\n**Détail** : …",
+            "tool_calls": [
+                _verdict_call(impact="medium", evidence="solid", topic="facture-edf", headline="Votre facture EDF est due demain.")
+            ],
+        }
+
+        consumed = await _consume(result, kind="check", signaled_topics=[])
+
+        kwargs = consumed.proactions.record.await_args.kwargs
+        assert kwargs["delivery"] == "interrupt"
+        assert kwargs["notice"] == "Votre facture EDF est due demain."
+        assert kwargs["message_link"] == "/chat?message=msg-1"
+
+    async def test_a_check_that_gave_no_verdict_interrupts(self):
+        consumed = await _consume({"response": "Il faut que je vous dise…", "tool_calls": []}, kind="check")
+
+        consumed.messages.create.assert_called_once()
+        assert consumed.proactions.record.await_args.kwargs["delivery"] == "interrupt"
+
+    async def test_the_gateway_is_told_the_kind_and_the_topics_already_told(self):
+        topics = [{"topic": "enveloppe-loisirs", "at": "2030-11-12T08:00:00+00:00", "delivery": "thread"}]
+
+        consumed = await _consume({"response": "", "tool_calls": []}, kind="check", signaled_topics=topics)
+
+        kwargs = consumed.gateway.proaction.await_args.kwargs
+        assert (kwargs["kind"], list(kwargs["signaled_topics"])) == ("check", topics)
+        assert consumed.proactions.record.await_args.kwargs["delivery"] == "none"
+
+
 class TestADueReminderIsDelivered:
     """7 Oct., 19:39 and 19:43: « Rappelle monsieur d'appeler sa mère » came due, and Maggie
     answered « À quel moment souhaitez-vous que je vous le rappelle ? ». She read the stored
@@ -558,6 +675,49 @@ class TestADueReminderIsDelivered:
         _, content = await self._sent("Planifie la journée", silent=True)
 
         assert content == "Planifie la journée"
+
+
+class TestACheckGetsTheVerdictTool:
+    """MAG-886: only a check is offered `proaction_verdict`, its rule and the topics already told."""
+
+    @staticmethod
+    async def _run(kind: str, signaled_topics: list[dict] | None = None):
+        gateway = _gateway()
+        gateway._build_system_prompt = AsyncMock(return_value=[])
+        loop = AsyncMock(return_value={"response": "Loisirs à 72 %.", "tool_calls": []})
+        resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Budget"})
+        with patch("app.llm.gateway.run_tool_loop", loop), patch("app.llm.gateway.resolve_context", resolve):
+            result = await gateway.proaction(
+                "Vérifie l'enveloppe Loisirs", "user-1", kind=kind, signaled_topics=signaled_topics or []
+            )
+        tools = loop.await_args.args[2]
+        return gateway, result, [t["name"] for t in tools], gateway._build_system_prompt.await_args.kwargs["preamble"]
+
+    async def test_a_reminder_run_gets_no_verdict_tool_nor_rule(self):
+        from app.llm.gateway import EXECUTION_PREAMBLE
+
+        _, result, names, preamble = await self._run("reminder")
+
+        assert "proaction_verdict" not in names
+        assert preamble == EXECUTION_PREAMBLE
+        assert result["context_id"] == "ctx-1"
+
+    async def test_a_check_run_gets_the_tool_the_rule_and_the_topics_in_the_volatile_preamble(self):
+        topics = [{"topic": "enveloppe-loisirs", "at": "2030-11-12T08:00:00+00:00", "delivery": "thread", "notice": "72 %"}]
+
+        _, result, names, preamble = await self._run("check", topics)
+
+        assert "proaction_verdict" in names
+        assert "appelle proaction_verdict avant ton texte final" in preamble
+        assert "Sujets déjà signalés (7 jours)" in preamble
+        assert "enveloppe-loisirs" in preamble
+        # Its thread is found once the code chose to deliver it.
+        assert "context_id" not in result
+
+    async def test_a_check_with_nothing_told_says_so(self):
+        _, _, _, preamble = await self._run("check")
+
+        assert "Sujets déjà signalés (7 jours) : aucun." in preamble
 
 
 TREASURY_ALERT_PROMPT = (

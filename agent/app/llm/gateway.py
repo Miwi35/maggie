@@ -23,6 +23,8 @@ from app.llm.web_search import with_web_search
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.policy.engine import A2A_SOURCE
+from app.proactions.triage import KIND_CHECK
+from app.proactions.verdict import VERDICT_TOOL_NAME, VerdictToolRouter
 from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION, skill_index
 from app.trips import is_silent_trip_run, trip_run_rules
 from app.user_timezone import resolve_user_timezone, resolve_work_hours
@@ -65,6 +67,28 @@ EXECUTION_PREAMBLE = (
     "si un outil répond « pending_approval », il a déjà la demande sous les yeux ; "
     "dis-lui ce que tu attends de lui, sans la relancer."
 )
+# A check is triaged on Maggie's verdict (MAG-886): the code chooses the channel, never the words.
+CHECK_VERDICT_RULES = (
+    "\n\nCette consigne vérifie ou surveille : si tu as quelque chose à dire, "
+    f"appelle {VERDICT_TOOL_NAME} avant ton texte final. "
+    "Réutilise la clé d'un sujet de la liste ci-dessous s'il s'agit du même ; "
+    "dis dans changed ce qui a changé depuis, avec le fait lu, et laisse-le vide si rien n'a changé."
+)
+
+
+def signaled_topics_section(signaled_topics: list[dict] | tuple[dict, ...]) -> str:
+    """The topics a check already told the owner about these last 7 days, as the model reads them."""
+    lines = []
+    for signaled in signaled_topics:
+        topic = signaled.get("topic") if isinstance(signaled, dict) else None
+        if not topic:
+            continue
+        notice = signaled.get("notice")
+        line = f"- {topic} — {signaled.get('at') or '?'} ({signaled.get('delivery') or '?'})"
+        lines.append(f"{line} : {notice}" if notice else line)
+    if not lines:
+        return "\nSujets déjà signalés (7 jours) : aucun."
+    return "\nSujets déjà signalés (7 jours) :\n" + "\n".join(lines)
 
 
 class LLMGateway:
@@ -146,6 +170,8 @@ class LLMGateway:
         spoken: bool = False,
         blocked_tools: frozenset[str] = frozenset(),
         review: Callable[[str, list[dict]], str | None] | None = None,
+        kind: str = "reminder",
+        signaled_topics: list[dict] | tuple[dict, ...] = (),
     ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
@@ -169,6 +195,8 @@ class LLMGateway:
                     ignored in `dry_run`.
             summary: The proaction's summary. A trip check or replan (MAG-657) works on the trips and
                      says nothing in the chat: it runs with its own preamble and gets no thread.
+            kind: `check` (MAG-886) offers `proaction_verdict` and the topics already told,
+                  `signaled_topics`; a `reminder` runs as it always did.
         """
         if self.client is None:
             return {
@@ -178,10 +206,15 @@ class LLMGateway:
             }
 
         tool_router = BlockedToolsRouter(self.tool_router, blocked_tools) if blocked_tools else self.tool_router
+        trip_run = not silent and summary is not None and is_silent_trip_run(summary)
+        check = kind == KIND_CHECK and not silent and not trip_run
+        if check:
+            tool_router = VerdictToolRouter(tool_router)
         tools = await tool_router.get_tool_definitions()
 
-        trip_run = not silent and summary is not None and is_silent_trip_run(summary)
         preamble = trip_run_rules() if trip_run else PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
+        if check:
+            preamble = f"{preamble}{CHECK_VERDICT_RULES}{signaled_topics_section(signaled_topics)}"
 
         system_prompt = await self._build_system_prompt(
             user_id,
@@ -228,9 +261,15 @@ class LLMGateway:
         if dry_run:
             result["dry_run"] = True
             result["simulated_tools"] = tool_router.simulated
-        elif not silent and not trip_run:
+        elif not silent and not trip_run and not check:
             result["context_id"] = await self._resolve_proaction_context(result.get("response", ""), user_id)
+        # A check's message may never be stored (MAG-886): its thread is found once the code has
+        # chosen to deliver it, through `proaction_context`, so a run that says nothing opens none.
         return result
+
+    async def proaction_context(self, response: str, user_id: str) -> str | None:
+        """The thread a check's message goes in, asked for once it is to be delivered (MAG-886)."""
+        return await self._resolve_proaction_context(response, user_id)
 
     async def _resolve_proaction_context(self, response: str, user_id: str) -> str | None:
         """The thread the proaction's message belongs to — one already open, or a new one.

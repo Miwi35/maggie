@@ -59,6 +59,7 @@ class FakeProactionApi:
         at: str = "2030-11-13T12:30:00+01:00",
         status: str = "pending",
         summary: str | None = None,
+        kind: str = "reminder",
     ) -> str:
         proaction_id = next(self._ids)
         self.proactions[proaction_id] = {
@@ -71,6 +72,10 @@ class FakeProactionApi:
             "error": None,
             "completedAt": None,
             "userId": user_id,
+            # A reminder or a check, and how a completed run reached the owner (MAG-886).
+            "kind": kind,
+            "delivery": None,
+            "topicKey": None,
         }
         return proaction_id
 
@@ -103,7 +108,12 @@ class FakeProactionApi:
         for twin in self.of(user_id):
             if twin["status"] == "pending" and twin["prompt"] == prompt and self._instant(twin["scheduledAt"]) == at:
                 return {"success": True, "proaction": twin, "agenda": "Maggie"}
-        proaction_id = self.seed(user_id, prompt=prompt, at=at.isoformat(), summary=arguments.get("summary"))
+        kind = arguments.get("kind") or "reminder"
+        if kind not in ("reminder", "check"):
+            return {"error": f'Invalid kind "{kind}": use reminder or check.'}
+        proaction_id = self.seed(
+            user_id, prompt=prompt, at=at.isoformat(), summary=arguments.get("summary"), kind=kind
+        )
         return {"success": True, "proaction": self.proactions[proaction_id], "agenda": "Maggie"}
 
     def _list_proactions(self, arguments: dict, user_id: str | None) -> dict:
@@ -197,5 +207,10 @@ class FakeProactionApi:
         proaction["status"] = status
         proaction["response"] = arguments.get("response") if status == "completed" else None
         proaction["error"] = (arguments.get("error") or "Unknown error.") if status == "failed" else None
+        delivery = arguments.get("delivery")
+        if delivery is not None and delivery not in ("interrupt", "thread", "none"):
+            return {"error": f'Invalid delivery "{delivery}": use interrupt, thread or none.'}
+        proaction["delivery"] = delivery if status == "completed" else None
+        proaction["topicKey"] = arguments.get("topic_key") if status == "completed" else None
         proaction["completedAt"] = self.now.isoformat()
         return {"success": True, "proaction": dict(proaction)}
