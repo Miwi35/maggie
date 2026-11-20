@@ -2,17 +2,26 @@ package com.maggie.app.ui.navigation
 
 import androidx.compose.runtime.compositionLocalOf
 import com.maggie.app.ui.components.BreadcrumbSection
+import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
 
-/** The two pages of Agenda (MAG-815), the entries of the breadcrumb's menu « Agenda › Jour ▾ ». */
-enum class AgendaSection(val key: String, val label: String, val route: String) {
-    DAY("day", "Jour", Screen.Calendar.route),
-    PERIODS("periods", "Périodes", Screen.PeriodList.route),
+/**
+ * The entries of the breadcrumb's menu « Agenda › Aujourd'hui ▾ » (MAG-815, MAG-859): the three views of the
+ * calendar — [view] says which — then the periods' page.
+ */
+enum class AgendaSection(val key: String, val label: String, val route: String, val view: CalendarViewType?) {
+    DAY("day", "Aujourd'hui", Screen.Calendar.route, CalendarViewType.DAY),
+    WEEK("week", "Semaine", Screen.Calendar.route, CalendarViewType.WEEK),
+    MONTH("month", "Mois", Screen.Calendar.route, CalendarViewType.MONTH),
+    PERIODS("periods", "Périodes", Screen.PeriodList.route, null),
     ;
 
     val breadcrumb: BreadcrumbSection get() = BreadcrumbSection(key, label)
 
     companion object {
         fun byKey(key: String?): AgendaSection? = entries.firstOrNull { it.key == key }
+
+        /** The section the calendar shows while it is in [view]. */
+        fun of(view: CalendarViewType): AgendaSection = entries.first { it.view == view }
     }
 }
 

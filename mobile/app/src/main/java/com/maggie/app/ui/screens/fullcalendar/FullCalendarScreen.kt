@@ -58,8 +58,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.maggieSurface
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import com.maggie.app.ui.uiTagRoot
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -278,58 +282,71 @@ fun FullCalendarScreen(
                                 .testTag(UiTags.CALENDAR_MODULE_TITLE),
                         )
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            CalendarToolbar(
-                                title = viewModel.getTitle(),
-                                viewType = uiState.viewType,
-                                onViewTypeChange = { viewModel.setViewType(it) },
-                                onNavigateBackward = { viewModel.navigateBackward() },
-                                onNavigateForward = { viewModel.navigateForward() },
-                                onGoToToday = { viewModel.goToToday() },
-                            )
-                        }
-                        if (moduleTitle == null) Box {
-                            IconButton(
-                                onClick = { moreMenuExpanded = true },
-                                modifier = Modifier.testTag(UiTags.CALENDAR_OPTIONS),
-                            ) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                            }
-                            DropdownMenu(
-                                expanded = moreMenuExpanded,
-                                onDismissRequest = { moreMenuExpanded = false },
-                                modifier = Modifier.uiTagRoot(),
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Agendas") },
-                                    onClick = {
-                                        moreMenuExpanded = false
-                                        scope.launch { drawerState.open() }
-                                    },
+                    // The day is a list under a line of date: one swipes from a day to the next, and the
+                    // breadcrumb leads to Semaine and Mois (MAG-859).
+                    if (uiState.viewType == CalendarViewType.DAY) {
+                        Text(
+                            text = uiState.currentDate.format(DAY_DATE),
+                            fontSize = 14.sp,
+                            color = maggieSurface().textMuted,
+                            modifier = Modifier
+                                .padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
+                                .testTag(UiTags.calendarDayDate(uiState.currentDate)),
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                CalendarToolbar(
+                                    title = viewModel.getTitle(),
+                                    viewType = uiState.viewType,
+                                    onViewTypeChange = { viewModel.setViewType(it) },
+                                    onNavigateBackward = { viewModel.navigateBackward() },
+                                    onNavigateForward = { viewModel.navigateForward() },
+                                    onGoToToday = { viewModel.goToToday() },
                                 )
-                                if (onOpenTasks != null) {
+                            }
+                            if (moduleTitle == null) Box {
+                                IconButton(
+                                    onClick = { moreMenuExpanded = true },
+                                    modifier = Modifier.testTag(UiTags.CALENDAR_OPTIONS),
+                                ) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                                }
+                                DropdownMenu(
+                                    expanded = moreMenuExpanded,
+                                    onDismissRequest = { moreMenuExpanded = false },
+                                    modifier = Modifier.uiTagRoot(),
+                                ) {
                                     DropdownMenuItem(
-                                        modifier = Modifier.testTag(UiTags.CALENDAR_OPEN_TASKS),
-                                        text = { Text("Tâches") },
+                                        text = { Text("Agendas") },
                                         onClick = {
                                             moreMenuExpanded = false
-                                            onOpenTasks()
+                                            scope.launch { drawerState.open() }
+                                        },
+                                    )
+                                    if (onOpenTasks != null) {
+                                        DropdownMenuItem(
+                                            modifier = Modifier.testTag(UiTags.CALENDAR_OPEN_TASKS),
+                                            text = { Text("Tâches") },
+                                            onClick = {
+                                                moreMenuExpanded = false
+                                                onOpenTasks()
+                                            },
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        modifier = Modifier.testTag(UiTags.CALENDAR_IMPORT_GOOGLE),
+                                        text = { Text("Importer Google Calendar") },
+                                        onClick = {
+                                            moreMenuExpanded = false
+                                            showGoogleImport = true
+                                            viewModel.loadGoogleCalendars()
                                         },
                                     )
                                 }
-                                DropdownMenuItem(
-                                    modifier = Modifier.testTag(UiTags.CALENDAR_IMPORT_GOOGLE),
-                                    text = { Text("Importer Google Calendar") },
-                                    onClick = {
-                                        moreMenuExpanded = false
-                                        showGoogleImport = true
-                                        viewModel.loadGoogleCalendars()
-                                    },
-                                )
                             }
                         }
                     }
@@ -412,3 +429,5 @@ fun FullCalendarScreen(
         )
     }
 }
+
+private val DAY_DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRENCH)

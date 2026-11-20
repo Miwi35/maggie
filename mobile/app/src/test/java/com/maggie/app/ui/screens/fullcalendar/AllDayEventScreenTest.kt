@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Event
 import com.maggie.app.screentest.FakeCalendar
@@ -52,7 +54,7 @@ class AllDayEventScreenTest {
         compose.onNodeWithTag(UiTags.calendarDayView(first)).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.calendarAllDay(first)).assertIsDisplayed().assertTextEquals(summary)
 
-        compose.onNodeWithTag(UiTags.CALENDAR_NEXT).performClick()
+        compose.onNodeWithTag(UiTags.calendarDayView(first)).performTouchInput { swipeLeft() }
         compose.onNodeWithTag(UiTags.calendarDayView(first.plusDays(1))).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.calendarAllDay(first.plusDays(1))).assertDoesNotExist()
     }

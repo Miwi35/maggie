@@ -67,6 +67,24 @@ data class Trip(
         return if (originLabel.isBlank()) "$verb à $time" else "$verb à $time · depuis $originLabel"
     }
 
+    /** « Partir à 16:41 », the departure alone — « Parti à » once passed; a return keeps its whole [headline]. */
+    fun departureHeadline(zone: ZoneId, now: Instant): String {
+        if (isReturn) return headline(zone, now)
+        val verb = if (departInstant?.isAfter(now) == false) "Parti" else "Partir"
+        return "$verb à ${departTime(zone)}"
+    }
+
+    /** « depuis la maison · 19 min porte à porte »; the origin is left out when the trip has none. */
+    fun originLine(): String {
+        val duration = "$durationMinutes min porte à porte"
+        return if (originLabel.isBlank()) duration else "depuis $originLabel · $duration"
+    }
+
+    /** « 16:29 », when the trip was last computed, read in [zone]. */
+    fun computedTime(zone: ZoneId): String? =
+        computedAt?.let { runCatching { OffsetDateTime.parse(it).toInstant() }.getOrNull() }
+            ?.atZone(zone)?.toLocalTime()?.format(HOUR_MINUTE)
+
     companion object {
         const val MODE_DRIVE = "drive"
         const val LEG_OUTBOUND = "outbound"

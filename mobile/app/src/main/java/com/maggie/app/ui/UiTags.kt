@@ -620,6 +620,8 @@ object UiTags {
     /** Day view — the trip line under an event (MAG-658), suffixed by the event's id; the « Y aller » of the next one has its own tag. */
     const val TRIP_LINE_PREFIX = "trip_line_"
     const val TRIP_GO = "trip_go"
+    const val TRIP_UPDATED = "trip_updated"
+    const val CALENDAR_DAY_DATE_PREFIX = "calendar_day_date_"
 
     /** The full-screen « Partez maintenant » (MAG-658): the screen, its « Y aller » and its « Déjà en route ». */
     const val DEPARTURE_SCREEN = "departure_screen"
@@ -870,6 +872,9 @@ object UiTags {
     fun calendarDayView(date: LocalDate) = CALENDAR_DAY_VIEW_PREFIX + date
 
     fun calendarAllDay(date: LocalDate) = CALENDAR_ALL_DAY_PREFIX + date
+
+    /** The line « mercredi 28 octobre » under the header of the Day view. */
+    fun calendarDayDate(date: LocalDate) = CALENDAR_DAY_DATE_PREFIX + date
 
     fun calendarMonthSlot(date: LocalDate, slot: Int) = "$CALENDAR_MONTH_SLOT_PREFIX${date}_$slot"
 

@@ -1,5 +1,6 @@
 package com.maggie.app.ui.navigation
 
+import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -7,17 +8,26 @@ import org.junit.Test
 class AgendaNavigationTest {
 
     @Test
-    fun `Agenda has two sections, Jour then Périodes, each the page of its own route`() {
-        assertEquals(listOf("day", "periods"), AgendaSection.entries.map { it.key })
-        assertEquals(listOf("Jour", "Périodes"), AgendaSection.entries.map { it.label })
-        assertEquals(Screen.Calendar.route, AgendaSection.DAY.route)
+    fun `sections read Aujourd'hui, Semaine, Mois, Périodes`() {
+        assertEquals(listOf("day", "week", "month", "periods"), AgendaSection.entries.map { it.key })
+        assertEquals(listOf("Aujourd'hui", "Semaine", "Mois", "Périodes"), AgendaSection.entries.map { it.label })
         assertEquals(Screen.PeriodList.route, AgendaSection.PERIODS.route)
+    }
+
+    @Test
+    fun `Semaine and Mois open the calendar on that view`() {
+        assertEquals(Screen.Calendar.route, AgendaSection.WEEK.route)
+        assertEquals(Screen.Calendar.route, AgendaSection.MONTH.route)
+        assertEquals(CalendarViewType.WEEK, AgendaSection.WEEK.view)
+        assertEquals(CalendarViewType.MONTH, AgendaSection.MONTH.view)
+        assertEquals(AgendaSection.WEEK, AgendaSection.of(CalendarViewType.WEEK))
+        assertEquals(AgendaSection.DAY, AgendaSection.of(CalendarViewType.DAY))
     }
 
     @Test
     fun `byKey finds a section by the key of its breadcrumb entry`() {
         assertEquals(AgendaSection.PERIODS, AgendaSection.byKey("periods"))
-        assertNull(AgendaSection.byKey("month"))
+        assertNull(AgendaSection.byKey("unknown"))
         assertNull(AgendaSection.byKey(null))
     }
 

@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.fullcalendar
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -10,6 +12,7 @@ import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.TripStep
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
+import com.maggie.app.ui.UiTags
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -67,14 +70,46 @@ class TripLineScreenTest {
     }
 
     @Test
-    fun `the line reads the departure and where from, under the event it leads to`() {
+    fun `the line reads the departure, above the event it leads to`() {
         show(listOf(trip("dentist", "2026-06-15T13:34:00+02:00")))
 
-        compose.onNodeWithText("Partir à 13:34 · depuis la maison").assertIsDisplayed()
+        compose.onNodeWithText("Partir à 13:34").assertIsDisplayed()
         assertTopToBottom(
+            "line" to compose.onNodeWithText("Partir à 13:34"),
             "Dentiste" to compose.onNodeWithText("Dentiste"),
-            "line" to compose.onNodeWithText("Partir à 13:34 · depuis la maison"),
         )
+    }
+
+    @Test
+    fun `the headline of the card is the departure alone`() {
+        show(listOf(trip("dentist", "2026-06-15T13:34:00+02:00")))
+
+        assertEquals(0, compose.onAllNodesWithText("Partir à 13:34 · depuis la maison").fetchSemanticsNodes().size)
+        compose.onNodeWithTag(UiTags.tripLine("dentist")).assertTextEquals("Partir à 13:34")
+    }
+
+    @Test
+    fun `the next card reads the event, the origin and the door-to-door time`() {
+        show(listOf(trip("dentist", "2026-06-15T13:34:00+02:00")), events = listOf(dentist.copy(location = "Cabinet Foch")))
+
+        compose.onNodeWithText("Dentiste à 14:00 · Cabinet Foch").assertIsDisplayed()
+        compose.onNodeWithText("depuis la maison · 21 min porte à porte").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the next card shows à jour HH-MM from computedAt`() {
+        show(listOf(trip("dentist", "2026-06-15T13:34:00+02:00").copy(computedAt = "2026-06-15T09:29:00+02:00")))
+
+        compose.onNodeWithTag(UiTags.TRIP_UPDATED).assertTextEquals("à jour 09:29")
+    }
+
+    @Test
+    fun `a past trip is dimmed with its chips`() {
+        show(listOf(trip("dentist", "2026-06-15T13:34:00+02:00")), now = afterDeparture)
+
+        compose.onNodeWithTag(UiTags.tripLine("dentist")).assertTextEquals("Parti à 13:34 · depuis la maison")
+        // The block, chips included, is drawn at 0.6: its chips are still there.
+        compose.onNodeWithText("14 min").assertIsDisplayed()
     }
 
     @Test
@@ -100,7 +135,7 @@ class TripLineScreenTest {
         compose.onNodeWithText("4 min").assertIsDisplayed()
         compose.onNodeWithText("14 min").assertIsDisplayed()
         compose.onNodeWithText("3 min").assertIsDisplayed()
-        compose.onNodeWithText("21 min porte à porte").assertIsDisplayed()
+        compose.onNodeWithText("depuis la maison · 21 min porte à porte").assertIsDisplayed()
     }
 
     @Test
@@ -128,7 +163,7 @@ class TripLineScreenTest {
         )
 
         compose.onNodeWithText("Parti à 10:00 · depuis le bureau").assertIsDisplayed()
-        compose.onNodeWithText("Partir à 13:34 · depuis la maison").assertIsDisplayed()
+        compose.onNodeWithText("Partir à 13:34").assertIsDisplayed()
         compose.onNodeWithText("dans 3 h 34").assertIsDisplayed()
         assertEquals(1, compose.onAllNodesWithText("Y aller").fetchSemanticsNodes().size)
     }

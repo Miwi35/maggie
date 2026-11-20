@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.fullcalendar
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -10,6 +11,7 @@ import com.maggie.app.data.model.Period
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -83,5 +85,20 @@ class PeriodChipsScreenTest {
         val week = (26L..30L).map { LocalDate.of(2026, 10, it.toInt()) }
 
         assertEquals(1, periodsOnDays(listOf(garde, again), week).size)
+    }
+
+    @Test
+    fun `two short periods sit side by side`() {
+        compose.setContent {
+            DayTimelineView(
+                currentDate = friday, events = emptyList(), onNavigateForward = {}, onNavigateBackward = {},
+                periods = listOf(garde, voyage), agendas = agendas,
+            )
+        }
+
+        val first = compose.onNodeWithTag(UiTags.periodChip("p1")).getBoundsInRoot()
+        val second = compose.onNodeWithTag(UiTags.periodChip("p2")).getBoundsInRoot()
+        assertEquals(first.top, second.top)
+        assertTrue(first.right <= second.left)
     }
 }

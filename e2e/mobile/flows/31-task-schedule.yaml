@@ -122,8 +122,10 @@ tags:
     visible:
       id: "calendar_day_view_${TODAY}"
     timeout: 20000
-- tapOn:
-    id: "calendar_next"
+# The day view has no toolbar: a swipe to the left goes to the next day (MAG-859).
+- swipe:
+    start: 30%, 50%
+    end: 5%, 50%
 - extendedWaitUntil:
     visible:
       id: "calendar_day_view_${output.tomorrow}"
