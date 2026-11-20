@@ -1,0 +1,84 @@
+appId: com.maggie.app.e2e
+name: 24b-home-departure
+tags:
+  - dashboard
+  - trips
+env:
+  PROFILE: standard
+---
+# The next departure on the Accueil (MAG-866, extends MAG-100): the « Partir à » tile above its event
+# in the Agenda card, and its live update.
+#
+# Given a new user of the `standard` profile (Maison and Dentiste known), a Dentiste today at 14:00 and
+# the drive from home kept for it (`scripts/trip-api.js`; Google is WireMock: walk 4 min, drive 14,
+# walk 3), when the Accueil opens on Aujourd'hui, then the tile reads « Partir à 13:34 » with the time
+# left, « depuis la maison · 21 min porte à porte », the three steps and « Y aller ». The event moves to
+# 15:00 and the trip is kept again: the tile reads 14:34 without reloading. « Demain » draws no tile.
+# The tile's rows, the lines of the other trips and the phone's cut are `AgendaCardScreenTest`'s.
+
+- runFlow: ../subflows/new-user.yaml
+
+- runScript:
+    file: ../scripts/trip-api.js
+    env:
+      ACTION: create
+      SUMMARY: "Dentiste"
+      EMAIL: ${output.journeyEmail}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/24b-home-departure.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "home_departure_tile"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "home_departure_time"
+      text: "Partir à 13:34"
+    timeout: 20000
+- assertVisible: "dans .*"
+- assertVisible: "depuis la maison · 21 min porte à porte"
+- assertVisible: "4 min"
+- assertVisible: "14 min"
+- assertVisible: "3 min"
+- assertVisible: "Y aller"
+
+# The event moves and the trip is kept again, with the app left as it is.
+- runScript:
+    file: ../scripts/trip-api.js
+    env:
+      ACTION: move
+      EVENT_ID: ${output.eventId}
+      EMAIL: ${output.journeyEmail}
+- extendedWaitUntil:
+    visible:
+      id: "home_departure_time"
+      text: "Partir à 14:34"
+    timeout: 40000
+
+- scrollUntilVisible:
+    element:
+      id: "home_day_tomorrow"
+    direction: UP
+    timeout: 30000
+- tapOn:
+    id: "home_day_tomorrow"
+- extendedWaitUntil:
+    visible:
+      id: "home_day_tomorrow"
+      checked: true
+    timeout: 20000
+- assertNotVisible:
+    id: "home_departure_tile"

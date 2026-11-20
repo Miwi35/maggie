@@ -8,6 +8,7 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Event
 import com.maggie.app.data.model.HomeDay
+import com.maggie.app.data.model.Trip
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -65,7 +66,10 @@ class AgendaCardRepositoryTest {
     private fun answers(vararg events: Event) {
         coEvery { api.getExpandedEvents(any(), any()) } returns events.toList()
         coEvery { api.getAgendas() } returns listOf(perso, travail)
+        coEvery { api.getTrips(any()) } returns emptyList()
     }
+
+    private fun tripTo(event: String) = Trip(id = "trip-$event", event = "/api/events/$event", departAt = "2026-10-23T13:34:00+02:00")
 
     @Test
     fun `today asks the events of the owner's day, unfolded, between its midnights`() = runTest {
@@ -160,12 +164,14 @@ class AgendaCardRepositoryTest {
         val gate = CompletableDeferred<Unit>()
         coEvery { api.getExpandedEvents(any(), any()) } coAnswers { gate.await(); emptyList() }
         coEvery { api.getAgendas() } coAnswers { gate.await(); emptyList() }
+        coEvery { api.getTrips(any()) } coAnswers { gate.await(); emptyList() }
 
         val read = launch { repository.read(HomeDay.TODAY, today) }
         runCurrent()
 
         coVerify(exactly = 1) { api.getExpandedEvents(any(), any()) }
         coVerify(exactly = 1) { api.getAgendas() }
+        coVerify(exactly = 1) { api.getTrips(any()) }
         gate.complete(Unit)
         read.join()
     }
@@ -199,6 +205,7 @@ class AgendaCardRepositoryTest {
     fun `a change on events or agendas wakes the card, bursts merged`() = runTest {
         every { mercure.subscribe("/users/01HUSER/api/events/{id}") } returns flowOf(MercureEvent(id = "1"), MercureEvent(id = "2"))
         every { mercure.subscribe("/users/01HUSER/api/agendas/{id}") } returns flowOf()
+        every { mercure.subscribe("/users/01HUSER/api/trips/{id}") } returns flowOf()
 
         val changes = repository.changes().toList()
 
@@ -213,6 +220,7 @@ class AgendaCardRepositoryTest {
         val agendas = MutableSharedFlow<MercureEvent>()
         every { mercure.subscribe("/users/01HUSER/api/events/{id}") } returns flowOf()
         every { mercure.subscribe("/users/01HUSER/api/agendas/{id}") } returns agendas
+        every { mercure.subscribe("/users/01HUSER/api/trips/{id}") } returns flowOf()
         var woken = 0
         val job = launch { repository.changes().collect { woken++ } }
         runCurrent()
@@ -230,5 +238,36 @@ class AgendaCardRepositoryTest {
 
         assertTrue(repository.changes().toList().isEmpty())
         verify(exactly = 0) { mercure.subscribe(any()) }
+    }
+
+    @Test
+    fun `the day carries the trips of its events, read for its date`() = runTest {
+        answers(timed("dentist", "Dentiste", "14:00", "15:00"))
+        coEvery { api.getTrips("2026-10-23") } returns listOf(tripTo("dentist"), tripTo("elsewhere"))
+
+        val state = repository.read(HomeDay.TODAY, today).getOrThrow()
+
+        assertEquals(listOf("trip-dentist"), state.trips.map { it.id })
+        coVerify(exactly = 1) { api.getTrips("2026-10-23") }
+    }
+
+    @Test
+    fun `a failed trips read leaves the events and no trip`() = runTest {
+        answers(timed("dentist", "Dentiste", "14:00", "15:00"))
+        coEvery { api.getTrips(any()) } throws RuntimeException("offline")
+
+        val state = repository.read(HomeDay.TODAY, today).getOrThrow()
+
+        assertEquals(listOf("dentist"), state.events.map { it.id })
+        assertTrue(state.trips.isEmpty())
+    }
+
+    @Test
+    fun `a trip message is a change`() = runTest {
+        every { mercure.subscribe("/users/01HUSER/api/events/{id}") } returns flowOf()
+        every { mercure.subscribe("/users/01HUSER/api/agendas/{id}") } returns flowOf()
+        every { mercure.subscribe("/users/01HUSER/api/trips/{id}") } returns flowOf(MercureEvent(id = "1"))
+
+        assertEquals(1, repository.changes().toList().size)
     }
 }

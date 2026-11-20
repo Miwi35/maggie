@@ -98,8 +98,14 @@ object UiTags {
     const val HOME_AGENDA_ROW_PREFIX = "home_agenda_row_"
     const val HOME_AGENDA_NOW_LINE = "home_agenda_now_line"
     const val HOME_AGENDA_SEE_DAY = "home_agenda_see_day"
+    const val HOME_DEPARTURE_TILE = "home_departure_tile"
+    const val HOME_DEPARTURE_TIME = "home_departure_time"
+    const val HOME_DEPARTURE_GO = "home_departure_go"
+    const val HOME_TRIP_LINE_PREFIX = "home_trip_line_"
 
     fun homeAgendaRow(eventId: String) = HOME_AGENDA_ROW_PREFIX + eventId
+
+    fun homeTripLine(eventId: String) = HOME_TRIP_LINE_PREFIX + eventId
 
     /** Accueil · Agenda — the fiche of an event touched on the card, and what it offers. */
     const val HOME_AGENDA_SHEET = "home_agenda_sheet"

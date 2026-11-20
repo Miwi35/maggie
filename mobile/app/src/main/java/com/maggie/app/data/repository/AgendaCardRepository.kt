@@ -9,6 +9,7 @@ import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.HomeDay
+import com.maggie.app.data.model.Trip
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.rethrowCancellation
 import kotlinx.coroutines.async
@@ -38,18 +39,28 @@ class AgendaCardRepository(
         val date = if (day == HomeDay.TOMORROW) today.plusDays(1) else today
         return try {
             val range = DateRanges.forDate(date)
-            val (events, agendas) = coroutineScope {
+            val (events, agendas, trips) = coroutineScope {
                 val events = async { apiService.getExpandedEvents(range.start.toString(), range.end.toString()) }
                 val agendas = async { apiService.getAgendas() }
-                events.await() to agendas.await()
+                val trips = async {
+                    try {
+                        apiService.getTrips(date.toString())
+                    } catch (e: Exception) {
+                        // Best effort: a card without trips, never an error.
+                        emptyList<Trip>().also { Result.failure<Unit>(e).rethrowCancellation() }
+                    }
+                }
+                Triple(events.await(), agendas.await(), trips.await())
             }
             val byId = agendas.associateBy { it.id }
+            val eventIds = events.map { it.id }.toSet()
             Result.success(
                 AgendaHomeState(
                     date = date.toString(),
                     events = events
                         .map { AgendaHomeEvent.from(it, byId[it.agenda?.substringAfterLast('/')]) }
                         .sortedWith(AgendaHomeEvent.ORDER),
+                    trips = trips.filter { it.eventId in eventIds },
                 ),
             )
         } catch (e: ApiRefusalException) {
@@ -63,7 +74,7 @@ class AgendaCardRepository(
     fun changes(): Flow<Unit> = flow {
         val userId = authRepository.getUserId() ?: return@flow
         emitAll(
-            listOf(MercureTopics.EVENTS, MercureTopics.AGENDAS)
+            listOf(MercureTopics.EVENTS, MercureTopics.AGENDAS, MercureTopics.TRIPS)
                 .map { mercureService.subscribe(MercureTopics.userScoped(userId, it)).catch { /* SSE reconnects automatically */ } }
                 .merge()
                 .coalesced()
