@@ -334,16 +334,19 @@ tasks:
     # with the first run's conversation behind it — Maggie then answers with
     # context nobody seeded, and the failure looks like a flaky assertion.
     #
-    # Everything in that database is agent state, so emptying all of it is the
-    # whole reset. The loop skips the tables the agent has not created yet,
-    # which is the case on a stack that has just come up.
+    # Everything in that database is agent state, so emptying it is the reset,
+    # except `skill`: it is the index of the skill files (MAG-218), which the
+    # reseed does not remove. Emptying it left the agent without its shipped
+    # skills until the next sync pass, at least 90 s later (MAG-852).
+    # The loop skips the tables the agent has not created yet, which is the
+    # case on a stack that has just come up.
     cmds:
       - |
         {{.COMPOSE}} exec -T database psql -U maggie -d maggie_agent -v ON_ERROR_STOP=1 -q -c "
         DO \$\$
         DECLARE t text;
         BEGIN
-          FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+          FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'skill'
           LOOP
             EXECUTE format('TRUNCATE TABLE %I CASCADE', t);
           END LOOP;

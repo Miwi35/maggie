@@ -19,6 +19,10 @@ test('« on fait le point » opens the review at the Journée step and writes th
   // Nothing in progress before.
   expect((await api.get('/api/activity-status/bilan')).status()).toBe(404)
 
+  // The shipped skill is there before Maggie loads it: the e2e reseed must not empty the skills index.
+  const skill = await api.get('/agent/skills/bilan-soir')
+  expect(skill.status(), await skill.text()).toBe(200)
+
   // When I ask to take stock of the day.
   const body = await page.evaluate(
     async ({ token }) => {
