@@ -227,6 +227,12 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `isMessageId tells a ULID from a draft`() {
+        assertTrue(DeepLinks.isMessageId("01JABCDEFGHJKMNPQRSTVWXYZ0"))
+        assertFalse(DeepLinks.isMessageId("Tarte aux poires"))
+    }
+
+    @Test
     fun `the id of a message the agent wrote opens the conversation on it, not a draft (MAG-709)`() {
         val agentId = "3f9c2b7d1e4a4c0b9a8d7e6f5a"
         assertEquals(agentId, DeepLinks.chatMessageId(agentId))
