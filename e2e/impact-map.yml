@@ -509,6 +509,12 @@ web:
       - 'api/modules/calendar/src/Routing/**'
       - '.docker/e2e/wiremock/mappings/google-routes.json'
       - '.docker/e2e/wiremock/mappings/google-geocoding.json'
+  e2e/web/tests/home-departure.spec.ts:
+    areas: [dashboard, calendar, realtime]
+    paths:
+      - '.docker/e2e/wiremock/mappings/google-routes.json'
+      - '.docker/e2e/wiremock/mappings/google-geocoding.json'
+      - 'api/modules/calendar/src/Routing/**'
   e2e/web/tests/agenda-trips-ui.spec.ts:
     areas: [calendar, interruptions, notification, realtime]
     paths:

@@ -89,4 +89,18 @@ describe('shortLocation', () => {
     expect(shortLocation('  ')).toBeNull()
     expect(shortLocation(', 15 rue')).toBeNull()
   })
+
+  test("keeps the trips of the day's events, by departure, and drops the others", () => {
+    const trip = (id: string, event: string, departAt: string) =>
+      ({ id, event: `/api/events/${event}`, mode: 'drive', steps: [], durationMinutes: 10, departAt, navigationUrl: '', originLabel: 'x' }) as never
+    const state = composeAgendaState(
+      '2026-10-14',
+      null,
+      [timed('a', 'A', '2026-10-14T09:00:00+02:00'), timed('b', 'B', '2026-10-14T18:00:00+02:00')],
+      agendas,
+      [trip('t2', 'b', '2026-10-14T17:00:00+02:00'), trip('gone', 'zzz', '2026-10-14T08:00:00+02:00'), trip('t1', 'a', '2026-10-14T08:30:00+02:00')],
+    )
+
+    expect(state.trips.map((t) => t.id)).toEqual(['t1', 't2'])
+  })
 })

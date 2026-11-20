@@ -1,4 +1,5 @@
 import { lastDayOf } from '../../../dates'
+import type { Trip } from '../../calendar/trips'
 import type { AgendaHomeEvent, AgendaHomeState } from './agendaTimeline'
 
 /** An event of `GET /api/events?expand=true`: a series already unfolded into its occurrences of the period. */
@@ -51,6 +52,7 @@ export function composeAgendaState(
   nowMs: number | null,
   events: ApiEvent[],
   agendas: ApiAgenda[],
+  trips: Trip[] = [],
 ): AgendaHomeState {
   const agendaById = new Map(agendas.map((agenda) => [agenda.id, agenda]))
 
@@ -82,5 +84,10 @@ export function composeAgendaState(
     })
     .sort(byDay)
 
-  return { date, now: nowMs === null ? null : new Date(nowMs).toISOString(), events: shown }
+  const ids = new Set(shown.map((event) => event.id))
+  const kept = trips
+    .filter((trip) => ids.has(idOf(trip.event)))
+    .sort((a, b) => Date.parse(a.departAt) - Date.parse(b.departAt))
+
+  return { date, now: nowMs === null ? null : new Date(nowMs).toISOString(), events: shown, trips: kept }
 }

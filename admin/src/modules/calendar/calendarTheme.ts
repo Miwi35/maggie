@@ -1,6 +1,9 @@
 import type { Theme } from '@mui/material/styles'
 import type { SxProps } from '@mui/system'
 
+/** The turquoise of the departure: « dans N min » of the next departure. */
+export const AGENDA_ACCENT = '#6CCFD6'
+
 /** Black or white, whichever reads better on `background` (MUI's contrast threshold). */
 export const getEventTextColor = (theme: Theme, background: string | undefined): string =>
   theme.palette.getContrastText(background ?? theme.palette.primary.main)

@@ -8,7 +8,7 @@ import PlaceOutlined from '@mui/icons-material/PlaceOutlined'
 import { timeLeft } from './dayAgenda'
 import { departureText, hourOf, isReturn, openNavigation, type Trip, type TripStep } from './trips'
 
-const STEP_ICONS = {
+export const STEP_ICONS = {
   walk: DirectionsWalkOutlined,
   drive: DirectionsCarOutlined,
   transit: DirectionsBusOutlined,

@@ -8,6 +8,7 @@ import { emitMercure } from '../../../test/mercure'
 import { AgendaCard } from './AgendaCard'
 import { localMidnightIso } from './tasksCardState'
 import type { ApiEvent } from './agendaCardState'
+import type { Trip } from '../../calendar/trips'
 import type { HomeDay } from '../homeDay'
 
 vi.mock('../../../hooks/useMercure', async () => (await import('../../../test/mercure')).mercureModule)
@@ -49,8 +50,21 @@ const evening = event('evening', 'Yoga', '2026-10-14T18:00:00+02:00', '2026-10-1
 
 const ok = (member: unknown[]) => ({ ok: true, json: () => Promise.resolve({ member }) })
 
-/** The two resources the card reads: the events of the period, then the agendas. */
-const reads = (events: ApiEvent[]) => (url: string) => Promise.resolve(url.includes('/agendas') ? ok(AGENDAS) : ok(events))
+/** The resources the card reads: the events of the period, the agendas, the day's trips. */
+const reads = (events: ApiEvent[], trips: Trip[] = []) => (url: string) =>
+  Promise.resolve(url.includes('/agendas') ? ok(AGENDAS) : url.includes('/trips') ? ok(trips) : ok(events))
+
+const trip = (id: string, eventId: string, departAt: string, extra: Partial<Trip> = {}): Trip => ({
+  id,
+  event: `/api/events/${eventId}`,
+  mode: 'drive',
+  steps: [],
+  durationMinutes: 21,
+  departAt,
+  navigationUrl: 'https://waze.com/ul?q=x',
+  originLabel: 'la maison',
+  ...extra,
+})
 
 const eventsUrl = (mock: ReturnType<typeof vi.fn>): URL => {
   const url = mock.mock.calls.map(([u]) => String(u)).find((u) => u.includes('/events?'))
@@ -110,14 +124,14 @@ describe('AgendaCard', () => {
     expect(line.compareDocumentPosition(inProgress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  test('reads the day from the events and the agendas: two requests, the series unfolded by the API', async () => {
+  test('reads the day from the events, the agendas and the trips: three requests, the series unfolded by the API', async () => {
     const fetchMock = vi.fn(reads([upcoming]))
     vi.stubGlobal('fetch', fetchMock)
 
     renderCard()
 
     await screen.findByText('Dentiste')
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     const params = eventsUrl(fetchMock).searchParams
     expect(params.get('expand')).toBe('true')
     expect(params.get('pagination')).toBe('false')
@@ -297,7 +311,7 @@ describe('AgendaCard', () => {
     let agendas = AGENDAS
     vi.stubGlobal(
       'fetch',
-      vi.fn((url: string) => Promise.resolve(url.includes('/agendas') ? ok(agendas) : ok([upcoming]))),
+      vi.fn((url: string) => Promise.resolve(url.includes('/agendas') ? ok(agendas) : url.includes('/trips') ? ok([]) : ok([upcoming]))),
     )
     const user = userEvent.setup()
 
@@ -335,7 +349,7 @@ describe('AgendaCard', () => {
     expect(screen.getByTestId('agenda-now-line')).toHaveTextContent('maintenant · 16:05')
     expect(rows().map((row) => row.getAttribute('data-kind'))).toEqual(['past', 'next'])
     expect(rows()[1]).toHaveTextContent('dans 1 h 55')
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   test('says it could not load, and tries again on demand', async () => {
@@ -389,5 +403,129 @@ describe('AgendaCard', () => {
     await screen.findByTestId('agenda-row')
 
     expect(screen.getByRole('link', { name: 'Agenda' })).toHaveAttribute('href', '/calendar')
+  })
+
+  describe('departures', () => {
+    const at1642 = '2026-10-14T16:42:00+02:00'
+    const reunion = event('reunion', 'Réunion', '2026-10-14T08:30:00+02:00', '2026-10-14T09:30:00+02:00')
+    const kine = event('kine', 'Kiné', '2026-10-14T17:30:00+02:00', '2026-10-14T18:30:00+02:00')
+    const theatre = event('theatre', 'Théâtre', '2026-10-14T18:30:00+02:00', '2026-10-14T19:30:00+02:00')
+    const tripLeft = trip('t1', 'reunion', '2026-10-14T08:09:00+02:00')
+    const tripNext = trip('t2', 'kine', '2026-10-14T17:04:00+02:00', {
+      computedAt: '2026-10-14T16:38:00+02:00',
+      steps: [
+        { kind: 'walk', minutes: 2 },
+        { kind: 'drive', minutes: 15 },
+        { kind: 'walk', minutes: 4, label: 'parking école' },
+      ],
+    })
+    const tripLater = trip('t3', 'theatre', '2026-10-14T18:05:00+02:00', { originLabel: 'École Jean-Moulin', steps: [{ kind: 'walk', minutes: 3 }] })
+    const day = [reunion, kine, theatre]
+    const all = [tripLeft, tripNext, tripLater]
+
+    beforeEach(() => {
+      vi.setSystemTime(new Date(at1642))
+    })
+
+    test('the next departure is a tile above its event with time left, origin, door to door, chips, Y aller and à jour', async () => {
+      vi.stubGlobal('fetch', vi.fn(reads(day, all)))
+
+      renderCard()
+
+      const tile = await screen.findByRole('region', { name: 'Prochain départ' })
+      expect(tile).toHaveTextContent('Partir à 17:04')
+      expect(tile).toHaveTextContent('dans 22 min')
+      expect(tile).toHaveTextContent('depuis la maison · 21 min porte à porte')
+      expect(tile).toHaveTextContent('2 min')
+      expect(tile).toHaveTextContent('15 min')
+      expect(tile).toHaveTextContent('4 min parking école')
+      expect(tile).toHaveTextContent('Y aller')
+      expect(tile).toHaveTextContent('à jour 16:38')
+      expect(tile.innerHTML).not.toMatch(/\p{Extended_Pictographic}/u)
+
+      const [, kineRow] = rows()
+      expect(tile.compareDocumentPosition(kineRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(screen.getAllByRole('region', { name: 'Prochain départ' })).toHaveLength(1)
+    })
+
+    test('another trip is one short line without chips, and one already left reads Parti à, dimmed', async () => {
+      vi.stubGlobal('fetch', vi.fn(reads(day, all)))
+
+      renderCard()
+      await screen.findByRole('region', { name: 'Prochain départ' })
+
+      const left = screen.getByLabelText('Trajet vers Réunion')
+      expect(left).toHaveTextContent('Parti à 08:09 · depuis la maison')
+      expect(left).toHaveStyle({ opacity: '0.6' })
+      const later = screen.getByLabelText('Trajet vers Théâtre')
+      expect(later).toHaveTextContent('Partir à 18:05 · depuis École Jean-Moulin')
+      expect(later).not.toHaveTextContent('3 min')
+      const [, , theatreRow] = rows()
+      expect(later.compareDocumentPosition(theatreRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    test('Y aller opens the navigation link in a new tab, and no link means no button', async () => {
+      const open = vi.fn()
+      vi.stubGlobal('open', open)
+      vi.stubGlobal('fetch', vi.fn(reads(day, [tripNext])))
+      const view = renderCard()
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+      await user.click(await screen.findByRole('button', { name: 'Y aller' }))
+      expect(open).toHaveBeenCalledWith('https://waze.com/ul?q=x', '_blank', 'noopener,noreferrer')
+
+      view.unmount()
+      vi.stubGlobal('fetch', vi.fn(reads(day, [{ ...tripNext, navigationUrl: '' }])))
+      renderCard()
+      await screen.findByRole('region', { name: 'Prochain départ' })
+      expect(screen.queryByRole('button', { name: 'Y aller' })).not.toBeInTheDocument()
+    })
+
+    test('without computedAt the tile has no à jour', async () => {
+      vi.stubGlobal('fetch', vi.fn(reads(day, [{ ...tripNext, computedAt: null }])))
+
+      renderCard()
+
+      expect(await screen.findByRole('region', { name: 'Prochain départ' })).not.toHaveTextContent('à jour')
+    })
+
+    test('tomorrow draws trip lines and no tile', async () => {
+      vi.stubGlobal('fetch', vi.fn(reads(day, all)))
+
+      renderCard('tomorrow')
+
+      expect(await screen.findByLabelText('Trajet vers Kiné')).toHaveTextContent('Partir à 17:04 · depuis la maison')
+      expect(screen.getByLabelText('Trajet vers Réunion')).toHaveTextContent('Partir à 08:09')
+      expect(screen.queryByRole('region', { name: 'Prochain départ' })).not.toBeInTheDocument()
+      expect(screen.queryByText(/Parti à/)).not.toBeInTheDocument()
+    })
+
+    test('a failed trips read leaves the card and its events', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => (url.includes('/trips') ? Promise.resolve({ ok: false, status: 500 }) : reads(day)(url))),
+      )
+
+      renderCard()
+
+      expect(await screen.findByText('Kiné')).toBeInTheDocument()
+      expect(screen.queryByText(/Erreur/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Prochain départ' })).not.toBeInTheDocument()
+    })
+
+    test('a trip message reads the card again and moves the tile', async () => {
+      let trips = [tripNext, tripLater]
+      vi.stubGlobal('fetch', vi.fn((url: string) => reads(day, trips)(url)))
+
+      renderCard()
+      expect(await screen.findByRole('region', { name: 'Prochain départ' })).toHaveTextContent('Partir à 17:04')
+
+      trips = [{ ...tripNext, departAt: '2026-10-14T16:30:00+02:00' }, tripLater]
+      await act(async () => {
+        await emitMercure('/api/trips/{id}', { '@id': '/api/trips/t2' })
+      })
+
+      await waitFor(() => expect(screen.getByRole('region', { name: 'Prochain départ' })).toHaveTextContent('Partir à 18:05'))
+    })
   })
 })

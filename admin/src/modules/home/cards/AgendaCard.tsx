@@ -13,6 +13,7 @@ import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
 import { useAgendaCardState } from '../useAgendaCardState'
 import type { HomeDay } from '../homeDay'
 import { AgendaEventPanel } from './AgendaEventPanel'
+import { DepartureTile, HomeTripLine } from './AgendaTrip'
 import { buildTimeline, clock, rowTime, untilLabel } from './agendaTimeline'
 import type { AgendaHomeEvent, TimelineRow } from './agendaTimeline'
 
@@ -142,7 +143,7 @@ export const AgendaCard = ({ day }: { day: HomeDay }) => {
   const nowMs = useNowMs(state?.now)
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const timeline = useMemo(() => buildTimeline(state?.events ?? [], nowMs), [state, nowMs])
+  const timeline = useMemo(() => buildTimeline(state?.events ?? [], nowMs, state?.trips ?? []), [state, nowMs])
   // The fiche follows the card: a refresh updates it, a deleted event closes it.
   const opened = state?.events.find((event) => event.id === openId) ?? null
 
@@ -151,9 +152,16 @@ export const AgendaCard = ({ day }: { day: HomeDay }) => {
 
   const rows = (list: TimelineRow[]) =>
     list.map((row) => (
-      <li key={`${row.event.id}${row.event.startAt ?? ''}`}>
+      <Box component="li" key={`${row.event.id}${row.event.startAt ?? ''}`} sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {row.trips.map((trip) =>
+          trip.id === timeline.nextTripId && nowMs !== null ? (
+            <DepartureTile key={trip.id} trip={trip} nowMs={nowMs} />
+          ) : (
+            <HomeTripLine key={trip.id} trip={trip} title={row.event.summary} nowMs={nowMs} />
+          ),
+        )}
         <Row row={row} day={day} date={state?.date ?? ''} nowMs={nowMs} onOpen={(e) => setOpenId(e.id)} />
-      </li>
+      </Box>
     ))
 
   if (status === 'empty') return null

@@ -47,6 +47,7 @@ export const HOME_RESOURCE_TOPICS = [
   ...ROUTINE_TOPICS,
   '/api/events/{id}',
   '/api/agendas/{id}',
+  '/api/trips/{id}',
   ...GROCERY_TOPICS,
   ...FINANCE_TOPICS,
   ...HEALTH_TOPICS,
