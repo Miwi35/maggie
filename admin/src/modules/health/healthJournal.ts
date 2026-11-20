@@ -13,18 +13,36 @@ const LONG_DAY = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'l
 /** « samedi 7 nov. ». */
 export const longDay = (key: string): string => LONG_DAY.format(new Date(`${key}T12:00:00Z`))
 
-/** « Aujourd’hui samedi 7 nov. », « vendredi 6 nov. ». */
-export const journalDayLabel = (key: string, today: string): string => (key === today ? `${TODAY_LABEL} ${longDay(key)}` : longDay(key))
+/** « Aujourd’hui · samedi 7 nov. », « vendredi 6 nov. ». */
+export const journalDayLabel = (key: string, today: string): string => (key === today ? `${TODAY_LABEL} · ${longDay(key)}` : longDay(key))
+
+const SHORT_DAY = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' })
+
+/** « sam. 7 nov. ». */
+export const journalShortDay = (key: string): string => SHORT_DAY.format(new Date(`${key}T12:00:00Z`))
 
 const or = <T>(value: T | null, format: (value: T) => string): string => (value === null ? NONE : format(value))
 
 export const formatWeight = (weightKg: number | null): string => or(weightKg, (kg) => `${formatOne(kg)} kg`)
 export const formatSteps = (steps: number | null): string => or(steps, formatInteger)
 export const formatBalance = (balanceKcal: number | null): string => or(balanceKcal, formatSignedKcal)
+/** The balance without its unit, « −312 », for the table's column. */
+export const formatBalanceFigure = (balanceKcal: number | null): string => or(balanceKcal, (kcal) => formatSignedKcal(kcal).replace(/\s*kcal$/, ''))
 export const formatMinutes = (minutes: number | null): string => or(minutes, (value) => `${formatInteger(value)} min`)
 export const formatScore = (score: number | null): string => or(score, String)
 /** « 07:12 », the Paris time of an instant. */
 export const formatClock = (instant: string | null): string => or(instant, (at) => parisClock(new Date(at)))
+
+/** « première pesée · 07:12 », « pas de pesée » without a weight. */
+export function journalWeighing(day: HealthDay): string {
+  if (day.weightKg === null) return 'pas de pesée'
+
+  return day.weighedAt === null ? 'première pesée' : `première pesée · ${formatClock(day.weighedAt)}`
+}
+
+/** « 1 580 · 1 900 » (eaten · expended), nothing unless both are known. */
+export const journalIntake = (day: HealthDay): string | undefined =>
+  day.eatenKcal === null || day.expendedKcal === null ? undefined : `${formatInteger(day.eatenKcal)} · ${formatInteger(day.expendedKcal)}`
 
 /** How much of a note the table shows. */
 export const NOTE_PREVIEW = 40

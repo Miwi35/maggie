@@ -8,11 +8,13 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import { MaggieAvatar } from '../../components/maggie/MaggieAvatar'
 import { HEALTH_NUTRITION_PATH, HEALTH_SUIVI_PATH } from '../../components/layout/navigation'
 import { MAX_SCORE, MIN_SCORE } from './healthDaysApi'
 import type { HealthDay, HealthDayPatch } from './healthDaysApi'
-import { formatBalance, formatClock, formatMinutes, formatSteps, formatWeight, journalDayLabel } from './healthJournal'
+import { formatBalance, formatClock, formatMinutes, formatSteps, formatWeight, journalDayLabel, journalIntake, journalWeighing } from './healthJournal'
 import { cardSx, shiftDay } from './nutritionBalance'
+import { NONE } from './suiviSeries'
 import type { Loaded } from './nutritionApi'
 
 /** Santé › Sport is the workouts' resource list. */
@@ -31,12 +33,20 @@ interface ScaleProps {
 }
 
 /** Ten radios, 1 to 10; the checked one, clicked again, clears the score. */
-const Scale = ({ label, value, onChange }: ScaleProps) => (
+const Scale = ({ label, value, onChange }: ScaleProps) => {
+  const testKey = label === 'Moral' ? 'mood' : 'fatigue'
+
+  return (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-    <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>
-      {label}
-    </Typography>
-    <Box role="radiogroup" aria-label={label} data-testid={`journal-${label === 'Moral' ? 'mood' : 'fatigue'}`} sx={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>
+        {label}
+      </Typography>
+      <Typography component="span" data-testid={`journal-${testKey}-value`} sx={{ fontSize: 14 }}>
+        {value === null ? NONE : `${value} / 10`}
+      </Typography>
+    </Box>
+    <Box role="radiogroup" aria-label={label} data-testid={`journal-${testKey}`} sx={{ display: 'flex', gap: '3px' }}>
       {SCORES.map((score) => {
         const checked = score === value
 
@@ -55,13 +65,14 @@ const Scale = ({ label, value, onChange }: ScaleProps) => (
               m: 0,
               font: 'inherit',
               cursor: 'pointer',
-              width: 32,
-              height: 32,
+              flex: '1 1 0',
+              minWidth: 0,
+              height: 34,
               borderRadius: 2,
               fontSize: 13,
               fontVariantNumeric: 'tabular-nums',
-              bgcolor: checked ? theme.palette.primary.main : theme.palette.veilleuse.raised,
-              color: checked ? theme.palette.primary.contrastText : theme.palette.text.primary,
+              bgcolor: checked ? theme.palette.module.sport : theme.palette.veilleuse.raised,
+              color: checked ? theme.palette.getContrastText(theme.palette.module.sport) : theme.palette.text.secondary,
             })}
           >
             {score}
@@ -70,7 +81,8 @@ const Scale = ({ label, value, onChange }: ScaleProps) => (
       })}
     </Box>
   </Box>
-)
+  )
+}
 
 interface NoteProps {
   note: string | null
@@ -94,14 +106,21 @@ const NoteEditor = ({ note, onSave }: NoteProps) => {
       }}
       sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}
     >
+      <Typography component="label" htmlFor="journal-note" sx={{ fontSize: 13, color: 'text.secondary', alignSelf: 'flex-start' }}>
+        Note
+      </Typography>
       <TextField
-        label="Note"
+        id="journal-note"
+        variant="filled"
+        hiddenLabel
+        placeholder="Note du jour"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         multiline
-        minRows={3}
+        minRows={4}
         fullWidth
-        slotProps={{ htmlInput: { maxLength: NOTE_MAX_LENGTH } }}
+        sx={(theme) => ({ '& .MuiFilledInput-root': { bgcolor: theme.palette.veilleuse.raised, borderRadius: 3, '&:hover, &.Mui-focused': { bgcolor: theme.palette.veilleuse.raised } } })}
+        slotProps={{ input: { disableUnderline: true }, htmlInput: { maxLength: NOTE_MAX_LENGTH } }}
       />
       <Button type="submit" variant="contained" size="small" disabled={unchanged || saving}>
         Enregistrer
@@ -126,28 +145,29 @@ const Indicator = ({ label, value, detail, to, testId }: IndicatorProps) => (
     data-testid={`journal-${testId}`}
     sx={(theme) => ({
       display: 'flex',
-      flexDirection: 'column',
-      gap: 0.25,
-      px: 1.5,
-      py: 1,
-      borderRadius: 2.5,
-      bgcolor: theme.palette.veilleuse.raised,
+      justifyContent: 'space-between',
+      alignItems: 'baseline',
+      minHeight: 36,
+      borderTop: `1px solid ${theme.palette.divider}`,
+      fontSize: 13,
       color: 'inherit',
       textDecoration: 'none',
       minWidth: 0,
     })}
   >
-    <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
+    <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>
       {label}
     </Typography>
-    <Typography component="span" data-testid={`journal-${testId}-value`} sx={{ fontSize: 18, fontWeight: 300 }}>
-      {value}
-    </Typography>
-    {detail && (
-      <Typography component="span" data-testid={`journal-${testId}-detail`} sx={{ fontSize: 12, color: 'text.secondary' }}>
-        {detail}
+    <Box component="span">
+      <Typography component="span" data-testid={`journal-${testId}-value`} sx={{ fontSize: 13, color: 'text.primary' }}>
+        {value}
       </Typography>
-    )}
+      {detail && (
+        <Typography component="span" data-testid={`journal-${testId}-detail`} sx={{ fontSize: 12, color: 'text.secondary', ml: 0.75 }}>
+          {detail}
+        </Typography>
+      )}
+    </Box>
   </Box>
 )
 
@@ -168,13 +188,19 @@ export const JournalEntryCard = ({ day, today, entry, onDay, onPatch }: JournalE
 
   return (
     <Box component="section" aria-label="Entrée du jour" sx={{ ...cardSx, gap: 1.75 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Box data-testid="journal-header" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography component="h2" data-testid="journal-day" sx={{ fontSize: 15, fontWeight: 500, flexGrow: 1, textAlign: 'left' }}>
+          {journalDayLabel(day, today)}
+        </Typography>
+        {data !== null && data.notedBy === 'maggie' && data.notedAt !== null && (
+          <Box data-testid="journal-noted-by" sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mr: 0.5, fontSize: 12, color: 'text.secondary' }}>
+            <MaggieAvatar size={14} />
+            avec Maggie · {formatClock(data.notedAt)}
+          </Box>
+        )}
         <IconButton size="small" aria-label="Jour précédent" onClick={() => onDay(shiftDay(day, -1))}>
           <ChevronLeftIcon fontSize="small" />
         </IconButton>
-        <Typography component="h2" data-testid="journal-day" sx={{ fontSize: 15, fontWeight: 500, flexGrow: 1, textAlign: 'center' }}>
-          {journalDayLabel(day, today)}
-        </Typography>
         <IconButton size="small" aria-label="Jour suivant" disabled={day >= today} onClick={() => onDay(shiftDay(day, 1))}>
           <ChevronRightIcon fontSize="small" />
         </IconButton>
@@ -185,22 +211,11 @@ export const JournalEntryCard = ({ day, today, entry, onDay, onPatch }: JournalE
         <>
           <Scale label="Moral" value={data.mood} onChange={(mood) => void onPatch({ mood })} />
           <Scale label="Fatigue" value={data.fatigue} onChange={(fatigue) => void onPatch({ fatigue })} />
-          {data.notedBy === 'maggie' && data.notedAt !== null && (
-            <Typography component="span" data-testid="journal-noted-by" sx={{ fontSize: 12, color: 'text.secondary' }}>
-              avec Maggie · {formatClock(data.notedAt)}
-            </Typography>
-          )}
           <NoteEditor key={`${data.date}|${data.note ?? ''}`} note={data.note} onSave={(note) => onPatch({ note })} />
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
-            <Indicator
-              label="Poids"
-              value={formatWeight(data.weightKg)}
-              detail={data.weighedAt === null ? undefined : `pesé à ${formatClock(data.weighedAt)}`}
-              to={HEALTH_SUIVI_PATH}
-              testId="weight"
-            />
+          <Box sx={{ display: 'flex', flexDirection: 'column', pt: 0.5 }}>
+            <Indicator label="Poids" value={formatWeight(data.weightKg)} detail={journalWeighing(data)} to={HEALTH_SUIVI_PATH} testId="weight" />
             <Indicator label="Pas" value={formatSteps(data.steps)} to={HEALTH_SUIVI_PATH} testId="steps" />
-            <Indicator label="Bilan" value={formatBalance(data.balanceKcal)} to={HEALTH_NUTRITION_PATH} testId="balance" />
+            <Indicator label="Bilan calorique" value={formatBalance(data.balanceKcal)} detail={journalIntake(data)} to={HEALTH_NUTRITION_PATH} testId="balance" />
             <Indicator label="Sport" value={formatMinutes(data.sportMinutes)} to={HEALTH_SPORT_PATH} testId="sport" />
           </Box>
         </>
