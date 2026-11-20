@@ -48,12 +48,17 @@ export class HealthNutritionPage extends AdminShell {
     return this.journal.getByTestId(`intake-row-${intakeId}`)
   }
 
-  /** Presses « Mangé » on a planned meal; resolves with the id of the intake the API recorded. */
+  /** The cells of an intake's row: time, food, quantity… */
+  intakeCells(intakeId: string): Locator {
+    return this.intakeRow(intakeId).getByRole('cell')
+  }
+
+  /** Presses « Marquer mangé » on a planned meal; resolves with the id of the intake the API recorded. */
   async markEaten(mealId: string): Promise<string> {
     const posted = this.page.waitForResponse(
       (response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/health/food-intakes',
     )
-    await this.plannedRow(mealId).getByRole('button', { name: /^Mangé/ }).click()
+    await this.plannedRow(mealId).getByRole('button', { name: /^Marquer mangé/ }).click()
     const response = await posted
     expect(response.status(), `POST /api/health/food-intakes answered ${response.status()}`).toBe(201)
 

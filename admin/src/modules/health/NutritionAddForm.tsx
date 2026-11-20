@@ -27,8 +27,12 @@ const EMPTY_FREE: FreeValues = { label: '', kcal: '', proteinG: '', carbsG: '', 
 interface NutritionAddFormProps {
   /** The day the page shows: the intake is eaten on it, at the time typed. */
   day: string
+  /** At the foot of the journal: no surface of its own. */
+  embedded?: boolean
   onAdd: (payload: IntakePayload) => Promise<WriteResult>
 }
+
+const embeddedSx = { display: 'flex', flexDirection: 'column', gap: 1, pt: 1.5, minWidth: 0 } as const
 
 const isBlank = (value: string) => value.trim() === ''
 
@@ -39,7 +43,7 @@ const optionalGrams = (value: string): number | undefined => (isBlank(value) ? u
  * « Ajouter »: a Ciqual food and its grams — the API computes the figures and
  * the label — or a dish typed with its kcal, macros if known.
  */
-export const NutritionAddForm = ({ day, onAdd }: NutritionAddFormProps) => {
+export const NutritionAddForm = ({ day, embedded = false, onAdd }: NutritionAddFormProps) => {
   const [mode, setMode] = useState<Mode>('ciqual')
   const [time, setTime] = useState(() => parisClock())
   const [food, setFood] = useState<CiqualFood | null>(null)
@@ -97,8 +101,8 @@ export const NutritionAddForm = ({ day, onAdd }: NutritionAddFormProps) => {
   }
 
   return (
-    <Box component="section" aria-label="Ajouter" sx={cardSx}>
-      <Box sx={{ fontSize: 15, fontWeight: 500 }}>Ajouter</Box>
+    <Box component="section" aria-label="Ajouter" sx={embedded ? embeddedSx : cardSx}>
+      <Box sx={embedded ? { fontSize: 12, color: (theme) => theme.palette.veilleuse.caption } : { fontSize: 15, fontWeight: 500 }}>Ajouter</Box>
       <Box component="form" noValidate onSubmit={submit} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <ToggleButtonGroup
           exclusive
