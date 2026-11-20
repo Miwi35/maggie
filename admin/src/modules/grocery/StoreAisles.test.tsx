@@ -44,6 +44,23 @@ const OTHER_STORE: StubAisle = { id: 'elsewhere', store: 'biocoop', name: 'Vrac'
 
 const shown = () => screen.getAllByTestId('store-aisle').map((row) => row.getAttribute('data-aisle'))
 
+// The counts come from `/products?store=…&aisle=…`: `holds` says how many each aisle has, a number or a failure.
+const withCounts = (stub: ReturnType<typeof stubAislesApi>, holds: Record<string, number | 'fail'>) => {
+  const aislesFetch = stub.fetchMock.getMockImplementation()!
+  const counted = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), 'http://localhost')
+    if (!url.pathname.endsWith('/products')) return aislesFetch(input, init)
+    const held = holds[url.searchParams.get('aisle') ?? '']
+    if (held === 'fail') return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) } as Response)
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ totalItems: held ?? 0, member: [] }) } as Response)
+  })
+  vi.stubGlobal('fetch', counted)
+  return counted
+}
+
+const ranks = () => screen.getAllByTestId('store-aisle-rank').map((rank) => rank.textContent)
+const counts = () => screen.getAllByTestId('store-aisle').map((row) => within(row).queryByTestId('store-aisle-count')?.textContent ?? null)
+
 const drag = (active: string, over: string) =>
   act(async () => {
     await dnd.props?.onDragEnd?.({ active: { id: active }, over: { id: over } } as never)
@@ -282,6 +299,66 @@ describe('StoreAisles', () => {
     await act(async () => mercure.onMessage?.(JSON.stringify({ name: 'Vrac', position: 1, storeId: 'biocoop' })))
 
     expect(fetchMock.mock.calls.length).toBe(reads)
+  })
+
+  test('each aisle shows its rank in the way through the store', async () => {
+    const stub = stubAislesApi(CARREFOUR)
+    withCounts(stub, {})
+    render(<StoreAisles storeId="carrefour" />)
+
+    await waitFor(() => expect(shown()).toHaveLength(3))
+    expect(ranks()).toEqual(['1', '2', '3'])
+  })
+
+  test('each aisle shows how many products it holds, one or many', async () => {
+    const stub = stubAislesApi(CARREFOUR)
+    withCounts(stub, { fruits: 14, dairy: 1, bakery: 0 })
+    render(<StoreAisles storeId="carrefour" />)
+
+    await waitFor(() => expect(counts()).toEqual(['14 produits', '1 produit', '0 produit']))
+  })
+
+  test('the ranks follow a drag at once', async () => {
+    const stub = stubAislesApi(CARREFOUR)
+    withCounts(stub, {})
+    render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(shown()).toHaveLength(3))
+
+    await drag('bakery', 'fruits')
+
+    expect(shown()).toEqual(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
+    expect(ranks()).toEqual(['1', '2', '3'])
+    expect(screen.getAllByTestId('store-aisle-name').map((name) => name.textContent)).toEqual(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
+  })
+
+  test('a product put in an aisle elsewhere raises its count from its Mercure update', async () => {
+    const holds: Record<string, number | 'fail'> = { fruits: 14, dairy: 1, bakery: 0 }
+    withCounts(stubAislesApi(CARREFOUR), holds)
+    render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(counts()).toEqual(['14 produits', '1 produit', '0 produit']))
+
+    holds.bakery = 1
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await act(async () => mercure.onMessage?.(JSON.stringify({ name: 'Baguette' })))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3500)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+
+    await waitFor(() => expect(counts()).toEqual(['14 produits', '1 produit', '1 produit']))
+  })
+
+  test('an aisle whose count cannot be read shows no count and no error', async () => {
+    withCounts(stubAislesApi(CARREFOUR), { fruits: 'fail', dairy: 'fail', bakery: 'fail' })
+    render(<StoreAisles storeId="carrefour" />)
+
+    await waitFor(() => expect(shown()).toHaveLength(3))
+    await act(async () => {})
+    expect(counts()).toEqual([null, null, null])
+    expect(mockNotify).not.toHaveBeenCalled()
   })
 
   test('a list the API does not give says so', async () => {
