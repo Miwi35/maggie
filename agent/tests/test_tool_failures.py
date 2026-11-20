@@ -187,3 +187,15 @@ class TestInvalidInput:
         }
         assert "expected" not in json.loads(invalid_input("t", [], None))
 
+
+    async def test_a_native_tool_missing_a_required_field_is_not_run(self):
+        with patch("app.llm.tools.instruction_repo") as repo, patch("app.llm.tools.policy_engine") as policy:
+            policy.evaluate = AsyncMock()
+            result = json.loads(await ToolRouter().call_tool("add_instruction", {}, user_id="user-1"))
+
+        assert result["error"] == "invalid_input"
+        assert result["tool"] == "add_instruction"
+        assert {f["field"] for f in result["fields"]} == {"content", "kind"}
+        assert result["expected"]["type"] == "object"
+        repo.create.assert_not_called()
+        policy.evaluate.assert_not_called()
