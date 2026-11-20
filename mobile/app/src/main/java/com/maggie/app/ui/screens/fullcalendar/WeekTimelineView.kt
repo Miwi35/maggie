@@ -128,7 +128,7 @@ fun WeekTimelineView(
             }
         }
 
-        PeriodChips(periodsOnDays(periods, days), agendas, onPeriodClick, Modifier.padding(start = HOUR_LABEL_WIDTH))
+        PeriodChips(periodsOnDays(periods, days), agendas, days.first(), onPeriodClick, Modifier.padding(start = HOUR_LABEL_WIDTH))
 
         // Spanning events section (all-day + multi-day)
         if (spanSlots.isNotEmpty()) {

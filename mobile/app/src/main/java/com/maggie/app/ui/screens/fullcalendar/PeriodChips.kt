@@ -55,6 +55,7 @@ fun periodsOfTheDay(periods: List<Period>, day: LocalDate, now: Instant, zone: Z
 fun PeriodChips(
     periods: List<Period>,
     agendas: List<Agenda>,
+    from: LocalDate,
     onClick: (Period) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -92,7 +93,7 @@ fun PeriodChips(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    Text(text = periodUntilLabel(period), fontSize = 14.sp, color = muted, maxLines = 1)
+                    Text(text = periodUntilLabel(period, from), fontSize = 14.sp, color = muted, maxLines = 1)
                 }
             }
         }

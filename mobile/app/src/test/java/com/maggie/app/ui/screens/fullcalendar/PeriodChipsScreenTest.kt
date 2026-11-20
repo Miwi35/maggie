@@ -69,6 +69,14 @@ class PeriodChipsScreenTest {
     }
 
     @Test
+    fun `a chip ending next week says which day`() {
+        dayAt(LocalDate.of(2026, 11, 20), "2026-11-20T08:00:00Z")
+
+        compose.onNodeWithText("jusqu'au ven. 27 nov. 16:00").assertIsDisplayed()
+        compose.onNodeWithText("jusqu'au ven. 16:00").assertIsDisplayed()
+    }
+
+    @Test
     fun `today, a period that ended this afternoon is no longer a chip`() {
         dayAt(LocalDate.of(2026, 11, 20), "2026-11-20T20:33:00Z")
 

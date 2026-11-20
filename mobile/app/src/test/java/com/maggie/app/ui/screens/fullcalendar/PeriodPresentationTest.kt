@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 class PeriodPresentationTest {
@@ -34,6 +35,18 @@ class PeriodPresentationTest {
     fun `the chip says until when, in the form of the period`() {
         assertEquals("jusqu'au ven. 18:00", periodUntilLabel(timed("t", "2026-10-23T16:00:00Z", "2026-10-30T17:00:00Z")))
         assertEquals("jusqu'au 1er nov.", periodUntilLabel(days("d", "2026-10-18", "2026-11-02")))
+    }
+
+    @Test
+    fun `the chip names the day and month when the end is a week or more away`() {
+        val period = timed("t", "2026-11-20T15:00:00Z", "2026-11-27T15:00:00Z")
+        assertEquals("jusqu'au ven. 27 nov. 16:00", periodUntilLabel(period, from = LocalDate.of(2026, 11, 20)))
+    }
+
+    @Test
+    fun `within six days the weekday is enough`() {
+        val period = timed("t", "2026-11-20T15:00:00Z", "2026-11-27T15:00:00Z")
+        assertEquals("jusqu'au ven. 16:00", periodUntilLabel(period, from = LocalDate.of(2026, 11, 23)))
     }
 
     @Test

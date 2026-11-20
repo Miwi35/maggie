@@ -63,11 +63,17 @@ fun periodDatesLabel(period: Period, now: Instant? = null): String {
     return listOfNotNull(range.ifEmpty { null }, recurrenceLabel(period.rrule)).joinToString(" · ")
 }
 
-/** « jusqu'au ven. 18:00 » on a chip of the day and week views, « jusqu'au 1er nov. » for a period of days. */
-fun periodUntilLabel(period: Period): String {
+/**
+ * « jusqu'au ven. 18:00 » on a chip of the day and week views, « jusqu'au ven. 27 nov. 16:00 » when the end is a week
+ * or more after [from] (the first day shown), « jusqu'au 1er nov. » for a period of days.
+ */
+fun periodUntilLabel(period: Period, from: LocalDate? = null): String {
     val zone = period.zone
     if (period.allDay) return period.lastDay?.let { "jusqu'au ${it.dayMonth()}" } ?: ""
     val end = period.endInstant?.atZone(zone) ?: return ""
+    if (from != null && !end.toLocalDate().isBefore(from.plusDays(7))) {
+        return "jusqu'au ${end.toLocalDate().weekdayDayMonth()} ${end.format(TIME)}"
+    }
     val weekday = end.format(DateTimeFormatter.ofPattern("EEE", FRENCH))
     return "jusqu'au $weekday ${end.format(TIME)}"
 }
