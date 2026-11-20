@@ -4,6 +4,8 @@ namespace Maggie\Calendar\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Task;
 use Maggie\Calendar\Exception\InvalidTaskParentException;
 use Maggie\Calendar\Exception\InvalidTaskScheduleException;
@@ -23,6 +25,7 @@ class CreateTaskProcessor implements ProcessorInterface
         private readonly MessageBusInterface $bus,
         private readonly RequestStack $requestStack,
         private readonly Security $security,
+        private readonly ManagerRegistry $managerRegistry,
     ) {
     }
 
@@ -31,27 +34,39 @@ class CreateTaskProcessor implements ProcessorInterface
         /** @var User $user */
         $user = $this->security->getUser();
 
+        $command = new CreateTaskCommand(
+            userId: (string) $user->getId(),
+            title: $data->getTitle(),
+            description: $data->getDescription(),
+            priority: $data->getPriority()->value,
+            criticality: $data->getCriticality()->value,
+            dueDate: $data->getDueDate(),
+            completedAt: $data->getCompletedAt(),
+            parentId: null !== $data->getParent() ? (string) $data->getParent()->getId() : null,
+            position: $data->getPosition(),
+            estimatedMinutes: $data->getEstimatedMinutes(),
+            firstStep: $data->getFirstStep(),
+            scheduledDate: $data->getScheduledDate(),
+            scheduledMoment: $data->getScheduledMoment()?->value,
+            scheduledTime: $data->getScheduledTime(),
+            // Left out, a precise time gets its default reminder; sent empty, none.
+            reminders: $this->sends('reminders') ? $data->getReminders() : null,
+            timed: $data->isTimed(),
+            rrule: $data->getRrule(),
+        );
+
         try {
-            $envelope = $this->bus->dispatch(new CreateTaskCommand(
-                userId: (string) $user->getId(),
-                title: $data->getTitle(),
-                description: $data->getDescription(),
-                priority: $data->getPriority()->value,
-                criticality: $data->getCriticality()->value,
-                dueDate: $data->getDueDate(),
-                completedAt: $data->getCompletedAt(),
-                parentId: null !== $data->getParent() ? (string) $data->getParent()->getId() : null,
-                position: $data->getPosition(),
-                estimatedMinutes: $data->getEstimatedMinutes(),
-                firstStep: $data->getFirstStep(),
-                scheduledDate: $data->getScheduledDate(),
-                scheduledMoment: $data->getScheduledMoment()?->value,
-                scheduledTime: $data->getScheduledTime(),
-                // Left out, a precise time gets its default reminder; sent empty, none.
-                reminders: $this->sends('reminders') ? $data->getReminders() : null,
-                timed: $data->isTimed(),
-                rrule: $data->getRrule(),
-            ));
+            try {
+                $envelope = $this->bus->dispatch($command);
+            } catch (HandlerFailedException $e) {
+                // Two first tasks racing both create the user's Tasks agenda; the loser fails on
+                // its unique key and leaves the entity manager closed. The agenda exists now: replay.
+                if (!$e->getPrevious() instanceof UniqueConstraintViolationException) {
+                    throw $e;
+                }
+                $this->managerRegistry->resetManager();
+                $envelope = $this->bus->dispatch($command);
+            }
         } catch (HandlerFailedException $e) {
             if ($e->getPrevious() instanceof InvalidTaskParentException || $e->getPrevious() instanceof InvalidTaskScheduleException) {
                 throw new BadRequestHttpException($e->getPrevious()->getMessage(), $e);
