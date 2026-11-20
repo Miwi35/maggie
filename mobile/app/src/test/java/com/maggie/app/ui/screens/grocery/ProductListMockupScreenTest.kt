@@ -16,11 +16,13 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.RecurringFrequency
-import com.maggie.app.data.model.frenchName
 import com.maggie.app.data.model.Store
 import com.maggie.app.data.repository.ProductRepository
 import com.maggie.app.data.repository.StoreRepository
@@ -45,13 +47,20 @@ class ProductListMockupScreenTest {
     private val ail = Product(id = "p1", name = "Ail", category = ProductCategory.PRODUCE, defaultUnit = CookbookUnit.PIECE)
     private val beurre = Product(id = "p2", name = "Beurre à 80 % MG", category = ProductCategory.OTHER, defaultUnit = CookbookUnit.G)
 
+    private val poireau = Product(
+        id = "p3", name = "Poireau", category = ProductCategory.PRODUCE,
+        preferredStore = "/api/stores/s1", fallbackStore = "/api/stores/s2",
+        aisles = listOf(ProductAisle("s1", "a1"), ProductAisle("s2", "b1")),
+    )
+
     private val recurring = FakeRecurring(products = listOf(ail, beurre))
 
     private fun show(vararg products: Product, deleted: MutableList<String> = mutableListOf(), height: Dp? = null) {
         val productRepository = mockk<ProductRepository>()
         val storeRepository = mockk<StoreRepository>()
-        coEvery { storeRepository.getStores() } returns Result.success(listOf(Store(id = "s1", name = "Super U")))
-        coEvery { storeRepository.getAisles(any()) } returns Result.success(emptyList())
+        coEvery { storeRepository.getStores() } returns Result.success(listOf(Store(id = "s1", name = "Super U"), Store(id = "s2", name = "Biocoop")))
+        coEvery { storeRepository.getAisles("s1") } returns Result.success(listOf(Aisle("a1", "/api/stores/s1", "Légumes", 1)))
+        coEvery { storeRepository.getAisles("s2") } returns Result.success(listOf(Aisle("b1", "/api/stores/s2", "Fruits et légumes", 1)))
         coEvery { productRepository.getProducts(any()) } returns Result.success(products.toList())
         coEvery { productRepository.deleteProduct(any()) } answers {
             deleted += firstArg<String>()
@@ -80,41 +89,37 @@ class ProductListMockupScreenTest {
     }
 
     @Test
-    fun `a product of every category and unit reads in French, never as the API spells it`() {
-        val units = CookbookUnit.entries
-        val products = ProductCategory.entries.mapIndexed { index, category ->
-            Product(id = "p-$index", name = "Produit $index", category = category, defaultUnit = units[index % units.size])
-        }
-        show(*products.toTypedArray(), height = 4000.dp)
+    fun `a line reads the usual store and its aisle, then the fallback`() {
+        show(poireau, beurre)
 
-        assertNoRawValue()
-        products.forEach { product ->
-            val expected = "${product.category.label()} · ${product.defaultUnit!!.frenchName}"
-            compose.onNodeWithText(expected).assertExists()
-        }
-        assertEquals(CookbookUnit.entries.toSet(), products.mapNotNull { it.defaultUnit }.toSet())
-    }
-
-    @Test
-    fun `Ail reads under Fruits et légumes with its unit in French`() {
-        show(ail, beurre)
-
-        compose.onNodeWithText("Ail").assertIsDisplayed()
-        compose.onNodeWithText("Fruits et légumes · pièce").assertIsDisplayed()
-        compose.onNodeWithText("Autre · g").assertIsDisplayed()
+        compose.onNodeWithText("Super U · Légumes — à défaut Biocoop · Fruits et légumes").assertIsDisplayed()
+        compose.onNodeWithText("Beurre à 80 % MG").assertIsDisplayed()
         assertNoRawValue()
     }
 
     @Test
-    fun `the products are grouped under the French name of their category`() {
+    fun `each line carries its stock as the mockup words it, never an API value`() {
+        val stocks = ProductStockState.entries.mapIndexed { index, state ->
+            Product(id = "p-$index", name = "Produit $index", category = ProductCategory.OTHER, stockState = state)
+        }
+        show(*stocks.toTypedArray(), height = 4000.dp)
+
+        assertNoRawValue()
+        compose.onNodeWithText("en stock").assertExists()
+        compose.onNodeWithText("bas").assertExists()
+        compose.onNodeWithText("épuisé").assertExists()
+    }
+
+    @Test
+    fun `with no store chosen the list is flat, in the API's order, with no header`() {
         show(beurre, ail)
 
         assertTopToBottom(
-            "Fruits et légumes" to compose.onNodeWithText("Fruits et légumes"),
-            "Ail" to compose.onNodeWithText("Ail"),
-            "Autre" to compose.onNodeWithText("Autre"),
             "Beurre" to compose.onNodeWithText("Beurre à 80 % MG"),
+            "Ail" to compose.onNodeWithText("Ail"),
         )
+        compose.onNodeWithText("Fruits et légumes").assertDoesNotExist()
+        compose.onNodeWithText("Autre").assertDoesNotExist()
     }
 
     @Test

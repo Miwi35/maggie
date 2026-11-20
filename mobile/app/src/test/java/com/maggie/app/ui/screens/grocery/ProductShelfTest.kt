@@ -4,6 +4,7 @@ import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.Store
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -81,18 +82,46 @@ class ProductShelfTest {
         assertTrue(groupByAisle(emptyList(), "s1", listOf(frais)).isEmpty())
     }
 
+    private val superU = Store(id = "s1", name = "Super U")
+    private val biocoop = Store(id = "s2", name = "Biocoop")
+    private val aislesByStore = mapOf(
+        "s1" to listOf(Aisle("a1", "/api/stores/s1", "Légumes", 1)),
+        "s2" to listOf(Aisle("b1", "/api/stores/s2", "Fruits et légumes", 1)),
+    )
+
+    private fun where(product: Product) = productWhere(product, listOf(superU, biocoop), aislesByStore)
+
     @Test
-    fun `the categories come in their usual order, Autre last, with no header for an empty one`() {
-        val products = listOf(
-            Product(id = "1", name = "Beurre", category = ProductCategory.OTHER),
-            Product(id = "2", name = "Lait", category = ProductCategory.DAIRY),
-            Product(id = "3", name = "Ail", category = ProductCategory.PRODUCE),
-            Product(id = "4", name = "Poireau", category = ProductCategory.PRODUCE),
-        )
+    fun `the usual store and its aisle, then the fallback and its aisle`() {
+        val p = product("Poireau", ProductAisle("s1", "a1"), ProductAisle("s2", "b1"))
+            .copy(preferredStore = "/api/stores/s1", fallbackStore = "/api/stores/s2")
 
-        val sections = groupByCategory(products)
+        assertEquals("Super U · Légumes — à défaut Biocoop · Fruits et légumes", where(p))
+    }
 
-        assertEquals(listOf("Fruits et légumes", "Produits laitiers", "Autre"), sections.map { it.title })
-        assertEquals(listOf("Ail", "Poireau"), sections[0].products.map { it.name })
+    @Test
+    fun `a store with no aisle there is named alone`() {
+        val p = product("Poireau").copy(preferredStore = "/api/stores/s1", fallbackStore = "/api/stores/s2")
+
+        assertEquals("Super U — à défaut Biocoop", where(p))
+    }
+
+    @Test
+    fun `only a fallback reads à défaut`() {
+        val p = product("Poireau").copy(fallbackStore = "/api/stores/s2")
+
+        assertEquals("à défaut Biocoop", where(p))
+    }
+
+    @Test
+    fun `no store gives no line`() {
+        assertNull(where(product("Poireau")))
+    }
+
+    @Test
+    fun `a store the list does not know is left out`() {
+        val p = product("Poireau").copy(preferredStore = "/api/stores/gone", fallbackStore = "/api/stores/s2")
+
+        assertEquals("à défaut Biocoop", where(p))
     }
 }
