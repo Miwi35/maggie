@@ -62,6 +62,23 @@ class TestWriteFiche:
         assert answer["enregistre"] is False and "does not exist" in answer["error"]
         assert not [f for f in env.service.folder(USER_A).files() if f.startswith("Famille")]
 
+    async def test_a_said_claim_without_its_citation_is_refused_and_nothing_is_saved(self, env):
+        source = await conversation(env)
+        answer = json.loads(
+            await tools.handle_write_fiche(
+                {
+                    "titre": TITLE,
+                    "dossiers": ["Famille"],
+                    "resume": "Ce que Françoise pense des fleurs",
+                    "affirmations": [claim("Françoise n'aime pas les roses", source, citation="")],
+                },
+                USER_A,
+            )
+        )
+
+        assert answer["enregistre"] is False and "citation" in answer["error"]
+        assert not [f for f in env.service.folder(USER_A).files() if f.startswith("Famille")]
+
     async def test_a_path_that_is_not_writable_is_an_error_not_an_exception(self, env):
         source = await conversation(env)
         answer = json.loads(

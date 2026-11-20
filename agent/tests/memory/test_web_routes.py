@@ -91,7 +91,15 @@ async def seed_roses(env, user_id: str = USER_A) -> str:
         resume="Ce que Françoise pense des fleurs",
         dossiers=["Famille"],
         evoque=["bouquet", "fleurs"],
-        affirmations=[{"texte": "Françoise n'aime pas les roses", "provenance": "dit", "source": source, "heure": HEURE}],
+        affirmations=[
+            {
+                "texte": "Françoise n'aime pas les roses",
+                "provenance": "dit",
+                "source": source,
+                "heure": HEURE,
+                "citation": "Françoise n'aime pas les roses",
+            }
+        ],
     )
     return source
 

@@ -24,11 +24,14 @@ def _clean_caches():
     conversations._locks.clear()
 
 
+MESSAGE = "Françoise n'aime pas les roses. Les concerts commencent à 19 heures."
+
+
 async def conversation(env, user_id=USER_A) -> str:
     question = SimpleNamespace(
         id="m1",
         role="user",
-        content="Françoise n'aime pas les roses. Les concerts commencent à 19 heures.",
+        content=MESSAGE,
         created_at=datetime(2026, 10, 4, 16, 14, tzinfo=UTC),
         blocks=None,
         interrupted=False,
@@ -36,8 +39,9 @@ async def conversation(env, user_id=USER_A) -> str:
     return await conversations.append_messages(user_id, "ctx1", "Cadeau", [question], tz=PARIS, service=env.service)
 
 
-def claim(texte, source, provenance="dit", heure=HEURE):
-    return {"texte": texte, "provenance": provenance, "source": source, "heure": heure}
+def claim(texte, source, provenance="dit", heure=HEURE, citation=MESSAGE):
+    found = {"texte": texte, "provenance": provenance, "source": source, "heure": heure}
+    return found | {"citation": citation} if provenance == "dit" else found
 
 
 async def write(env, source, **kwargs):
@@ -308,3 +312,132 @@ class TestTwoOwners:
         await write(env, source)
 
         assert env.local(f"Famille/{TITLE}.md", USER_B) is None
+
+
+async def conversation_with_maggie(env) -> str:
+    owner = SimpleNamespace(
+        id="m1",
+        role="user",
+        content="Françoise n'aime pas les roses.",
+        created_at=datetime(2026, 10, 4, 16, 14, tzinfo=UTC),
+        blocks=None,
+        interrupted=False,
+    )
+    maggie = SimpleNamespace(
+        id="m2",
+        role="assistant",
+        content="Les pivoines plaisent à Françoise.",
+        created_at=datetime(2026, 10, 4, 16, 14, 40, tzinfo=UTC),
+        blocks=None,
+        interrupted=False,
+    )
+    return await conversations.append_messages(USER_A, "ctx2", "Cadeau", [owner, maggie], tz=PARIS, service=env.service)
+
+
+class TestTheQuoteIsChecked:
+    async def test_a_said_claim_without_a_citation_is_refused(self, env):
+        source = await conversation(env)
+
+        with pytest.raises(FicheError, match="citation"):
+            await write(env, source, affirmations=[claim("Françoise n'aime pas les roses", source, citation="")])
+
+        assert not [f for f in env.service.folder(USER_A).files() if f.startswith("Famille")]
+
+    async def test_a_citation_absent_from_the_message_is_refused(self, env):
+        source = await conversation(env)
+
+        with pytest.raises(FicheError, match="is not in the owner's message"):
+            await write(env, source, affirmations=[claim("Françoise adore les tulipes", source, citation="Elle adore les tulipes")])
+
+        assert not [f for f in env.service.folder(USER_A).files() if f.startswith("Famille")]
+
+    async def test_a_citation_only_in_maggies_message_is_refused(self, env):
+        source = await conversation_with_maggie(env)
+
+        with pytest.raises(FicheError, match="is not in the owner's message"):
+            await write(
+                env,
+                source,
+                affirmations=[claim("Françoise préfère les pivoines", source, citation="Les pivoines plaisent à Françoise")],
+            )
+
+    async def test_the_citation_matches_without_accents_case_or_typographic_apostrophes(self, env):
+        source = await conversation(env)
+
+        await write(env, source, affirmations=[claim("Françoise n'aime pas les roses", source, citation="FRANCOISE n’aime pas LES roses")])
+
+        assert fiches.quoted(env.local(source), HEURE, "francoise n'aime pas les roses")
+
+    async def test_a_claim_kept_from_the_fiche_is_not_asked_its_citation_again(self, env):
+        source = await conversation(env)
+        await write(env, source)
+        kept = claim("Françoise n'aime pas les roses", source, citation="")
+
+        written = await write(
+            env, source, chemin=f"Famille/{TITLE}.md", affirmations=[kept, claim("Les concerts commencent à 19 heures", source)]
+        )
+
+        assert written["affirmations"] == 2
+
+    async def test_an_observed_or_deduced_claim_needs_no_citation(self, env):
+        source = await conversation(env)
+
+        written = await write(env, source, affirmations=[claim("Françoise préfère les pivoines", source, "déduit")])
+
+        assert written["cree"] is True
+
+    async def test_the_citation_is_not_written_in_the_fiche(self, env):
+        source = await conversation(env)
+
+        written = await write(env, source, affirmations=[claim("Elle déteste les roses", source, citation="Françoise n'aime pas")])
+
+        text = env.local(written["chemin"])
+        assert f"- Elle déteste les roses — dit · {source} · {HEURE}" in text
+        assert "citation" not in text and "Françoise n'aime pas —" not in text
+
+
+class TestNoSecretInAFiche:
+    async def refused(self, env, **kwargs):
+        source = await conversation(env)
+        with pytest.raises(FicheError, match="secret") as error:
+            await write(env, source, **kwargs)
+        assert not [f for f in env.service.folder(USER_A).files() if f.startswith("Famille")]
+        return str(error.value)
+
+    async def test_a_card_number_valid_for_luhn_is_refused(self, env):
+        source = await conversation(env)
+        await self.refused(env, affirmations=[claim("Sa carte est 4111 1111 1111 1111", source)])
+
+    async def test_a_number_that_fails_luhn_is_kept(self, env):
+        source = await conversation(env)
+
+        written = await write(env, source, affirmations=[claim("Le code est 4111 1111 1111 1112", source)])
+
+        assert written["cree"] is True
+
+    async def test_an_api_key_or_a_jwt_is_refused(self, env):
+        source = await conversation(env)
+        key = "sk-" + "a1B2c3D4e5F6g7H8i9J0k1L2"
+        jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        await self.refused(env, affirmations=[claim(f"Sa clé est {key}", source)])
+        await self.refused(env, affirmations=[claim(f"Son jeton est {jwt}", source)])
+
+    async def test_a_login_link_or_a_link_with_a_token_is_refused(self, env):
+        source = await conversation(env)
+        await self.refused(env, affirmations=[claim("Il se connecte sur https://jean:motdepasse@exemple.fr", source)])
+        await self.refused(env, affirmations=[claim("Lien https://exemple.fr/accès?access_token=abc123def", source)])
+
+    async def test_a_secret_in_the_citation_the_title_or_the_resume_is_refused(self, env):
+        source = await conversation(env)
+        card = "4111 1111 1111 1111"
+        await self.refused(env, affirmations=[claim("Françoise n'aime pas les roses", source, citation=card)])
+        await self.refused(env, titre=f"Carte {card}")
+        await self.refused(env, resume=f"Carte {card}")
+        await self.refused(env, evoque=[card])
+
+    async def test_the_refusal_never_repeats_the_secret(self, env):
+        source = await conversation(env)
+
+        message = await self.refused(env, affirmations=[claim("Sa carte est 4111 1111 1111 1111", source)])
+
+        assert "4111" not in message

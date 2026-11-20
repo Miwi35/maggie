@@ -25,8 +25,9 @@ from typing import Any
 from app.memory import carte as carte_mod
 from app.memory import paths
 from app.memory.carte import PROVENANCES, Carte
-from app.memory.conversations import ROLE_NAMES
+from app.memory.conversations import ROLE_NAMES, messages_of
 from app.memory.service import MemoryService
+from app.redaction import contains_secret
 
 KNOWN_HEADING = "Ce qu'on sait"
 REPLACED_HEADING = "Ce qui n'est plus vrai"
@@ -43,6 +44,14 @@ _LINE = re.compile(
     r"(?: · (?P<heure>\d{4}-\d{2}-\d{2} \d{1,2}h\d{2}))?"
     r"(?: — remplacé le (?P<date>\d{4}-\d{2}-\d{2})(?: : (?P<motif>.*))?)?$"
 )
+_ID_LINK = re.compile(
+    r"https?://[^\s/@:]+:[^\s/@]+@"
+    r"|[?&;](?:token|access_token|password|secret|api_key|sig)=[^\s&]",
+    re.IGNORECASE,
+)
+_QUOTES = str.maketrans(
+    {"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u201c": '"', "\u201d": '"', "\u00ab": '"', "\u00bb": '"'}
+)
 
 
 class FicheError(ValueError):
@@ -57,6 +66,7 @@ class Claim:
     heure: str | None = None
     replaced_on: str | None = None
     motif: str = ""
+    citation: str = ""
 
     @property
     def key(self) -> str:
@@ -72,6 +82,32 @@ class Body:
 
 def norm(text: str) -> str:
     return " ".join(unicodedata.normalize("NFC", text).casefold().split())
+
+
+def fold(text: str) -> str:
+    """Text compared without accents, case, typographic quotes or spacing differences."""
+    plain = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+    return " ".join(plain.translate(_QUOTES).casefold().split())
+
+
+def quoted(file_text: str, heure: str, citation: str) -> bool:
+    """Whether the citation is, word for word (folded), in one owner message of that minute."""
+    wanted = fold(citation)
+    return bool(wanted) and any(
+        m.heure == heure and m.role == ROLE_NAMES["user"] and wanted in fold(m.content) for m in messages_of(file_text)
+    )
+
+
+def holds_secret(text: str) -> bool:
+    return contains_secret(text) or bool(_ID_LINK.search(text))
+
+
+def _refuse_secrets(*texts: str) -> None:
+    if any(holds_secret(t) for t in texts if t):
+        raise FicheError(
+            "A claim, a title or a citation holds what looks like a secret (card number, key, token, login link): "
+            "a fiche never keeps one. Leave it out."
+        )
 
 
 def _one_line(text: Any) -> str:
@@ -192,6 +228,16 @@ async def _check_source(
                 f"«{claim.texte}» is `dit` but the message at {heure} in {rel} is not the owner's: "
                 "what Maggie wrote herself is `déduit`."
             )
+        if claim.provenance == "dit":
+            if not claim.citation:
+                raise FicheError(
+                    f"«{claim.texte}» is `dit`: give `citation`, the owner's words copied from his message at {heure}."
+                )
+            if not quoted(text, heure, claim.citation):
+                raise FicheError(
+                    f"«{claim.citation}» is not in the owner's message at {heure} in {rel}: "
+                    "open it with memory_open and copy his words."
+                )
     elif claim.provenance == "dit":
         raise FicheError(f"«{claim.texte}» is `dit`: its source is the conversation where it was said, not a fiche.")
     indexed = await service.indexed(user_id, rel)
@@ -232,7 +278,9 @@ def _claim(raw: Any) -> Claim:
     if not source:
         raise FicheError(f"«{texte}» needs its `source`: no source, no claim.")
     heure = _one_line(raw.get("heure")) or None
-    return Claim(texte, provenance, source, heure)
+    citation = _one_line(raw.get("citation"))[:MAX_CLAIM]
+    _refuse_secrets(texte, citation)
+    return Claim(texte, provenance, source, heure, citation=citation)
 
 
 def _list(value: Any) -> list[str] | None:
@@ -297,6 +345,7 @@ async def write_fiche(
     if not isinstance(affirmations, list) or not affirmations:
         raise FicheError("`affirmations` lists what the fiche says: at least one claim.")
     dossiers = [_one_line(d) for d in (dossiers or []) if _one_line(d)]
+    _refuse_secrets(titre, _one_line(resume), *(_list(personnes) or []), *(_list(evoque) or []), *(_list(alias) or []))
     rel, exists = _target(service, user_id, titre, dossiers, chemin)
 
     before = Body()
@@ -335,6 +384,7 @@ async def write_fiche(
         if old.key in keys:
             raise FicheError(f"«{texte}» is both kept and replaced.")
         old.replaced_on, old.motif = today.isoformat(), _one_line(raw.get("motif"))
+        _refuse_secrets(old.motif)
         moved.append(old)
     moved_keys = {m.key for m in moved}
     gone = [c.texte for key, c in previous.items() if key not in keys and key not in moved_keys]

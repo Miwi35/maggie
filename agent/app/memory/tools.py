@@ -24,7 +24,8 @@ EXCERPT = 240
 MAX_OPEN_CHARS = 20000
 
 _PROVENANCE_HELP = (
-    "`dit` = the owner said it (source: the conversation, with the minute); `observé` = seen in the app's data "
+    "`dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, "
+    "copied from his message at that minute); `observé` = seen in the app's data "
     "(source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, "
     "is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced "
     "as such when used)."
@@ -112,6 +113,10 @@ MEMORY_TOOLS = [
                             "heure": {
                                 "type": "string",
                                 "description": "Conversation source: message minute `AAAA-MM-JJ HHhMM`, as in the file",
+                            },
+                            "citation": {
+                                "type": "string",
+                                "description": "`dit`: the owner's words, copied as written (not stored)",
                             },
                         },
                         "required": ["texte", "provenance", "source"],

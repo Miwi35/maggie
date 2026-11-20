@@ -16,6 +16,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -71,6 +72,32 @@ def render_message(msg: Any, tz: ZoneInfo) -> str:
     if getattr(msg, "interrupted", False):
         lines += ["", "_Réponse coupée par le propriétaire : seul ce qui précède a été dit._"]
     return "\n".join(lines) + "\n\n"
+
+
+_MESSAGE = re.compile(
+    rf"^## (?P<heure>\d{{4}}-\d{{2}}-\d{{2}} \d{{1,2}}h\d{{2}}) — (?P<role>{'|'.join(ROLE_NAMES.values())})[ \t]*$",
+    re.MULTILINE,
+)
+_ANCHOR = re.compile(r"^<!-- msg: .*? -->[ \t]*\n?", re.MULTILINE)
+
+
+@dataclass
+class Message:
+    heure: str
+    role: str
+    content: str
+
+
+def messages_of(text: str) -> list[Message]:
+    """The messages of a conversation file, as they stand: minute, speaker, text (the anchors left out)."""
+    body = carte_mod.split(text)[1]
+    found = list(_MESSAGE.finditer(body))
+    out: list[Message] = []
+    for index, match in enumerate(found):
+        end = found[index + 1].start() if index + 1 < len(found) else len(body)
+        content = _ANCHOR.sub("", body[match.end() : end].lstrip("\n"), count=1).strip()
+        out.append(Message(match.group("heure"), match.group("role"), content))
+    return out
 
 
 def _header(key: str, subject: str, first: datetime) -> str:

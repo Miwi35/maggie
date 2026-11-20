@@ -23,6 +23,7 @@ turns:
        "fiches": [{"chemin": null, "titre": "Zoé, la nièce du propriétaire, est végétarienne",
          "dossiers": ["Famille"], "resume": "Le régime de Zoé", "personnes": ["Zoé"],
          "evoque": ["repas de famille"], "alias": [],
-         "ajouts": [{"texte": "Zoé, la nièce du propriétaire, est végétarienne", "heure": "\1"}],
+         "ajouts": [{"texte": "Zoé, la nièce du propriétaire, est végétarienne", "heure": "\1",
+                      "citation": "Ma nièce Zoé est végétarienne"}],
          "doute": null}],
        "doute": null}

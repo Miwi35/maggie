@@ -12,7 +12,8 @@ turns:
       {"fiches": [{"chemin": "Lieu de vie/Le propriétaire habite à Rennes.md", "titre": "Le propriétaire habite à Lyon",
          "dossiers": [], "resume": "Où habite le propriétaire : Lyon, après Rennes", "personnes": [],
          "evoque": ["adresse"], "alias": [],
-         "ajouts": [{"texte": "Le propriétaire habite à Lyon", "heure": "\1"}],
+         "ajouts": [{"texte": "Le propriétaire habite à Lyon", "heure": "\1",
+                      "citation": "je m'installe à Lyon"}],
          "remplace": [{"texte": "Le propriétaire habite à Rennes", "motif": "il s'installe finalement à Lyon"}],
          "doute": null}],
        "carte": {"personnes": [], "evoque": ["changement d'adresse"]}}

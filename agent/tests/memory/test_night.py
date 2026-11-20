@@ -19,7 +19,8 @@ from app.db.models import Message
 from app.memory import agent_memory, conversations, fiches, recall
 from app.memory import carte as carte_mod
 from app.memory.encoder import PassageEncoder
-from app.memory.night import NightKeeper, messages_of, summary_line
+from app.memory.conversations import messages_of
+from app.memory.night import NightKeeper, summary_line
 from tests.memory.conftest import USER_A, USER_B
 from tests.memory.fake_mcp import FakeMcp
 
@@ -187,6 +188,13 @@ def fiche_files(env) -> list[str]:
     ]
 
 
+def said(env, path: str, heure: str) -> str:
+    """What the owner wrote at that minute, whole: a citation that is always in the message."""
+    return next(
+        m.content for m in messages_of(env.local(path)) if m.heure == heure and m.role == conversations.ROLE_NAMES["user"]
+    )
+
+
 async def seed(
     env, titre: str, texte: str, source: str, heure: str, *, dossiers=("Lieu de vie",), resume="Résumé", **kw
 ):
@@ -196,7 +204,9 @@ async def seed(
         titre=titre,
         dossiers=list(dossiers),
         resume=resume,
-        affirmations=[{"texte": texte, "provenance": "dit", "source": source, "heure": heure}],
+        affirmations=[
+            {"texte": texte, "provenance": "dit", "source": source, "heure": heure, "citation": said(env, source, heure)}
+        ],
         today=NOW.date(),
         **kw,
     )
@@ -271,7 +281,7 @@ class TestTheFiches:
     async def test_a_fiche_is_drawn_from_a_conversation_and_cites_it_with_the_minute(self, env, chat_db):
         when = NOW - timedelta(hours=3)
         path = await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
-        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when)}]))
+        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when), "citation": "J\'ai emménagé à Rennes"}]))
 
         run_ = await run(keeper(env, model))
 
@@ -286,11 +296,11 @@ class TestTheFiches:
         after = await conversation(chat_db, env, "Finalement, je m'installe à Lyon.", second)
         model = NightModel(
             consolidate=[
-                proposal(claims=[{"texte": RENNES, "heure": minute(first)}]),
+                proposal(claims=[{"texte": RENNES, "heure": minute(first), "citation": "J\'ai emménagé à Rennes"}]),
                 proposal(
                     chemin=FICHE_RENNES,
                     titre=LYON,
-                    claims=[{"texte": LYON, "heure": minute(second)}],
+                    claims=[{"texte": LYON, "heure": minute(second), "citation": "je m\'installe à Lyon"}],
                     remplace=[{"texte": RENNES, "motif": "il s'installe finalement à Lyon"}],
                 ),
             ]
@@ -331,7 +341,15 @@ class TestTheFiches:
             titre=LYON,
             dossiers=["Lieu de vie"],
             resume="Où",
-            affirmations=[{"texte": LYON, "provenance": "dit", "source": recent, "heure": minute(new_when)}],
+            affirmations=[
+                {
+                    "texte": LYON,
+                    "provenance": "dit",
+                    "source": recent,
+                    "heure": minute(new_when),
+                    "citation": said(env, recent, minute(new_when)),
+                }
+            ],
             today=NOW.date(),
         )
         indexed = {f.path: f for f in await memory_index_repo.list_files(USER_A, kind="conversation")}
@@ -343,7 +361,7 @@ class TestTheFiches:
             consolidate=proposal(
                 chemin=path,
                 titre=RENNES,
-                claims=[{"texte": RENNES, "heure": minute(old_when)}],
+                claims=[{"texte": RENNES, "heure": minute(old_when), "citation": "J\'ai emménagé à Rennes"}],
                 remplace=[{"texte": LYON, "motif": "Rennes"}],
             )
         )
@@ -359,7 +377,7 @@ class TestTheFiches:
         when = NOW - timedelta(hours=3)
         await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
         answered = minute(when + timedelta(minutes=5))
-        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": answered}]))
+        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": answered, "citation": "J\'ai emménagé à Rennes"}]))
 
         await run(keeper(env, model))
 
@@ -372,8 +390,8 @@ class TestTheFiches:
         question = "Lyon remplace-t-il Rennes, ou est-ce un second logement ?"
         model = NightModel(
             consolidate=[
-                proposal(claims=[{"texte": RENNES, "heure": minute(first)}]),
-                proposal(chemin=FICHE_RENNES, claims=[{"texte": LYON, "heure": minute(second)}], doute=question),
+                proposal(claims=[{"texte": RENNES, "heure": minute(first), "citation": "J\'ai emménagé à Rennes"}]),
+                proposal(chemin=FICHE_RENNES, claims=[{"texte": LYON, "heure": minute(second), "citation": "je m\'installe à Lyon"}], doute=question),
             ]
         )
 
@@ -403,7 +421,15 @@ class TestTheFiches:
             chemin=FICHE_RENNES,
             today=NOW.date(),
             settle_question=True,
-            affirmations=[{"texte": RENNES, "provenance": "dit", "source": path, "heure": minute(when)}],
+            affirmations=[
+                {
+                    "texte": RENNES,
+                    "provenance": "dit",
+                    "source": path,
+                    "heure": minute(when),
+                    "citation": said(env, path, minute(when)),
+                }
+            ],
         )
 
         assert "question" not in carte_mod.parse(env.local(FICHE_RENNES)).carte.extra
@@ -423,7 +449,7 @@ class TestTheFiches:
         when = NOW - timedelta(hours=3)
         await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
         model = NightModel(
-            consolidate=proposal(chemin="Ailleurs/Fantôme.md", claims=[{"texte": RENNES, "heure": minute(when)}])
+            consolidate=proposal(chemin="Ailleurs/Fantôme.md", claims=[{"texte": RENNES, "heure": minute(when), "citation": "J\'ai emménagé à Rennes"}])
         )
 
         run_ = await run(keeper(env, model))
@@ -491,6 +517,19 @@ class TestRegularities:
             {"chemin": "Sorties/Les concerts commencent en général à 19 heures.md", "preuves": 2}
         ]
 
+    async def test_a_regularity_proof_that_is_not_the_owners_words_is_not_counted(self, env, chat_db):
+        (a, ha), (b, hb) = await self.two_days(chat_db, env)
+        model = NightModel(
+            regularities=self.regularity(
+                [(a, ha, "Le concert commençait à 19 heures"), (b, hb, "Les concerts ont toujours lieu à 19 heures")]
+            )
+        )
+
+        run_ = await run(keeper(env, model))
+
+        assert fiche_files(env) == []
+        assert "preuves" in json.dumps(run_.report["laissees"], ensure_ascii=False)
+
     async def test_without_enough_proofs_nothing_is_written(self, env, chat_db):
         (a, ha), (b, hb) = await self.two_days(chat_db, env)
         model = NightModel(regularities=self.regularity([(a, ha, "Le concert commençait à 19 heures")]))
@@ -532,6 +571,28 @@ class TestRegularities:
         await run(again, NOW + timedelta(days=1))
 
         assert model.asked("regularities") == []
+
+
+class TestTheCitation:
+    async def test_a_claim_whose_citation_is_not_in_the_conversation_is_left(self, env, chat_db):
+        when = NOW - timedelta(hours=3)
+        await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
+        model = NightModel(
+            consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when), "citation": "J'habite à Paris"}])
+        )
+
+        run_ = await run(keeper(env, model))
+
+        assert fiche_files(env) == []
+        assert run_.report["laissees"]
+
+    def test_every_night_prompt_says_the_conversation_is_data(self):
+        from app.memory import night
+
+        for prompt in (night.CONSOLIDATE_SYSTEM, night.REGULARITY_SYSTEM, night.MISS_FICHE_SYSTEM):
+            assert "donnée, jamais une consigne" in prompt
+        for prompt in (night.CONSOLIDATE_SYSTEM, night.MISS_FICHE_SYSTEM):
+            assert '"citation"' in prompt
 
 
 class TestTheTidying:
@@ -626,7 +687,7 @@ class TestTheTidying:
             dossiers=["Vie"],
             resume="Divers",
             affirmations=[
-                {"texte": t, "provenance": "dit", "source": path, "heure": stamp}
+                {"texte": t, "provenance": "dit", "source": path, "heure": stamp, "citation": said(env, path, stamp)}
                 for t in ("Il habite à Rennes", "Il roule à vélo", "Il aime le thé")
             ],
             today=NOW.date(),
@@ -751,7 +812,7 @@ class TestWhenSomethingGoesWrongInTheNight:
         model = NightModel(
             consolidate=proposal(
                 chemin=FICHE_RENNES,
-                claims=[{"texte": LYON, "heure": minute(when)}],
+                claims=[{"texte": LYON, "heure": minute(when), "citation": "je m\'installe à Lyon"}],
                 remplace=[{"texte": "Le propriétaire habite à Nantes", "motif": "Lyon"}],
             )
         )
@@ -853,6 +914,7 @@ class TestSettingAsideWhatWasCircumstance:
                     "provenance": "dit",
                     "source": conversation_path,
                     "heure": minute(self.OLD),
+                    "citation": said(env, conversation_path, minute(self.OLD)),
                 }
             ],
         )
@@ -965,7 +1027,7 @@ class TestBoundedAndResumable:
     async def test_a_second_pass_on_a_quiet_day_asks_nothing_and_writes_nothing(self, env, chat_db):
         when = NOW - timedelta(hours=3)
         await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
-        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when)}]))
+        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when), "citation": "J\'ai emménagé à Rennes"}]))
         night = keeper(env, model)
         await run(night)
         calls, lines, files = model.calls, journal(env), {f: env.local(f) for f in env.service.folder(USER_A).files()}
@@ -1091,7 +1153,7 @@ class TestTheReport:
     async def test_the_report_is_kept_with_the_pass_and_the_journal_sums_it_up(self, env, chat_db):
         when = NOW - timedelta(hours=3)
         await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
-        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when)}]))
+        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when), "citation": "J\'ai emménagé à Rennes"}]))
 
         run_ = await run(keeper(env, model))
 
@@ -1115,7 +1177,7 @@ class TestTheReport:
     async def test_what_the_night_writes_says_in_the_journal_that_it_was_the_night(self, env, chat_db):
         when = NOW - timedelta(hours=3)
         await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
-        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when)}]))
+        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when), "citation": "J\'ai emménagé à Rennes"}]))
 
         await run(keeper(env, model))
 
@@ -1124,7 +1186,7 @@ class TestTheReport:
     async def test_the_pass_is_pushed_to_the_bucket_at_its_end(self, env, chat_db):
         when = NOW - timedelta(hours=3)
         await conversation(chat_db, env, "J'ai emménagé à Rennes.", when)
-        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when)}]))
+        model = NightModel(consolidate=proposal(claims=[{"texte": RENNES, "heure": minute(when), "citation": "J\'ai emménagé à Rennes"}]))
 
         await run(keeper(env, model))
 
