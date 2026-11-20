@@ -824,6 +824,9 @@ mobile:
   e2e/mobile/flows/31-task-schedule.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/task-schedule-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml]
+  e2e/mobile/flows/31b-task-repeat.yaml:
+    areas: [calendar]
+    paths: [e2e/mobile/scripts/task-schedule-api.js, e2e/mobile/scripts/new-user.js, e2e/mobile/subflows/new-user.yaml, mobile/app/src/main/java/com/maggie/app/ui/screens/shared/TaskRepeat.kt]
   e2e/mobile/flows/17b-tasks-day.yaml:
     areas: [calendar]
     paths: [e2e/mobile/scripts/today-tasks-api.js]

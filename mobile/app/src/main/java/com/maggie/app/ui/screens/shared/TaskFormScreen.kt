@@ -59,6 +59,8 @@ fun TaskFormScreen(
     var criticality by remember { mutableStateOf(task?.criticality ?: "low") }
     var dueDate by remember { mutableStateOf(TaskDueDate.fromApi(task?.dueDate ?: initialDueDay)) }
     var schedule by remember { mutableStateOf(TaskSchedule.of(task)) }
+    var repeat by remember { mutableStateOf(TaskRepeat.of(task)) }
+    val anchor = schedule.day ?: dueDate
     var estimate by remember { mutableStateOf(task?.estimatedMinutes?.toString().orEmpty()) }
     var firstStep by remember { mutableStateOf(task?.firstStep.orEmpty()) }
     var timed by remember { mutableStateOf(task?.timed ?: false) }
@@ -76,6 +78,7 @@ fun TaskFormScreen(
                     estimatedMinutes = TaskEstimate.toApi(estimate),
                     firstStep = TaskEstimate.firstStepToApi(firstStep),
                     timed = timed,
+                    rrule = repeat.toApi(anchor),
                     scheduledDate = schedule.scheduledDate,
                     scheduledMoment = schedule.scheduledMoment,
                     scheduledTime = schedule.scheduledTime,
@@ -95,6 +98,8 @@ fun TaskFormScreen(
                     put("estimatedMinutes", TaskEstimate.toApi(estimate))
                     put("firstStep", TaskEstimate.firstStepToApi(firstStep))
                     put("timed", timed)
+                    // The rule untouched goes back as stored; « Jamais » is null (MAG-887).
+                    put("rrule", repeat.toApi(anchor))
                     // Every key of the programmation, cleared ones as null or [] (MAG-718).
                     schedule.writeTo(this)
                 },
@@ -141,6 +146,10 @@ fun TaskFormScreen(
                 onDueDateChange = { dueDate = it },
                 schedule = schedule,
                 onScheduleChange = { schedule = it },
+                repeat = repeat,
+                onRepeatChange = { repeat = it },
+                anchor = anchor,
+                canRepeat = task?.isSubtask != true,
             )
 
             DropdownField(

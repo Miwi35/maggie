@@ -37,7 +37,8 @@ import com.maggie.app.data.local.entity.TaskEntity
     // 16: a voice message carries its audio attachment (MAG-686).
     // 17: tasks carry their scheduled day, moment, time and reminders (MAG-718).
     // 18: a task says whether it is timed (MAG-766).
-    version = 18,
+    // 19: a task carries its recurrence rule (MAG-870).
+    version = 19,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

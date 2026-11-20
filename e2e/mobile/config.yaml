@@ -92,6 +92,7 @@ executionOrder:
     - 32-health-configuration
     - 33-health-nutrition
     - 31-task-schedule
+    - 31b-task-repeat
     - 34-health-journal
     - 33-bilan-soir
     - 32-grocery-run

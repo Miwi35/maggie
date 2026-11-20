@@ -1,6 +1,16 @@
 package com.maggie.app.ui.screens.tasks
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
+import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.shared.TaskPostponed
 import com.maggie.app.ui.screens.shared.minutesLabel
 import com.maggie.app.util.DateRanges
@@ -56,6 +66,9 @@ object TodayRows {
         return WhenChip(WhenKind.DUE, "limite " + due.format(format))
     }
 
+    /** ↻ on the row of an open task that repeats (MAG-887). */
+    fun repeats(task: Task): Boolean = task.rrule != null && !task.isDone
+
     fun momentLabel(moment: String?): String? = when (moment) {
         Task.MOMENT_MORNING -> "ce matin"
         Task.MOMENT_AFTERNOON -> "cet après-midi"
@@ -92,4 +105,15 @@ object TodayRows {
     }
 
     private val DEFAULT_TIMER_MINUTES = (FocusTimer.DEFAULT_MS / 60_000L).toInt()
+}
+
+/** The small ↻ of a task that repeats (MAG-887): secondary colour, said « Répétée ». */
+@Composable
+fun RepeatMark(taskId: String, modifier: Modifier = Modifier) {
+    Icon(
+        Icons.Default.Sync,
+        contentDescription = "Répétée",
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.size(14.dp).testTag(UiTags.tasksRepeat(taskId)),
+    )
 }

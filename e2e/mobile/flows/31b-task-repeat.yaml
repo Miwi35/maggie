@@ -1,0 +1,126 @@
+appId: com.maggie.app.e2e
+name: 31b-task-repeat
+tags:
+  - calendar
+---
+# « Répéter » of a task (MAG-887, extends the agenda and tasks journey MAG-100, Android part).
+#
+# Étant donné une tâche « Sortir la poubelle jaune <n> » programmée le premier mardi après aujourd'hui,
+# sans répétition
+# Quand j'ouvre sa fiche, « Modifier », « Répéter » → « Toutes les deux semaines », puis « Enregistrer »
+# Alors la fiche lit « Répéter » « Un mardi sur deux », l'API tient rrule = FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,
+# et dans Tâches › Tâches sa ligne porte ↻
+# Quand je la coche dans la liste
+# Alors l'API a une tâche ouverte du même titre au mardi + 14 jours, avec la même rrule, et sa ligne
+# apparaît dans la liste avec ↻
+#
+# A new user; the task is written by `scripts/task-schedule-api.js` and opened by its link, as in
+# `31-task-schedule`. The rule is the one the form writes for a Tuesday anchor.
+#
+# What is not here: the other presets, the custom dialog, « Jusqu’au », the rule left alone when the day
+# moves, the reading of every rule (`TaskRepeatTest`, `TaskFormScreenTest`, `TaskDetailScreenTest`,
+# `TaskItemScreenTest`).
+
+- runFlow: ../subflows/new-user.yaml
+
+- evalScript: ${output.title = 'Sortir la poubelle jaune ' + (Math.floor(Math.random() * 90000) + 10000)}
+
+- runScript:
+    file: ../scripts/task-schedule-api.js
+    env:
+      ACTION: create-tuesday
+      EMAIL: ${output.journeyEmail}
+      TITLE: ${output.title}
+      TODAY: ${TODAY}
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/31b-task-repeat.yaml
+      e2e_email: ${output.journeyEmail}
+
+- runFlow: ../subflows/sign-in.yaml
+
+# The sheet, then its pencil: the form.
+- openLink: "maggie-e2e://task/${output.taskId}"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail_edit"
+    timeout: 30000
+- tapOn:
+    id: "task_detail_edit"
+- extendedWaitUntil:
+    visible:
+      id: "task_form_repeat"
+    timeout: 20000
+- assertNotVisible:
+    id: "task_form_until"
+
+# « Répéter » › « Toutes les deux semaines »: the field reads it, « Jusqu’au » appears.
+- tapOn:
+    id: "task_form_repeat"
+- extendedWaitUntil:
+    visible:
+      id: "task_form_repeat_biweekly"
+    timeout: 20000
+- tapOn:
+    id: "task_form_repeat_biweekly"
+- extendedWaitUntil:
+    visible:
+      id: "task_form_until"
+    timeout: 20000
+- assertVisible: ".*Un mardi sur deux.*"
+
+- tapOn:
+    id: "task_form_submit"
+
+# Saving closes the form on the screen the link was opened from: the API holds the rule, then the sheet
+# is opened again and reads it.
+- runScript:
+    file: ../scripts/task-schedule-api.js
+    env:
+      ACTION: expect-rule
+      EMAIL: ${output.journeyEmail}
+      TITLE: ${output.title}
+      TODAY: ${TODAY}
+      TASK_ID: ${output.taskId}
+
+- openLink: "maggie-e2e://task/${output.taskId}"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail_repeat"
+    timeout: 30000
+- assertVisible: ".*Un mardi sur deux.*"
+- back
+
+# Tâches › Tâches: the row carries ↻.
+- back
+- runFlow:
+    file: ../subflows/open-destination.yaml
+    env:
+      DEST: tasks
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: upcoming
+- extendedWaitUntil:
+    visible:
+      id: "tasks_repeat_${output.taskId}"
+    timeout: 30000
+
+# Ticking the row: the next occurrence is born, ↻ on its row too.
+- tapOn:
+    id: "tasks_check_${output.taskId}"
+- runScript:
+    file: ../scripts/task-schedule-api.js
+    env:
+      ACTION: expect-next
+      EMAIL: ${output.journeyEmail}
+      TITLE: ${output.title}
+      TODAY: ${TODAY}
+- extendedWaitUntil:
+    visible:
+      id: "tasks_repeat_${output.nextId}"
+    timeout: 30000

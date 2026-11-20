@@ -2033,6 +2033,22 @@ object UiTags {
     const val TASK_FORM_REMINDERS = "task_form_reminders"
 
     fun taskFormMoment(moment: String): String = TASK_FORM_MOMENT_PREFIX + moment
+
+    /** « Répéter » of the task form (MAG-887): the field, its menu items by preset key, « Jusqu’au », and the custom dialog. */
+    const val TASK_FORM_REPEAT = "task_form_repeat"
+    const val TASK_FORM_REPEAT_PREFIX = "task_form_repeat_"
+    const val TASK_FORM_UNTIL = "task_form_until"
+    const val TASK_REPEAT_INTERVAL = "task_repeat_interval"
+    const val TASK_REPEAT_UNIT_PREFIX = "task_repeat_unit_"
+    const val TASK_REPEAT_DAY_PREFIX = "task_repeat_day_"
+    const val TASK_REPEAT_OK = "task_repeat_ok"
+    const val TASK_DETAIL_REPEAT = "task_detail_repeat"
+    const val TASKS_REPEAT_PREFIX = "tasks_repeat_"
+
+    fun taskFormRepeat(key: String): String = TASK_FORM_REPEAT_PREFIX + key
+    fun taskRepeatUnit(key: String): String = TASK_REPEAT_UNIT_PREFIX + key
+    fun taskRepeatDay(code: String): String = TASK_REPEAT_DAY_PREFIX + code
+    fun tasksRepeat(id: String): String = TASKS_REPEAT_PREFIX + id
     const val EVENT_DESCRIPTION = "event_description"
 
     /** Markdown fields (MAG-713): the bar above the keyboard, its buttons, the reading view's check boxes and « n/m » counter. */

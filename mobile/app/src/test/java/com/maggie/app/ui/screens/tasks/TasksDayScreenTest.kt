@@ -223,4 +223,13 @@ class TasksDayScreenTest {
         assert(row.bottom - row.top >= 68.dp) { "a card is 68 dp at least, got ${row.bottom - row.top}" }
         assert(timer.right <= row.right - 12.dp) { "the timer stays inside its card: ${timer.right} > ${row.right - 12.dp}" }
     }
+
+    @Test
+    fun `a repeating open task shows Répétée, a done or plain one does not`() {
+        show(open = listOf(garage.copy(rrule = "FREQ=WEEKLY;BYDAY=TU"), mutuelle), done = listOf(parcel.copy(rrule = "FREQ=DAILY")))
+
+        compose.onNodeWithTag(UiTags.tasksRepeat(garage.id), useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.tasksRepeat(mutuelle.id), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksRepeat(parcel.id), useUnmergedTree = true).assertDoesNotExist()
+    }
 }

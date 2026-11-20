@@ -156,7 +156,8 @@ private fun PickerField(
  * [onClear] makes the date optional: it adds a button that empties the field. [quickPicks]
  * puts « Demain » and « Après-demain » above the calendar (MAG-718): one touch picks the day
  * and closes it; anything else is chosen in the calendar. [filled] draws the field as the
- * mock-ups' filled surface, without its label (a [LabeledField] above carries it).
+ * mock-ups' filled surface, without its label (a [LabeledField] above carries it). [emptyText] is shown
+ * with no date (« Aucune fin »), and [format] writes the date.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,18 +172,20 @@ fun DateField(
     tag: String? = null,
     quickPicks: Boolean = false,
     filled: Boolean = false,
+    emptyText: String? = null,
+    format: (LocalDate) -> String = ::formatFrenchDate,
 ) {
     var open by remember { mutableStateOf(false) }
 
     PickerField(
         label = label,
-        text = value?.let(::formatFrenchDate) ?: "",
+        text = value?.let(format) ?: emptyText.orEmpty(),
         onClick = { open = true },
         modifier = modifier,
         isError = isError,
         supportingText = supportingText,
         tag = tag,
-        onClear = onClear,
+        onClear = onClear.takeIf { value != null },
         filled = filled,
     )
 

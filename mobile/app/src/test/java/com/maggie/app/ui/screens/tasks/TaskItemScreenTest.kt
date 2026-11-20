@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.tasks
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isToggleable
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -144,5 +145,22 @@ class TaskItemScreenTest {
         }
 
         compose.onNodeWithText("whatever-comes-next", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a repeating open task shows Répétée, a done or plain one does not`() {
+        val open = Task(id = "r1", title = "Sortir la poubelle", dueDate = "2026-10-13", rrule = "FREQ=WEEKLY;BYDAY=TU")
+        compose.setContent {
+            androidx.compose.foundation.layout.Column {
+                TaskItem(task = open, onToggleDone = {})
+                TaskItem(task = open.copy(id = "r2", completedAt = "2026-10-13T08:00:00Z"), onToggleDone = {})
+                TaskItem(task = open.copy(id = "r3", rrule = null), onToggleDone = {})
+            }
+        }
+
+        compose.onNodeWithContentDescription("Répétée", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.tasksRepeat("r1"), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.tasksRepeat("r2"), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.tasksRepeat("r3"), useUnmergedTree = true).assertDoesNotExist()
     }
 }

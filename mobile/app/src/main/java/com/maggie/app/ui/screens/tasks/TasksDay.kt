@@ -237,13 +237,14 @@ private fun TodayRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (whenChip != null || urgency != null || meta != null) {
+            if (whenChip != null || urgency != null || TodayRows.repeats(task) || meta != null) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     whenChip?.let { WhenPill(it, Modifier.testTag(UiTags.tasksTodayWhen(task.id))) }
                     urgency?.let { UrgencyPill(it, Modifier.testTag(UiTags.tasksTodayUrgency(task.id))) }
+                    if (TodayRows.repeats(task)) RepeatMark(task.id, Modifier.align(Alignment.CenterVertically))
                     meta?.let {
                         Text(
                             text = it,
