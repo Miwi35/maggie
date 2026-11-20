@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.llm.gateway import LLMGateway
-from app.llm.prompt_cache import EPHEMERAL, build_system, cache_tools
+from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H, build_system, cache_tools
+from app.llm.web_search import with_web_search
 from app.memory.agent_memory import MemoryBlocks
 from app.metrics import LLM_COST_USD, usage_kwargs
 from app.personality.engine import PersonalityEngine
@@ -17,12 +18,12 @@ class TestBuildSystem:
         blocks = build_system("STABLE", "\n\nVOLATILE")
 
         assert blocks == [
-            {"type": "text", "text": "STABLE", "cache_control": EPHEMERAL},
+            {"type": "text", "text": "STABLE", "cache_control": EPHEMERAL_1H},
             {"type": "text", "text": "VOLATILE"},
         ]
 
     def test_empty_volatile_is_omitted(self):
-        assert build_system("STABLE", "  \n") == [{"type": "text", "text": "STABLE", "cache_control": EPHEMERAL}]
+        assert build_system("STABLE", "  \n") == [{"type": "text", "text": "STABLE", "cache_control": EPHEMERAL_1H}]
 
     def test_memory_has_its_own_blocks_between_the_stable_prefix_and_the_volatile_text(self):
         blocks = build_system("STABLE", "VOLATILE", "MOMENT", "PROFILE", "RECALLED")
@@ -30,6 +31,11 @@ class TestBuildSystem:
         assert [b["text"] for b in blocks] == ["STABLE", "MOMENT", "PROFILE", "RECALLED", "VOLATILE"]
         # The profile is cached, what came back for this message is not: four breakpoints with the tools.
         assert [("cache_control" in b) for b in blocks] == [True, True, True, False, False]
+
+    def test_stable_block_is_one_hour_and_moment_and_profile_five_minutes(self):
+        blocks = build_system("STABLE", "V", "MOMENT", "PROFILE")
+
+        assert [b["cache_control"] for b in blocks[:3]] == [EPHEMERAL_1H, EPHEMERAL, EPHEMERAL]
 
     def test_a_change_of_memory_leaves_the_stable_prefix_untouched(self):
         before = build_system("STABLE", "V", "MOMENT", "PROFILE A", "RECALLED A")
@@ -45,8 +51,22 @@ class TestCacheTools:
 
         cached = cache_tools(tools)
 
-        assert cached == [{"name": "a"}, {"name": "b", "cache_control": EPHEMERAL}]
+        assert cached == [{"name": "a"}, {"name": "b", "cache_control": EPHEMERAL_1H}]
         assert tools == [{"name": "a"}, {"name": "b"}]
+
+    def test_the_breakpoint_stays_on_the_last_shared_tool_when_the_web_is_offered(self):
+        cached = cache_tools(with_web_search([{"name": "a"}, {"name": "b"}]))
+
+        assert cached[1] == {"name": "b", "cache_control": EPHEMERAL_1H}
+        assert cached[-1]["name"] == "web_search"
+        assert "cache_control" not in cached[-1]
+        assert "cache_control" not in cached[0]
+
+    def test_a_web_search_alone_gets_no_breakpoint(self):
+        cached = cache_tools(with_web_search([]))
+
+        assert [t["name"] for t in cached] == ["web_search"]
+        assert "cache_control" not in cached[0]
 
     @pytest.mark.parametrize("tools", [None, []])
     def test_no_tools_unchanged(self, tools):
@@ -81,7 +101,7 @@ class TestGatewayPrefix:
         second = await self._build(self._gateway(memory=""), "Nous sommes mardi, il est 10h.")
 
         assert first[0] == second[0]
-        assert first[0]["cache_control"] == EPHEMERAL
+        assert first[0]["cache_control"] == EPHEMERAL_1H
         assert "Nous sommes" not in first[0]["text"]
         assert "Allergie : noix" not in first[0]["text"]
 
@@ -117,7 +137,7 @@ class TestGatewayPrefix:
         after = await self._build(self._gateway(profile="PROFIL A\n- Famille/Francoise.md", recalled=""), "Lundi 9h.")
 
         assert before[0] == after[0]
-        assert before[0]["cache_control"] == EPHEMERAL
+        assert before[0]["cache_control"] == EPHEMERAL_1H
         assert "PROFIL" not in before[0]["text"]
 
     async def test_the_gateway_asks_the_memory_about_what_was_said(self):
@@ -140,6 +160,7 @@ class TestUsageAndCost:
             "input_tokens": 10,
             "output_tokens": 5,
             "cache_creation_input_tokens": 100,
+            "cache_creation_1h_input_tokens": 0,
             "cache_read_input_tokens": 900,
         }
 
@@ -170,7 +191,50 @@ class TestUsageAndCost:
         )
 
         # 2.00 input + 2.50 cache write + 0.20 cache read + 10.00 output
-        assert LLM_COST_USD.labels(**labels)._value.get() - before == pytest.approx(14.70)
+        assert LLM_COST_USD.labels(**labels)._value.get() - before == pytest.approx(14.60)
+
+    def test_usage_kwargs_reads_the_one_hour_writes(self):
+        usage = MagicMock(input_tokens=1, output_tokens=1, cache_creation_input_tokens=100, cache_read_input_tokens=0)
+        usage.cache_creation = MagicMock(ephemeral_1h_input_tokens=60)
+
+        assert usage_kwargs(usage)["cache_creation_1h_input_tokens"] == 60
+        assert usage_kwargs(MagicMock())["cache_creation_1h_input_tokens"] == 0
+
+    def test_one_hour_writes_cost_twice_the_input_price(self):
+        from app.metrics import record_llm_usage
+
+        labels = {"model": "claude-sonnet-5-5", "call_type": "cost_test"}
+        before = LLM_COST_USD.labels(**labels)._value.get()
+
+        record_llm_usage(
+            "claude-sonnet-5-5",
+            "cost_test",
+            input_tokens=0,
+            output_tokens=0,
+            duration_seconds=0.1,
+            cache_creation_input_tokens=1_000_000,
+            cache_creation_1h_input_tokens=600_000,
+        )
+
+        # 400k at 1.25 x 2.00 + 600k at 2 x 2.00
+        assert LLM_COST_USD.labels(**labels)._value.get() - before == pytest.approx(1.0 + 2.4)
+
+    def test_sonnet_5_5_reads_the_cache_at_five_percent(self):
+        from app.metrics import record_llm_usage
+
+        labels = {"model": "claude-sonnet-5-5", "call_type": "cost_test"}
+        before = LLM_COST_USD.labels(**labels)._value.get()
+
+        record_llm_usage(
+            "claude-sonnet-5-5",
+            "cost_test",
+            input_tokens=0,
+            output_tokens=0,
+            duration_seconds=0.1,
+            cache_read_input_tokens=1_000_000,
+        )
+
+        assert LLM_COST_USD.labels(**labels)._value.get() - before == pytest.approx(0.10)
 
     def test_opus_5_5_reads_the_cache_at_five_percent(self):
         from app.metrics import record_llm_usage
@@ -232,9 +296,121 @@ class TestStreamingPrefix:
                     pass
 
         kwargs = gateway.client.messages.stream.call_args.kwargs
-        assert kwargs["system"][0]["cache_control"] == EPHEMERAL
-        assert kwargs["tools"][-1]["cache_control"] == EPHEMERAL
+        assert kwargs["system"][0]["cache_control"] == EPHEMERAL_1H
+        assert kwargs["tools"][-2]["cache_control"] == EPHEMERAL_1H
         assert usage.call_args.kwargs["cache_read_input_tokens"] == 700
+
+    async def test_tools_and_stable_block_carry_the_one_hour_ttl_before_any_five_minute_entry(self):
+        from app.config import settings
+        from app.llm.streaming import StreamingGateway
+
+        final = MagicMock(stop_reason="end_turn", content=[])
+        final.usage = MagicMock(input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0)
+
+        class FakeStream:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+            async def get_final_message(self):
+                return final
+
+        with patch("app.llm.streaming.message_repo") as message_repo:
+            message_repo.find_recent = AsyncMock(return_value=[])
+            message_repo.create = AsyncMock()
+            gateway = StreamingGateway()
+            gateway.client = MagicMock()
+            gateway.client.messages.stream = MagicMock(return_value=FakeStream())
+            gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[{"name": "a"}, {"name": "b"}]))
+            gateway._build_system_prompt = AsyncMock(
+                return_value=build_system("STABLE", "VOLATILE", "MOMENT", "PROFILE")
+            )
+            gateway._resolve_context = AsyncMock(return_value=None)
+
+            with patch("app.llm.streaming.record_llm_usage"):
+                async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
+                    pass
+
+        kwargs = gateway.client.messages.stream.call_args.kwargs
+        rendered = [*kwargs["tools"], *kwargs["system"]]
+        assert [b["cache_control"] for b in rendered if "cache_control" in b] == [
+            EPHEMERAL_1H,
+            EPHEMERAL_1H,
+            EPHEMERAL,
+            EPHEMERAL,
+        ]
+        assert kwargs["output_config"] == {"effort": "medium"}
+        assert kwargs["max_tokens"] == settings.llm_max_tokens
+
+
+class TestSharedToolPrefix:
+    async def test_chat_proaction_and_planning_send_the_same_tools_first(self):
+        from app.llm.streaming import StreamingGateway
+
+        tools = [{"name": "a"}, {"name": "b"}]
+        final = MagicMock(stop_reason="end_turn", content=[])
+        final.usage = MagicMock(input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0)
+
+        class FakeStream:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+            async def get_final_message(self):
+                return final
+
+        with patch("app.llm.streaming.message_repo") as message_repo:
+            message_repo.find_recent = AsyncMock(return_value=[])
+            message_repo.create = AsyncMock()
+            chat = StreamingGateway()
+            chat.client = MagicMock()
+            chat.client.messages.stream = MagicMock(return_value=FakeStream())
+            chat.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))
+            chat._build_system_prompt = AsyncMock(return_value=build_system("STABLE"))
+            chat._resolve_context = AsyncMock(return_value=None)
+            with patch("app.llm.streaming.record_llm_usage"):
+                async for _ in chat.chat_stream("salut", "user-1", "msg-1"):
+                    pass
+        chat_tools = chat.client.messages.stream.call_args.kwargs["tools"]
+
+        response = MagicMock(stop_reason="end_turn", content=[MagicMock(type="text", text="ok")])
+        response.usage = final.usage
+        sent = {}
+        for silent in (False, True):
+            gateway = LLMGateway.__new__(LLMGateway)
+            gateway.client = MagicMock()
+            gateway.client.messages.create = AsyncMock(return_value=response)
+            gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))
+            gateway._build_system_prompt = AsyncMock(return_value=build_system("STABLE"))
+            gateway._resolve_proaction_context = AsyncMock(return_value=None)
+            with (
+                patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+                patch("app.llm.contexts.context_repo") as contexts,
+                patch("app.llm.runner.note_provider_success", AsyncMock()),
+            ):
+                contexts.find_active = AsyncMock(return_value=[])
+                await gateway.proaction("Fais-le", "user-1", silent=silent)
+            sent[silent] = gateway.client.messages.create.call_args.kwargs["tools"]
+
+        assert chat_tools[-1]["name"] == "web_search"
+        assert sent[False] == chat_tools[:-1] == sent[True]
+        assert sent[False][-1] == {"name": "b", "cache_control": EPHEMERAL_1H}
 
 
 class TestStreamingSystemPrompt:
@@ -259,7 +435,7 @@ class TestStreamingSystemPrompt:
 
             blocks = await gateway._build_system_prompt("user-1")
 
-        assert blocks[0] == {"type": "text", "text": "BASE", "cache_control": EPHEMERAL}
+        assert blocks[0] == {"type": "text", "text": "BASE", "cache_control": EPHEMERAL_1H}
         assert "Courses" in blocks[1]["text"]
         assert "Allergie : noix" in blocks[1]["text"]
         assert "Nous sommes lundi, il est 9h." in blocks[1]["text"]

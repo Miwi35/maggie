@@ -118,7 +118,7 @@ class TestChatSystemPrompt:
             skills.refresh = AsyncMock()
             blocks = await _streaming_gateway()._build_system_prompt("user-1")
 
-        assert blocks[0]["cache_control"] == {"type": "ephemeral"}
+        assert blocks[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
         assert TUTOIE not in blocks[0]["text"]
 
 

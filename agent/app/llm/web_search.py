@@ -57,9 +57,9 @@ def web_search_tool(timezone: ZoneInfo | None = None) -> dict | None:
 
 
 def with_web_search(tools: list[dict], timezone: ZoneInfo | None = None) -> list[dict]:
-    """The tools plus the web search, put first: the last tool carries the prompt-cache breakpoint."""
+    """The tools plus the web search, last: after the shared tools' cache breakpoint, so every run shares it."""
     tool = web_search_tool(timezone)
-    return [tool, *tools] if tool else list(tools)
+    return [*tools, tool] if tool else list(tools)
 
 
 def _get(block: Any, key: str) -> Any:

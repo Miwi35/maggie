@@ -16,7 +16,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 - Agentic tool loop in `app/llm/runner.py` (`run_tool_loop`): max 5 iterations per request by default, `tools=None` gives a plain answer. Shared by chat, proactions, sub-agents and the announcement of an approved action. `streaming.py` keeps its own loop because it emits SSE events
 - MCP tool schemas converted to Anthropic format
 - Every tool call goes through `ToolRouter.call_tool(name, arguments, user_id, source)` — the single place where the policy applies (see Policy and approvals). `source` is one of `chat`, `chat_stream`, `proaction`, `subagent:<name>`, `a2a`, `approval`
-- System prompt = cached stable prefix (personality + skills index) then a volatile block (memory, directives, open threads, date) — `app/llm/prompt_cache.py`
+- System prompt = stable prefix (personality + skills index) then a volatile block (memory, directives, open threads, date) — `app/llm/prompt_cache.py`. Cache breakpoints, four at most and 1 h entries before 5 min ones: tools (1 h), stable prefix (1 h), skills of the moment (5 min), memory profile (5 min). `web_search` goes after the shared tools, so chat, proaction and planning share the tools cache. The effort of each kind of run lives in `app/llm/models.py` (`EFFORT_BY_RUN`), next to its model
 - Conversation history is persisted (`agent_message`) and rebuilt per request by `app/llm/history.py`: the current thread's messages in full, a short global window, and the other threads as summaries in the system prompt
 
 ## Personality

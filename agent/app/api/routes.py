@@ -38,7 +38,7 @@ from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normal
 from app.llm.gateway import LLMGateway
 from app.llm.image import ChatImage
 from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
-from app.llm.models import CHAT, model_for
+from app.llm.models import CHAT, effort_for, model_for
 from app.llm.questions import choices_message
 from app.llm.replace import abandon_approvals, withdraw_turn
 from app.llm.runner import run_tool_loop
@@ -558,6 +558,7 @@ async def announce_approved_action(action: PendingAction, result: str) -> None:
             tool_router=llm_gateway.tool_router,
             user_id=action.user_id,
             model=model_for(CHAT),
+            effort=effort_for(CHAT),
             call_type="approval",
             source="approval",
             context_id=action.context_id,

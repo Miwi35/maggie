@@ -28,7 +28,7 @@ from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
 from app.llm.client import client_for, create_llm_client, llm_configured
-from app.llm.models import UTILITY, model_for
+from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
 logger = logging.getLogger(__name__)
@@ -149,6 +149,7 @@ class ContextSummarizer:
             response = await (await client_for(user_id, self.client)).messages.create(
                 model=model_for(UTILITY),
                 max_tokens=MAX_SUMMARY_TOKENS,
+                **effort_kwargs(UTILITY),
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": "\n\n".join(parts)}],
             )

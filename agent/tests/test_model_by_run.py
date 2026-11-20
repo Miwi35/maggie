@@ -1,5 +1,6 @@
 """One model per kind of run (MAG-731): judgement on Sonnet, mechanical work on Haiku."""
 
+import ast
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,7 +13,8 @@ from app.config import settings
 from app.db.journal_repository import journal_repo
 from app.llm import models
 from app.llm.gateway import LLMGateway
-from app.llm.models import MODEL_BY_RUN, model_for
+from app.llm.models import EFFORT_BY_RUN, MODEL_BY_RUN, effort_for, effort_kwargs, model_for
+from app.metrics import PRICING
 from app.memory.agent_memory import MemoryBlocks
 from app.trips import REPLAN_SUMMARY
 
@@ -45,6 +47,49 @@ def test_every_kind_of_run_is_in_the_table():
     assert kinds == set(MODEL_BY_RUN)
 
 
+def test_every_kind_of_run_has_its_effort():
+    assert set(EFFORT_BY_RUN) == set(MODEL_BY_RUN)
+
+
+@pytest.mark.parametrize("run", sorted(EFFORT_BY_RUN))
+def test_each_run_passes_its_effort(run):
+    with patch.object(settings, "anthropic_fast_model", "claude-haiku-5-5"):
+        assert effort_kwargs(run) == {"output_config": {"effort": EFFORT_BY_RUN[run]}}
+
+
+def test_haiku_4_5_gets_no_effort():
+    assert effort_kwargs(models.UTILITY) == {}
+    assert effort_for(models.UTILITY) is None
+    assert effort_for(models.CHAT) == "medium"
+
+
+def test_every_model_alias_has_a_price():
+    for model in [*settings.model_aliases.values(), "claude-haiku-5-5"]:
+        assert model in PRICING
+
+
+def _passes_effort(call: ast.Call) -> bool:
+    name = call.func.attr if isinstance(call.func, ast.Attribute) else getattr(call.func, "id", "")
+    keywords = {k.arg for k in call.keywords}
+    if name in {"create", "stream"} and isinstance(call.func, ast.Attribute) and "messages" in ast.unparse(call.func):
+        return None in keywords or "output_config" in keywords
+    if name == "run_tool_loop":
+        return "effort" in keywords
+    return True
+
+
+def test_every_call_to_the_model_passes_its_effort():
+    offenders = []
+    for path in APP.rglob("*.py"):
+        rel = path.relative_to(APP).as_posix()
+        if rel in {"llm/fake.py", "agents/delegate.py"}:
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Call) and not _passes_effort(node):
+                offenders.append(f"{rel}:{node.lineno}")
+    assert offenders == []
+
+
 def test_no_call_reads_a_model_setting_directly():
     offenders = [
         str(path.relative_to(APP))
@@ -65,7 +110,7 @@ def _gateway() -> LLMGateway:
     return gateway
 
 
-async def _proaction_model(prompt: str, **options) -> tuple[str, dict]:
+async def _proaction_call(prompt: str, **options) -> tuple[dict, dict]:
     loop = AsyncMock(return_value={"response": "", "tool_calls": []})
     with (
         patch("app.llm.gateway.run_tool_loop", loop),
@@ -74,7 +119,12 @@ async def _proaction_model(prompt: str, **options) -> tuple[str, dict]:
     ):
         contexts.find_active = AsyncMock(return_value=[])
         result = await _gateway().proaction(prompt, "user-1", **options)
-    return loop.await_args.kwargs["model"], result
+    return loop.await_args.kwargs, result
+
+
+async def _proaction_model(prompt: str, **options) -> tuple[str, dict]:
+    kwargs, result = await _proaction_call(prompt, **options)
+    return kwargs["model"], result
 
 
 class TestProactionRuns:
@@ -82,6 +132,14 @@ class TestProactionRuns:
         model, result = await _proaction_model("Planifie la journée", silent=True)
         assert model == SONNET
         assert result["model"] == SONNET
+
+    async def test_the_morning_planning_thinks_at_high_effort(self):
+        kwargs, _ = await _proaction_call("Planifie la journée", silent=True)
+        assert kwargs["effort"] == "high"
+
+    async def test_an_ordinary_proaction_on_haiku_4_5_passes_no_effort(self):
+        kwargs, _ = await _proaction_call("Rappel : appeler votre mère", summary="Appeler maman")
+        assert kwargs["effort"] is None
 
     async def test_a_digest_uses_sonnet(self):
         model, _ = await _proaction_model("Fais-moi le digest de ma journée", summary="Digest du matin")

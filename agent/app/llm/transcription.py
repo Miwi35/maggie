@@ -19,7 +19,7 @@ import openai
 
 from app.config import settings
 from app.llm.client import create_llm_client
-from app.llm.models import UTILITY, model_for
+from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage
 
 logger = logging.getLogger(__name__)
@@ -288,6 +288,7 @@ async def _cleanup_with_llm(raw_text: str) -> str:
         response = await client.messages.create(
             model=model,
             max_tokens=1024,
+            **effort_kwargs(UTILITY),
             messages=[
                 {"role": "user", "content": f"{CLEANUP_PROMPT}\n\nTexte dicté :\n{raw_text}"},
             ],

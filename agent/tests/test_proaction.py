@@ -184,7 +184,7 @@ class TestProactionHistory:
             skills.refresh = AsyncMock()
             blocks = await _gateway()._build_system_prompt("user-1")
 
-        assert blocks[0]["cache_control"] == {"type": "ephemeral"}
+        assert blocks[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
         assert "Deux kilos de farine." not in blocks[0]["text"]
 
     async def test_no_open_thread_leaves_the_prompt_as_it_was(self):

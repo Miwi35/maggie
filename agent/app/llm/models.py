@@ -28,8 +28,33 @@ MODEL_BY_RUN: dict[str, str] = {
 }
 
 
+# How hard each kind of run thinks (`output_config.effort`). Judgement gets more, mechanical work less.
+EFFORT_BY_RUN: dict[str, str] = {
+    CHAT: "medium",
+    PLANNING: "high",
+    DIGEST: "medium",
+    TRIP: "low",
+    NIGHT: "low",
+    PROACTION: "low",
+    UTILITY: "low",
+}
+
+# Prefixes of the models that refuse `effort`.
+NO_EFFORT_MODELS = ("claude-haiku-4-5", "claude-sonnet-4-5", "claude-3")
+
+
 def model_for(run: str) -> str:
     return settings.model_aliases[MODEL_BY_RUN[run]]
+
+
+def effort_for(run: str) -> str | None:
+    """The effort of this run, or `None` when its model refuses `effort` (Haiku 4.5)."""
+    return None if model_for(run).startswith(NO_EFFORT_MODELS) else EFFORT_BY_RUN[run]
+
+
+def effort_kwargs(run: str) -> dict:
+    effort = effort_for(run)
+    return {"output_config": {"effort": effort}} if effort else {}
 
 
 def proaction_run(*, silent: bool, summary: str | None, prompt: str) -> str:

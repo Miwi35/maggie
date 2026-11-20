@@ -6,6 +6,7 @@ import anthropic
 import httpx
 import pytest
 
+from app.config import settings
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 
 
@@ -72,7 +73,7 @@ async def _run(client, tool_router, messages=None, tools=None, **kwargs):
 class TestPromptCaching:
     async def test_passes_system_blocks_and_marks_last_tool_cacheable(self, client, tool_router, usage):
         client.messages.create.return_value = _text_response("ok")
-        system = [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral"}}]
+        system = [{"type": "text", "text": "stable", "cache_control": {"type": "ephemeral", "ttl": "1h"}}]
         tools = [{"name": "a"}, {"name": "b"}]
 
         await run_tool_loop(
@@ -87,7 +88,7 @@ class TestPromptCaching:
 
         kwargs = client.messages.create.call_args.kwargs
         assert kwargs["system"] == system
-        assert kwargs["tools"][-1]["cache_control"] == {"type": "ephemeral"}
+        assert kwargs["tools"][-1]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
         assert "cache_control" not in kwargs["tools"][0]
         assert "cache_control" not in tools[-1]
 
@@ -224,6 +225,27 @@ class TestRunToolLoop:
         assert result["response"] == ITERATION_LIMIT_MESSAGE
         # Two rounds, two turns each.
         assert len(result["blocks"]) == 4
+
+    async def test_the_effort_goes_in_output_config(self, client, tool_router, usage):
+        client.messages.create.return_value = _text_response("ok")
+
+        await _run(client, tool_router, effort="medium")
+
+        assert client.messages.create.call_args.kwargs["output_config"] == {"effort": "medium"}
+
+    async def test_no_effort_no_output_config(self, client, tool_router, usage):
+        client.messages.create.return_value = _text_response("ok")
+
+        await _run(client, tool_router)
+
+        assert "output_config" not in client.messages.create.call_args.kwargs
+
+    async def test_max_tokens_defaults_to_the_setting(self, client, tool_router, usage):
+        client.messages.create.return_value = _text_response("ok")
+
+        await _run(client, tool_router)
+
+        assert client.messages.create.call_args.kwargs["max_tokens"] == settings.llm_max_tokens
 
     async def test_passes_model_and_max_tokens(self, client, tool_router, usage):
         client.messages.create.return_value = _text_response("ok")

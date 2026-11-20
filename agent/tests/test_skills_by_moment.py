@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
-from app.llm.prompt_cache import EPHEMERAL
+from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H
 from app.skills.document import parse_markdown
 from app.skills.index import MOMENT_SKILLS_MAX_CHARS, SkillIndex
 from app.memory.agent_memory import MemoryBlocks
@@ -95,7 +95,7 @@ class TestProaction:
         """The index prefix stays the one chat uses, so a proaction does not write a cache of its own."""
         blocks = await _proaction_system(_index(DELIVER), silent=False)
 
-        assert blocks[0]["cache_control"] == EPHEMERAL
+        assert blocks[0]["cache_control"] == EPHEMERAL_1H
         assert DELIVER.content not in blocks[0]["text"]
         assert "delivrer-un-rappel" in blocks[0]["text"]
         assert DELIVER.content in blocks[1]["text"]

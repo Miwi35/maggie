@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import anthropic
 
+from app.config import settings
 from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.prompt_cache import cache_tools
 from app.llm.provider_status import note_provider_failure, note_provider_success
@@ -15,7 +16,6 @@ from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_ITERATIONS = 5
-DEFAULT_MAX_TOKENS = 4096
 ITERATION_LIMIT_MESSAGE = "Je me suis perdue en route, je n'ai rien enregistré. Vous me redonnez le point de départ ?"
 
 
@@ -29,7 +29,8 @@ async def run_tool_loop(
     user_id: str | None,
     model: str,
     max_iterations: int = DEFAULT_MAX_ITERATIONS,
-    max_tokens: int = DEFAULT_MAX_TOKENS,
+    max_tokens: int | None = None,
+    effort: str | None = None,
     call_type: str = "chat",
     source: str = "chat",
     context_id: str | None = None,
@@ -39,6 +40,7 @@ async def run_tool_loop(
 
     `system` is a string or a list of system blocks (see `build_system`). `messages` is extended in place.
     `tools=None` (or empty) yields a plain answer without tools. The tool list gets a prompt-cache breakpoint.
+    `effort` is the run's `output_config.effort` (`app.llm.models.effort_for`); `None` sends none.
     API errors are not caught: callers decide how to present them.
 
     `context_id` is the thread this turn belongs to; a call the policy holds back for the
@@ -73,10 +75,11 @@ async def run_tool_loop(
         try:
             response = await client.messages.create(
                 model=model,
-                max_tokens=max_tokens,
+                max_tokens=max_tokens or settings.llm_max_tokens,
                 system=system,
                 messages=messages,
                 tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
+                **({"output_config": {"effort": effort}} if effort else {}),
             )
             await note_provider_success()
             counts = usage_kwargs(response.usage)

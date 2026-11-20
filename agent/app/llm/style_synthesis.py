@@ -26,7 +26,7 @@ from app.db.style_proposal_model import StyleProposal, StyleProposalStatus
 from app.db.style_proposal_repository import style_proposal_repo
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.client import client_for, create_llm_client, llm_configured
-from app.llm.models import UTILITY, model_for
+from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
 logger = logging.getLogger(__name__)
@@ -155,6 +155,7 @@ class StyleSynthesizer:
             response = await (await client_for(user_id, self.client)).messages.create(
                 model=model_for(UTILITY),
                 max_tokens=MAX_SYNTHESIS_TOKENS,
+                **effort_kwargs(UTILITY),
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": "\n\n".join(parts)}],
             )
