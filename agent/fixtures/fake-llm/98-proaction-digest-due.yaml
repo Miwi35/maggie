@@ -2,8 +2,8 @@
 # the digest skill, reads the day through MCP — the weather from the simulated Open-Meteo (70 % of rain), the
 # agenda, the tasks, the meals — and answers the digest as one text. The code voices it, reads it back
 # (`app.digest`) and stores one message on the digest screen: no `send_voice_message`, no trips, no finance.
-# The third turn names neither the day's appointment nor its hour on purpose: the code's read-back sends the
-# model one « [Contrôle automatique] » turn in the same thread, and the fourth turn, reached only then, says it.
+# The third turn says a meal is empty (« Aucun repas… », MAG-861) and names neither the day's appointment nor its hour on purpose: the code's read-back sends the
+# model one « [Contrôle automatique] » turn in the same thread, and the fourth turn, reached only then, says it without the empty sentence.
 #
 # The figures are the Open-Meteo stub's (.docker/e2e/wiremock/mappings/open-meteo.json): the fake
 # reads no tool result, so a weather in error still gets this text — the journal is where it shows.
@@ -28,5 +28,5 @@ turns:
         input: {action: list, fromDate: '${today}', toDate: '${today}'}
       - name: get_grocery_list
         input: {}
-  - text: "Bonjour monsieur. Il fera entre 9,5 et 18,5 degrés, avec de la pluie probable. Ce soir, la préparation du weekend. (digest MAG-709)"
+  - text: "Bonjour monsieur. Il fera entre 9,5 et 18,5 degrés, avec de la pluie probable. Aucun repas n'est prévu ce soir. Ce soir, la préparation du weekend. (digest MAG-709)"
   - text: "Bonjour monsieur. Il fera entre 9,5 et 18,5 degrés, avec de la pluie probable. Kiné à 14 h 30. Ce soir, la préparation du weekend. (digest MAG-709)"

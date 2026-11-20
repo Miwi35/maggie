@@ -342,6 +342,9 @@ class TestSupersededShippedSkills:
     def test_the_digest_replaced_by_mag_807_is_listed(self):
         assert "edad938cdc10aad3cb738726f77f93eb11c214f7e843c2c99890b92e775bc6b1" in SUPERSEDED_BUILTIN_BODIES["digest"]
 
+    def test_the_digest_replaced_by_mag_861_is_listed(self):
+        assert "6c79d72a78d6fed17d333c7c5d98a52a2d5f35f264a844b9b20d8826853f9eec" in SUPERSEDED_BUILTIN_BODIES["digest"]
+
     def test_the_digest_still_deployed_on_13_nov_is_listed(self):
         assert "fa6c9fbe117c67ad53484bb531a9c0cd623873ffe3b17f4b42a5cff0b2d911e7" in SUPERSEDED_BUILTIN_BODIES["digest"]
 

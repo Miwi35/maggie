@@ -30,12 +30,12 @@ Simule sa journée avec la ligne « Contexte du jour » (week-end, périodes en 
 
 Dans cet ordre, **sans Markdown** :
 
-1. **Météo** : une information, jamais un conseil, en une phrase (« 9 degrés au matin, 18 l'après-midi, de la pluie vers midi »).
-2. **Déroulé chronologique** : les rendez-vous avec leur heure (jamais l'heure de départ) ; les tâches programmées à une heure, avec leur heure ; les repas, toujours (midi et soir, par le nom des recettes, sans dire ce qui manque) ; la séance et son type (« Séance A à 18 h 30, 30 min »).
-3. **Tâches du jour sans heure**, par moment (« ce matin… », « ce soir… »).
+1. **Météo**, seulement s'il y en a : une information, jamais un conseil, en une phrase (« 9 degrés au matin, 18 l'après-midi, de la pluie vers midi »).
+2. **Déroulé chronologique**, seulement ce qui existe : les rendez-vous avec leur heure (jamais l'heure de départ) ; les tâches programmées à une heure, avec leur heure ; les repas prévus (midi et soir, par le nom des recettes, sans dire ce qui manque) ; la séance et son type (« Séance A à 18 h 30, 30 min »).
+3. **Tâches du jour sans heure**, seulement s'il y en a, par moment (« ce matin… », « ce soir… »).
 4. **Décision éventuelle** de Maggie, seulement s'il y en a une à prendre ou à proposer, dite comme une affirmation.
 
-Exclus : la finance, les départs, rien sur ce qui est vide (pas de « Aucun… », « Rien n'est… »), rien sur demain, rien de ce que le propriétaire sait déjà (une garde, une routine). Aucune question.
+Exclus : la finance, les départs, rien sur ce qui est vide : une rubrique sans contenu ne se dit pas (pas de « Aucun… », « Rien n'est… »), rien sur demain, rien de ce que le propriétaire sait déjà (une garde, une routine). Aucune question.
 
 Style : tu simules la journée, **une idée par phrase**, des phrases courtes qui s'écoutent (heures dites « 9 h 15 »), le registre du prompt s'applique, une pointe d'humour permise.
 

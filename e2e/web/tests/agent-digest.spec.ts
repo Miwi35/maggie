@@ -99,6 +99,8 @@ test('the digest instruction said once brings one message, read and heard, and a
   // The first answer missed the appointment: the model was told once, and its second answer names it.
   expect(block.text).toContain('Kiné à 14 h 30')
   expect(block.text).not.toContain('Vous avez aussi')
+  // The first answer also said a meal was empty (MAG-861): the second does not.
+  expect(block.text).not.toContain('Aucun')
   expect(block.text.indexOf('degrés')).toBeLessThan(block.text.indexOf('Kiné à 14 h 30'))
 
   // The notification of the message opens the digest, not the thread.

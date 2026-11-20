@@ -190,8 +190,29 @@ def missing_facts(text: str, facts: list[Fact]) -> list[Fact]:
     return [fact for fact in facts if not _found(text, fact)]
 
 
-def signal(missing: list[Fact]) -> str:
-    """The finding sent back to the model for the facts its digest leaves out: each named with its hour, no style."""
-    lines = "\n".join(f"- {f.label}, {format_hour(f.hour)}" if f.hour else f"- {f.label}" for f in missing)
-    intro = "[Contrôle automatique] Ton digest ne cite pas ces faits lus ce matin :"
-    return f"{intro}\n{lines}\nRéponds par le digest entier."
+EMPTY_OPENINGS = (("aucun",), ("aucune",), ("rien",), ("pas", "de"))
+_SENTENCE = re.compile(r"[^\n]+?(?:[.!?;]+(?=\s|$)|$)")
+
+
+def empty_sentences(text: str) -> list[str]:
+    """The sentences that open like « Aucun… », « Rien… », « Pas de… »: the text says a section is empty."""
+    found = []
+    for line in text.splitlines():
+        for sentence in _SENTENCE.findall(line):
+            words = _normalize(sentence).split()
+            if any(tuple(words[: len(opening)]) == opening for opening in EMPTY_OPENINGS):
+                found.append(sentence.strip())
+    return found
+
+
+def signal(missing: list[Fact], empty: list[str] | None = None) -> str:
+    """The finding sent back to the model: the facts its digest leaves out, each with its hour, and the sentences
+    that speak of what is empty, quoted. No style."""
+    parts = []
+    if missing:
+        lines = "\n".join(f"- {f.label}, {format_hour(f.hour)}" if f.hour else f"- {f.label}" for f in missing)
+        parts.append(f"Ton digest ne cite pas ces faits lus ce matin :\n{lines}")
+    if empty:
+        lines = "\n".join(f"- « {sentence} »" for sentence in empty)
+        parts.append(f"Ces phrases parlent de ce qui est vide :\n{lines}")
+    return "[Contrôle automatique] " + "\n".join(parts) + "\nRéponds par le digest entier."
