@@ -186,7 +186,7 @@ class TestAFicheThatDidNotExist:
         found = proposal(
             titre=ROSES_TITLE,
             dossiers=("Famille",),
-            claims=[{"texte": ROSES_TITLE, "heure": minute(when)}],
+            claims=[{"texte": ROSES_TITLE, "heure": minute(when), "citation": ROSES_TITLE}],
         )
         found["fiches"][0]["evoque"] = ["fête des mères"]
         model = NightModel(miss_fiche=found)

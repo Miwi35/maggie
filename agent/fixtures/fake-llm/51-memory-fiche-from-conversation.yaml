@@ -19,4 +19,5 @@ turns:
               provenance: dit
               source: '\1'
               heure: '\2'
+              citation: "Les concerts commencent à 19 heures et la salle s'appelle l'UBU"
   - text: "Les concerts commencent à 19 heures, à l'UBU, je le retiens."

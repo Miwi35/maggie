@@ -16,6 +16,7 @@ turns:
        "fiches": [{"chemin": null, "titre": "Le propriétaire habite à Rennes",
          "dossiers": ["Lieu de vie"], "resume": "Où habite le propriétaire", "personnes": [],
          "evoque": ["adresse", "ville"], "alias": [],
-         "ajouts": [{"texte": "Le propriétaire habite à Rennes", "heure": "\1"}],
+         "ajouts": [{"texte": "Le propriétaire habite à Rennes", "heure": "\1",
+                      "citation": "J'ai emménagé à Rennes"}],
          "doute": null}],
        "doute": null}
