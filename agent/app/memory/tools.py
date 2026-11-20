@@ -118,6 +118,14 @@ MEMORY_TOOLS = [
                                 "type": "string",
                                 "description": "`dit`: the owner's words, copied as written (not stored)",
                             },
+                            "valide_jusqu_au": {
+                                "type": "string",
+                                "description": (
+                                    "Only when it has an end (« jusqu'au 20 », « cette semaine »): the last day it "
+                                    "stays true, `AAAA-MM-JJ`. Left out on a rewrite, the day already written "
+                                    "stays; empty removes it."
+                                ),
+                            },
                         },
                         "required": ["texte", "provenance", "source"],
                     },
