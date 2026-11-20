@@ -12,6 +12,18 @@
 #       --github-output also writes the job outputs `ci.yml` reads, and a table
 #       to the job summary.
 #
+#       --diff (or E2E_COVERAGE_DIFF) / --base: the change's `git diff -U0` (or
+#       -U3: context lines are ignored), read with or without a line map — by
+#       the line map, and by the registry files.
+#
+#       Registry files (`registries` in the impact map: navigation.ts,
+#       MaggieApp.kt, NavGraph.kt — loaded by every journey): when the diff is
+#       known, each changed code line must name a module (an `import
+#       com.maggie.app.…` judged by the zones, or a word of `registries.names`);
+#       the file then plays those modules' journeys on its platform plus the core
+#       (`why: registry`). One line that names none, no diff, or a file added,
+#       deleted or renamed: the zone rules, as for any file.
+#
 #       --coverage-map (or E2E_COVERAGE_MAP): the nightly's line → journeys map
 #       (scripts/e2e/coverage/build-map.py, spec « Sélection e2e par
 #       couverture »). The changed lines come from --diff (or E2E_COVERAGE_DIFF),
@@ -74,10 +86,12 @@ shards_json() {
 }
 
 cmd_check() {
-  local map disk problems
+  local map disk missing problems
   map="$(e2e_map_json)" || { echo "::error::e2e/impact-map.yml cannot be read"; exit 1; }
   disk="$(e2e_journeys_on_disk | jq -Rn '[inputs]')"
-  problems="$(jq -rn --argjson map "$map" --argjson disk "$disk" "$E2E_JQ_DEFS"'
+  missing="$(jq -r '.registries.files // [] | if type == "array" then .[] else empty end' <<<"$map" \
+    | while IFS= read -r f; do [ -f "$E2E_ROOT/$f" ] || printf '%s\n' "$f"; done | jq -Rn '[inputs]')"
+  problems="$(jq -rn --argjson map "$map" --argjson disk "$disk" --argjson missing "$missing" "$E2E_JQ_DEFS"'
     ($map | journeys) as $js
     | ($js | map(.id)) as $ids
     | [ ($disk[] | select(. as $d | $ids | index($d) | not) | "\(.) is not in the map: add it, with what it depends on"),
@@ -92,7 +106,18 @@ cmd_check() {
           | "no critical \(.) journey: each platform keeps a core"),
         ((($map.areas // {}) | to_entries[]), {key: "transversal", value: ($map.transversal // [])},
           {key: "coverage.sees", value: ($map.coverage.sees // [])}
-          | select(.value | type != "array") | "\(.key) is not a list of globs")
+          | select(.value | type != "array") | "\(.key) is not a list of globs"),
+        (($map.registries // {}) as $r
+          | ($r.files // []) as $rf
+          | if ($rf | type) != "array" then "registries.files is not a list of paths"
+            else
+              ($rf[] | select(. as $f | $missing | index($f)) | "\(.) is a registry file but is not on disk"),
+              ($rf[] | . as $f | select(([($map.only.web // [])[], ($map.only.mobile // [])[]] | map(glob2re)) as $re | ($f | matches($re) | not))
+                | "\($f) is a registry file under neither only.web nor only.mobile: its platform is unknown"),
+              (($r.names // {}) | to_entries[]
+                | (select(.value | type != "array") | "registries.names.\(.key) is not a list of words"),
+                  (.key as $k | select(($map.areas // {}) | has($k) | not) | "registries.names names \($k), which is not an area of the map"))
+            end)
       ] | .[]')"
   if [ -n "$problems" ]; then
     while IFS= read -r line; do echo "::error file=e2e/impact-map.yml::$line"; done <<<"$problems"
@@ -130,6 +155,50 @@ diff_hunks() {
     }
     END { flush() }
   '
+}
+
+# The changed lines of a unified diff on stdin (`-U0` or `-U3`: context lines are
+# ignored), one JSON object per file: {file, old, new (null if deleted), hunks:
+# [{minus: [the lines removed], plus: [the lines added]}]}. Same header rules as
+# diff_hunks.
+diff_lines() {
+  awk '
+    function esc(s) { gsub(/\\/, "\\\\\\\\", s); gsub(/"/, "\\\"", s); gsub(/\t/, "\\t", s); gsub(/\r/, "\\r", s); return s }
+    function path(p) { sub(/\t$/, "", p); return (p == "/dev/null" ? "" : substr(p, 3)) }
+    function close_hunk() {
+      if (inh) hunks = hunks (hunks == "" ? "" : ",") "{\"minus\":[" minus "],\"plus\":[" plus "]}"
+      inh = 0; minus = ""; plus = ""
+    }
+    function flush() {
+      close_hunk()
+      if (seen) {
+        file = (new != "" ? new : old)
+        printf "{\"file\":\"%s\",\"old\":%s,\"new\":%s,\"hunks\":[%s]}\n", esc(file), (old == "" ? "null" : "\"" esc(old) "\""), (new == "" ? "null" : "\"" esc(new) "\""), hunks
+      }
+      seen = 0; old = ""; new = ""; hunks = ""
+    }
+    /^diff --git / { flush(); seen = 1; header = 1; next }
+    header && /^--- / { old = path(substr($0, 5)); next }
+    header && /^\+\+\+ / { new = path(substr($0, 5)); next }
+    /^@@ / { header = 0; close_hunk(); inh = 1; next }
+    !header && inh && /^-/ { minus = minus (minus == "" ? "" : ",") "\"" esc(substr($0, 2)) "\""; next }
+    !header && inh && /^\+/ { plus = plus (plus == "" ? "" : ",") "\"" esc(substr($0, 2)) "\""; next }
+    END { flush() }
+  '
+}
+
+# The `import com.maggie.app.…` lines of each registry file of the map ($1, JSON)
+# that is a Kotlin file on disk, as {file: [lines]}: what a bare class name in a
+# changed line resolves to.
+registry_imports() {
+  local map="$1" f
+  {
+    jq -r '.registries.files // [] | if type == "array" then .[] else empty end' <<<"$map" | while IFS= read -r f; do
+      case "$f" in *.kt) [ -f "$E2E_ROOT/$f" ] || continue
+        { grep -E '^import com\.maggie\.app\.[A-Za-z0-9_.]+' "$E2E_ROOT/$f" || true; } | jq -Rn --arg f "$f" '{($f): [inputs]}' ;;
+      esac
+    done
+  } | jq -s 'add // {}'
 }
 
 # The line map to use, checked, in $COVERAGE_FILE — or none, and why, in
@@ -207,25 +276,40 @@ cmd_select() {
   trap 'rm -rf "$SELECT_TMP"' EXIT
   echo null >"$SELECT_TMP/map.json"
   echo '[]' >"$SELECT_TMP/diff.json"
+  echo '[]' >"$SELECT_TMP/lines.json"
+  echo '{}' >"$SELECT_TMP/imports.json"
+  # The change's diff, read whenever it is given — with or without a line map: the
+  # registry files read it too. The nightly (--all) reads none.
+  DIFF_REASON='no diff to read the changed lines from'
+  HAVE_DIFF=false
+  if [ "$all" != true ]; then
+    if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
+      cp "$diff_file" "$SELECT_TMP/changes.diff"
+      HAVE_DIFF=true
+    elif [ -n "$base" ]; then
+      if git -C "$E2E_ROOT" diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base...HEAD" >"$SELECT_TMP/changes.diff"; then
+        HAVE_DIFF=true
+      else
+        DIFF_REASON="no diff against $base"
+      fi
+    fi
+    if [ "$HAVE_DIFF" = true ] && ! { diff_hunks <"$SELECT_TMP/changes.diff" | jq -s . >"$SELECT_TMP/diff.json" \
+        && diff_lines <"$SELECT_TMP/changes.diff" | jq -s . >"$SELECT_TMP/lines.json" \
+        && registry_imports "$map" >"$SELECT_TMP/imports.json"; }; then
+      HAVE_DIFF=false
+      DIFF_REASON="the diff cannot be read"
+      echo '[]' >"$SELECT_TMP/diff.json"
+      echo '[]' >"$SELECT_TMP/lines.json"
+      echo '{}' >"$SELECT_TMP/imports.json"
+    fi
+  fi
   load_coverage_map "$coverage_map"
   if [ "$all" = true ]; then
     COVERAGE_FILE=''
     COVERAGE_REASON='the whole suite plays'
-  elif [ -n "$COVERAGE_FILE" ]; then
-    if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
-      diff_hunks <"$diff_file" | jq -s . >"$SELECT_TMP/diff.json" \
-        || COVERAGE_REASON="the diff $diff_file cannot be read"
-    elif [ -n "$base" ]; then
-      { git -C "$E2E_ROOT" diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base...HEAD" \
-          | diff_hunks | jq -s . >"$SELECT_TMP/diff.json"; } \
-        || COVERAGE_REASON="no diff against $base"
-    else
-      COVERAGE_REASON='no diff to read the changed lines from'
-    fi
-    if [ -n "$COVERAGE_REASON" ]; then
-      COVERAGE_FILE=''
-      echo '[]' >"$SELECT_TMP/diff.json"
-    fi
+  elif [ -n "$COVERAGE_FILE" ] && [ "$HAVE_DIFF" != true ]; then
+    COVERAGE_FILE=''
+    COVERAGE_REASON="$DIFF_REASON"
   fi
   if [ -n "$COVERAGE_FILE" ]; then
     cp "$COVERAGE_FILE" "$SELECT_TMP/map.json"
@@ -247,6 +331,7 @@ cmd_select() {
     --argjson shards "$(shards_json)" --argjson all "$all" \
     --argjson per_lot "$WEB_FILES_PER_LOT" --argjson max_lots "$WEB_MAX_LOTS" \
     --slurpfile covs "$SELECT_TMP/map.json" --slurpfile diffs "$SELECT_TMP/diff.json" \
+    --slurpfile lns "$SELECT_TMP/lines.json" --slurpfile imps "$SELECT_TMP/imports.json" \
     --slurpfile wts "$SELECT_TMP/weights.json" --argjson lot1_head "$WEB_LOT1_HEAD" --argjson web_workers "$WEB_WORKERS" \
     --arg cov_reason "$COVERAGE_REASON" \
     "$E2E_JQ_DEFS"'
@@ -269,6 +354,8 @@ cmd_select() {
     $covs[0] as $cov
     | $wts[0] as $wt
     | ($diffs[0] | map({key: .file, value: .}) | from_entries) as $diff
+    | ($lns[0] | map({key: .file, value: .}) | from_entries) as $dlines
+    | $imps[0] as $imports
 
     | ($map | journeys) as $mapped
     # A journey on disk the map forgot plays every time (and `check` fails).
@@ -298,6 +385,8 @@ cmd_select() {
     | {web: res($map.only.mobile), mobile: res($map.only.web)} as $other_only
 
     | res($map.coverage.sees) as $sees
+    | res($map.registries.files) as $reg_re
+    | res($map.only.web) as $only_web_re
     | ($js | map(.id)) as $known
     # The journeys the line map does not know — dropped by their lot (a flow in
     # quarantine that left no coverage), newer than the map, or that ran no line:
@@ -335,8 +424,81 @@ cmd_select() {
                             | map($cov.journeys[.] // empty | select(. as $i | $known | index($i))) | unique)} ]
         end;
 
+    # Registry files (`registries` in the map): on a known diff, each changed code
+    # line must name a module — an `import com.maggie.app.…` (or a class imported
+    # by the file or by the diff) judged by the zones, or a word of
+    # `registries.names` — and the file plays those modules journeys on its
+    # platform plus the core. One line that names none, no diff, a file added,
+    # deleted or renamed: null, the file keeps the zone and line-map rules.
+    def tokens: [scan("[A-Za-z_][A-Za-z0-9_]*")];
+    def words: scan("[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+") | ascii_downcase | sub("s$"; "");
+    def trim: sub("^[ \t]+"; "") | sub("[ \t]+$"; "");
+    def neutral: trim as $t | $t == "" or ($t | test("[A-Za-z]") | not)
+      or ($t | test("^(//|/\\*|\\*)")) or ($t | test("^@[A-Za-z_][A-Za-z0-9_.]*(\\(.*\\))?$"));
+    def norm: gsub("[ \\t]+"; "") | sub(",$"; "");
+    def import_entries:
+      (trim | capture("^import[ \t]+(?<p>com\\.maggie\\.app\\.[A-Za-z0-9_.]+)")? // null) as $c
+      | if $c == null then [] else
+          ($c.p | split(".")[3:]) as $s
+          | ([$s | to_entries[] | select(.value | test("^[A-Z]")) | .key] | first) as $i
+          | if $i == null then [] else
+              ("mobile/app/src/main/java/com/maggie/app/" + ($s[:$i + 1] | join("/")) + ".kt") as $path
+              | [$s[$i:][] | select(test("^[A-Z]")) | {name: ., path: $path}]
+            end
+        end;
+    def path_res($path; $p):
+      zone($path) as $z
+      | {ok: true, all: ($z[$p] == "all"), journeys: [($z.journeys // [])[] | select(plat(.) == $p)],
+         areas: [($map.areas // {}) | to_entries[] | . as $e | select(($map.registries.names // {}) | has($e.key))
+                 | select($path | matches(res($e.value))) | .key]};
+    def word_res($ws; $p):
+      [($map.registries.names // {}) | to_entries[] | . as $e | select(any($e.value[]; . as $w | $ws | index($w) != null)) | .key] as $areas
+      | {all: false, areas: $areas,
+         journeys: [$js[] | select(.platform == $p and (.areas | any(.[]; . as $a | $areas | index($a) != null))) | .id]};
+    def registry($f):
+      ($dlines[$f] // null) as $d
+      | if ($f | matches($reg_re) | not) or $d == null or $d.old == null or $d.new == null or $d.old != $f or ($d.hunks | length) == 0
+        then null
+        else
+          (if ($f | matches($only_web_re)) then "web" else "mobile" end) as $p
+          | ([[$d.hunks[] | (.minus + .plus)[] | import_entries[]], [($imports[$f] // [])[] | import_entries[]]] | add
+             | map({(.name): .path}) | add // {}) as $table
+          | [ $d.hunks[] as $h
+              | ([$h.minus[] | tokens] | add // []) as $mt
+              | ([$h.plus[] | tokens] | add // []) as $pt
+              | ([$h.plus[] | norm]) as $pn | ([$h.minus[] | norm]) as $mn
+              | [($h.minus[] | {l: ., other: $pt, twin: $pn}), ($h.plus[] | {l: ., other: $mt, twin: $mn})
+                 | select(.l | neutral | not)
+                 | . as $x
+                 | select(($x.twin | index($x.l | norm)) == null)
+                 | $x + {own: (($x.l | tokens) - $x.other)}] as $items
+              # A line whose identifiers all sit on the other side is the unchanged
+              # part of a modified line — unless nothing in the hunk has its own
+              # identifier (`!x` → `x`, `===` → `!==`): that change names nothing.
+              | ($items | any(.[]; (.own | length) > 0)) as $has
+              | $items[]
+              | if (.own | length) == 0 then (if $has then empty else {all: false, journeys: [], areas: []} end)
+                else . as $x | .own as $own
+                  | ([$x.l | import_entries[] | .path] + [$own[] | $table[.] // empty] | unique) as $paths
+                  | ([$paths[] | path_res(.; $p)] + [word_res([$own[] | words]; $p)])
+                  | {all: any(.[]; .all), journeys: ([.[].journeys[]] | unique), areas: ([.[].areas[]] | unique)}
+                end
+              | . + {ok: (.all or (.journeys | length) > 0)} ] as $rs
+          | if any($rs[]; .ok | not) then null
+            else ($rs | any(.[]; .all)) as $all
+              | {file: $f,
+                 web: (if $p == "web" and $all then "all" else null end),
+                 mobile: (if $p == "mobile" and $all then "all" else null end),
+                 journeys: ([$rs[].journeys[]] + [$js[] | select(.platform == $p and .critical) | .id] | unique),
+                 why: "registry",
+                 areas: ([$rs[].areas[]] | unique)}
+            end
+        end;
+
     [ $files[] | select(matches($ignored) | not) | . as $f
-      | hunks($f) as $h
+      | registry($f) as $r
+      | if $r != null then $r else
+        hunks($f) as $h
       | if $h != null and all($h[]; (.journeys | length) > 0) then
           ([$h[].journeys[]] | unique) as $lj
           | zone($f) as $z
@@ -350,6 +512,7 @@ cmd_select() {
                     line_journeys: ([$h[].journeys[]] | unique),
                     uncovered: [$h[] | select((.journeys | length) == 0) | .lines]}
             else $z end
+        end
         end ] as $per_file
 
     | def pick($p):
@@ -419,10 +582,12 @@ cmd_select() {
   # The line map must never cost a pull request its selection: if it cannot be
   # applied (an entry jq cannot read, say), the zones decide, with a warning.
   if ! selection="$(select_json)"; then
-    [ -n "$COVERAGE_FILE" ] || [ -n "$WEIGHTS_FILE" ] || die "the selection failed"
-    echo "::warning::the line map or the durations could not be applied: e2e journeys selected by zones, lots split as before" >&2
+    [ -n "$COVERAGE_FILE" ] || [ -n "$WEIGHTS_FILE" ] || [ "$HAVE_DIFF" = true ] || die "the selection failed"
+    echo "::warning::the line map, the registry files or the durations could not be applied: e2e journeys selected by zones, lots split as before" >&2
     echo null >"$SELECT_TMP/map.json"
     echo '[]' >"$SELECT_TMP/diff.json"
+    echo '[]' >"$SELECT_TMP/lines.json"
+    echo '{}' >"$SELECT_TMP/imports.json"
     echo null >"$SELECT_TMP/weights.json"
     COVERAGE_FILE=''
     COVERAGE_REASON='the line map could not be applied'
@@ -482,7 +647,13 @@ write_github_output() {
     (if (.mobile | length) > 0 and (.full.mobile | not) then "**Mobile:** \(names("mobile"))\n" else empty end),
     (if (.quarantined | length) > 0 then "**In quarantine** (played, never blocking): \(.quarantined | map(split("/") | last) | join(", "))\n" else empty end),
     (if (.forgotten | length) > 0 then "**Not in e2e/impact-map.yml** (played every time until mapped): \(.forgotten | join(", "))\n" else empty end),
-    ([.files[] | select(.why == "transversal" or .why == "transversal_web" or .why == "transversal_mobile" or .why == "unmapped")] as $wide
+    ([.files[] | select(.why == "registry")] as $reg
+      | if ($reg | length) > 0 then
+          "<details><summary>Registry files: the modules their lines name</summary>\n",
+          ($reg[] | "- `\(.file)` — \(if (.areas | length) > 0 then (.areas | join(", ")) else "no module (core only)" end)"),
+          "\n</details>\n"
+        else empty end),
+    ([.files[] | select(.why == "transversal" or .why == "transversal_web" or .why == "transversal_mobile" or .why == "unmapped" or (.why == "registry" and (.web == "all" or .mobile == "all")))] as $wide
       | if ($wide | length) > 0 then
           "<details><summary>Why the whole suite of a platform plays</summary>\n",
           ($wide[:30][] | "- `\(.file)` — \(.why)"),
