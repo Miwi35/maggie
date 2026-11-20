@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.db.context_model import ContextStatus
-from app.llm.contexts import active_contexts_section, resolve_context, route_message
+from app.llm.contexts import active_contexts_section, resolve_context, route_message, with_routed
 
 
 def _context(
@@ -52,6 +52,15 @@ class TestActiveContextsSection:
             repo.find_active = AsyncMock(return_value=[_context("Budget", status=ContextStatus.DORMANT)])
 
             assert "(dormant)" in await active_contexts_section("user-1")
+
+    async def test_threads_given_are_not_read_again(self):
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock()
+
+            section = await active_contexts_section("user-1", contexts=[_context("Courses")])
+
+        repo.find_active.assert_not_awaited()
+        assert "Courses" in section
 
     async def test_a_database_failure_costs_the_threads_not_the_answer(self):
         with patch("app.llm.contexts.context_repo") as repo:
@@ -226,7 +235,58 @@ class TestRouteMessage:
         messages.update_context.assert_not_called()
 
 
+class TestWithRouted:
+    async def test_a_thread_just_opened_comes_first_as_current(self):
+        threads = [_context("Budget", context_id="ctx-budget")]
+        resolution = {"action": "created", "id": "ctx-new", "label": "Météo", "status": "active", "summary": None}
+
+        section = await active_contexts_section(
+            "user-1", "ctx-new", contexts=with_routed(threads, resolution)
+        )
+
+        lines = section.splitlines()
+        assert "Météo (active) ← fil en cours" in lines[3]
+        assert "Budget" in lines[4]
+
+    async def test_a_matched_thread_comes_first_and_awake(self):
+        threads = [
+            _context("Budget", context_id="ctx-budget"),
+            _context("Courses", status=ContextStatus.DORMANT, context_id="ctx-courses"),
+        ]
+        resolution = {"action": "matched", "id": "ctx-courses", "label": "Courses", "status": "active"}
+
+        section = await active_contexts_section(
+            "user-1", "ctx-courses", contexts=with_routed(threads, resolution)
+        )
+
+        assert section.splitlines()[3].startswith("- ● Courses (active)")
+
+    def test_no_resolution_leaves_the_list_as_is(self):
+        threads = [_context("Budget")]
+
+        assert with_routed(threads, None) is threads
+
+
 class TestResolveContext:
+    async def test_threads_given_are_not_read_again(self):
+        client = MagicMock()
+        response = MagicMock()
+        response.content = [MagicMock(text='{"context_id": "ctx-1"}')]
+        response.usage.input_tokens = 10
+        response.usage.output_tokens = 5
+        client.messages.create = AsyncMock(return_value=response)
+
+        with patch("app.llm.contexts.context_repo") as repo:
+            repo.find_active = AsyncMock()
+            repo.touch = AsyncMock()
+
+            courses = _context("Courses")
+            courses.updated_at = datetime.now(UTC)
+            resolution = await resolve_context(client, "Et du beurre", "user-1", contexts=[courses])
+
+        repo.find_active.assert_not_awaited()
+        assert resolution["id"] == "ctx-1"
+
     async def test_a_database_failure_leaves_the_caller_without_a_thread(self):
         """And without a model call: the router cannot place a message it cannot list threads for."""
         client = MagicMock()

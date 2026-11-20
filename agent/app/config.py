@@ -124,6 +124,8 @@ class Settings(BaseSettings):
     # just said in a neighbouring thread is not lost. The other open threads reach the
     # model as their summary, in the system prompt, never as raw messages.
     context_history_messages: int = 40
+    # The thread router's call to the fast model: past it, the turn goes on with the router's fallback.
+    context_router_timeout_seconds: float = 1.5
     recent_history_messages: int = 8
     # How long a message left without an answer (the agent restarted mid-turn) is still
     # answered when the agent comes back. Past it, the request is stale — « rappelle-moi

@@ -290,8 +290,11 @@ class TestStreamingPrefix:
             gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[{"name": "a"}, {"name": "b"}]))
             gateway._build_system_prompt = AsyncMock(return_value=build_system("STABLE", "VOLATILE"))
             gateway._resolve_context = AsyncMock(return_value=None)
+            gateway._thread_free_parts = AsyncMock(return_value=None)
 
-            with patch("app.llm.streaming.record_llm_usage") as usage:
+            with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
+                "app.llm.streaming.record_llm_usage"
+            ) as usage:
                 async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
                     pass
 
@@ -334,8 +337,11 @@ class TestStreamingPrefix:
                 return_value=build_system("STABLE", "VOLATILE", "MOMENT", "PROFILE")
             )
             gateway._resolve_context = AsyncMock(return_value=None)
+            gateway._thread_free_parts = AsyncMock(return_value=None)
 
-            with patch("app.llm.streaming.record_llm_usage"):
+            with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
+                "app.llm.streaming.record_llm_usage"
+            ):
                 async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
                     pass
 
@@ -384,7 +390,10 @@ class TestSharedToolPrefix:
             chat.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))
             chat._build_system_prompt = AsyncMock(return_value=build_system("STABLE"))
             chat._resolve_context = AsyncMock(return_value=None)
-            with patch("app.llm.streaming.record_llm_usage"):
+            chat._thread_free_parts = AsyncMock(return_value=None)
+            with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
+                "app.llm.streaming.record_llm_usage"
+            ):
                 async for _ in chat.chat_stream("salut", "user-1", "msg-1"):
                     pass
         chat_tools = chat.client.messages.stream.call_args.kwargs["tools"]

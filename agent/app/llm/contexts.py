@@ -16,10 +16,15 @@ need them and a second copy of any of them would drift apart:
     thread in progress unless it asks to change subject or clearly has nothing to do with
     it (MAG-341): one discussion, one thread.
 
+The router's call to the fast model is bounded (`context_router_timeout_seconds`): past it, the
+message stays in the thread in progress, a change of subject opens a new thread, and otherwise it
+goes to the most recent open thread.
+
 None of them raises. A thread list the database would not give up costs the model what the
 conversation was about; it must not cost the user the answer, or the reminder.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -28,7 +33,8 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from app.db.context_model import ContextStatus
+from app.config import settings
+from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
@@ -107,7 +113,40 @@ SWITCH_SYSTEM_PROMPT = (
 )
 
 
-async def active_contexts_section(user_id: str, current_context_id: str | None = None) -> str:
+async def open_threads(user_id: str) -> list | None:
+    """The user's open threads, read once for a turn; `None` when the database would not give them."""
+    try:
+        return await context_repo.find_active(user_id)
+    except Exception as e:
+        logger.warning(f"Could not load the open threads: {e}")
+        return None
+
+
+def with_routed(contexts: list, resolution: dict | None) -> list:
+    """The open threads as they are once `resolution` has been applied: reads and writes nothing."""
+    if not resolution:
+        return contexts
+    routed_id = str(resolution["id"])
+    if resolution.get("action") == "created":
+        routed = ConversationContext(
+            id=routed_id,
+            user_id=contexts[0].user_id if contexts else None,
+            label=resolution["label"],
+            status=ContextStatus.ACTIVE,
+            summary=None,
+            tool_calls_log=[],
+        )
+        return [routed, *contexts]
+    existing = next((c for c in contexts if str(c.id) == routed_id), None)
+    if existing is None:
+        return contexts
+    existing.status = ContextStatus.ACTIVE
+    return [existing, *(c for c in contexts if c is not existing)]
+
+
+async def active_contexts_section(
+    user_id: str, current_context_id: str | None = None, *, contexts: list | None = None
+) -> str:
     """The user's open threads as a system-prompt section, or an empty string if there are none.
 
     What each thread is about comes from its summary (MAG-11), and this is all a thread
@@ -120,11 +159,8 @@ async def active_contexts_section(user_id: str, current_context_id: str | None =
     one whose tool calls are recalled, since what Maggie already did is only ever read
     against the conversation she is in.
     """
-    try:
-        contexts = await context_repo.find_active(user_id)
-    except Exception as e:
-        logger.warning(f"Could not load the open threads: {e}")
-        return ""
+    if contexts is None:
+        contexts = await open_threads(user_id)
 
     if not contexts:
         return ""
@@ -259,12 +295,15 @@ def _thread_lines(contexts: list, now: datetime, current_id: str | None = None) 
 async def _ask_router(client, system: str, prompt: str) -> dict:
     """One call to the fast model, its answer parsed. Raises on anything but a JSON object."""
     t0 = time.monotonic()
-    response = await client.messages.create(
-        model=model_for(UTILITY),
-        max_tokens=200,
-        **effort_kwargs(UTILITY),
-        system=system,
-        messages=[{"role": "user", "content": prompt}],
+    response = await asyncio.wait_for(
+        client.messages.create(
+            model=model_for(UTILITY),
+            max_tokens=200,
+            **effort_kwargs(UTILITY),
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        ),
+        settings.context_router_timeout_seconds,
     )
     record_llm_usage(
         model=model_for(UTILITY),
@@ -326,7 +365,9 @@ def _own(contexts: list, context_id) -> object | None:
     return existing
 
 
-async def resolve_context(client, text: str, user_id: str, *, message_id: str | None = None) -> dict | None:
+async def resolve_context(
+    client, text: str, user_id: str, *, message_id: str | None = None, contexts: list | None = None
+) -> dict | None:
     """Place `text` in one of the user's open threads, or open a new one for it.
 
     Returns what the Mind panel reads off a `context_update` event — `action`, `id`,
@@ -350,11 +391,10 @@ async def resolve_context(client, text: str, user_id: str, *, message_id: str | 
         return None
     client = await client_for(user_id, client)
 
-    try:
-        contexts = await context_repo.find_active(user_id)
-    except Exception as e:
-        logger.warning(f"Could not load the open threads to route into: {e}")
-        return None
+    if contexts is None:
+        contexts = await open_threads(user_id)
+        if contexts is None:
+            return None
 
     try:
         discussion = await _discussion_in_progress(user_id, message_id, contexts) if message_id else None
@@ -374,6 +414,18 @@ async def _route_freely(client, text: str, user_id: str, contexts: list) -> dict
     prompt = f"Contextes existants :\n{_thread_lines(contexts, _now())}\n\nMessage : {text}"
     try:
         result = await _ask_router(client, ROUTER_SYSTEM_PROMPT, prompt)
+    except TimeoutError:
+        logger.warning("Context router took too long, falling back on the most recent open thread")
+        if not contexts:
+            return None
+        return await _matched(
+            contexts[0], "no discussion in progress, the router took too long: the most recent open thread", moved=True
+        )
+    except Exception as e:
+        logger.warning(f"Context resolution failed, continuing without context: {e}")
+        return None
+
+    try:
         # The id comes from the model, not from us: only one of this user's own contexts
         # may be written on the message. Anything else — a hallucinated id, one copied
         # from another user's thread — is a new topic (MAG-203).
@@ -429,7 +481,9 @@ async def _route_away(client, text: str, user_id: str, contexts: list, discussio
     return await _created(user_id, result.get("label") or text[:60], "the user asked to change subject")
 
 
-async def route_message(client, text: str, user_id: str, *, message_id: str | None = None) -> dict | None:
+async def route_message(
+    client, text: str, user_id: str, *, message_id: str | None = None, contexts: list | None = None
+) -> dict | None:
     """Route `text` into a thread, and write that thread on the message it came from.
 
     Both chat paths route before they build anything — the history is the thread's messages
@@ -441,7 +495,7 @@ async def route_message(client, text: str, user_id: str, *, message_id: str | No
     `context_id` — but the context itself is resolved, and the turn about to run will carry
     it. Not a reason to answer without one.
     """
-    resolution = await resolve_context(client, text, user_id, message_id=message_id)
+    resolution = await resolve_context(client, text, user_id, message_id=message_id, contexts=contexts)
     if resolution is None:
         return None
 
