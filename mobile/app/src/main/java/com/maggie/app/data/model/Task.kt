@@ -43,6 +43,8 @@ data class Task(
     val reminders: List<Int> = emptyList(),
     /** Done with a timer, for [estimatedMinutes] (« méditer 20 min », MAG-766): the day offers its timer. A mere estimate is not timed. */
     val timed: Boolean = false,
+    /** RFC 5545 rule without `RRULE:`, carried only by the open occurrence of a series (MAG-870). */
+    val rrule: String? = null,
 ) {
     val isDone: Boolean get() = completedAt != null
 

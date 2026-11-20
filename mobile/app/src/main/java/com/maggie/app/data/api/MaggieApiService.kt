@@ -281,6 +281,8 @@ data class TaskCreateRequest(
     val reminders: List<Int>? = null,
     /** Done with a timer, for [estimatedMinutes] (MAG-766). */
     val timed: Boolean = false,
+    /** RFC 5545 rule without `RRULE:`, null for a task that does not repeat (MAG-870). */
+    val rrule: String? = null,
 )
 
 @Serializable
