@@ -12,14 +12,15 @@ shallow folders Maggie chooses. Its body is two lists the code writes and reads 
 Maggie hands over structured claims, not Markdown: the code checks that every claim has a provenance
 (`dit`, `observé`, `déduit`) and a source that can be opened, that the minute it cites is in that
 conversation, and that nothing true vanishes from a version to the next — what stops being true is
-dated and moved to the second list. Nothing here knows what a fiche is about: no category, no kind of
-person; the folders and the titles are Maggie's.
+dated and moved to the second list. A claim that ends can say so (` · valide jusqu'au AAAA-MM-JJ`, the last
+day it is true): the night moves it to the second list after that day. Nothing here knows what a fiche is about:
+no category, no kind of person; the folders and the titles are Maggie's.
 """
 
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from app.memory import carte as carte_mod
@@ -38,10 +39,12 @@ MAX_CLAIM = 600
 MAX_TITLE = 160
 
 _STAMP = re.compile(r"^\d{4}-\d{2}-\d{2} \d{1,2}h\d{2}$")
+_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _PERIOD = re.compile(r"sur la période du \d{4}-\d{2}-\d{2} au \d{4}-\d{2}-\d{2}$")
 _LINE = re.compile(
     r"^- (?:~~(?P<old>.+?)~~|(?P<now>.+?)) — (?P<prov>dit|observé|déduit) · (?P<source>.+?)"
     r"(?: · (?P<heure>\d{4}-\d{2}-\d{2} \d{1,2}h\d{2}))?"
+    r"(?: · valide jusqu['\u2019]au (?P<jusqu>\d{4}-\d{2}-\d{2}))?"
     r"(?: — remplacé le (?P<date>\d{4}-\d{2}-\d{2})(?: : (?P<motif>.*))?)?$"
 )
 _ID_LINK = re.compile(
@@ -67,6 +70,7 @@ class Claim:
     replaced_on: str | None = None
     motif: str = ""
     citation: str = ""
+    valid_until: str | None = None
 
     @property
     def key(self) -> str:
@@ -119,6 +123,8 @@ def render_claim(claim: Claim) -> str:
     line = f"- {text} — {claim.provenance} · {claim.source}"
     if claim.heure:
         line += f" · {claim.heure}"
+    if claim.valid_until:
+        line += f" · valide jusqu'au {claim.valid_until}"
     if claim.replaced_on:
         line += f" — remplacé le {claim.replaced_on}"
         if claim.motif:
@@ -154,6 +160,7 @@ def parse_body(text: str) -> Body:
             heure=match.group("heure"),
             replaced_on=match.group("date"),
             motif=match.group("motif") or "",
+            valid_until=match.group("jusqu"),
         )
         (body.replaced if match.group("old") else body.known).append(claim)
     while body.rest and not body.rest[0].strip():
@@ -181,6 +188,18 @@ def announced(claim: Claim) -> bool:
 def to_announce(text: str) -> list[str]:
     """The claims of a fiche that Maggie deduced herself: said as such whenever she uses them."""
     return [c.texte for c in parse_body(carte_mod.parse(text).body).known if announced(c)]
+
+
+def lapsed(known: list[Claim], today: date, deduction_days: int) -> list[tuple[Claim, str]]:
+    """The claims that are no longer true, with why: past their last day, or a deduction nothing reconfirmed."""
+    out: list[tuple[Claim, str]] = []
+    limit = today - timedelta(days=deduction_days)
+    for claim in known:
+        if claim.valid_until and claim.valid_until < today.isoformat():
+            out.append((claim, f"valable jusqu'au {claim.valid_until}"))
+        elif claim.provenance == "déduit" and claim.heure and date.fromisoformat(claim.heure[:10]) < limit:
+            out.append((claim, f"déduction jamais reconfirmée depuis le {claim.heure[:10]}"))
+    return out
 
 
 def _clean_source(source: str) -> str:
@@ -279,7 +298,17 @@ def _claim(raw: Any) -> Claim:
         raise FicheError(f"«{texte}» needs its `source`: no source, no claim.")
     heure = _one_line(raw.get("heure")) or None
     citation = _one_line(raw.get("citation"))[:MAX_CLAIM]
-    return Claim(texte, provenance, source, heure, citation=citation)
+    valid_until = _one_line(raw.get("valide_jusqu_au")) or None
+    if valid_until is not None:
+        try:
+            if not _DAY.match(valid_until):
+                raise ValueError(valid_until)
+            date.fromisoformat(valid_until)
+        except ValueError:
+            raise FicheError(
+                f"«{texte}»: `valide_jusqu_au` is the last day it stays true, `AAAA-MM-JJ` (got «{valid_until}»)."
+            ) from None
+    return Claim(texte, provenance, source, heure, citation=citation, valid_until=valid_until)
 
 
 def _list(value: Any) -> list[str] | None:
@@ -359,9 +388,16 @@ async def write_fiche(
     keys = [c.key for c in known]
     if len(set(keys)) != len(keys):
         raise FicheError("The same claim is listed twice.")
+    given = [isinstance(raw, dict) and "valide_jusqu_au" in raw for raw in affirmations]
     entries: dict[tuple[str, str], dict[str, Any]] = {}
-    for claim in known:
+    for claim, has_day in zip(known, given, strict=True):
         prior = previous.get(claim.key)
+        if not has_day and prior is not None:
+            claim.valid_until = prior.valid_until
+        if has_day and claim.valid_until and claim.valid_until < today.isoformat():
+            raise FicheError(
+                f"«{claim.texte}» ended on {claim.valid_until}, already past: put it in `remplacees` with the reason."
+            )
         if prior is not None and (prior.provenance, prior.source, prior.heure) == (
             claim.provenance,
             claim.source,

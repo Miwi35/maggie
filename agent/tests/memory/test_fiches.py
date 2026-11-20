@@ -456,3 +456,86 @@ class TestAnOldClaimIsNotRefusedForASecret:
         written = await write(env, source, chemin=path, affirmations=[claim("Françoise n'aime pas les roses", source), held])
 
         assert written["affirmations"] == 2
+
+
+class TestValidUntil:
+    async def test_a_claim_keeps_its_last_day_in_the_fiche(self, env):
+        source = await conversation(env)
+
+        written = await write(
+            env, source, affirmations=[claim("Françoise n'aime pas les roses", source) | {"valide_jusqu_au": "2026-12-31"}]
+        )
+
+        text = env.local(written["chemin"])
+        assert f"· {HEURE} · valide jusqu'au 2026-12-31" in text
+        assert parse_body(carte_mod.parse(text).body).known[0].valid_until == "2026-12-31"
+
+    async def test_a_day_that_is_not_a_date_is_refused(self, env):
+        source = await conversation(env)
+        for bad in ("demain", "2026-13-45", "31/12/2026"):
+            with pytest.raises(FicheError, match="AAAA-MM-JJ"):
+                await write(env, source, affirmations=[claim("Françoise n'aime pas les roses", source) | {"valide_jusqu_au": bad}])
+
+    async def test_a_day_already_past_is_refused(self, env):
+        source = await conversation(env)
+
+        with pytest.raises(FicheError, match="remplacees"):
+            await write(env, source, affirmations=[claim("Françoise n'aime pas les roses", source) | {"valide_jusqu_au": "2026-10-12"}])
+
+    async def test_a_rewrite_without_the_field_keeps_the_day_already_written(self, env):
+        source = await conversation(env)
+        await write(env, source, affirmations=[claim("Françoise n'aime pas les roses", source) | {"valide_jusqu_au": "2026-12-31"}])
+        path = f"Famille/{TITLE}.md"
+
+        await write(env, source, chemin=path)
+
+        assert parse_body(carte_mod.parse(env.local(path)).body).known[0].valid_until == "2026-12-31"
+
+    async def test_an_empty_field_removes_the_day(self, env):
+        source = await conversation(env)
+        await write(env, source, affirmations=[claim("Françoise n'aime pas les roses", source) | {"valide_jusqu_au": "2026-12-31"}])
+        path = f"Famille/{TITLE}.md"
+
+        await write(env, source, chemin=path, affirmations=[claim("Françoise n'aime pas les roses", source) | {"valide_jusqu_au": ""}])
+
+        assert "valide jusqu'au" not in env.local(path)
+
+    def test_a_line_with_an_app_source_and_a_day_reads_back(self):
+        body = parse_body("- Il court le mardi — observé · app : agenda · valide jusqu'au 2026-12-31")
+
+        assert body.known[0].source == "app : agenda"
+        assert body.known[0].heure is None and body.known[0].valid_until == "2026-12-31"
+
+    def test_a_typographic_apostrophe_reads_back(self):
+        line = f"- Il est absent — dit · Conversations/x.md · {HEURE} · valide jusqu’au 2026-10-20"
+
+        assert parse_body(line).known[0].valid_until == "2026-10-20"
+        assert fiches.render_claim(parse_body(line).known[0]).endswith("valide jusqu'au 2026-10-20")
+
+
+class TestLapsed:
+    @staticmethod
+    def one(provenance="dit", heure=None, valid_until=None):
+        return fiches.Claim("Texte", provenance, "Conversations/x.md", heure, valid_until=valid_until)
+
+    def test_a_claim_past_its_last_day_lapses(self):
+        found = fiches.lapsed([self.one(valid_until="2026-10-12")], TODAY, 60)
+
+        assert [(c.texte, why) for c, why in found] == [("Texte", "valable jusqu'au 2026-10-12")]
+
+    def test_a_claim_on_its_last_day_still_holds(self):
+        assert fiches.lapsed([self.one(valid_until="2026-10-13")], TODAY, 60) == []
+
+    def test_a_deduction_older_than_the_delay_lapses(self):
+        found = fiches.lapsed([self.one("déduit", "2026-08-13 10h00")], TODAY, 60)
+
+        assert found[0][1] == "déduction jamais reconfirmée depuis le 2026-08-13"
+
+    def test_a_recent_deduction_holds(self):
+        assert fiches.lapsed([self.one("déduit", "2026-08-15 10h00")], TODAY, 60) == []
+
+    def test_a_said_claim_never_lapses_with_age(self):
+        assert fiches.lapsed([self.one("dit", "2026-03-01 10h00")], TODAY, 60) == []
+
+    def test_a_deduction_without_a_minute_never_lapses(self):
+        assert fiches.lapsed([self.one("déduit", None)], TODAY, 60) == []
