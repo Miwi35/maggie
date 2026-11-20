@@ -1,9 +1,11 @@
 package com.maggie.app.ui.screens.home
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -14,6 +16,8 @@ import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.EventReminder
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.HomeDay
+import com.maggie.app.data.model.Trip
+import com.maggie.app.data.model.TripStep
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.tap
 import com.maggie.app.ui.UiTags
@@ -80,19 +84,22 @@ class AgendaCardScreenTest {
         onOpenEvent: (AgendaHomeEvent) -> Unit = {},
         onLaunch: (String) -> Unit = {},
         onRetry: () -> Unit = {},
+        onGo: (Trip) -> Unit = {},
+        clock: Instant = now,
     ) {
         compose.setContent {
             AgendaCardContent(
                 state = state,
                 loading = loading,
                 error = error,
-                now = if (state?.date == "2026-10-14") now else null,
+                now = if (state?.date == "2026-10-14") clock else null,
                 compact = compact,
                 day = day,
                 onOpenAgenda = onOpenAgenda,
                 onOpenEvent = onOpenEvent,
                 onLaunch = onLaunch,
                 onRetry = onRetry,
+                onGo = onGo,
             )
         }
     }
@@ -287,5 +294,131 @@ class AgendaCardScreenTest {
         assertEquals("", rowTimeLabel(stay, "2026-10-14"))
         val overMidnight = timed("o", "Soirée", "23:00", "23:30").copy(startAt = "2026-10-13T23:00:00+02:00", endAt = "2026-10-14T01:00:00+02:00")
         assertEquals("→ 01:00", rowTimeLabel(overMidnight, "2026-10-14"))
+    }
+
+    // 16:42 in Paris, three trips: left at 08:09, next at 17:04, then 18:05.
+    private val evening: Instant = Instant.parse("2026-10-14T14:42:00Z")
+    private val morning = timed("m1", "Réunion", "08:30", "09:30")
+    private val pickup = timed("m2", "Récupérer Ael", "17:30", "18:00")
+    private val concert = timed("m3", "Concert", "18:30", "19:30")
+
+    private fun tripTo(
+        event: String,
+        departAt: String,
+        origin: String = "la maison",
+        link: String = "https://waze.com/ul?q=x",
+        computedAt: String? = "2026-10-14T16:38:00+02:00",
+        steps: List<TripStep> = emptyList(),
+        leg: String = Trip.LEG_OUTBOUND,
+        arriveAt: String? = null,
+    ) = Trip(
+        id = "trip-$event",
+        event = "/api/events/$event",
+        leg = leg,
+        departAt = "2026-10-14T$departAt:00+02:00",
+        originLabel = origin,
+        durationMinutes = 21,
+        steps = steps,
+        navigationUrl = link,
+        computedAt = computedAt,
+        arriveAt = arriveAt,
+    )
+
+    private val steps = listOf(TripStep("drive", 2, "voiture"), TripStep("transit", 15), TripStep("walk", 4, "parking école"))
+
+    private fun threeTrips(next: Trip = tripTo("m2", "17:04", steps = steps)) = AgendaHomeState(
+        date = "2026-10-14",
+        events = listOf(morning, pickup, concert),
+        trips = listOf(tripTo("m1", "08:09", link = ""), next, tripTo("m3", "18:05", origin = "École Jean-Moulin", steps = steps)),
+    )
+
+    @Test
+    fun `the next departure is a tile above its event with time left, origin, door to door, chips, Y aller and à jour`() {
+        draw(threeTrips(), compact = false, clock = evening)
+
+        compose.onNodeWithTag(UiTags.HOME_DEPARTURE_TIME).assertTextContains("Partir à 17:04")
+        compose.onNodeWithText("dans 22 min").assertIsDisplayed()
+        compose.onNodeWithText("depuis la maison · 21 min porte à porte").assertIsDisplayed()
+        compose.onNodeWithText("2 min").assertIsDisplayed()
+        compose.onNodeWithText("voiture").assertIsDisplayed()
+        compose.onNodeWithText("15 min").assertIsDisplayed()
+        compose.onNodeWithText("4 min").assertIsDisplayed()
+        compose.onNodeWithText("parking école").assertIsDisplayed()
+        compose.onNodeWithText("Y aller").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TRIP_UPDATED).assertTextContains("à jour 16:38")
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.HOME_DEPARTURE_TILE).fetchSemanticsNodes().size)
+        assertTrue(top(UiTags.HOME_DEPARTURE_TILE) < top(UiTags.homeAgendaRow("m2")))
+        assertTrue(top(UiTags.HOME_DEPARTURE_TILE) > top(UiTags.homeAgendaRow("m1")))
+    }
+
+    @Test
+    fun `another trip is one short line without chips`() {
+        draw(threeTrips(), compact = false, clock = evening)
+
+        compose.onNodeWithTag(UiTags.homeTripLine("m3")).assertTextContains("Partir à 18:05 · depuis École Jean-Moulin")
+        assertTrue(top(UiTags.homeTripLine("m3")) < top(UiTags.homeAgendaRow("m3")))
+        compose.onAllNodesWithTag(UiTags.TRIP_GO).assertCountEquals(1)
+        compose.onAllNodesWithText("parking école").assertCountEquals(1)
+    }
+
+    @Test
+    fun `a trip already left reads Parti à and is dimmed`() {
+        draw(threeTrips(), compact = false, clock = evening)
+
+        compose.onNodeWithTag(UiTags.homeTripLine("m1")).assertTextContains("Parti à 08:09 · depuis la maison")
+        assertTrue(top(UiTags.homeTripLine("m1")) < top(UiTags.homeAgendaRow("m1")))
+    }
+
+    @Test
+    fun `tomorrow draws trip lines and no tile`() {
+        val state = AgendaHomeState(
+            date = "2026-10-15",
+            events = listOf(timed("t1", "Dentiste", "14:00", "15:00")),
+            trips = listOf(tripTo("t1", "13:34")),
+        )
+        draw(state, day = HomeDay.TOMORROW)
+
+        compose.onNodeWithTag(UiTags.homeTripLine("t1")).assertTextContains("Partir à 13:34 · depuis la maison")
+        compose.onNodeWithTag(UiTags.HOME_DEPARTURE_TILE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `Y aller hands the trip to onGo, and no navigation link means no button`() {
+        val handed = mutableListOf<Trip>()
+        draw(threeTrips(), compact = false, clock = evening, onGo = { handed += it })
+
+        compose.onNodeWithTag(UiTags.TRIP_GO).performClick()
+        assertEquals(listOf("trip-m2"), handed.map { it.id })
+    }
+
+    @Test
+    fun `no navigation link means no button`() {
+        draw(threeTrips(tripTo("m2", "17:04", link = "")), compact = false, clock = evening)
+
+        compose.onNodeWithTag(UiTags.HOME_DEPARTURE_TILE).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TRIP_GO).assertDoesNotExist()
+    }
+
+    @Test
+    fun `without computedAt the tile has no à jour`() {
+        draw(threeTrips(tripTo("m2", "17:04", computedAt = null)), compact = false, clock = evening)
+
+        compose.onNodeWithTag(UiTags.TRIP_UPDATED).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a return reads Retour · Partir à … · arrivée …`() {
+        val state = AgendaHomeState(
+            date = "2026-10-14",
+            events = listOf(concert),
+            trips = listOf(
+                tripTo("m3", "17:45"),
+                tripTo("m3", "19:40", leg = Trip.LEG_RETURN, arriveAt = "2026-10-14T19:54:00+02:00").copy(id = "back"),
+            ),
+        )
+        draw(state, compact = false, clock = evening)
+
+        compose.onNodeWithTag(UiTags.homeTripLine("m3")).assertTextContains("Retour · Partir à 19:40 · arrivée 19:54")
+        assertTrue(top(UiTags.HOME_DEPARTURE_TILE) < top(UiTags.homeTripLine("m3")))
     }
 }

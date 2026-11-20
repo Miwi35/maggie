@@ -97,24 +97,7 @@ fun TripLine(
                 StepChips(trip.steps, withLabels = true)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (trip.navigationUrl.isNotBlank()) {
-                        Surface(
-                            shape = CircleShape,
-                            color = surface.text,
-                            contentColor = surface.background,
-                            modifier = Modifier
-                                .height(44.dp)
-                                .testTag(UiTags.TRIP_GO)
-                                .clickable(onClick = onGo),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(horizontal = 18.dp),
-                            ) {
-                                Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Text("Y aller", fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            }
-                        }
+                        GoButton(onGo)
                     }
                     trip.computedTime(zone)?.let {
                         Text("à jour $it", fontSize = 12.sp, color = surface.caption, modifier = Modifier.testTag(UiTags.TRIP_UPDATED))
@@ -152,6 +135,30 @@ fun TripLine(
     }
 }
 
+/** The « Y aller » pill, 44 dp. */
+@Composable
+internal fun GoButton(onGo: () -> Unit, modifier: Modifier = Modifier) {
+    val surface = maggieSurface()
+    Surface(
+        shape = CircleShape,
+        color = surface.text,
+        contentColor = surface.background,
+        modifier = modifier
+            .height(44.dp)
+            .testTag(UiTags.TRIP_GO)
+            .clickable(onClick = onGo),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 18.dp),
+        ) {
+            Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text("Y aller", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
 /** « Récupérer Ael à 17:00 · Centre équestre du Thabor »; nothing for an event without a start hour. */
 private fun eventLine(event: ExpandedEvent?, zone: ZoneId): String? {
     val start = event?.startAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
@@ -159,7 +166,7 @@ private fun eventLine(event: ExpandedEvent?, zone: ZoneId): String? {
     return "${event.title} à ${start.atZone(zone).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))}$place"
 }
 
-private fun minutesLeft(trip: Trip, now: Instant): Long? {
+internal fun minutesLeft(trip: Trip, now: Instant): Long? {
     val depart = trip.departInstant ?: return null
     return Duration.between(now, depart).toMinutes().takeIf { it >= 0 }
 }

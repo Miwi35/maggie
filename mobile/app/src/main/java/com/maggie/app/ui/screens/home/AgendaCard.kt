@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -42,11 +43,13 @@ import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.AgendaRow
 import com.maggie.app.data.model.AgendaRowKind
 import com.maggie.app.data.model.HomeDay
+import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.timeline
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.DeepLinks
 import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.screens.fullcalendar.openNavigation
 import com.maggie.app.ui.screens.shared.parseColor
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
@@ -100,6 +103,7 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
     val ui by viewModel.uiState.collectAsState()
     val navigate = LocalHomeNavigation.current
     val compact = !rememberAppLayout().detailPaneFits
+    val context = LocalContext.current
     val sportResume by koinViewModel<SportResumeViewModel>().resume.collectAsState()
 
     LaunchedEffect(day) { viewModel.show(day) }
@@ -126,6 +130,7 @@ fun AgendaCard(day: HomeDay, viewModel: AgendaHomeViewModel = koinViewModel()) {
         onLaunch = { route -> navigate(route) },
         onRetry = viewModel::retry,
         resumeSport = sportResume != null,
+        onGo = { openNavigation(context, it) },
     )
 
     ui.opened?.let { event ->
@@ -157,6 +162,7 @@ internal fun AgendaCardContent(
     onLaunch: (String) -> Unit,
     onRetry: () -> Unit,
     resumeSport: Boolean = false,
+    onGo: (Trip) -> Unit = {},
 ) {
     if (state != null && state.events.isEmpty()) return
 
@@ -170,10 +176,10 @@ internal fun AgendaCardContent(
             state == null -> Unit
             else -> {
                 val timeline = state.timeline(now, compact)
-                timeline.allDay.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch, resumeSport) }
-                timeline.past.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch, resumeSport) }
+                timeline.allDay.forEach { AgendaRowItem(it, state.date, now, day, timeline.nextTripId, onOpenEvent, onLaunch, onGo, resumeSport) }
+                timeline.past.forEach { AgendaRowItem(it, state.date, now, day, timeline.nextTripId, onOpenEvent, onLaunch, onGo, resumeSport) }
                 if (timeline.hasNowLine && now != null) NowLine(now)
-                timeline.following.forEach { AgendaRowItem(it, state.date, now, day, onOpenEvent, onLaunch, resumeSport) }
+                timeline.following.forEach { AgendaRowItem(it, state.date, now, day, timeline.nextTripId, onOpenEvent, onLaunch, onGo, resumeSport) }
                 if (timeline.hidden > 0) {
                     TextButton(
                         onClick = onOpenAgenda,
@@ -203,7 +209,31 @@ private fun NowLine(now: Instant) {
 }
 
 @Composable
-private fun AgendaRowItem(row: AgendaRow, date: String, now: Instant?, day: HomeDay, onOpen: (AgendaHomeEvent) -> Unit, onLaunch: (String) -> Unit, resumeSport: Boolean) {
+private fun AgendaRowItem(
+    row: AgendaRow,
+    date: String,
+    now: Instant?,
+    day: HomeDay,
+    nextTripId: String?,
+    onOpen: (AgendaHomeEvent) -> Unit,
+    onLaunch: (String) -> Unit,
+    onGo: (Trip) -> Unit,
+    resumeSport: Boolean,
+) {
+    if (row.trips.isEmpty()) {
+        AgendaEventRow(row, date, now, day, onOpen, onLaunch, resumeSport)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        row.trips.forEach { trip ->
+            if (now != null && trip.id == nextTripId) HomeDepartureTile(trip, now, onGo = { onGo(trip) }) else HomeTripLine(trip, now)
+        }
+        AgendaEventRow(row, date, now, day, onOpen, onLaunch, resumeSport)
+    }
+}
+
+@Composable
+private fun AgendaEventRow(row: AgendaRow, date: String, now: Instant?, day: HomeDay, onOpen: (AgendaHomeEvent) -> Unit, onLaunch: (String) -> Unit, resumeSport: Boolean) {
     val event = row.event
     val past = row.kind == AgendaRowKind.PAST
     val next = row.kind == AgendaRowKind.NEXT
