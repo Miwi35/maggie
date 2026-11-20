@@ -56,6 +56,19 @@ MOMENT_PLANNING = "planification"
 # not fit any more stays in the index, to be loaded with get_skill.
 MOMENT_SKILLS_MAX_CHARS = 8000
 
+LOCKED_SKILL_DETAIL = (
+    "Le propriétaire a modifié cette compétence lui-même : elle est verrouillée. Ne la change pas. "
+    "Propose-lui le changement (quoi et pourquoi) ; il l'applique depuis l'admin."
+)
+
+
+class SkillLocked(Exception):
+    """Maggie tried to write a skill the owner locked; nothing was written."""
+
+    def __init__(self, name: str):
+        super().__init__(name)
+        self.name = name
+
 
 @dataclass
 class SkillIndex:
@@ -149,12 +162,23 @@ class SkillIndex:
         except Exception as e:
             logger.warning(f"Failed to publish skill event: {e}")
 
-    async def create(self, name: str, description: str, tags: list[str], content: str, user_id: str) -> SkillEntry:
-        """Write a skill's file (replacing one of the same name), update the table and the index, publish to Mercure."""
+    def _locked(self, name: str) -> bool:
+        current = self.store.load(name)
+        return current is not None and current[0].locked
+
+    async def create(
+        self, name: str, description: str, tags: list[str], content: str, user_id: str, by_owner: bool = False
+    ) -> SkillEntry:
+        """Write a skill's file (replacing one of the same name), update the table and the index, publish to Mercure.
+
+        `by_owner` (the admin) locks the skill; without it, a locked skill of that name raises `SkillLocked`."""
+        if not by_owner and self._locked(name):
+            raise SkillLocked(name)
         content = content.strip()
-        await self.store.save(name, description, tags, content)
+        await self.store.save(name, description, tags, content, locked=by_owner)
         skill = await self.repo.upsert(name, description, tags, content)
         entry = _entry(skill)
+        entry.locked = by_owner
         self._remember(entry)
         await self._publish(user_id, {"name": entry.name, "description": entry.description, "tags": entry.tags})
         return entry
@@ -166,6 +190,7 @@ class SkillIndex:
         tags: list[str] | None = None,
         content: str | None = None,
         user_id: str = "default",
+        by_owner: bool = False,
     ) -> SkillEntry | None:
         current = self.store.load(name)
         if current is None:
@@ -174,12 +199,16 @@ class SkillIndex:
                 return None
             current = (_entry(stored), stored.content or "")
         entry, body = current
+        if entry.locked and not by_owner:
+            raise SkillLocked(name)
+        locked = by_owner or entry.locked
         new_description = entry.description if description is None else description
         new_tags = entry.tags if tags is None else tags
         new_content = body if content is None else content.strip()
-        await self.store.save(name, new_description, new_tags, new_content)
+        await self.store.save(name, new_description, new_tags, new_content, locked=locked)
         skill = await self.repo.upsert(name, new_description, new_tags, new_content)
         entry = _entry(skill)
+        entry.locked = locked
         self._remember(entry)
         await self._publish(user_id, {"name": entry.name, "description": entry.description, "tags": entry.tags})
         return entry

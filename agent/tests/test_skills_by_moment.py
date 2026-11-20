@@ -201,6 +201,7 @@ class TestEntries:
         index = _index()
         index.repo.upsert = AsyncMock(return_value=DELIVER)
         index.store = AsyncMock()
+        index.store.load = MagicMock(return_value=None)
         index._publish = AsyncMock()
 
         await index.create(DELIVER.name, DELIVER.description, list(DELIVER.tags), DELIVER.content, "user-1")

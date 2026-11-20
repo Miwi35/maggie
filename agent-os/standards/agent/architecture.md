@@ -29,6 +29,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 - **On demand, never injected.** The system prompt carries only the index — `get_skills_index()` returns `- name: description` for every skill, sorted by name so the prefix is stable and cacheable. It does not depend on the message, so proactions and sub-agents with `get_skill` get it too
 - The body is loaded by the model itself with `get_skill(name)` **before** acting on a task the skill covers. The `COMPÉTENCES` line of `default.yaml` says so; do not reintroduce a keyword search that injects bodies
 - Create, update and delete go through the native tools `create_skill`, `update_skill`, `delete_skill` (the last one is held for approval by the policy)
+- **A skill the owner wrote is locked** (MAG-892): created or edited from the admin, its file carries `verrouillee: true` (the owner may also write the key by hand in the bucket). `create_skill` / `update_skill` of Maggie on it are refused with `{"error": "locked"}`, nothing written: she proposes the change, the owner applies it from the admin
 
 ## Sub-agents
 - A sub-agent is a Markdown file `agent/data/agents/<name>.md` with a YAML frontmatter, loaded once at startup into `subagent_registry` (`app/agents/registry.py`):

@@ -531,6 +531,39 @@ class TestSkillToolsAfterRestart:
         assert "- concert-link: Lier un concert" in restarted.get_skills_index()
 
 
+class TestLockedSkillTools:
+    async def _locked_index(self) -> SkillIndex:
+        index = _index()
+        await index.create("verrouillee", "Desc", [], "Version du propriétaire", "u", by_owner=True)
+        return index
+
+    async def test_update_skill_on_a_locked_skill_says_locked_and_changes_nothing(self, agent_db):
+        from app.llm.tools import ToolRouter
+        from app.skills.index import LOCKED_SKILL_DETAIL
+
+        index = await self._locked_index()
+        before = (index.store.load("verrouillee"), await index.get("verrouillee"))
+        with patch("app.llm.tools.skill_index", index):
+            result = await ToolRouter().call_tool(
+                "update_skill", {"name": "verrouillee", "content": "Réécrit"}, user_id="u"
+            )
+
+        assert json.loads(result) == {"error": "locked", "skill": "verrouillee", "detail": LOCKED_SKILL_DETAIL}
+        assert (index.store.load("verrouillee"), await index.get("verrouillee")) == before
+
+    async def test_create_skill_over_a_locked_skill_says_locked(self, agent_db):
+        from app.llm.tools import ToolRouter
+
+        index = await self._locked_index()
+        with patch("app.llm.tools.skill_index", index):
+            result = await ToolRouter().call_tool(
+                "create_skill", {"name": "verrouillee", "description": "X", "content": "Remplacé"}, user_id="u"
+            )
+
+        assert json.loads(result)["error"] == "locked"
+        assert "Version du propriétaire" in await index.get("verrouillee")
+
+
 def test_skill_table_is_registered_for_create_all():
     """A model missing from app.main's imports is never created in maggie_agent, and every skill write then fails."""
     import app.main  # noqa: F401
@@ -580,6 +613,15 @@ class TestSkillRoutesOnDatabase:
         assert updated.status_code == 200
         assert deleted.status_code == 200
         assert gone.status_code == 404
+
+    def test_an_edit_from_the_admin_locks_the_skill(self, agent_db, authed_client):
+        index = _index()
+        with patch("app.api.routes.skill_index", index):
+            authed_client.post("/skills", json={"name": "s", "description": "d", "tags": [], "content": "old"})
+            assert index.store.load("s")[0].locked
+            authed_client.put("/skills/s", json={"content": "new"})
+
+        assert index.store.load("s")[0].locked
 
     def test_update_unknown_is_404(self, agent_db, authed_client):
         with patch("app.api.routes.skill_index", _index()):

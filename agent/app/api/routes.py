@@ -1214,7 +1214,7 @@ async def get_skill_detail(name: str, _user_id: str = Depends(get_current_user_i
 @router.post("/skills", status_code=201)
 async def create_skill_endpoint(data: SkillCreate, user_id: str = Depends(get_current_user_id)):
     """Create a new skill."""
-    entry = await skill_index.create(data.name, data.description, data.tags, data.content, user_id)
+    entry = await skill_index.create(data.name, data.description, data.tags, data.content, user_id, by_owner=True)
     return {"name": entry.name, "description": entry.description, "tags": entry.tags}
 
 
@@ -1227,6 +1227,7 @@ async def update_skill_endpoint(name: str, data: SkillUpdate, user_id: str = Dep
         tags=data.tags,
         content=data.content,
         user_id=user_id,
+        by_owner=True,
     )
     if entry is None:
         raise HTTPException(status_code=404, detail="Skill not found")
