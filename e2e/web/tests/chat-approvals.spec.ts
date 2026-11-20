@@ -3,7 +3,7 @@ import { test, expect, seedId } from '../fixtures/index.js'
 import { assistantText, toolResults } from '../helpers/agui.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
-import type { APIRequestContext } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 
 /**
  * An action Maggie may not take alone waits for the owner's answer (MAG-6).
@@ -14,6 +14,9 @@ import type { APIRequestContext } from '@playwright/test'
  * there while the card waits, gone after approval, still there after a refusal.
  * The announcement is the model's prose, scripted (74-delete-event-approved
  * .yaml): its presence proves the resume ran, not that the deletion did.
+ *
+ * A dictated answer (`in_reply_to.approval_id`) is read by the isolated classifier (MAG-893): « oui, vas-y » runs
+ * the held deletion, « oui mais à 15 h » decides nothing even though the fake model approves.
  *
  * Extends the chat journey (MAG-99). It runs as the fifth account, which every test
  * and every repeat shares: the badge counts what waits for the whole account, the
@@ -129,4 +132,41 @@ test('Refuser leaves the event in place', async ({ approvalsUser }) => {
   const line = chat.decisionLines(actionId)
   await expect(line).toHaveCount(1)
   await expect(line).toContainText('Vous avez répondu : Refuser — ')
+})
+
+/** Holds a deletion, then answers its card by a dictated sentence; returns the card and the event's id. */
+async function dictateAnswer(approvalsUser: { page: Page; api: APIRequestContext }, said: string, label: string) {
+  const { page, api } = approvalsUser
+  const title = uniqueTitle(`Recette validation MAG-893 ${label}`)
+  const id = await createEvent(api, title)
+
+  await new HomePage(page).open()
+  const chat = new ChatPanel(page)
+  await chat.open()
+  await chat.send(`Supprime l'événement ${id}`)
+
+  const card = chat.approvalCard(title)
+  await expect(card).toHaveAttribute('data-status', 'pending')
+  await expect(card).toHaveAttribute('data-approval-id', /.+/)
+  const actionId = await card.evaluate((el) => el.getAttribute('data-approval-id') ?? '')
+
+  const reply = await api.post('/agent/chat', {
+    data: { message: said, in_reply_to: { id: 'e2e-reply', type: 'approval', approval_id: actionId } },
+  })
+  expect(reply.status(), await reply.text()).toBe(200)
+  return { card, id, api }
+}
+
+test('A dictated « oui mais à 15 h » decides nothing', async ({ approvalsUser }) => {
+  const { card, id, api } = await dictateAnswer(approvalsUser, 'oui mais à 15 h', 'oui mais')
+
+  expect(await eventStatus(api, id), 'a conditional yes ran the deletion').toBe(200)
+  await expect(card).toHaveAttribute('data-status', 'pending')
+})
+
+test('A dictated « oui, vas-y » runs the held deletion', async ({ approvalsUser }) => {
+  const { card, id, api } = await dictateAnswer(approvalsUser, 'oui, vas-y', 'oui')
+
+  await expect(card).toHaveAttribute('data-status', 'approved')
+  expect(await eventStatus(api, id), 'the dictated yes did not run the deletion').toBe(404)
 })
