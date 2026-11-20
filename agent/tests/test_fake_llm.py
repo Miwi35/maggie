@@ -1947,3 +1947,43 @@ class TestThePeriodScenarios:
         [call] = [block for block in answer.content if isinstance(block, FakeToolUseBlock)]
         assert call.name == "ask_owner"
         assert len(call.input["options"]) >= 2
+
+
+class TestProactionCheckScenario:
+    """98-proaction-check-envelope-due.yaml (MAG-886): a verdict, then the sentence; the code triages it."""
+
+    async def test_the_check_gives_a_low_verdict_then_its_sentence_and_is_left_in_the_thread_then_not_told_again(self):
+        from datetime import UTC, datetime, timedelta
+
+        from app.proactions.triage import Delivery, decide
+        from app.proactions.verdict import read_verdict
+
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        prompt = "[Proaction due maintenant] Vérifie l'enveloppe Loisirs (tri e2e)"
+
+        async def turn(rounds: list[dict]):
+            return await client.messages.create(
+                model="fake",
+                max_tokens=1024,
+                system="Tu es Maggie.",
+                tools=[{"name": "proaction_verdict"}],
+                messages=[{"role": "user", "content": prompt}, *rounds],
+            )
+
+        first = await turn([])
+        call = first.content[0]
+        assert call.name == "proaction_verdict"
+        second = await turn(
+            [
+                {"role": "assistant", "content": [{"type": "tool_use", "id": call.id, "name": call.name, "input": call.input}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call.id, "content": '{"noted": true}'}]},
+            ]
+        )
+        response = text_of(second)
+        assert response == "Votre enveloppe Loisirs est à 72 %, monsieur."
+
+        verdict = read_verdict([{"name": call.name, "input": call.input}])
+        now = datetime.now(UTC)
+        assert decide("check", response, verdict, [], now) is Delivery.THREAD
+        told = [{"topic": "enveloppe-loisirs", "at": (now - timedelta(minutes=3)).isoformat(), "delivery": "thread"}]
+        assert decide("check", response, verdict, told, now) is Delivery.NONE

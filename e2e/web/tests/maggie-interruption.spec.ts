@@ -332,6 +332,15 @@ interface ListedProaction {
   prompt: string
   status: string
   response: string | null
+  kind: string
+  delivery: string | null
+  topicKey: string | null
+}
+
+interface StoredNotification {
+  type: string
+  body: string | null
+  relatedEntityIri: string | null
 }
 
 interface StoredEvent {
@@ -390,8 +399,86 @@ test('a proaction asked for in the chat sits in the « Maggie » agenda, runs on
     .toEqual({ status: 'completed', response: "C'est l'heure de boire un verre d'eau !" })
 
   // …which is in the chat, once.
-  const messages = (await (await api.get('/agent/messages?limit=10')).json()) as { role: string; content: string }[]
-  expect(messages.filter((m) => m.role === 'assistant' && m.content === "C'est l'heure de boire un verre d'eau !")).toHaveLength(1)
+  const messages = (await (await api.get('/agent/messages?limit=10')).json()) as { id: string; role: string; content: string }[]
+  const delivered = messages.filter((m) => m.role === 'assistant' && m.content === "C'est l'heure de boire un verre d'eau !")
+  expect(delivered).toHaveLength(1)
+
+  // A reminder the owner asked for always interrupts (MAG-886): the API notifies it, with a link to the message.
+  const run = ((await callMcpTool(api, 'list_proactions', {})).proactions as ListedProaction[]).find((p) => p.id === id)
+  expect({ kind: run?.kind, delivery: run?.delivery }).toEqual({ kind: 'reminder', delivery: 'interrupt' })
+  const notified = (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100')).filter(
+    (n) => n.type === 'message' && n.relatedEntityIri === `/chat?message=${delivered[0].id}`,
+  )
+  expect(notified).toHaveLength(1)
+})
+
+/**
+ * A check is triaged (MAG-886, extends MAG-99 / MAG-103): Maggie gives her verdict — low,
+ * on the topic `enveloppe-loisirs` (`98-proaction-check-envelope-due.yaml`) — and the code
+ * leaves her message in the thread, with no notification and no interruption. The same
+ * check again, on a topic told minutes ago with nothing changed, says nothing at all.
+ */
+test('a check with a low verdict waits in the thread, and the same check again says nothing', async ({ interruptedUser }) => {
+  // Two runs, each up to a minute before the executor claims it.
+  test.setTimeout(360_000)
+  const { page, api, session } = interruptedUser
+  const dashboard = new HomePage(page)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  await new ChatPanel(page).ensureClosed()
+
+  const PROMPT = "Vérifie l'enveloppe Loisirs (tri e2e)"
+  const SAID = 'Votre enveloppe Loisirs est à 72 %, monsieur.'
+
+  const runCheck = async (offsetMinutes: number): Promise<ListedProaction> => {
+    const scheduled = await callMcpTool(api, 'schedule_proaction', {
+      prompt: PROMPT,
+      scheduled_at: new Date(e2eNow().getTime() + offsetMinutes * 60_000).toISOString(),
+      kind: 'check',
+    })
+    const created = scheduled.proaction as ListedProaction
+    expect(created.kind).toBe('check')
+
+    // Due now: moved to a minute ago, the way the agenda would.
+    const moved = await api.patch(`/api/events/${created.id}`, {
+      headers: { 'Content-Type': 'application/merge-patch+json' },
+      data: { startAt: new Date(e2eNow().getTime() - 60_000).toISOString() },
+    })
+    expect(moved.ok(), `PATCH /api/events/${created.id} answered ${moved.status()}: ${await moved.text()}`).toBe(true)
+
+    let done: ListedProaction | undefined
+    await expect
+      .poll(
+        async () => {
+          const all = (await callMcpTool(api, 'list_proactions', {})).proactions as ListedProaction[]
+          done = all.find((p) => p.id === created.id)
+          return done?.status
+        },
+        { message: 'the check was never run', timeout: 150_000, intervals: [2_000] },
+      )
+      .toBe('completed')
+    return done!
+  }
+
+  const said = async () =>
+    ((await (await api.get('/agent/messages?limit=20')).json()) as { role: string; content: string }[]).filter(
+      (m) => m.role === 'assistant' && m.content === SAID,
+    )
+
+  // Given a check whose verdict is low, when it runs: in the thread, once, and nothing more.
+  const first = await runCheck(30)
+  expect({ delivery: first.delivery, topicKey: first.topicKey }).toEqual({ delivery: 'thread', topicKey: 'enveloppe-loisirs' })
+  expect(await said()).toHaveLength(1)
+  const notified = (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100')).filter(
+    (n) => n.type === 'message' && n.body === SAID,
+  )
+  expect(notified).toHaveLength(0)
+  await expect(page.getByRole('alertdialog')).toBeHidden()
+
+  // When the same check runs again, nothing has changed: nothing is said.
+  const second = await runCheck(40)
+  expect(second.delivery).toBe('none')
+  expect(await said()).toHaveLength(1)
+  await expect(page.getByRole('alertdialog')).toBeHidden()
 })
 
 /**
