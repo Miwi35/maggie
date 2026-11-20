@@ -10,7 +10,8 @@ import { HealthSuiviPage } from '../pages/HealthSuiviPage.js'
  * aucune aujourd'hui, ce que le parcours Santé › Suivi exige),
  * When j'ouvre Santé › Journal et je note moral 7, fatigue 4 et une note,
  * Then l'entrée du jour montre le poids 71,6 kg et mes notes, comme
- * `GET /api/health/days/{today}`, And Santé › Suivi affiche la carte
+ * `GET /api/health/days/{today}`, And « 7 / 10 » et « 4 / 10 » s'affichent à côté des échelles, la ligne Poids lit « première pesée · HH:MM »,
+ * And Santé › Suivi affiche la carte
  * Moral · fatigue avec le point du jour.
  *
  * Étend le parcours web Santé (Suivi MAG-706, Nutrition MAG-748). The account
@@ -66,10 +67,13 @@ test('Santé › Journal records mood, fatigue and a note next to today’s weig
     await journal.navigateTo('Journal', 'Santé')
     await expect(journal.day).toHaveText(/^Aujourd’hui /)
     await expect(journal.weight).toHaveText('71,6 kg')
+    await expect(journal.weightDetail).toHaveText(/^première pesée · \d{2}:\d{2}$/)
 
     // …and note mood 7, fatigue 4 and a note,
     await journal.rate('Moral', 7)
     await journal.rate('Fatigue', 4)
+    await expect(journal.moodValue).toHaveText('7 / 10')
+    await expect(journal.fatigueValue).toHaveText('4 / 10')
     await journal.writeNote(note)
 
     // Then the entry shows the weight and my notes, on screen…
