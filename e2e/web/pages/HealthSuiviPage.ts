@@ -21,6 +21,9 @@ import { ROUTES } from './routes.js'
  * The « Moral · fatigue » card (MAG-750) follows the same period: `mood-value`,
  * `fatigue-value` (the chosen day's, today by default), a `mood-column` per day
  * named « Aujourd’hui : moral 7, fatigue 4 ».
+ *
+ * Santé › Activité (MAG-897) is reached from the same menu: `activityRing` is the « Pas du jour » card
+ * (`activity-steps`, `activity-projection`), `activitySessions` the « Sessions actives » card (`activity-session` rows).
  */
 export class HealthSuiviPage extends AdminShell {
   readonly period: Locator
@@ -32,6 +35,8 @@ export class HealthSuiviPage extends AdminShell {
   readonly addButton: Locator
   readonly form: Locator
   readonly balanceBanner: Locator
+  readonly activityRing: Locator
+  readonly activitySessions: Locator
 
   constructor(page: Page) {
     super(page)
@@ -44,6 +49,8 @@ export class HealthSuiviPage extends AdminShell {
     this.addButton = this.weighings.getByRole('button', { name: 'Ajouter une pesée', exact: true })
     this.form = page.getByRole('dialog')
     this.balanceBanner = this.content.getByTestId('suivi-balance-banner')
+    this.activityRing = this.content.getByRole('region', { name: 'Pas du jour', exact: true })
+    this.activitySessions = this.content.getByRole('region', { name: 'Sessions actives', exact: true })
   }
 
   async open(): Promise<void> {
