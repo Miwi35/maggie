@@ -939,6 +939,13 @@ mobile:
   e2e/mobile/flows/24-home-agenda.yaml:
     areas: [dashboard, calendar]
     paths: [api/fixtures/e2e/20-calendar.yaml]
+  e2e/mobile/flows/24b-home-departure.yaml:
+    areas: [dashboard, calendar]
+    paths:
+      - e2e/mobile/scripts/trip-api.js
+      - '.docker/e2e/wiremock/mappings/google-routes.json'
+      - '.docker/e2e/wiremock/mappings/google-geocoding.json'
+      - e2e/mobile/flows/21-places.yaml
   e2e/mobile/flows/28-home-tasks.yaml:
     areas: [dashboard, calendar]
     paths: [e2e/mobile/scripts/home-tasks-api.js, api/fixtures/e2e/64-home-tasks.yaml]

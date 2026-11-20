@@ -82,6 +82,7 @@ executionOrder:
     - 28-home-tasks
     - 24-home-cuisine
     - 24-home-agenda
+    - 24b-home-departure
     - 28-agenda-location-settings
     - 29-agenda-trips
     - 30-digest
