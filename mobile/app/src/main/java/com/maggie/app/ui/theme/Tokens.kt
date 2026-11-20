@@ -115,8 +115,8 @@ object MaggieTokens {
         val travail = Color(0xFF4F7011) to Color(0xFFB8DE6F)
         val taches = Color(0xFF9B3A8A) to Color(0xFFE8A9D9)
 
-        /** The Agenda's hue: the charter's `charte/Tiroir` gives it the violet's pale shade. */
-        val agenda = Color(0xFF6B4BD6) to Color(0xFFC7B5FF)
+        /** The Agenda's hue: turquoise, no longer Maggie's violet (owner, 9 Nov.; `Periodes-Jour-Tel`). */
+        val agenda = Color(0xFF14808A) to Color(0xFF6CCFD6)
 
         /** The sagas' hue: a palier, a month's gold. */
         val saga = Color(0xFF8A6100) to Color(0xFFF2C46D)

@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -39,17 +40,22 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.TripStep
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
- * The line under an event (« Partir à 13:34 · depuis la maison », then one chip per step), from the
- * « Trajets » mockup (MAG-658). Past trips are muted and read « Parti à ». [isNext], the next departure
- * of the day, becomes a card with the time left and the « Y aller » button.
+ * A trip of the day's list, at its departure (« Partir à 13:34 · depuis la maison », then one chip per step),
+ * from `Periodes-Jour-Tel` (MAG-859). Past trips read « Parti à » and the whole block is dimmed. [isNext], the
+ * next departure of the day, becomes a card with the event it leads to, the time left and the « Y aller » button.
  */
 @Composable
 fun TripLine(
@@ -58,51 +64,60 @@ fun TripLine(
     zone: ZoneId,
     isNext: Boolean,
     modifier: Modifier = Modifier,
+    event: ExpandedEvent? = null,
     onGo: () -> Unit = {},
 ) {
     val past = trip.departInstant?.isAfter(now) == false
-    val headline = trip.headline(zone, now)
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val surface = maggieSurface()
+    val muted = surface.textMuted
+    val dark = isMaggieDark()
+    val accent = if (dark) MaggieTokens.Module.agenda.second else MaggieTokens.Module.agenda.first
 
     if (isNext) {
         Surface(
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth().padding(start = 8.dp, top = 4.dp, end = 8.dp, bottom = 6.dp),
             shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
+            color = surface.paper,
+            border = BorderStroke(1.dp, accent),
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = headline,
-                        style = MaterialTheme.typography.titleMedium,
+                        text = trip.departureHeadline(zone, now),
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.testTag(UiTags.tripLine(trip.eventId)),
+                        modifier = Modifier.alignByBaseline().testTag(UiTags.tripLine(trip.eventId)),
                     )
                     minutesLeft(trip, now)?.let {
-                        Text(text = timeLeftLabel(it), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(text = timeLeftLabel(it), fontSize = 14.sp, color = accent, modifier = Modifier.alignByBaseline())
                     }
                 }
-                Text(text = "${trip.durationMinutes} min porte à porte", style = MaterialTheme.typography.bodySmall, color = muted)
+                eventLine(event, zone)?.let { Text(text = it, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface) }
+                Text(text = trip.originLine(), fontSize = 13.sp, color = muted)
                 StepChips(trip.steps, withLabels = true)
-                if (trip.navigationUrl.isNotBlank()) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        contentColor = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier
-                            .height(44.dp)
-                            .testTag(UiTags.TRIP_GO)
-                            .clickable(onClick = onGo),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(horizontal = 18.dp),
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (trip.navigationUrl.isNotBlank()) {
+                        Surface(
+                            shape = CircleShape,
+                            color = surface.text,
+                            contentColor = surface.background,
+                            modifier = Modifier
+                                .height(44.dp)
+                                .testTag(UiTags.TRIP_GO)
+                                .clickable(onClick = onGo),
                         ) {
-                            Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Text("Y aller", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(horizontal = 18.dp),
+                            ) {
+                                Icon(Icons.Filled.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Text("Y aller", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            }
                         }
+                    }
+                    trip.computedTime(zone)?.let {
+                        Text("à jour $it", fontSize = 12.sp, color = surface.caption, modifier = Modifier.testTag(UiTags.TRIP_UPDATED))
                     }
                 }
             }
@@ -111,9 +126,13 @@ fun TripLine(
     }
 
     Column(
-        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .alpha(if (past) 0.6f else 1f)
+            .padding(start = 76.dp, top = 4.dp, bottom = 8.dp, end = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        val headline = trip.headline(zone, now)
         val text = buildAnnotatedString {
             val split = headline.indexOf(" · ")
             if (split < 0 || past) {
@@ -125,13 +144,19 @@ fun TripLine(
         }
         Text(
             text = text,
-            style = MaterialTheme.typography.bodySmall,
             fontSize = if (past) 13.sp else 14.sp,
             color = if (past) muted else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.testTag(UiTags.tripLine(trip.eventId)),
         )
         StepChips(trip.steps, withLabels = false)
     }
+}
+
+/** « Récupérer Ael à 17:00 · Centre équestre du Thabor »; nothing for an event without a start hour. */
+private fun eventLine(event: ExpandedEvent?, zone: ZoneId): String? {
+    val start = event?.startAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
+    val place = event.location?.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty()
+    return "${event.title} à ${start.atZone(zone).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))}$place"
 }
 
 private fun minutesLeft(trip: Trip, now: Instant): Long? {
@@ -155,9 +180,9 @@ internal fun StepChips(steps: List<TripStep>, withLabels: Boolean) {
                     modifier = Modifier.height(26.dp).padding(horizontal = 8.dp),
                 ) {
                     Icon(iconOf(step.kind), contentDescription = null, modifier = Modifier.size(14.dp))
-                    Text("${step.minutes} min", style = MaterialTheme.typography.labelMedium)
+                    Text("${step.minutes} min", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                     if (withLabels && !step.label.isNullOrBlank()) {
-                        Text(step.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(step.label, fontSize = 12.sp, color = maggieSurface().caption)
                     }
                 }
             }

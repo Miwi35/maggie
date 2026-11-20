@@ -228,6 +228,7 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.home.HomeScreen
 import com.maggie.app.ui.screens.home.HomeViewModel
 import com.maggie.app.ui.components.AgendaTopBar
+import com.maggie.app.ui.screens.fullcalendar.CalendarViewType
 import com.maggie.app.ui.screens.fullcalendar.FullCalendarScreen
 import com.maggie.app.ui.screens.fullcalendar.PeriodFormScreen
 import com.maggie.app.ui.screens.fullcalendar.PeriodListScreen
@@ -1175,8 +1176,16 @@ fun NavGraph() {
         }
     }
 
-    // Jour and Périodes are siblings: from Périodes, back goes to the calendar.
+    // Aujourd'hui, Semaine, Mois and Périodes are siblings: from Périodes, back goes to the calendar.
     fun selectAgendaSection(section: AgendaSection) {
+        when (section.view) {
+            CalendarViewType.DAY -> {
+                calendarViewModel.goToToday()
+                calendarViewModel.setViewType(CalendarViewType.DAY)
+            }
+            null -> {}
+            else -> calendarViewModel.setViewType(section.view)
+        }
         val calendarInBackStack = runCatching { navController.getBackStackEntry(Screen.Calendar.route) }.isSuccess
         val action = agendaSectionAction(section, calendarInBackStack)
         val currentId = navController.currentBackStackEntry?.destination?.id
@@ -1696,7 +1705,7 @@ fun NavGraph() {
                         val task = selectedTask
                         val proaction = selectedProaction
                         Column(Modifier.fillMaxSize()) {
-                        AgendaTopBar(AgendaSection.DAY)
+                        AgendaTopBar(AgendaSection.of(calendarUiState.viewType))
                         ListDetailPane(
                             modifier = Modifier.weight(1f),
                             showsDetailPane = paneShown,
