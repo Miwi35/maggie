@@ -12,6 +12,9 @@
 #       --github-output also writes the job outputs `ci.yml` reads, and a table
 #       to the job summary.
 #
+#       --diff (or E2E_COVERAGE_DIFF) / --base: the change's `git diff -U0`, read
+#       with or without a line map — by the line map, and by the registry files.
+#
 #       --coverage-map (or E2E_COVERAGE_MAP): the nightly's line → journeys map
 #       (scripts/e2e/coverage/build-map.py, spec « Sélection e2e par
 #       couverture »). The changed lines come from --diff (or E2E_COVERAGE_DIFF),
@@ -207,25 +210,34 @@ cmd_select() {
   trap 'rm -rf "$SELECT_TMP"' EXIT
   echo null >"$SELECT_TMP/map.json"
   echo '[]' >"$SELECT_TMP/diff.json"
+  # The change's diff, read whenever it is given — with or without a line map: the
+  # registry files read it too. The nightly (--all) reads none.
+  DIFF_REASON='no diff to read the changed lines from'
+  HAVE_DIFF=false
+  if [ "$all" != true ]; then
+    if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
+      cp "$diff_file" "$SELECT_TMP/changes.diff"
+      HAVE_DIFF=true
+    elif [ -n "$base" ]; then
+      if git -C "$E2E_ROOT" diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base...HEAD" >"$SELECT_TMP/changes.diff"; then
+        HAVE_DIFF=true
+      else
+        DIFF_REASON="no diff against $base"
+      fi
+    fi
+    if [ "$HAVE_DIFF" = true ] && ! diff_hunks <"$SELECT_TMP/changes.diff" | jq -s . >"$SELECT_TMP/diff.json"; then
+      HAVE_DIFF=false
+      DIFF_REASON="the diff cannot be read"
+      echo '[]' >"$SELECT_TMP/diff.json"
+    fi
+  fi
   load_coverage_map "$coverage_map"
   if [ "$all" = true ]; then
     COVERAGE_FILE=''
     COVERAGE_REASON='the whole suite plays'
-  elif [ -n "$COVERAGE_FILE" ]; then
-    if [ -n "$diff_file" ] && [ -f "$diff_file" ]; then
-      diff_hunks <"$diff_file" | jq -s . >"$SELECT_TMP/diff.json" \
-        || COVERAGE_REASON="the diff $diff_file cannot be read"
-    elif [ -n "$base" ]; then
-      { git -C "$E2E_ROOT" diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base...HEAD" \
-          | diff_hunks | jq -s . >"$SELECT_TMP/diff.json"; } \
-        || COVERAGE_REASON="no diff against $base"
-    else
-      COVERAGE_REASON='no diff to read the changed lines from'
-    fi
-    if [ -n "$COVERAGE_REASON" ]; then
-      COVERAGE_FILE=''
-      echo '[]' >"$SELECT_TMP/diff.json"
-    fi
+  elif [ -n "$COVERAGE_FILE" ] && [ "$HAVE_DIFF" != true ]; then
+    COVERAGE_FILE=''
+    COVERAGE_REASON="$DIFF_REASON"
   fi
   if [ -n "$COVERAGE_FILE" ]; then
     cp "$COVERAGE_FILE" "$SELECT_TMP/map.json"

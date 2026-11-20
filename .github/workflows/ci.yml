@@ -283,7 +283,8 @@ jobs:
       # nightly runs of main — red ones too: a journey failing on the foldable
       # does not make the phone's and the web's coverage wrong, and the map is
       # only built when every lot left its coverage. impacted.sh ignores it
-      # past three days. Any failure here leaves no map — the zones, as before — and never a red check.
+      # past three days. The change's diff is written with or without a map: the
+      # registry files read it too. Any failure here leaves no map — the zones, as before — and never a red check.
       - name: Fetch the nightly's line map
         id: coverage
         if: contains(fromJSON('["pull_request","merge_group","push"]'), github.event_name)
@@ -296,6 +297,18 @@ jobs:
         run: |
           dir="$RUNNER_TEMP/e2e-coverage"
           mkdir -p "$dir"
+          # The changed lines: against the merge commit's base on a pull request,
+          # against the main the group (or the push) was built on otherwise.
+          if [ "$EVENT" = pull_request ]; then
+            base="$(git rev-parse HEAD^1)"
+          else
+            base="$BASE_SHA"
+            git fetch --no-tags --depth=1 origin "$base" \
+              || { echo "::notice::base $base cannot be fetched: registry files and zones alone"; exit 0; }
+          fi
+          git diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base" HEAD > "$dir/changes.diff" \
+            || { echo "::notice::no diff against $base: registry files and zones alone"; exit 0; }
+          echo "diff=$dir/changes.diff" >> "$GITHUB_OUTPUT"
           ids="$(gh run list --workflow nightly-e2e.yml --branch main --status completed -L 8 --json databaseId --jq '.[].databaseId')" \
             || { echo "::notice::no nightly run listed: journeys selected by zones, lots split as before"; exit 0; }
           # The durations of the journeys (`e2e-weights`, nightly-e2e.yml), which
@@ -319,21 +332,7 @@ jobs:
             fi
           done
           [ -s "$dir/map/e2e-coverage-map.json" ] || { echo "::notice::no line map in the last nightly runs: journeys selected by zones"; exit 0; }
-          # The changed lines: against the merge commit's base on a pull request,
-          # against the main the group (or the push) was built on otherwise.
-          if [ "$EVENT" = pull_request ]; then
-            base="$(git rev-parse HEAD^1)"
-          else
-            base="$BASE_SHA"
-            git fetch --no-tags --depth=1 origin "$base" \
-              || { echo "::notice::base $base cannot be fetched: journeys selected by zones"; exit 0; }
-          fi
-          git diff -U0 --no-color --no-ext-diff -M --src-prefix=a/ --dst-prefix=b/ "$base" HEAD > "$dir/changes.diff" \
-            || { echo "::notice::no diff against $base: journeys selected by zones"; exit 0; }
-          {
-            echo "map=$dir/map/e2e-coverage-map.json"
-            echo "diff=$dir/changes.diff"
-          } >> "$GITHUB_OUTPUT"
+          echo "map=$dir/map/e2e-coverage-map.json" >> "$GITHUB_OUTPUT"
 
       # Jobs already green on this pull request (MAG-702): the draft's CI, or an
       # earlier run, passed them on the same content. Only a ready pull request;
