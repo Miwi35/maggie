@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AdminContext, testDataProvider } from 'react-admin'
+import { AdminContext, testDataProvider, useGetList } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { PeriodDialog } from './PeriodDialog'
 import type { Period } from './periodsApi'
@@ -46,6 +46,43 @@ describe('PeriodDialog (MAG-816)', () => {
     expect(params.id).toBe('/api/periods/01V')
     expect(params.data).toMatchObject({ allDay: true, startDate: '2026-10-18', endDate: '2026-10-21', startAt: null, endAt: null, rrule: null })
     await waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
+
+  test('an existing period keeps its agenda when the agendas are cached', async () => {
+    const OTHER = '/api/agendas/travail'
+    const agendas = [
+      { id: AGENDA, name: 'Défaut', color: '#e91e63', default: true },
+      { id: OTHER, name: 'Travail', color: '#2196f3', default: false },
+    ]
+    const update = vi.fn(() => Promise.resolve({ data: {} }))
+    const dataProvider = testDataProvider({
+      getList: vi.fn(() => Promise.resolve({ data: agendas, total: 2 })) as unknown as DataProvider['getList'],
+      update: update as unknown as DataProvider['update'],
+    })
+    const period = { ...VACANCES, agenda: OTHER }
+    // The same list read elsewhere (the page) leaves the agendas in the cache before the dialog opens.
+    const Cached = () => {
+      useGetList('agendas', { pagination: { page: 1, perPage: 50 }, sort: { field: 'name', order: 'ASC' }, filter: {} })
+      return null
+    }
+    const ui = (open: boolean, p: Period | null) => (
+      <AdminContext dataProvider={dataProvider}>
+        <Cached />
+        <PeriodDialog open={open} period={p} onClose={vi.fn()} />
+      </AdminContext>
+    )
+    const { rerender } = render(ui(false, null))
+    await waitFor(() => expect(dataProvider.getList).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    rerender(ui(true, period))
+
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByRole('combobox', { name: /Agenda/ })).toHaveTextContent('Travail'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    const params = (update.mock.calls[0] as unknown as [string, { data: Record<string, unknown> }])[1]
+    expect(params.data.agenda).toBe(OTHER)
   })
 
   test('all day hides the hours', async () => {
