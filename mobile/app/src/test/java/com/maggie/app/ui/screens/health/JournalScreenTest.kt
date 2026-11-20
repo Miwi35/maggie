@@ -146,7 +146,12 @@ class JournalScreenTest {
         compose.setContent { JournalScreen(viewModel(), onSelectSection = { picked += it }) }
         waitForEntry()
 
-        compose.onNodeWithTag(UiTags.JOURNAL_WEIGHT_VALUE, useUnmergedTree = true).assertTextEquals("71,6 kg · 07:12")
+        compose.onNodeWithTag(UiTags.JOURNAL_WEIGHT_VALUE, useUnmergedTree = true).assertTextEquals("71,6 kg")
+        compose.onNodeWithText("première pesée · 07:12", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Bilan calorique").assertExists()
+        compose.onNodeWithText("apport 1 500 · dépense 2 100", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Indicateurs").assertExists()
+        assertEquals(0, compose.onAllNodesWithText("Indicateurs du jour").fetchSemanticsNodes().size)
         compose.onNodeWithTag(UiTags.JOURNAL_STEPS_VALUE, useUnmergedTree = true).assertTextEquals("8 000")
         compose.onNodeWithTag(UiTags.JOURNAL_BALANCE_VALUE, useUnmergedTree = true).assertTextEquals("−600 kcal")
         compose.onNodeWithTag(UiTags.JOURNAL_SPORT_VALUE, useUnmergedTree = true).assertTextEquals("45 min")
@@ -166,6 +171,33 @@ class JournalScreenTest {
         compose.onNodeWithTag(UiTags.JOURNAL_WEIGHT_VALUE, useUnmergedTree = true).assertTextEquals("—")
         compose.onNodeWithTag(UiTags.JOURNAL_SPORT_VALUE, useUnmergedTree = true).assertTextEquals("—")
         compose.onNodeWithTag(UiTags.journalMood(7)).assertIsNotSelected()
+        compose.onNodeWithText("pas de pesée", useUnmergedTree = true).assertExists()
+        assertEquals(0, compose.onAllNodesWithText("apport", substring = true, useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `each scale says its value out of ten`() {
+        compose.setContent { JournalScreen(viewModel()) }
+        waitForEntry()
+
+        compose.onNodeWithText("7 / 10", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("4 / 10", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `a day not noted yet says no value out of ten`() {
+        compose.setContent { JournalScreen(viewModel(entry = HealthDay(date = "2026-11-07"), days = listOf(friday))) }
+        waitForEntry()
+
+        assertEquals(0, compose.onAllNodesWithText("/ 10", substring = true, useUnmergedTree = true).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `an empty note offers Note du jour`() {
+        compose.setContent { JournalScreen(viewModel(entry = today.copy(note = null))) }
+        waitForEntry()
+
+        compose.onNodeWithText("Note du jour", useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -174,9 +206,10 @@ class JournalScreenTest {
         waitForEntry()
 
         compose.onNodeWithTag(UiTags.journalPast("2026-11-06")).performScrollTo()
-        compose.onNodeWithText("ven. 6 nov.").assertExists()
+        compose.onNodeWithText("ven. 6").assertExists()
         compose.onNodeWithText("Fatigué le soir").assertExists()
-        compose.onNodeWithText("M 6 · F 5").assertExists()
+        compose.onNodeWithText("M 6").assertExists()
+        compose.onNodeWithText("F 5").assertExists()
         // Today is the entry, not a previous day.
         assertEquals(0, compose.onAllNodesWithTag(UiTags.journalPast("2026-11-07")).fetchSemanticsNodes().size)
 
