@@ -435,6 +435,7 @@ cmd_select() {
     def trim: sub("^[ \t]+"; "") | sub("[ \t]+$"; "");
     def neutral: trim as $t | $t == "" or ($t | test("[A-Za-z]") | not)
       or ($t | test("^(//|/\\*|\\*)")) or ($t | test("^@[A-Za-z_][A-Za-z0-9_.]*(\\(.*\\))?$"));
+    def norm: gsub("[ \\t]+"; "") | sub(",$"; "");
     def import_entries:
       (trim | capture("^import[ \t]+(?<p>com\\.maggie\\.app\\.[A-Za-z0-9_.]+)")? // null) as $c
       | if $c == null then [] else
@@ -465,14 +466,23 @@ cmd_select() {
           | [ $d.hunks[] as $h
               | ([$h.minus[] | tokens] | add // []) as $mt
               | ([$h.plus[] | tokens] | add // []) as $pt
-              | ($h.minus[] | {l: ., other: $pt}), ($h.plus[] | {l: ., other: $mt})
-              | select(.l | neutral | not)
-              | . as $x
-              | (($x.l | tokens) - $x.other) as $own
-              | select(($own | length) > 0)
-              | ([$x.l | import_entries[] | .path] + [$own[] | $table[.] // empty] | unique) as $paths
-              | ([$paths[] | path_res(.; $p)] + [word_res([$own[] | words]; $p)])
-              | {all: any(.[]; .all), journeys: ([.[].journeys[]] | unique), areas: ([.[].areas[]] | unique)}
+              | ([$h.plus[] | norm]) as $pn | ([$h.minus[] | norm]) as $mn
+              | [($h.minus[] | {l: ., other: $pt, twin: $pn}), ($h.plus[] | {l: ., other: $mt, twin: $mn})
+                 | select(.l | neutral | not)
+                 | . as $x
+                 | select(($x.twin | index($x.l | norm)) == null)
+                 | $x + {own: (($x.l | tokens) - $x.other)}] as $items
+              # A line whose identifiers all sit on the other side is the unchanged
+              # part of a modified line — unless nothing in the hunk has its own
+              # identifier (`!x` → `x`, `===` → `!==`): that change names nothing.
+              | ($items | any(.[]; (.own | length) > 0)) as $has
+              | $items[]
+              | if (.own | length) == 0 then (if $has then empty else {all: false, journeys: [], areas: []} end)
+                else . as $x | .own as $own
+                  | ([$x.l | import_entries[] | .path] + [$own[] | $table[.] // empty] | unique) as $paths
+                  | ([$paths[] | path_res(.; $p)] + [word_res([$own[] | words]; $p)])
+                  | {all: any(.[]; .all), journeys: ([.[].journeys[]] | unique), areas: ([.[].areas[]] | unique)}
+                end
               | . + {ok: (.all or (.journeys | length) > 0)} ] as $rs
           | if any($rs[]; .ok | not) then null
             else ($rs | any(.[]; .all)) as $all
