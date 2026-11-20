@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Repository\ProductRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'search_products', description: 'Search all products (food and non-food) by name. Returns matching products with id, name, category, and type.')]
+#[McpTool(name: 'search_products', description: 'Searches products (food and non-food) by name; returns id, name, category and type.')]
 class SearchProductsTool
 {
     public function __construct(

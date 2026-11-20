@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_aisles', description: 'List, create, update (rename and/or move), reorder or delete the aisles of a store. Aisles are the shelves of one store in the order the user walks through it (position 1 = first); the grocery list shows each store\'s items aisle by aisle in that order, items without an aisle last. list/create/reorder need storeId; update/delete need aisleId. create puts the aisle last unless position says where. reorder takes aisleIds: every aisle of the store, first one first. Deleting an aisle leaves its products without an aisle in that store. To put a product in an aisle, use assign_product_store.')]
+#[McpTool(name: 'manage_aisles', description: 'Actions: list, create, update (rename and/or move), reorder, delete the aisles of a store, in walking order (position 1 first). list, create, reorder need storeId; update, delete need aisleId. create is last unless position is given. reorder takes aisleIds (all of the store). Deleting leaves its products without an aisle there.')]
 class ManageAislesTool
 {
     public function __construct(

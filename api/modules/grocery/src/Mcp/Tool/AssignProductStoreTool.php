@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'assign_product_store', description: 'Set the preferred/fallback store, the shelf life and the aisle of a product. shelfLifeDays indicates how many days the product stays fresh (null = non-perishable). aisle puts the product in an aisle of a store, by aisle id or by name — a name the store does not have yet creates the aisle, last on the way through the store (see manage_aisles); an empty string leaves the product without an aisle there. The aisle is in aisleStoreId, else in the preferred store (the one given here, or the product\'s). A product has one aisle per store: « Crèmerie » at one store and « Frais » at another are two calls.')]
+#[McpTool(name: 'assign_product_store', description: 'Sets a product\'s preferredStoreId, fallbackStoreId, shelfLifeDays (null: non-perishable) and aisle: id or name (an unknown name creates it, see manage_aisles; empty string: none). The aisle applies to aisleStoreId, else the preferred store.')]
 class AssignProductStoreTool
 {
     public function __construct(
