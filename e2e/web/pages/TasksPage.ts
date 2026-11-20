@@ -34,6 +34,10 @@ export class TasksPage extends AdminShell {
   readonly newTask: Locator
   /** The form of a task, « Nouvelle tâche » or « Modifier la tâche » (MAG-723). */
   readonly form: Locator
+  /** « Répéter » of the form: its menu is a combobox, « Toutes les deux semaines » an option of it (MAG-888). */
+  readonly repeatField: Locator
+  /** « Jusqu’au » of the form, shown once the task repeats (MAG-888). */
+  readonly untilField: Locator
   /** « Routines », the link to the routines from the page's header. */
   readonly routinesLink: Locator
   /** The sheet of a task, a 420 px panel beside the list (MAG-644). */
@@ -75,6 +79,8 @@ export class TasksPage extends AdminShell {
     this.title = this.content.getByText(/^Tâches · /)
     this.newTask = this.content.getByRole('button', { name: '+ Nouvelle tâche', exact: true })
     this.form = page.getByRole('dialog', { name: /^(Nouvelle tâche|Modifier la tâche)$/ })
+    this.repeatField = this.form.getByRole('combobox', { name: 'Répéter', exact: true })
+    this.untilField = this.form.getByRole('button', { name: /^Jusqu’au/ })
     this.routinesLink = this.content.getByRole('link', { name: 'Routines', exact: true })
     this.sheet = page.getByRole('complementary', { name: 'Fiche de la tâche' })
     this.now = this.content.getByRole('region', { name: 'Maintenant' })
@@ -190,6 +196,11 @@ export class TasksPage extends AdminShell {
   /** The row of a task in the list on screen. */
   row(title: string): Locator {
     return this.content.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
+  }
+
+  /** ↻ « Répétée » on the row of a repeating open task (MAG-888). */
+  repeatMark(row: Locator): Locator {
+    return row.getByTestId('task-repeat')
   }
 
   /** The checkbox that ticks a task off, or reopens it. */
