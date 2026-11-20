@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { buildTimeline, clock, rowTime, scheduleLabel, untilLabel } from './agendaTimeline'
+import { buildTimeline, clock, rowTime, scheduleLabel, tripLine, untilLabel } from './agendaTimeline'
+import type { Trip } from '../../calendar/trips'
 import type { AgendaHomeEvent } from './agendaTimeline'
 
 const timed = (id: string, startAt: string, endAt: string, extra: Partial<AgendaHomeEvent> = {}): AgendaHomeEvent => ({
@@ -102,5 +103,54 @@ describe('labels', () => {
     )
     expect(scheduleLabel(allDay)).toBe('Mardi 13 octobre – Jeudi 15 octobre')
     expect(scheduleLabel({ ...allDay, startDate: '2026-10-15', endDate: '2026-10-16', lastDay: '2026-10-15' })).toBe('Jeudi 15 octobre')
+  })
+})
+
+const tripOf = (id: string, event: string, departAt: string, extra: Partial<Trip> = {}): Trip => ({
+  id,
+  event: `/api/events/${event}`,
+  mode: 'drive',
+  steps: [],
+  durationMinutes: 21,
+  departAt,
+  navigationUrl: 'https://waze.com/x',
+  originLabel: 'la maison',
+  ...extra,
+})
+
+describe('trips on the timeline', () => {
+  const out = tripOf('out', 'next', '2026-10-14T14:30:00+02:00')
+  const home = tripOf('home', 'next', '2026-10-14T16:10:00+02:00', { leg: 'return', arriveAt: '2026-10-14T16:24:00+02:00' })
+  const eve = tripOf('eve', 'later', '2026-10-14T17:30:00+02:00')
+
+  test('trips sit with their event, soonest first', () => {
+    const { following } = buildTimeline([next, later], NOW, [home, eve, out])
+
+    expect(following.map((row) => row.trips.map((t) => t.id))).toEqual([['out', 'home'], ['eve']])
+  })
+
+  test('the next departure is the first trip still to leave', () => {
+    expect(buildTimeline([next, later], NOW, [eve, out]).nextTripId).toBe('out')
+  })
+
+  test('once its time passes the next departure is the following trip', () => {
+    expect(buildTimeline([next, later], Date.parse('2026-10-14T14:31:00+02:00'), [out, eve]).nextTripId).toBe('eve')
+  })
+
+  test('tomorrow has trips and no next departure', () => {
+    const timeline = buildTimeline([next], null, [out])
+
+    expect(timeline.nextTripId).toBeNull()
+    expect(timeline.following[0].trips).toHaveLength(1)
+  })
+
+  test('a trip line reads Partir à then depuis, and Parti à once left', () => {
+    expect(tripLine(eve, NOW)).toEqual({ verb: 'Partir à 17:30', from: '· depuis la maison', past: false })
+    expect(tripLine(out, Date.parse('2026-10-14T14:31:00+02:00'))).toMatchObject({ verb: 'Parti à 14:30', past: true })
+    expect(tripLine({ ...eve, originLabel: '' }, NOW).from).toBe('')
+  })
+
+  test('a return keeps Retour · Partir à … · arrivée …', () => {
+    expect(tripLine(home, NOW).verb).toBe('Retour · Partir à 16:10 · arrivée 16:24')
   })
 })

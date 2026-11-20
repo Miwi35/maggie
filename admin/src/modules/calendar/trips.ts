@@ -21,6 +21,8 @@ export interface Trip {
   originLabel: string
   /** A return's arrival: `departAt` + the duration. */
   arriveAt?: string | null
+  /** When the API last computed the route. */
+  computedAt?: string | null
 }
 
 export const hourOf = (iso: string): string => {
