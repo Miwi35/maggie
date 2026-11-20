@@ -152,9 +152,11 @@ object DeepLinks {
         data class Draft(val text: String) : ChatTarget
     }
 
+    fun isMessageId(value: String): Boolean = MESSAGE_ID.matches(value)
+
     fun chatTarget(message: String?): ChatTarget {
         val value = message?.trim().orEmpty()
-        return if (MESSAGE_ID.matches(value)) ChatTarget.Message(value) else ChatTarget.Draft(value)
+        return if (isMessageId(value)) ChatTarget.Message(value) else ChatTarget.Draft(value)
     }
 
     fun chatDraft(message: String?): String = (chatTarget(message) as? ChatTarget.Draft)?.text.orEmpty()
