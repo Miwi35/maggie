@@ -76,13 +76,8 @@ tags:
 - tapOn:
     id: "task_form_submit"
 
-# The sheet reads the rule.
-- extendedWaitUntil:
-    visible:
-      id: "task_detail_repeat"
-    timeout: 30000
-- assertVisible: ".*Un mardi sur deux.*"
-
+# Saving closes the form on the screen the link was opened from: the API holds the rule, then the sheet
+# is opened again and reads it.
 - runScript:
     file: ../scripts/task-schedule-api.js
     env:
@@ -91,6 +86,14 @@ tags:
       TITLE: ${output.title}
       TODAY: ${TODAY}
       TASK_ID: ${output.taskId}
+
+- openLink: "maggie-e2e://task/${output.taskId}"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail_repeat"
+    timeout: 30000
+- assertVisible: ".*Un mardi sur deux.*"
+- back
 
 # Tâches › Tâches: the row carries ↻.
 - back
