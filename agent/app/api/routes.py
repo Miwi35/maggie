@@ -207,7 +207,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
     said, screen = split_screen_context(request.message, request.screen_context)
     said, screen = hold_secrets(said, screen)
     screen = with_reply(screen, request.in_reply_to)
-    grant_approval_answer(user_id, request.in_reply_to)
+    await grant_approval_answer(user_id, request.in_reply_to, said, llm_gateway.client)
     logger.info(f"Chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     # A screenshot, or the message it answers, makes it another message, whatever the words say:
@@ -304,7 +304,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     said, screen = split_screen_context(request.message, request.screen_context)
     said, screen = hold_secrets(said, screen)
     screen = with_reply(screen, request.in_reply_to)
-    grant_approval_answer(user_id, request.in_reply_to)
+    await grant_approval_answer(user_id, request.in_reply_to, said, llm_gateway.client)
     logger.info(f"Stream chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     key = request.idempotency_key

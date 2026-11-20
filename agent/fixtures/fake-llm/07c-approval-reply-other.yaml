@@ -1,0 +1,9 @@
+# The approval-reply classifier reads anything else as other (MAG-893): « oui mais à 15 h » decides nothing.
+name: approval-reply-other
+description: Classify a conditional or unclear answer as other.
+
+match:
+  system_contains: "tu classes la réponse"
+
+turns:
+  - text: '{"answer": "other"}'

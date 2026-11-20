@@ -1,0 +1,10 @@
+# The approval-reply classifier reads a plain yes (MAG-893): « oui, vas-y », « autorise ».
+name: approval-reply-yes
+description: Classify an unconditional yes as approve.
+
+match:
+  system_contains: "tu classes la réponse"
+  user_matches: '(?i)^\W*(oui|vas-y|d.accord|autorise)(\W+(oui|vas-y|autorise))?\W*$'
+
+turns:
+  - text: '{"answer": "approve"}'

@@ -1,0 +1,15 @@
+# « Oui mais à 15 h » dictated on a validation (MAG-893): the fake model wrongly approves, on purpose —
+# the code's guard (the classifier read « other ») is what the tests prove.
+name: reply-approval-a-condition
+description: Mistakenly approve a held action the owner answered with a condition.
+
+match:
+  user_matches: "(?is)approvalId : (\\w+).*oui mais"
+
+turns:
+  - tools:
+      - name: answer_approval
+        input:
+          approval_id: "\\1"
+          decision: approve
+  - text: "Je n'ai rien supprimé. À quelle heure voulez-vous que je le fasse ?"

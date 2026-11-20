@@ -16,6 +16,7 @@ TRIP = "trip"
 NIGHT = "night"
 PROACTION = "proaction"
 UTILITY = "utility"
+APPROVAL_REPLY = "approval_reply"
 
 MODEL_BY_RUN: dict[str, str] = {
     CHAT: "sonnet",  # conversation, interruption, overlay, validated action
@@ -25,6 +26,7 @@ MODEL_BY_RUN: dict[str, str] = {
     NIGHT: "haiku",
     PROACTION: "haiku",
     UTILITY: "haiku",  # context summary, transcription, style, encoder
+    APPROVAL_REPLY: "sonnet",  # owner's answer to a held action (blocking, irreversible)
 }
 
 
@@ -37,6 +39,7 @@ EFFORT_BY_RUN: dict[str, str] = {
     NIGHT: "low",
     PROACTION: "low",
     UTILITY: "low",
+    APPROVAL_REPLY: "low",
 }
 
 # Prefixes of the models that refuse `effort`.

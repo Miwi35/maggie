@@ -1,0 +1,10 @@
+# The approval-reply classifier reads a plain no (MAG-893): « non », « laisse tomber ».
+name: approval-reply-no
+description: Classify an unconditional no as deny.
+
+match:
+  system_contains: "tu classes la réponse"
+  user_matches: '(?i)^\W*(non|refuse|laisse tomber)(\W+(non|laisse tomber|merci))?\W*$'
+
+turns:
+  - text: '{"answer": "deny"}'

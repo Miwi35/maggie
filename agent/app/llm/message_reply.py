@@ -15,6 +15,8 @@ import time
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
 
+from app.policy.reply_classifier import classify_approval_reply
+
 logger = logging.getLogger(__name__)
 
 HEADER = "[Réponse à un message de Maggie]"
@@ -31,9 +33,10 @@ REMINDER_BUTTONS = {
 _MAX_TEXT = 500
 
 # What the owner has just said yes or no to, from his own device: the model may not decide a held action by itself,
-# even one it triggered and whose id it saw. In memory, like a turn in flight: after a restart it says it could not.
+# even one it triggered and whose id it saw. The decision read by the classifier travels with the grant.
+# In memory, like a turn in flight: after a restart it says it could not.
 _GRANT_TTL_S = 600
-_grants: dict[tuple[str, str], float] = {}
+_grants: dict[tuple[str, str], tuple[float, str]] = {}
 
 
 class ReplyTo(BaseModel):
@@ -50,19 +53,23 @@ class ReplyTo(BaseModel):
     buttons: list[str] = Field(default_factory=list, max_length=12)
 
 
-def grant_approval_answer(user_id: str, reply: ReplyTo | None) -> None:
-    """The owner answers this validation in the turn that starts now: `answer_approval` may decide it, once."""
+async def grant_approval_answer(user_id: str, reply: ReplyTo | None, said: str, client) -> None:
+    """The owner answers this validation in the turn that starts now: `answer_approval` may decide it, once, as read."""
     if reply is None or not reply.approval_id:
         return
+    decision = await classify_approval_reply(client, said, user_id)
     now = time.monotonic()
-    for key in [key for key, until in _grants.items() if until <= now]:
+    for key in [key for key, (until, _) in _grants.items() if until <= now]:
         del _grants[key]
-    _grants[(user_id, reply.approval_id)] = now + _GRANT_TTL_S
+    _grants[(user_id, reply.approval_id)] = (now + _GRANT_TTL_S, decision)
 
 
-def _take_grant(user_id: str, approval_id: str) -> bool:
-    until = _grants.pop((user_id, approval_id), None)
-    return until is not None and until > time.monotonic()
+def _take_grant(user_id: str, approval_id: str) -> str | None:
+    """The decision the owner's answer was read as, if still valid; always consumed."""
+    grant = _grants.pop((user_id, approval_id), None)
+    if grant is None or grant[0] <= time.monotonic():
+        return None
+    return grant[1]
 
 
 def reply_block(reply: ReplyTo) -> str:
@@ -141,8 +148,11 @@ async def handle_answer_approval(arguments: dict, user_id: str) -> str:
     if not isinstance(approval_id, str) or decision not in {"approve", "deny"}:
         return json.dumps({"error": "approval_id and decision (approve or deny) are required"})
 
-    if not _take_grant(user_id, approval_id):
+    granted = _take_grant(user_id, approval_id)
+    if granted is None:
         return json.dumps({"error": "Only the owner's answer to this validation can decide it; ask him."})
+    if granted != decision:
+        return json.dumps({"error": "Sa réponse n'est pas un oui ou un non net : rien n'est décidé."})
 
     try:
         if decision == "approve":
