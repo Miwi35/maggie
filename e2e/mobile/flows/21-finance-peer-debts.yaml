@@ -10,7 +10,9 @@ tags:
 # Alors la tuile Comptes affiche « Tu dois 80 € »
 # Quand je touche la pastille
 # Alors « Créances et dettes » s'ouvre, avec « On te doit » 200 € et « Tu dois » 280 €
-# Et la ligne de Tom, dépliée, dit que les deux se compensent : un seul virement de 80 € à Tom solde tout
+# Et la ligne de Tom dit « tu dois à Tom », sans phrase de compensation
+# Quand je touche Tom
+# Alors « Les deux se compensent : un seul virement de 80 € à Tom solde tout » apparaît
 # Quand je passe à « Par objet »
 # Alors le gîte et l'essence y sont, chacun avec son montant
 #
@@ -67,6 +69,9 @@ tags:
       id: "peer_debts_person"
     timeout: 30000
 - assertVisible: ".*Tom.*"
+- assertVisible: "tu dois à Tom"
+- assertNotVisible:
+    id: "peer_debts_compensation"
 - tapOn:
     id: "peer_debts_person"
 - extendedWaitUntil:

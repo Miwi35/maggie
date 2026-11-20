@@ -152,6 +152,13 @@ fun balanceLabel(netCents: Int, currency: String = "EUR"): String = when {
     else -> "quitte"
 }
 
+/** « Emma te doit » / « tu dois à Tom » / « quittes »: who owes whom, under a person's name. */
+fun balanceVerdict(name: String, netCents: Int): String = when {
+    netCents > 0 -> "$name te doit"
+    netCents < 0 -> "tu dois à $name"
+    else -> "quittes"
+}
+
 /** « Les deux se compensent : un seul virement de 80 € à Tom solde tout » — null when nothing compensates. */
 fun compensationLabel(name: String, netCents: Int, currency: String = "EUR"): String? = when {
     netCents > 0 -> "Les deux se compensent : un seul virement de ${formatCents(netCents, currency)} de $name solde tout"
