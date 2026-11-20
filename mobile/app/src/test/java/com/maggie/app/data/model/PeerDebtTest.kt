@@ -101,6 +101,13 @@ class PeerDebtTest {
     }
 
     @Test
+    fun `balanceVerdict says who owes whom`() {
+        assertEquals("Emma te doit", balanceVerdict("Emma", 20000))
+        assertEquals("tu dois à Tom", balanceVerdict("Tom", -8000))
+        assertEquals("quittes", balanceVerdict("Inès", 0))
+    }
+
+    @Test
     fun `a person's balance is worded by its sign, and a compensation names the one transfer that settles all`() {
         assertEquals("te doit ${formatCents(20000)}", balanceLabel(20000))
         assertEquals("tu lui dois ${formatCents(8000)}", balanceLabel(-8000))
