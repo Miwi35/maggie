@@ -94,6 +94,15 @@ export async function fetchStoreProductCount(storeId: string): Promise<number> {
   return Number(body?.totalItems ?? body?.member?.length ?? 0)
 }
 
+/** How many products one aisle of a store holds: the ones the product list filtered on both shows. */
+export async function fetchAisleProductCount(storeId: string, aisleId: string, signal?: AbortSignal): Promise<number> {
+  const query = new URLSearchParams({ store: bareId(storeId), aisle: bareId(aisleId), itemsPerPage: '1' })
+  const response = await call(`/products?${query}`, 'GET', undefined, signal)
+  if (!response.ok) throw new AisleError(`products: ${response.status}`)
+  const body = await response.json()
+  return Number(body?.totalItems ?? body?.member?.length ?? 0)
+}
+
 /** Adds an aisle at the end of the store's way. */
 export async function createAisle(storeId: string, name: string): Promise<Aisle> {
   const response = await call('/aisles', 'POST', { store: `/api/stores/${bareId(storeId)}`, name })
