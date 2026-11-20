@@ -11,7 +11,7 @@ from app.llm.gateway import LLMGateway
 from app.llm.last_exchange import last_exchange_section
 from app.llm.streaming import StreamingGateway
 from app.memory.agent_memory import MemoryBlocks
-from app.personality.engine import last_exchange_line
+from app.personality.engine import last_exchange_line, unanswered_line
 
 
 async def _write(
@@ -120,6 +120,72 @@ class TestYesterdayInTheUsersTimezone:
         assert "aujourd'hui" in last_exchange_line(last, now=now)
 
 
+class TestFindUnanswered:
+    async def test_her_messages_after_the_answer_to_his_last_one_count(self, chat_db):
+        await _write(chat_db, "Question", 50)
+        await _write(chat_db, "Réponse", 49, role="assistant")
+        await _write(chat_db, "Rappel", 30, role="assistant")
+        await _write(chat_db, "Digest", 10, role="assistant")
+
+        found = await message_repo.find_unanswered("user-1")
+
+        assert [m.content for m in found] == ["Rappel", "Digest"]
+
+    async def test_the_answer_to_his_message_does_not_count(self, chat_db):
+        await _write(chat_db, "Question", 50)
+        await _write(chat_db, "Réponse", 49, role="assistant")
+
+        assert await message_repo.find_unanswered("user-1") == []
+
+    async def test_his_reply_resets_the_count(self, chat_db):
+        await _write(chat_db, "Rappel 1", 50, role="assistant")
+        await _write(chat_db, "Rappel 2", 40, role="assistant")
+        await _write(chat_db, "Merci", 30)
+
+        assert await message_repo.find_unanswered("user-1") == []
+
+    async def test_without_a_message_from_him_all_of_hers_count(self, chat_db):
+        await _write(chat_db, "Rappel 1", 50, role="assistant")
+        await _write(chat_db, "Rappel 2", 40, role="assistant")
+
+        assert len(await message_repo.find_unanswered("user-1")) == 2
+
+    async def test_the_message_being_answered_is_skipped(self, chat_db):
+        await _write(chat_db, "Ancien", 60)
+        await _write(chat_db, "Réponse", 59, role="assistant")
+        await _write(chat_db, "Rappel 1", 50, role="assistant")
+        await _write(chat_db, "Rappel 2", 40, role="assistant")
+        await _write(chat_db, "Salut", 0, message_id="current")
+
+        found = await message_repo.find_unanswered("user-1", exclude_id="current")
+
+        assert [m.content for m in found] == ["Rappel 1", "Rappel 2"]
+
+    async def test_another_users_messages_do_not_count(self, chat_db):
+        await _write(chat_db, "Rappel 1", 50, role="assistant", user_id="user-2")
+        await _write(chat_db, "Rappel 2", 40, role="assistant", user_id="user-2")
+
+        assert await message_repo.find_unanswered("user-1") == []
+
+
+class TestUnansweredLine:
+    def test_the_line_says_how_many_and_since_when(self):
+        now = datetime(2026, 11, 20, 14, 0, tzinfo=ZoneInfo("Europe/Paris"))
+
+        today = unanswered_line(3, now - timedelta(hours=2), now=now)
+        earlier = unanswered_line(2, now - timedelta(days=1, hours=1), now=now)
+
+        assert today == "Il n'a pas répondu à tes 3 derniers messages ; le premier date d'aujourd'hui à 12h00 (il y a 2h)."
+        assert "le premier date de hier à 13h00 (il y a 25h)" in earlier
+
+    def test_the_gap_crosses_a_clock_change_in_utc(self):
+        paris = ZoneInfo("Europe/Paris")
+        first = datetime(2026, 10, 24, 23, 0, tzinfo=paris)
+        now = datetime(2026, 10, 25, 9, 0, tzinfo=paris)
+
+        assert "(il y a 11h)" in unanswered_line(2, first, now=now)
+
+
 class TestLastExchangeSection:
     async def test_the_line_carries_the_gap_and_the_thread_label(self, chat_db):
         context_id = await _context(chat_db, "Menus de la semaine")
@@ -165,6 +231,34 @@ class TestLastExchangeSection:
 
         assert "(il y a 10 min)" in section
         assert "sujet" not in section
+
+    async def test_two_unanswered_messages_add_the_line(self, chat_db):
+        await _write(chat_db, "Question", 90)
+        await _write(chat_db, "Réponse", 89, role="assistant")
+        await _write(chat_db, "Rappel 1", 60, role="assistant")
+        await _write(chat_db, "Rappel 2", 30, role="assistant")
+
+        section = await last_exchange_section("user-1")
+
+        assert "Dernière conversation" in section
+        assert "Il n'a pas répondu à tes 2 derniers messages ; le premier date d'aujourd'hui" in section
+        assert section.index("Dernière conversation") < section.index("Il n'a pas répondu")
+
+    async def test_one_unanswered_message_adds_nothing(self, chat_db):
+        await _write(chat_db, "Question", 90)
+        await _write(chat_db, "Réponse", 89, role="assistant")
+        await _write(chat_db, "Rappel", 30, role="assistant")
+
+        assert "Il n'a pas répondu" not in await last_exchange_section("user-1")
+
+    async def test_a_failing_count_costs_the_line_not_the_last_exchange(self, chat_db):
+        await _write(chat_db, "Salut", 10)
+
+        with patch.object(message_repo, "find_unanswered", AsyncMock(side_effect=RuntimeError("boom"))):
+            section = await last_exchange_section("user-1")
+
+        assert "(il y a 10 min)" in section
+        assert "Il n'a pas répondu" not in section
 
     async def test_a_database_failure_costs_the_line_not_the_answer(self):
         with patch.object(message_repo, "find_last", AsyncMock(side_effect=RuntimeError("boom"))):
@@ -224,6 +318,23 @@ class TestSystemPrompts:
 
         assert "(il y a 10h)" in blocks[1]["text"]
         assert blocks[1]["text"].endswith("Tu es en mode proaction.")
+
+    async def test_a_proaction_knows_it_was_left_unanswered(self, chat_db):
+        await _write(chat_db, "Rappel 1", 120, role="assistant")
+        await _write(chat_db, "Rappel 2", 60, role="assistant")
+
+        with (
+            patch("app.llm.gateway.last_exchange_section", last_exchange_section),
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.llm.gateway.skill_index") as skills,
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            skills.get_skills_index.return_value = ""
+            skills.skills_for_moment.return_value = ""
+            skills.refresh = AsyncMock()
+            blocks = await _llm_gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
+
+        assert "Il n'a pas répondu à tes 2 derniers messages" in blocks[1]["text"]
 
     async def test_the_streamed_run_excludes_the_message_it_is_answering(self):
         gateway = _streaming_gateway()

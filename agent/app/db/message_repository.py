@@ -485,6 +485,28 @@ class MessageRepository:
             result = await session.execute(query.order_by(Message.created_at.desc()).limit(1))
             return result.scalars().first()
 
+    async def find_unanswered(self, user_id: str, exclude_id: str | None = None, limit: int = 20) -> list[Message]:
+        """Her messages sent since his last one, minus the first (the answer to it), oldest first (MAG-875).
+
+        `exclude_id` skips the message being answered. With no message from him, all of hers count.
+        """
+        async with agent_session() as session:
+            base = select(Message).where(Message.user_id == user_id)
+            if exclude_id:
+                base = base.where(Message.id != exclude_id)
+            last_user = (
+                (await session.execute(base.where(Message.role == "user").order_by(Message.created_at.desc()).limit(1)))
+                .scalars()
+                .first()
+            )
+            query = base.where(Message.role == "assistant")
+            if last_user is not None:
+                query = query.where(Message.created_at > last_user.created_at)
+            rows = list((await session.execute(query.order_by(Message.created_at.asc()).limit(limit + 1))).scalars())
+            if last_user is not None:
+                rows = rows[1:]
+            return rows[:limit]
+
     async def find_answer_to(self, user_id: str, question: Message) -> Message | None:
         """The first answer stored after a question — `POST /chat` stores its answer under no fixed id.
 
