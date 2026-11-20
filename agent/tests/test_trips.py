@@ -210,12 +210,12 @@ class TestTheGatewayOnAReplan:
         gateway, result, system = await _run(REPLAN_SUMMARY)
 
         assert "mode proaction sur les trajets" in system
-        assert "envoyé directement dans le chat" not in system
+        assert "part tel quel dans le chat" not in system
         assert "context_id" not in result
         gateway._resolve_proaction_context.assert_not_awaited()
 
     async def test_another_proaction_is_delivered_as_before(self):
         gateway, result, system = await _run("Rappel")
 
-        assert "envoyé directement dans le chat" in system
+        assert "part tel quel dans le chat" in system
         assert result["context_id"] == "ctx-1"

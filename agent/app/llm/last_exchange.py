@@ -5,6 +5,8 @@ say « rebonjour » after an evening away nor offer to pick the subject back up.
 built here goes in the volatile system block — it changes with every message, so in the
 cached prefix it would invalidate the cache every time.
 
+Also says how many of her messages he left unanswered, so she does not insist (MAG-875).
+
 Never raises: a database that will not answer costs the model the greeting's context,
 not the user the answer.
 """
@@ -14,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
-from app.personality.engine import last_exchange_line
+from app.personality.engine import UNANSWERED_MIN, last_exchange_line, unanswered_line
 
 logger = logging.getLogger(__name__)
 
@@ -44,4 +46,13 @@ async def last_exchange_section(
         except Exception as e:
             logger.warning(f"Could not read the thread of the last message: {e}")
 
-    return "\n" + last_exchange_line(last.created_at, topic, tz=tz)
+    section = "\n" + last_exchange_line(last.created_at, topic, tz=tz)
+
+    try:
+        unanswered = await message_repo.find_unanswered(user_id, exclude_id=exclude_message_id)
+    except Exception as e:
+        logger.warning(f"Could not count the unanswered messages: {e}")
+        return section
+    if len(unanswered) >= UNANSWERED_MIN:
+        section += "\n" + unanswered_line(len(unanswered), unanswered[0].created_at, tz=tz)
+    return section

@@ -416,6 +416,13 @@ class TestProactionConsumer:
 
         consumed.messages.create.assert_not_called()
 
+    async def test_a_blank_answer_is_a_silence(self):
+        """MAG-875: a check with nothing to say answers with whitespace at worst; nothing is stored or sent."""
+        consumed = await _consume({"response": "  \n", "tool_calls": [], "context_id": "ctx-1"})
+
+        consumed.messages.create.assert_not_called()
+        assert consumed.proactions.record.await_args.args[1] == "completed"
+
     async def test_the_message_is_stored_in_the_thread_the_gateway_routed_it_to(self):
         """Stored without one, the message is an orphan: the reply to it opens a thread of its own (MAG-14)."""
         consumed = await _consume(
@@ -531,7 +538,21 @@ class TestADueReminderIsDelivered:
 
         preamble = gateway._build_system_prompt.await_args.kwargs["preamble"]
         assert "maintenant" in preamble
-        assert "ne programme pas" in preamble.lower()
+        assert "ne le reprogramme pas" in preamble
+
+    async def test_a_proaction_runs_with_the_background_preamble(self):
+        from app.llm.gateway import EXECUTION_PREAMBLE
+
+        gateway, _ = await self._sent("Vérifie l'agenda.")
+
+        assert gateway._build_system_prompt.await_args.kwargs["preamble"] == EXECUTION_PREAMBLE
+
+    async def test_the_planning_does_not(self):
+        from app.llm.gateway import EXECUTION_PREAMBLE
+
+        gateway, _ = await self._sent("Planifie la journée", silent=True)
+
+        assert gateway._build_system_prompt.await_args.kwargs["preamble"] != EXECUTION_PREAMBLE
 
     async def test_a_planning_run_keeps_its_prompt(self):
         _, content = await self._sent("Planifie la journée", silent=True)

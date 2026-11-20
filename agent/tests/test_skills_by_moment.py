@@ -100,7 +100,7 @@ class TestProaction:
         assert "delivrer-un-rappel" in blocks[0]["text"]
         assert DELIVER.content in blocks[1]["text"]
         assert blocks[1]["cache_control"] == EPHEMERAL
-        assert "Tu es en mode proaction." in blocks[-1]["text"]
+        assert "Tu es en mode proaction" in blocks[-1]["text"]
         assert "cache_control" not in blocks[-1]
 
     async def test_no_skill_for_the_moment_leaves_the_prompt_as_it_was(self):

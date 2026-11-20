@@ -71,6 +71,20 @@ def _elapsed(gap: timedelta) -> str:
     return f"il y a {days} jour{'s' if days > 1 else ''}"
 
 
+UNANSWERED_MIN = 2
+
+
+def _day_word(last: datetime, now: datetime) -> str:
+    days = max((now.date() - last.date()).days, 0)
+    if days == 0:
+        return "aujourd'hui"
+    if days == 1:
+        return "hier"
+    if days == 2:
+        return "avant-hier"
+    return f"{DAYS_FR[last.weekday()]} {last.strftime('%Y-%m-%d')}"
+
+
 def last_exchange_line(
     last_at: datetime, topic: str | None = None, now: datetime | None = None, tz: ZoneInfo | None = None
 ) -> str:
@@ -84,20 +98,23 @@ def last_exchange_line(
     tz = tz or TZ_PARIS
     now = (now or datetime.now(tz)).astimezone(tz)
     last = last_at.astimezone(tz)
-    days = max((now.date() - last.date()).days, 0)
-    if days == 0:
-        when = "aujourd'hui"
-    elif days == 1:
-        when = "hier"
-    elif days == 2:
-        when = "avant-hier"
-    else:
-        when = f"{DAYS_FR[last.weekday()]} {last.strftime('%Y-%m-%d')}"
-
+    when = _day_word(last, now)
     gap = _elapsed(now.astimezone(UTC) - last.astimezone(UTC))
     line = f"Dernière conversation : {when} à {last.strftime('%Hh%M')} ({gap})"
     topic = " ".join((topic or "").split())
     return f"{line}, sujet : {topic}." if topic else f"{line}."
+
+
+def unanswered_line(count: int, first_at: datetime, now: datetime | None = None, tz: ZoneInfo | None = None) -> str:
+    """How many of her messages he left unanswered, and since when (MAG-875)."""
+    tz = tz or TZ_PARIS
+    now = (now or datetime.now(tz)).astimezone(tz)
+    first = first_at.astimezone(tz)
+    day = _day_word(first, now)
+    day = "d'aujourd'hui" if day == "aujourd'hui" else f"de {day}"
+    gap = _elapsed(now.astimezone(UTC) - first.astimezone(UTC))
+    at = first.strftime("%Hh%M")
+    return f"Il n'a pas répondu à tes {count} derniers messages ; le premier date {day} à {at} ({gap})."
 
 
 class PersonalityEngine:
