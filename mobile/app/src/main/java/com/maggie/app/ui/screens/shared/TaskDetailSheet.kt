@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -24,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -122,6 +125,16 @@ fun TaskDetailContent(
             // The programmation (MAG-718): its read lines only, nothing when not set.
             val schedule = TaskSchedule.of(task)
             schedule.readLabel(DateRanges.todayDate())?.let { DetailRow("Programmée", it) }
+            // The recurrence rule of the open occurrence (MAG-887), with its end day as a suffix.
+            task.rrule?.let { rule ->
+                val anchor = task.scheduledDay ?: task.dueDay
+                DetailRow(
+                    "Répéter",
+                    TaskRepeatText.ruleText(rule, anchor) + (TaskRepeatText.untilSuffix(rule) ?: ""),
+                    icon = Icons.Default.Sync,
+                    modifier = Modifier.testTag(UiTags.TASK_DETAIL_REPEAT),
+                )
+            }
             schedule.remindersToApi().takeIf { it.isNotEmpty() }?.let { minutes ->
                 DetailRow("Rappels", minutes.joinToString(", ") { taskReminderLabel(it) })
             }
@@ -178,14 +191,17 @@ fun TaskDetailContent(
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
-    Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+private fun DetailRow(label: String, value: String, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    Row(verticalAlignment = Alignment.Top, modifier = modifier.fillMaxWidth()) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(120.dp),
         )
+        if (icon != null) {
+            Icon(icon, contentDescription = null, modifier = Modifier.padding(end = 6.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(text = value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     }
 }

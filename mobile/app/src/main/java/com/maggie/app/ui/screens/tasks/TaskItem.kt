@@ -81,7 +81,7 @@ fun TaskItem(
             )
             // Urgency (MAG-406) and lateness (MAG-405) are said in words and with an icon,
             // never by colour alone.
-            if (task.urgency != null || daysLate != null || postponed != null) {
+            if (task.urgency != null || daysLate != null || postponed != null || TodayRows.repeats(task)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -91,6 +91,7 @@ fun TaskItem(
                         postponed != null -> PostponedLabel(postponed)
                         daysLate != null -> LateLabel(daysLate)
                     }
+                    if (TodayRows.repeats(task)) RepeatMark(task.id)
                 }
             }
         }

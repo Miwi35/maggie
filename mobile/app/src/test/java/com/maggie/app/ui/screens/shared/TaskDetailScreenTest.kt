@@ -182,4 +182,27 @@ class TaskDetailScreenTest {
         compose.onNodeWithText("Rappels").assertDoesNotExist()
         compose.onNodeWithText("Alertes").assertDoesNotExist()
     }
+
+    @Test
+    fun `a repeating task reads Répéter Un mardi sur deux under Programmée`() {
+        show(parent.copy(scheduledDate = "2026-11-24", rrule = "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"))
+
+        compose.onNodeWithText("Répéter").assertIsDisplayed()
+        compose.onNodeWithText("Un mardi sur deux").assertIsDisplayed()
+        assertTrue(top("Programmée") < top("Répéter"))
+    }
+
+    @Test
+    fun `a series with an end reads its suffix`() {
+        show(parent.copy(scheduledDate = "2026-11-24", rrule = "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;UNTIL=20261231"))
+
+        compose.onNodeWithText("Un mardi sur deux, jusqu’au jeu. 31 déc.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a task that does not repeat has no Répéter line`() {
+        show(parent.copy(scheduledDate = "2026-11-24"))
+
+        compose.onNodeWithText("Répéter").assertDoesNotExist()
+    }
 }

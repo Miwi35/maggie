@@ -94,4 +94,11 @@ class TodayRowsTest {
         assertNull(TodayRows.timerMinutesOf(task(minutes = 20)))
         assertNull(TodayRows.timerMinutesOf(task(timed = true, minutes = 20, completedAt = "2026-10-15T07:12:00Z")))
     }
+
+    @Test
+    fun `repeats only for an open task with a rule`() {
+        assertEquals(true, TodayRows.repeats(task().copy(rrule = "FREQ=DAILY")))
+        assertEquals(false, TodayRows.repeats(task()))
+        assertEquals(false, TodayRows.repeats(task(completedAt = "2026-10-15T08:00:00Z").copy(rrule = "FREQ=DAILY")))
+    }
 }
