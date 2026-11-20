@@ -10,6 +10,7 @@ from app.llm.prompt_cache import cache_tools
 from app.llm.provider_status import note_provider_failure, note_provider_success
 from app.llm.questions import asked_question, blocks_of
 from app.llm.tool_blocks import record
+from app.llm.tool_failures import FailureStreak
 from app.llm.web_search import PAUSE_TURN, answer_text, with_sources
 from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 
@@ -67,6 +68,8 @@ async def run_tool_loop(
     cached_tools = cache_tools(tools)
     guard = ClaimGuard(tools)
     reviewed = False
+    streak = FailureStreak()
+    stop_tools = False
 
     for iteration in range(max_iterations):
         logger.info(f"Calling Claude with {len(tools or [])} tools, {len(messages)} messages")
@@ -79,6 +82,7 @@ async def run_tool_loop(
                 system=system,
                 messages=messages,
                 tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
+                tool_choice={"type": "none"} if stop_tools else anthropic.NOT_GIVEN,
                 **({"output_config": {"effort": effort}} if effort else {}),
             )
             await note_provider_success()
@@ -108,8 +112,10 @@ async def run_tool_loop(
             messages.append({"role": "assistant", "content": response.content})
             continue
 
-        if response.stop_reason != "tool_use":
+        if response.stop_reason != "tool_use" or stop_tools:
             text_response = answer_text(response.content)
+            if stop_tools and not text_response:
+                return _outcome(ITERATION_LIMIT_MESSAGE, tool_calls_made, blocks, usage)
             verdict = guard.review(text_response, can_retry=iteration < max_iterations - 2)
             if verdict is Verdict.RETRY:
                 logger.warning("Action announced, nothing backs it: sending the model back")
@@ -139,9 +145,13 @@ async def run_tool_loop(
                 )
                 tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
                 guard.record(block.name, result, block.input)
+                streak.record(block.name, result)
                 tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
                 round_calls.append({"id": block.id, "name": block.name, "input": block.input, "result": result})
 
+        if streak.gave_up():
+            tool_results.append(streak.note(user_id, source))
+            stop_tools = True
         messages.append({"role": "user", "content": tool_results})
         # The same round, as plain data this time: `response.content` holds the SDK's own
         # block objects, which no column can store.

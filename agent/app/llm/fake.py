@@ -712,6 +712,7 @@ class FakeMessages:
         system: Any,
         messages: list[dict] | None,
         tools: Any,
+        tool_choice: Any = None,
     ) -> FakeMessage:
         user_text = last_user_text(messages)
         prompt = system_text(system)
@@ -736,6 +737,9 @@ class FakeMessages:
                 turn = Turn(text=no_turn_message(scenario.name, index + 1))
             else:
                 turn = found
+
+        if isinstance(tool_choice, dict) and tool_choice.get("type") == "none":
+            turn = Turn(text=turn.text)
 
         text = scenario.render(turn.text, user_text, history, results) if scenario else turn.text
 
@@ -802,9 +806,10 @@ class FakeMessages:
         system: Any = None,
         messages: list[dict] | None = None,
         tools: Any = None,
+        tool_choice: Any = None,
         **_ignored,
     ) -> FakeMessage:
-        return self._build(model=model, system=system, messages=messages, tools=tools)
+        return self._build(model=model, system=system, messages=messages, tools=tools, tool_choice=tool_choice)
 
     def stream(
         self,
@@ -813,11 +818,14 @@ class FakeMessages:
         system: Any = None,
         messages: list[dict] | None = None,
         tools: Any = None,
+        tool_choice: Any = None,
         **_ignored,
     ) -> FakeStream:
         # Not a coroutine: the real client's `stream()` returns the context
         # manager itself, and the gateway relies on that.
-        return FakeStream(self._build(model=model, system=system, messages=messages, tools=tools))
+        return FakeStream(
+            self._build(model=model, system=system, messages=messages, tools=tools, tool_choice=tool_choice)
+        )
 
 
 class FakeAnthropicClient:
