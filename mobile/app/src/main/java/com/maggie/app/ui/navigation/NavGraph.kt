@@ -173,6 +173,8 @@ import com.maggie.app.ui.screens.finance.PeriodReviewViewModel
 import com.maggie.app.ui.screens.finance.ReviewActivityViewModel
 import com.maggie.app.ui.screens.finance.LoanViewModel
 import com.maggie.app.ui.screens.finance.PlacementFormScreen
+import com.maggie.app.ui.screens.health.ActivityScreen
+import com.maggie.app.ui.screens.health.ActivityViewModel
 import com.maggie.app.ui.screens.health.ConfigurationScreen
 import com.maggie.app.ui.screens.health.ConfigurationViewModel
 import com.maggie.app.ui.screens.health.JournalScreen
@@ -312,6 +314,8 @@ sealed class Screen(val route: String, val label: String) {
     data object HealthJournal : Screen("health/journal", "Journal")
     /** Santé › Sport (MAG-705): the training sessions. */
     data object HealthSport : Screen("health/sport", "Sport")
+    /** Santé › Activité (MAG-898): the day's steps against the goal, the active sessions and the week. */
+    data object HealthActivity : Screen("health/activity", "Activité")
     /** Santé › Configuration (MAG-707): the profile, the day's need and the activity settings. */
     data object HealthConfiguration : Screen("health/configuration", "Configuration")
     /** The full-screen form of a session (MAG-705): `id` absent for a new one. Outside the menus, so drawn without chrome. */
@@ -431,11 +435,12 @@ private val MAIN_SCREENS = setOf(
     Screen.HealthNutrition.route,
     Screen.HealthJournal.route,
     Screen.HealthSport.route,
+    Screen.HealthActivity.route,
     Screen.HealthConfiguration.route,
 )
 
 // The screens whose content opens with the module's breadcrumb: the generic bar and its title would stack on it.
-private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Calendar.route, Screen.PeriodList.route, Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthNutrition.route, Screen.HealthJournal.route, Screen.HealthSport.route, Screen.HealthConfiguration.route)
+private val OWN_BREADCRUMB_ROUTES = setOf(Screen.Calendar.route, Screen.PeriodList.route, Screen.Grocery.route, Screen.Tasks.route, Screen.Cookbook.route, Screen.HealthSuivi.route, Screen.HealthNutrition.route, Screen.HealthJournal.route, Screen.HealthSport.route, Screen.HealthActivity.route, Screen.HealthConfiguration.route)
 
 // The full-screen chat has its own input: a second way in would duplicate it
 // The Finance screens keep it too: the bottom of the screen is Maggie's; Finance has no rail to hold her buttons.
@@ -752,6 +757,15 @@ private fun HealthSuiviPage(navController: NavController) {
 private fun HealthNutritionPage(navController: NavController) {
     NutritionScreen(
         viewModel = koinViewModel<NutritionViewModel>(),
+        onSelectSection = { selectHealthSection(navController, it) },
+    )
+}
+
+/** « Santé › Activité » (MAG-898): « Relier » opens Configuration, « Sport › » opens Sport, siblings like the menu's. */
+@Composable
+private fun HealthActivityPage(navController: NavController) {
+    ActivityScreen(
+        viewModel = koinViewModel<ActivityViewModel>(),
         onSelectSection = { selectHealthSection(navController, it) },
     )
 }
@@ -2429,6 +2443,9 @@ fun NavGraph() {
                     }
                     composable(Screen.HealthSport.route, deepLinks = DeepLinks.forRoute(Screen.HealthSport.route)) {
                         HealthSportPage(navController)
+                    }
+                    composable(Screen.HealthActivity.route) {
+                        HealthActivityPage(navController)
                     }
                     composable(Screen.HealthConfiguration.route, deepLinks = DeepLinks.forRoute(Screen.HealthConfiguration.route)) {
                         HealthConfigurationPage(navController)

@@ -17,6 +17,9 @@ tags:
 # The Health Connect day is pushed by `scripts/health-energy-api.js` (the e2e flavor has no
 # Health Connect), with a profile complete enough for a basal metabolism.
 #
+# Santé › Activité is opened from the breadcrumb's menu at the end (MAG-898); its projection, sessions and
+# week are `ActivitySeriesTest`, `ActivityViewModelTest` and `ActivityScreenTest`.
+#
 # What is not here: the trend's arithmetic, the 90 j and 1 an buckets, the labels and the axis
 # (`WeightChartTest`), the column tapped, « Écarter », the Mercure refresh, the tablet's layout
 # and the absent cards (`SuiviScreenTest`, `SuiviViewModelTest`), the drawer and link
@@ -104,3 +107,15 @@ tags:
 - assertVisible:
     id: "energy_total"
     text: "[0-9 ]+ kcal"
+
+# Santé › Activité (MAG-898): from the breadcrumb's menu, the ring shows the day's 8 000 steps.
+- tapOn:
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_activity"
+- extendedWaitUntil:
+    visible:
+      id: "activity_steps_value"
+      text: "8 000"
+    timeout: 20000
+- assertVisible: "Pas · aujourd’hui.*"

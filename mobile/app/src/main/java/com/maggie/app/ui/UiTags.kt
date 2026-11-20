@@ -2128,6 +2128,20 @@ object UiTags {
      * the journal, its empty line, each intake row and its delete button, each planned meal and its « Mangé » button;
      * « Ajouter » and its dialog's fields.
      */
+    const val ACTIVITY = "activity"
+    const val ACTIVITY_EMPTY = "activity_empty"
+    const val ACTIVITY_STEPS = "activity_steps"
+    const val ACTIVITY_RING = "activity_ring"
+    const val ACTIVITY_STEPS_VALUE = "activity_steps_value"
+    const val ACTIVITY_PROJECTION = "activity_projection"
+    const val ACTIVITY_GAP = "activity_gap"
+    const val ACTIVITY_NO_SOURCE = "activity_no_source"
+    const val ACTIVITY_LINK = "activity_link"
+    const val ACTIVITY_SESSIONS = "activity_sessions"
+    const val ACTIVITY_SESSIONS_EMPTY = "activity_sessions_empty"
+    const val ACTIVITY_SESSION_PREFIX = "activity_session_"
+    const val ACTIVITY_CITED_PREFIX = "activity_cited_"
+    const val ACTIVITY_WEEK = "activity_week"
     const val NUTRITION = "nutrition"
     const val NUTRITION_EMPTY = "nutrition_empty"
     const val NUTRITION_BALANCE = "nutrition_balance"
@@ -2246,6 +2260,8 @@ object UiTags {
 
     fun suiviPeriod(key: String) = SUIVI_PERIOD_PREFIX + key
     fun weightColumn(index: Int) = WEIGHT_COLUMN_PREFIX + index
+    fun activitySession(id: String) = ACTIVITY_SESSION_PREFIX + id
+    fun activityCited(id: String) = ACTIVITY_CITED_PREFIX + id
     fun nutritionIntake(id: String) = NUTRITION_INTAKE_PREFIX + id
     fun nutritionIntakeDelete(id: String) = NUTRITION_INTAKE_DELETE_PREFIX + id
     fun nutritionPlanned(mealId: String) = NUTRITION_PLANNED_PREFIX + mealId

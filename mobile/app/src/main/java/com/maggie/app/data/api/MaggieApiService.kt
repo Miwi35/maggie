@@ -3054,6 +3054,16 @@ class MaggieApiService(
         }.orRefusal().body<ApiCollection<Workout>>().member.sortedBy { it.startedAt }
     }
 
+    /** The sessions of every source that start from [after] (included) to [before] (excluded), earliest first; ISO date-times with their offset. */
+    suspend fun getWorkoutsBetween(after: String, before: String): List<Workout> {
+        return client.get("$baseUrl/api/workouts") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("startedAt[after]", after)
+            url.parameters.append("startedAt[before]", before)
+        }.orRefusal().body<ApiCollection<Workout>>().member.sortedBy { it.startedAt }
+    }
+
     /** The session filed in the agenda as [eventId] (MAG-779), `null` when the event is not a session's. */
     suspend fun getWorkoutOfEvent(eventId: String): Workout? {
         return client.get("$baseUrl/api/workouts") {

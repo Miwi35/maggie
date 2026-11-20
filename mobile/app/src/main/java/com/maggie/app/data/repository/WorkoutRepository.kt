@@ -12,6 +12,9 @@ class WorkoutRepository(
 ) {
     suspend fun getWorkouts(): Result<List<Workout>> = runCatching { apiService.getWorkouts() }
 
+    suspend fun getWorkoutsBetween(after: String, before: String): Result<List<Workout>> =
+        runCatching { apiService.getWorkoutsBetween(after, before) }
+
     suspend fun getWorkout(id: String): Result<Workout?> = runCatching { apiService.getWorkout(id) }
 
     suspend fun getWorkoutOfEvent(eventId: String): Result<Workout?> = runCatching { apiService.getWorkoutOfEvent(eventId) }
