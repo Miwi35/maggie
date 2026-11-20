@@ -42,7 +42,8 @@ def test_a_card_number_in_a_message_is_masked():
 @pytest.mark.parametrize(
     "said",
     ["code postal 35000", "le code promo BIENVENUE10", "j'ai 3 rendez-vous demain", "mon mot de passe Google ne marche plus",
-     "code du 12 janvier 2025", "mon mot de passe, c'est pénible", "rdv le 12 03 2026 à 14 h"],
+     "code du 12 janvier 2025", "mon mot de passe, c'est pénible", "rdv le 12 03 2026 à 14 h",
+     "le mot de passe du wifi reste le même", "envoie le code au 06 12 34 56 78"],
 )
 def test_an_ordinary_message_is_kept(said):
     assert mask_owner_secrets(said) == said

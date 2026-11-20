@@ -19,11 +19,11 @@ _NOT_A_CODE = (
 _LABELLED_CODE = re.compile(
     r"\b(code|pin|cvv|cvc|cryptogramme|digicode)\b"
     + _NOT_A_CODE
-    + r"([^.!?\n\d]{0,20}?)(\d(?:[ .-]?\d){2,7}[A-Za-z]?)(?![\w])",
+    + r"([^.!?\n\d]{0,20}?)(\d(?:[ .-]?\d){2,7}[A-Za-z]?)(?![ .-]?\d)(?![\w])",
     re.IGNORECASE,
 )
 _PASSWORD = re.compile(
-    r"\b(mot de passe|mdp|password)((?:\s+[^\s:=.,;!?]+){0,3}?\s*(?:est|:|=|c'est)\s*)([^\s,;]+)",
+    r"\b(mot de passe|mdp|password)((?:\s+[^\s:=.,;!?]+){0,3}?\s*(?:\bc'est\b|\best\b|[:=])\s*)([^\s,;]+)",
     re.IGNORECASE,
 )
 
