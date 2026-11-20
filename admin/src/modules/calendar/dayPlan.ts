@@ -15,6 +15,8 @@ export interface DayTask {
   postponedSince: string | null
   urgency: string | null
   criticality: string
+  /** Set when the API sends the rule of a repeating task (MAG-870). */
+  rrule?: string | null
 }
 
 export interface DaySlot {
