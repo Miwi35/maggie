@@ -138,6 +138,9 @@ fun DayTimelineView(
     }
 }
 
+/** Maggie's runs read « HH:mm Titre ✓ » for the grid; the day list already shows the time in its column. */
+internal fun dayRowTitle(title: String, start: String): String = title.removePrefix("$start ")
+
 /** An event of the day: its time, a bar in its agenda's colour, its title, then « lieu · agenda ». */
 @Composable
 private fun DayEventRow(row: DayRow.Event, zone: ZoneId, tag: String, onClick: () -> Unit) {
@@ -172,7 +175,7 @@ private fun DayEventRow(row: DayRow.Event, zone: ZoneId, tag: String, onClick: (
         Column(Modifier.weight(1f)) {
             // Tag and click sit on the Text itself: on a parent the merged node carries the id but not the text.
             Text(
-                text = event.title,
+                text = dayRowTitle(event.title, start),
                 fontSize = 15.sp,
                 fontWeight = weight,
                 maxLines = 2,

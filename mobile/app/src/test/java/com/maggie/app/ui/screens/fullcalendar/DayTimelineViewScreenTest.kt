@@ -109,6 +109,25 @@ class DayTimelineViewScreenTest {
     }
 
     @Test
+    fun `a run of Maggie reads its time once`() {
+        show(
+            listOf(
+                ExpandedEvent(
+                    id = "digest",
+                    summary = "08:30 Digest du matin ✓",
+                    agendaName = "Maggie",
+                    startAt = "2026-06-15T06:30:00Z",
+                    endAt = "2026-06-15T06:45:00Z",
+                ),
+            ),
+        )
+
+        compose.onNodeWithText("08:30").assertIsDisplayed()
+        compose.onNodeWithText("Digest du matin ✓").assertIsDisplayed()
+        compose.onNodeWithText("08:30 Digest du matin ✓").assertDoesNotExist()
+    }
+
+    @Test
     fun `an ended event is dimmed and the next one is medium`() {
         show(listOf(done, gym))
 
