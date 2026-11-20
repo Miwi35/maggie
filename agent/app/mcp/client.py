@@ -8,6 +8,7 @@ import httpx
 from app.config import settings
 from app.e2e_coverage import journey_headers
 from app.error_tracking import MCP_TOOL_ERROR, capture_signal
+from app.llm.tool_failures import invalid_input
 
 SESSION_STALENESS_SECONDS = 300  # 5 minutes
 
@@ -16,6 +17,9 @@ USER_HEADER = "X-Maggie-User-Id"
 # What `call_tool` answers when the server could not be reached or did not answer at all.
 NO_RESPONSE_ERROR = "No response from MCP server"
 
+# The JSON-RPC code of arguments the server's schema refuses (MAG-872).
+INVALID_PARAMS_CODE = -32602
+
 # Just after a rollout, a new connection can still be routed to the pod that left and hang:
 # connecting fails fast and is tried again, since the request was never sent (MAG-704).
 TIMEOUT = httpx.Timeout(30.0, connect=5.0)
@@ -23,6 +27,18 @@ CONNECT_ATTEMPTS = 3
 CONNECT_RETRY_DELAY_SECONDS = 1.0
 
 logger = logging.getLogger(__name__)
+
+
+def _invalid_fields(error: dict) -> list[dict]:
+    """The faulty fields of a `-32602` error: the server's validation errors, `pointer` as a name."""
+    data = error.get("data")
+    errors = data.get("validation_errors") if isinstance(data, dict) else None
+    fields = [
+        {"field": str(item.get("pointer", "")).removeprefix("/"), "problem": str(item.get("message", ""))}
+        for item in errors or []
+        if isinstance(item, dict)
+    ]
+    return fields or [{"field": "", "problem": str(error.get("message", ""))}]
 
 
 class McpClient:
@@ -115,6 +131,7 @@ class McpClient:
                 "arguments": arguments,
             },
             user_id=user_id,
+            keep_error=True,
         )
 
         # Retry once on session expiration
@@ -130,7 +147,15 @@ class McpClient:
                     "arguments": arguments,
                 },
                 user_id=user_id,
+                keep_error=True,
             )
+
+        if response and "jsonrpc_error" in response:
+            error = response["jsonrpc_error"]
+            if error.get("code") == INVALID_PARAMS_CODE:
+                return invalid_input(name, _invalid_fields(error), self._input_schema(name))
+            capture_signal(MCP_TOOL_ERROR, tool=name, user_id=user_id, reason="jsonrpc_error")
+            return json.dumps({"error": error.get("message") or NO_RESPONSE_ERROR}, ensure_ascii=False)
 
         if response is None or response.get("isError"):
             # A transport failure, a JSON-RPC error or a tool that raised — not the 400s a tool
@@ -150,8 +175,18 @@ class McpClient:
 
         return json.dumps(response or {"error": NO_RESPONSE_ERROR})
 
-    async def _send_request(self, method: str, params: dict, user_id: str | None = None) -> dict | None:
-        """Send a JSON-RPC request to the MCP server."""
+    def _input_schema(self, name: str) -> dict | None:
+        for tool in self._tools:
+            if tool.get("name") == name:
+                return tool.get("inputSchema")
+        return None
+
+    async def _send_request(
+        self, method: str, params: dict, user_id: str | None = None, keep_error: bool = False
+    ) -> dict | None:
+        """Send a JSON-RPC request to the MCP server.
+
+        `keep_error`: a JSON-RPC error comes back as `{"jsonrpc_error": …}` instead of `None`."""
         if not self._http_client:
             logger.error("MCP client not connected")
             return None
@@ -185,6 +220,8 @@ class McpClient:
             if response.status_code == 200:
                 self._last_activity = time.monotonic()
                 data = response.json()
+                if keep_error and isinstance(data.get("error"), dict):
+                    return {"jsonrpc_error": data["error"]}
                 return data.get("result")
             elif response.status_code == 404:
                 self._session_expired = True
