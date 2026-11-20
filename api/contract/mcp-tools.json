@@ -699,7 +699,7 @@
                 "toDate"
             ]
         },
-        "description": "Top up the grocery list with recurring items due again (idempotent). Meals add nothing: mealsToChoose lists meals in the date range (YYYY-MM-DD) whose ingredients are not chosen (id, date, slot, summary)."
+        "description": "Top up the grocery list with recurring items due again (idempotent). Meals add nothing: mealsToChoose lists meals in the date range (YYYY-MM-DD) whose ingredients are not chosen (id, date, slot, summary), to choose with manage_meal_groceries."
     },
     "get_activity_status": {
         "name": "get_activity_status",
@@ -729,7 +729,7 @@
                 "date"
             ]
         },
-        "description": "Reads one day's calorie balance, date YYYY-MM-DD. Returns {date, eatenKcal (food journal), plannedKcal (planned meals not yet eaten), expendedKcal (get_daily_energy), balanceKcal = eaten + planned - expended, proteinG, carbsG, fatG, plannedMeals: [{mealId, slot, label, kcal, proteinG, carbsG, fatG}]}. expendedKcal, balanceKcal are null while the profile is incomplete."
+        "description": "Reads one day's calorie balance, date YYYY-MM-DD. Returns {date, eatenKcal, plannedKcal (planned meals not yet eaten), expendedKcal (get_daily_energy), balanceKcal = eaten + planned - expended, proteinG, carbsG, fatG, plannedMeals: [{mealId, slot, label, kcal, proteinG, carbsG, fatG}]}. expendedKcal, balanceKcal are null while the profile is incomplete."
     },
     "get_daily_energy": {
         "name": "get_daily_energy",
@@ -956,7 +956,7 @@
                 "date"
             ]
         },
-        "description": "Reads one local day of the health journal, date YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt (first weighing of the day not set aside), steps, eatenKcal, expendedKcal, balanceKcal (eaten - expended; today live, planned meals included), sportMinutes, mood, fatigue (1-10), note, notedBy (user, maggie), notedAt}}. Null when nothing is recorded; an empty day has id null."
+        "description": "Reads one local day of the health journal, date YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt (first weighing of the day not set aside), steps, eatenKcal, expendedKcal, balanceKcal (eaten - expended; today live, planned meals included), sportMinutes, mood, fatigue (1-10), note, notedBy (user, maggie), notedAt}}. Null when nothing is recorded."
     },
     "get_health_profile": {
         "name": "get_health_profile",
@@ -1135,7 +1135,7 @@
                 "date"
             ]
         },
-        "description": "Reads the strength program status, date YYYY-MM-DD. Returns {date, programWeek (from the first done calibration session), phase (calibration weeks 1-2, ramp_up 3-4, normal), deload {due, reason (scheduled, stagnation, hard_sessions, null), weeksSinceLast}, stagnating (slugs without gain for over 14 days), week {planned, done} (Monday-Sunday), hardSetsByPattern}. Invalid date: {error}."
+        "description": "Reads the strength program status, date YYYY-MM-DD. Returns {date, programWeek (from the first done calibration session), phase (calibration weeks 1-2, ramp_up 3-4, normal), deload {due, reason (scheduled, stagnation, hard_sessions, null), weeksSinceLast}, stagnating (slugs without gain for over 14 days), week {planned, done}, hardSetsByPattern}. Invalid date: {error}."
     },
     "get_treasury_outlook": {
         "name": "get_treasury_outlook",
@@ -1525,7 +1525,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update (rename and/or move), reorder, delete the aisles of a store, in walking order (position 1 first). list, create, reorder need storeId; update, delete need aisleId. create is last unless position is given. reorder takes aisleIds (all of the store). Deleting leaves its products without an aisle there."
+        "description": "Actions: list, create, update (rename and/or move), reorder, delete the aisles of a store (position 1 first). list, create, reorder need storeId; update, delete need aisleId. create is last unless position is given. reorder takes aisleIds (all of the store). Deleting leaves its products without an aisle there."
     },
     "manage_body_measurements": {
         "name": "manage_body_measurements",
@@ -1629,7 +1629,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete, exclude. Fields: measuredAt (ISO 8601 with offset, default now), weightKg (max 500), bodyFatPercent (<100), waistCm (max 300), all >0, at least one on create; source (manual default, health_connect, withings), externalId, excluded (kept, not counted). update, delete, exclude need measurementId; update changes only fields given. list; filters after, before, limit (max 366). Returns {measurements} or {success, measurement}. Refusal changes nothing: {error, field?, current?}."
+        "description": "Actions: list, create, update, delete, exclude. Fields: measuredAt (ISO 8601 with offset, default now), weightKg (max 500), bodyFatPercent (<100), waistCm (max 300), all >0, at least one on create; source (manual default, health_connect, withings), externalId, excluded (kept, not counted). update, delete, exclude need measurementId; update changes only fields given. list: after, before, limit (max 366). Returns {measurements} or {success, measurement}. Refusal changes nothing: {error, field?, current?}."
     },
     "manage_categories": {
         "name": "manage_categories",
@@ -1838,7 +1838,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, start, pause, resume, add, cancel on kitchen timers. list returns running, paused and done timers (label, step, remainingSeconds, endsAt). start needs label, recipeId, stepPosition, durationSeconds; pause, resume, cancel need timerId; add needs timerId and seconds (negative removes). A refusal returns error plus the current timers."
+        "description": "Actions: list, start, pause, resume, add, cancel. list returns running, paused and done timers (label, step, remainingSeconds, endsAt). start needs label, recipeId, stepPosition, durationSeconds; pause, resume, cancel need timerId; add needs timerId and seconds (negative removes). A refusal returns error plus the current timers."
     },
     "manage_envelopes": {
         "name": "manage_envelopes",
@@ -2042,7 +2042,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete. list needs date (YYYY-MM-DD): {intakes, plannedMeals (not yet eaten)}. create, one of: mealId alone (eats the planned meal); eatenAt (ISO 8601 with offset; default now) + label + kcal (0-10000), optional proteinG, carbsG, fatG (grams), quantityGrams; ciqualCode (search_ciqual_foods) + quantityGrams, kcal and macros from Ciqual unless given. update, delete need foodIntakeId; update changes only fields given, nothing recomputed; deleting a meal's intake makes the meal planned again. Returns {success, intake}. Refusal: {error, field?, current?}, nothing changes."
+        "description": "Actions: list, create, update, delete. list needs date (YYYY-MM-DD): {intakes, plannedMeals (not yet eaten)}. create, one of: mealId alone (eats the planned meal, eatenAt defaults to now); else eatenAt (ISO 8601 with offset, required) + label + kcal (0-10000), optional proteinG, carbsG, fatG (grams), quantityGrams; ciqualCode (search_ciqual_foods) + eatenAt + quantityGrams, kcal and macros from Ciqual unless given. update, delete need foodIntakeId; update changes only fields given, nothing recomputed; deleting a meal's intake makes the meal planned again. Returns {success, intake}. Refusal: {error, field?, current?}, nothing changes."
     },
     "manage_ingredients": {
         "name": "manage_ingredients",
@@ -2608,7 +2608,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete. A meal is a date (YYYY-MM-DD) and a slot (lunch, dinner); recipeIds comma-separated. list needs fromDate and toDate, or query (title words, tolerant to case, accents, typos; all agendas, next year when no dates). create needs date and slot, returns groceryPreview (ingredients with stock). guests (1 or more) scales recipes and, on update, the grocery list; unset follows the manage_meal_settings default, useDefaultGuests true restores it. update and delete need mealId."
+        "description": "Actions: list, create, update, delete. A meal is a date (YYYY-MM-DD) and a slot (lunch, dinner); recipeIds comma-separated. list needs fromDate and toDate, or query (title words, tolerant to case, accents, typos; all agendas, next year when no dates). create needs date and slot, returns groceryPreview (ingredients with stock), to choose from with manage_meal_groceries. guests (1 or more) scales recipes and, on update, the grocery list; unset follows the manage_meal_settings default, useDefaultGuests true restores it. update and delete need mealId."
     },
     "manage_notifications": {
         "name": "manage_notifications",
@@ -2673,7 +2673,7 @@
                 "action"
             ]
         },
-        "description": "Actions: create, list, delete, and mark as read (an unknown action is refused with the list of valid ones). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri (message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId."
+        "description": "Actions: create, list, delete, and mark as read (unknown ones refused, valid listed). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri, the screen a tap opens (/api/events/{id}, /api/tasks/{id}, /finance/banks, message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId."
     },
     "manage_operations": {
         "name": "manage_operations",
@@ -3359,7 +3359,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete non-food products (food: manage_ingredients). Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. packagingUnit, with packagingSize and packagingSizeUnit together. stockState: in_stock (default), low, out. restockQuantity: packagings, whole number >= 0; autoRestock: true or false. seasonMonths: months 1-12 in season in France, pre-filled on create when the name is known; inSeason returned. clear lists fields to empty: defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths."
+        "description": "Actions: list, create, update, delete non-food products (food: manage_ingredients). Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. packagingUnit, with packagingSize and packagingSizeUnit together. stockState: in_stock (default), low, out. restockQuantity: packagings, whole number >= 0; seasonMonths: months 1-12 in season in France, pre-filled on create when the name is known; inSeason returned. clear lists fields to empty: defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths."
     },
     "manage_project_funding": {
         "name": "manage_project_funding",
@@ -5240,7 +5240,7 @@
                 "date"
             ]
         },
-        "description": "Writes a day of the health journal: date (YYYY-MM-DD) and at least one of mood (1-10, 10 best), fatigue (1-10, 10 most tired), note (max 2000 characters; blank removes it). Only arguments given change; a missing day is created, marked as written by Maggie. Returns {success, day} or {error, field, current}; nothing changes then."
+        "description": "Writes a day of the health journal: date (YYYY-MM-DD) and at least one of mood (1-10, 10 best), fatigue (1-10, 10 most tired), note (max 2000 characters; blank removes it). Only arguments given change; a missing day is created, marked as written by Maggie. Returns {success, day} or {error, field, current}."
     },
     "update_health_profile": {
         "name": "update_health_profile",
@@ -5378,7 +5378,7 @@
                 }
             }
         },
-        "description": "Changes the health profile: given arguments only, at least one. sex (male, female), birthYear, heightCm (100-250), weightKg (max 500, also recorded as a weighing), activityLevel (sedentary, light, moderate, active, very_active), mode (computed, entered), enteredNeedKcal (1000-5000), stepGoal (500-50000), suggestionWindowStart, suggestionWindowEnd (HH:MM, end after start), sessionMinutes (15, 20, 30), stepSource (health_connect, none), fastingProtocol (14:10, 16:8, 18:6, 20:4, none), fastingWindowStart (HH:MM). Returns {success, profile}, or {error, field} with nothing changed."
+        "description": "Changes the health profile: given arguments only, at least one. sex (male, female), birthYear, heightCm (100-250), weightKg (max 500, also recorded as a weighing), activityLevel (sedentary, light, moderate, active, very_active), mode (computed, entered), enteredNeedKcal (1000-5000), stepGoal (500-50000), suggestionWindowStart, suggestionWindowEnd (HH:MM, end after start), sessionMinutes (15, 20, 30), stepSource (health_connect, none), fastingProtocol (14:10, 16:8, 18:6, 20:4, none), fastingWindowStart (HH:MM). Returns {success, profile}, or {error, field}."
     },
     "update_recipe": {
         "name": "update_recipe",

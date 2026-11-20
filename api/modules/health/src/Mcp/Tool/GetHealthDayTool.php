@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Health\Service\HealthDayReader;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_health_day', description: 'Reads one local day of the health journal, date YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt (first weighing of the day not set aside), steps, eatenKcal, expendedKcal, balanceKcal (eaten - expended; today live, planned meals included), sportMinutes, mood, fatigue (1-10), note, notedBy (user, maggie), notedAt}}. Null when nothing is recorded; an empty day has id null.')]
+#[McpTool(name: 'get_health_day', description: 'Reads one local day of the health journal, date YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt (first weighing of the day not set aside), steps, eatenKcal, expendedKcal, balanceKcal (eaten - expended; today live, planned meals included), sportMinutes, mood, fatigue (1-10), note, notedBy (user, maggie), notedAt}}. Null when nothing is recorded.')]
 final class GetHealthDayTool
 {
     public function __construct(

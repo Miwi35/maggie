@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_products', description: 'Actions: list, create, update, delete non-food products (food: manage_ingredients). Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. packagingUnit, with packagingSize and packagingSizeUnit together. stockState: in_stock (default), low, out. restockQuantity: packagings, whole number >= 0; autoRestock: true or false. seasonMonths: months 1-12 in season in France, pre-filled on create when the name is known; inSeason returned. clear lists fields to empty: defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths.')]
+#[McpTool(name: 'manage_products', description: 'Actions: list, create, update, delete non-food products (food: manage_ingredients). Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. packagingUnit, with packagingSize and packagingSizeUnit together. stockState: in_stock (default), low, out. restockQuantity: packagings, whole number >= 0; seasonMonths: months 1-12 in season in France, pre-filled on create when the name is known; inSeason returned. clear lists fields to empty: defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths.')]
 class ManageProductsTool
 {
     private const CLEARABLE_FIELDS = ['defaultUnit', 'packagingUnit', 'packagingSize', 'packagingSizeUnit', 'restockQuantity', 'seasonMonths'];

@@ -15,7 +15,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'update_health_day', description: 'Writes a day of the health journal: date (YYYY-MM-DD) and at least one of mood (1-10, 10 best), fatigue (1-10, 10 most tired), note (max 2000 characters; blank removes it). Only arguments given change; a missing day is created, marked as written by Maggie. Returns {success, day} or {error, field, current}; nothing changes then.')]
+#[McpTool(name: 'update_health_day', description: 'Writes a day of the health journal: date (YYYY-MM-DD) and at least one of mood (1-10, 10 best), fatigue (1-10, 10 most tired), note (max 2000 characters; blank removes it). Only arguments given change; a missing day is created, marked as written by Maggie. Returns {success, day} or {error, field, current}.')]
 final class UpdateHealthDayTool
 {
     public function __construct(

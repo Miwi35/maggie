@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Health\Service\DailyBalanceReader;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_daily_balance', description: 'Reads one day\'s calorie balance, date YYYY-MM-DD. Returns {date, eatenKcal (food journal), plannedKcal (planned meals not yet eaten), expendedKcal (get_daily_energy), balanceKcal = eaten + planned - expended, proteinG, carbsG, fatG, plannedMeals: [{mealId, slot, label, kcal, proteinG, carbsG, fatG}]}. expendedKcal, balanceKcal are null while the profile is incomplete.')]
+#[McpTool(name: 'get_daily_balance', description: 'Reads one day\'s calorie balance, date YYYY-MM-DD. Returns {date, eatenKcal, plannedKcal (planned meals not yet eaten), expendedKcal (get_daily_energy), balanceKcal = eaten + planned - expended, proteinG, carbsG, fatG, plannedMeals: [{mealId, slot, label, kcal, proteinG, carbsG, fatG}]}. expendedKcal, balanceKcal are null while the profile is incomplete.')]
 final class GetDailyBalanceTool
 {
     public function __construct(
