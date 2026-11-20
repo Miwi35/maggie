@@ -1,5 +1,6 @@
 import logging
 import time
+from collections.abc import Callable
 
 import anthropic
 
@@ -32,6 +33,7 @@ async def run_tool_loop(
     call_type: str = "chat",
     source: str = "chat",
     context_id: str | None = None,
+    review: Callable[[str, list[dict]], str | None] | None = None,
 ) -> dict:
     """Call Claude, execute the tools it asks for, and loop until it answers with text.
 
@@ -46,6 +48,9 @@ async def run_tool_loop(
     back to the model once with the fact; then it goes out as written, and the gap is signalled
     (MAG-339, MAG-340, MAG-842, `app.llm.claim_guard`).
 
+    `review(text, tool_calls)` reads an accepted answer back and may return a finding: it goes to the model once,
+    as a turn of the same conversation, and the answer that follows goes out as written (MAG-843).
+
     A response may carry web searches Anthropic ran on its side (`app.llm.web_search`): the
     answer is the text after the last one, closed by the line of the sources it cites (MAG-384).
 
@@ -59,6 +64,7 @@ async def run_tool_loop(
     usage = {"input_tokens": 0, "output_tokens": 0}
     cached_tools = cache_tools(tools)
     guard = ClaimGuard(tools)
+    reviewed = False
 
     for iteration in range(max_iterations):
         logger.info(f"Calling Claude with {len(tools or [])} tools, {len(messages)} messages")
@@ -106,6 +112,14 @@ async def run_tool_loop(
                 logger.warning("Action announced, nothing backs it: sending the model back")
                 guard.send_back(messages, response.content)
                 continue
+            if review is not None and not reviewed and iteration < max_iterations - 1:
+                note = review(text_response, tool_calls_made)
+                if note:
+                    if text_response:
+                        messages.append({"role": "assistant", "content": response.content})
+                    messages.append({"role": "user", "content": [{"type": "text", "text": note}]})
+                    reviewed = True
+                    continue
             text_response = with_sources(text_response, response.content)
             return _outcome(text_response, tool_calls_made, blocks, usage)
 

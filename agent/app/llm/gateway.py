@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from datetime import datetime
 
 import anthropic
@@ -142,6 +143,7 @@ class LLMGateway:
         summary: str | None = None,
         spoken: bool = False,
         blocked_tools: frozenset[str] = frozenset(),
+        review: Callable[[str, list[dict]], str | None] | None = None,
     ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
@@ -161,6 +163,8 @@ class LLMGateway:
                    planning gives the day's events, which its prompt only says how to read.
             spoken: The message will be read aloud (the digest's voice message, the car): written for the ear.
             blocked_tools: Tools hidden from the model and refused if called (the digest makes its own vocal).
+            review: Reads the accepted answer back and may return a finding, sent to the model once (MAG-843);
+                    ignored in `dry_run`.
             summary: The proaction's summary. A trip check or replan (MAG-657) works on the trips and
                      says nothing in the chat: it runs with its own preamble and gets no thread.
         """
@@ -204,6 +208,7 @@ class LLMGateway:
                 call_type="proaction",
                 source="proaction",
                 max_iterations=PROACTION_MAX_ITERATIONS,
+                review=None if dry_run else review,
             )
         except anthropic.APIStatusError as e:
             logger.error(f"Proaction API error: {e.message}")

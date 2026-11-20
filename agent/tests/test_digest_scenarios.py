@@ -90,7 +90,7 @@ def api():
         yield fake
 
 
-async def run(prompt: str) -> dict:
+async def run(prompt: str, review=None) -> dict:
     with patch("app.llm.runner.record_llm_usage"):
         return await run_tool_loop(
             "Tu es Maggie.\n\nTu es en mode proaction autonome.",
@@ -102,6 +102,7 @@ async def run(prompt: str) -> dict:
             model="fake",
             source="proaction",
             max_iterations=PROACTION_MAX_ITERATIONS,
+            review=review,
         )
 
 
@@ -152,10 +153,16 @@ class _Gateway:
     tool_router = ToolRouter()
 
     async def proaction(
-        self, prompt: str, user_id: str, *, summary: str | None = None, blocked_tools: frozenset[str] = frozenset()
+        self,
+        prompt: str,
+        user_id: str,
+        *,
+        summary: str | None = None,
+        blocked_tools: frozenset[str] = frozenset(),
+        review=None,
     ) -> dict:
         self.blocked_tools = blocked_tools
-        result = await run(f"[Proaction due maintenant] {prompt}")
+        result = await run(f"[Proaction due maintenant] {prompt}", review=review)
         return result | {"context_id": "ctx-1", "model": "fake"}
 
 
@@ -180,7 +187,6 @@ def storage():
     with (
         patch("app.digest.send_voice_message", voice),
         patch("app.digest.message_repo", thread),
-        patch("app.digest.client_for", AsyncMock(return_value=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR))),
         patch("app.digest.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
         patch("app.digest.datetime", _Frozen),
         patch("app.llm.runner.record_llm_usage"),
@@ -202,34 +208,54 @@ class TestRunDigest:
         assert stored is storage.voice.return_value
         assert "send_voice_message" not in tools_called(result)
 
-    async def test_a_missing_appointment_is_rewritten_once_then_appended(self, api, storage):
+    async def test_a_missing_appointment_is_signalled_once_and_the_model_s_text_goes_out(self, api, storage):
+        api.agenda["2030-11-14"] = [KINE]
+        calls = []
+        gateway = _Gateway()
+        proaction = gateway.proaction
+
+        async def spy(prompt, user_id, **kwargs):
+            review = kwargs["review"]
+            kwargs["review"] = lambda text, tool_calls: calls.append(note := review(text, tool_calls)) or note
+            return await proaction(prompt, user_id, **kwargs)
+
+        gateway.proaction = spy
+
+        result, _ = await run_digest(gateway, DIGEST)
+
+        assert calls[0].startswith("[Contrôle automatique]") and "Kiné, 9 h 15" in calls[0]
+        assert len(calls) == 1
+        assert "Vous avez aussi" not in result["response"]
+        assert "Kiné à 14 h 30" in result["response"]
+
+    async def test_a_fact_still_missing_after_the_signal_is_measured_not_written(self, api, storage):
         api.agenda["2030-11-14"] = [KINE]
 
-        result, _ = await run_digest(_Gateway(), DIGEST)
+        with patch("app.digest.capture_signal") as signal:
+            result, _ = await run_digest(_Gateway(), DIGEST)
 
-        assert result["response"].endswith("Vous avez aussi Kiné à 9 h 15.")
-        assert result["response"].count("Vous avez aussi") == 1
-        assert "RELECTURE DU DIGEST" not in result["response"]
+        assert result["response"].endswith("(digest MAG-709)")
+        signal.assert_called_once()
+        assert signal.call_args.args[0] == "digest_facts_missing"
+        assert storage.voice.await_args.args[1] == result["response"]
 
-    async def test_a_rewrite_in_error_keeps_the_text_and_appends_the_missing_sentence(self, api, storage, monkeypatch):
-        api.agenda["2030-11-14"] = [KINE]
-
-        async def down(*args, **kwargs):
-            raise RuntimeError("529")
-
-        monkeypatch.setattr("app.digest.run_tool_loop", down)
-
-        result, stored = await run_digest(_Gateway(), DIGEST)
-
-        assert result["response"].endswith("Vous avez aussi Kiné à 9 h 15.")
-        assert stored is storage.voice.return_value
-
-    async def test_an_appointment_the_text_already_names_is_neither_rewritten_nor_appended(self, api, storage):
+    async def test_an_appointment_the_text_already_names_is_not_signalled(self, api, storage):
         api.agenda["2030-11-14"] = [SESSION]
         api._get_tasks = lambda arguments, user_id: {"tasks": [], "reminders": []}
+        notes = []
+        gateway = _Gateway()
+        proaction = gateway.proaction
 
-        result, _ = await run_digest(_Gateway(), SimpleNamespace(**(vars(DIGEST) | {"prompt": "Digest (digest MAG-777)."})))
+        async def spy(prompt, user_id, **kwargs):
+            review = kwargs["review"]
+            kwargs["review"] = lambda text, tool_calls: notes.append(review(text, tool_calls)) or notes[-1]
+            return await proaction(prompt, user_id, **kwargs)
 
+        gateway.proaction = spy
+
+        result, _ = await run_digest(gateway, SimpleNamespace(**(vars(DIGEST) | {"prompt": "Digest (digest MAG-777)."})))
+
+        assert notes == [None]
         assert "Vous avez aussi" not in result["response"]
 
     async def test_the_digest_run_blocks_the_voice_tool_whatever_the_skill_says(self, api, storage):

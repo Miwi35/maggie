@@ -2,7 +2,8 @@
 
 The model writes the digest; the code reads it back. The facts are drawn from what the model read this run
 (appointments with an hour, tasks scheduled today, meals, the weather) and each is looked for in the text.
-Pure functions: the rewrite and the sentence added for a fact still missing are `app.digest`'s.
+Pure functions: the code reads the text back and tells the model what it left out, once (`signal`); what
+`app.digest` does with a fact still missing is to measure it, never to write it.
 """
 
 import json
@@ -18,7 +19,6 @@ WEATHER_TOOL = "get_weather"
 
 # The agendas the owner never lists as appointments: what Maggie lays down herself, and the meals.
 IGNORED_AGENDAS = frozenset({"maggie", "repas"})
-MEAL_SLOTS = {"lunch": "Au déjeuner", "dinner": "Au dîner"}
 
 STOPWORDS = frozenset(
     {
@@ -61,13 +61,11 @@ HALF = 0.5
 
 @dataclass(frozen=True)
 class Fact:
-    """Something the digest owes: `label` is how it is named, `hour` ("09:15") when it has one, `fallback` the
-    plain sentence added when the text still misses it."""
+    """Something the digest owes: `label` is how it is named, `hour` ("09:15") when it has one."""
 
     kind: str
     label: str
     hour: str | None
-    fallback: str
 
 
 def format_hour(hour: str) -> str:
@@ -101,7 +99,7 @@ def _event_facts(payload: dict, day: str) -> list[Fact]:
             continue
         hour = start[11:16]
         label = str(event["summary"])
-        facts.append(Fact("event", label, hour, f"Vous avez aussi {label} à {format_hour(hour)}."))
+        facts.append(Fact("event", label, hour))
     return facts
 
 
@@ -113,8 +111,7 @@ def _task_facts(payload: dict, day: str) -> list[Fact]:
         label = str(task["title"])
         timed = task.get("scheduledMoment") == "time" and task.get("scheduledTime")
         hour = str(task["scheduledTime"])[:5] if timed else None
-        fallback = f"Vous avez aussi {label} à {format_hour(hour)}." if hour else f"Il reste aussi : {label}."
-        facts.append(Fact("task", label, hour, fallback))
+        facts.append(Fact("task", label, hour))
     return facts
 
 
@@ -125,7 +122,7 @@ def _meal_facts(payload: dict, day: str) -> list[Fact]:
             continue
         label = " et ".join(str(r["name"]) for r in meal.get("recipes") or [] if r.get("name"))
         if label:
-            facts.append(Fact("meal", label, None, f"{MEAL_SLOTS.get(meal.get('slot'), 'Au menu')} : {label}."))
+            facts.append(Fact("meal", label, None))
     return facts
 
 
@@ -136,9 +133,7 @@ def _weather_fact(payload: dict) -> list[Fact]:
     low, high = days[0].get("temperature_min_c"), days[0].get("temperature_max_c")
     if low is None and high is None:
         return []
-    if low is None or high is None or round(low) == round(high):
-        return [Fact("weather", "météo", None, f"Il fera {round(high if low is None else low)} degrés.")]
-    return [Fact("weather", "météo", None, f"Il fera entre {round(low)} et {round(high)} degrés.")]
+    return [Fact("weather", "météo", None)]
 
 
 def required_facts(tool_calls: list[dict], day: date | str) -> list[Fact]:
@@ -193,3 +188,10 @@ def _found(text: str, fact: Fact) -> bool:
 def missing_facts(text: str, facts: list[Fact]) -> list[Fact]:
     """The facts the text does not state: named with half of their words, and their hour in the same sentence."""
     return [fact for fact in facts if not _found(text, fact)]
+
+
+def signal(missing: list[Fact]) -> str:
+    """The finding sent back to the model for the facts its digest leaves out: each named with its hour, no style."""
+    lines = "\n".join(f"- {f.label}, {format_hour(f.hour)}" if f.hour else f"- {f.label}" for f in missing)
+    intro = "[Contrôle automatique] Ton digest ne cite pas ces faits lus ce matin :"
+    return f"{intro}\n{lines}\nRéponds par le digest entier."

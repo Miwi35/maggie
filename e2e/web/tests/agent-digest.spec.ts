@@ -2,15 +2,16 @@ import { test, expect, e2eNow, parisDay, parisTime } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 
 /**
- * The morning digest end to end — MAG-709, rewritten by MAG-807 (extends MAG-99).
+ * The morning digest end to end — MAG-709, rewritten by MAG-807 and MAG-843 (extends MAG-99).
  *
- * Given the digest instruction, an appointment today that the fake model never names, and the fake model
+ * Given the digest instruction, an appointment today that the fake model's first answer does not name, and the fake model
  * (`06-planning-digest.yaml` schedules the digest two minutes ahead once it has read that instruction,
  * `98-proaction-digest-due.yaml` runs it), When the planning runs and the digest's hour comes — moved to a
  * minute ago, the stack's clock barely moves (MAG-234) — and the executor claims it, Then the thread holds
  * ONE message on the `digest` screen, with its audio, which announces itself (MAG-808) and carries a
- * `digest` block holding the text: it cites the weather (the simulated Open-Meteo) and ends with the code's
- * sentence naming the appointment and its hour; a `message` notification opens the digest; the opening route
+ * `digest` block holding the text: it cites the weather (the simulated Open-Meteo) and the appointment with
+ * its hour, written by the model after the code's one read-back (turn 4 of `98-proaction-digest-due.yaml`), and
+ * the code adds no sentence of its own; a `message` notification opens the digest; the opening route
  * marks the block once and only once; the journal shows the weather read and no `send_voice_message`.
  *
  * An account of its own: the planning reads its instructions, and no other journey's must match.
@@ -95,10 +96,10 @@ test('the digest instruction said once brings one message, read and heard, and a
   expect(block.day).toBe(today)
   expect(block.expiresAt).toContain('T14:00:00')
   expect(block.openedAt).toBeNull()
-  // The model never named the appointment, even after the rewrite: the code appends it, with its hour,
-  // after the weather (the seeded agenda's other appointments are appended too, in the day's order).
-  expect(block.text).toContain('Vous avez aussi Kiné à 14 h 30.')
-  expect(block.text.indexOf('degrés')).toBeLessThan(block.text.indexOf('Vous avez aussi Kiné'))
+  // The first answer missed the appointment: the model was told once, and its second answer names it.
+  expect(block.text).toContain('Kiné à 14 h 30')
+  expect(block.text).not.toContain('Vous avez aussi')
+  expect(block.text.indexOf('degrés')).toBeLessThan(block.text.indexOf('Kiné à 14 h 30'))
 
   // The notification of the message opens the digest, not the thread.
   const notification = await waitForIndexed<{ type: string; relatedEntityIri: string | null }>(
