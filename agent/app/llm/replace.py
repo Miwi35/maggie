@@ -20,7 +20,8 @@ from fastapi import HTTPException
 from app.db.message_repository import message_repo
 from app.db.pending_action_model import PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
-from app.llm.streaming import PENDING_APPROVAL_STATUS, answer_message_id, tool_result_status
+from app.llm.streaming import answer_message_id
+from app.llm.tool_failures import PENDING_APPROVAL_STATUS, tool_result_status
 from app.llm.turns import turn_runner
 
 logger = logging.getLogger(__name__)

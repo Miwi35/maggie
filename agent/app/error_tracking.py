@@ -31,6 +31,7 @@ DIGEST_FACTS_MISSING = "digest_facts_missing"
 DIGEST_SAYS_EMPTY = "digest_says_empty"
 MCP_TOOL_ERROR = "mcp_tool_error"
 PROACTION_FAILED = "proaction_failed"
+TOOL_GAVE_UP = "tool_gave_up"
 UNANSWERED_MESSAGE = "unanswered_message"
 TTS_FALLBACK = "tts_fallback"
 

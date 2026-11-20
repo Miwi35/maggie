@@ -34,6 +34,7 @@ from app.llm.prompt_cache import build_system, cache_tools
 from app.llm.provider_status import alert_owner, note_provider_failure, note_provider_success, provider_reason
 from app.llm.questions import asked_question, blocks_of
 from app.llm.tool_blocks import record
+from app.llm.tool_failures import FailureStreak, tool_result_status
 from app.llm.tools import ToolRouter
 from app.llm.web_search import (
     PAUSE_TURN,
@@ -52,28 +53,6 @@ from app.user_timezone import resolve_user_timezone, resolve_work_hours
 from app.work_hours import work_hours_line
 
 logger = logging.getLogger(__name__)
-
-PENDING_APPROVAL_STATUS = "pending_approval"
-
-
-def tool_result_status(result: str) -> str:
-    """How a tool call ended, as the Mind panel and the thread's activity log read it.
-
-    `pending_approval` is a third outcome, not a failure: the policy held the call back
-    and the user has the card in front of them (MAG-4). Drawing it as an error would say
-    Maggie tried and could not, which is the opposite of « Propose, never impose ».
-    """
-    try:
-        data = json.loads(result)
-    except (json.JSONDecodeError, TypeError):
-        return "error" if '"error"' in result else "success"
-
-    if not isinstance(data, dict):
-        return "success"
-    if data.get("status") == PENDING_APPROVAL_STATUS:
-        return PENDING_APPROVAL_STATUS
-    return "error" if "error" in data else "success"
-
 
 def answer_message_id(user_msg_id: str) -> str:
     """The id of the answer to a user's message, fixed by the message alone (MAG-344).
@@ -316,6 +295,8 @@ class StreamingGateway:
         # text of its own leaves the previous one standing, so the answer is never empty.
         answer = ""
         max_iterations = 5
+        streak = FailureStreak()
+        stop_tools = False
 
         # The `tool_use` / `tool_result` rounds of this run, stored on the answer so the
         # next message of the thread is sent them back (MAG-211). Not the same thing as
@@ -341,6 +322,7 @@ class StreamingGateway:
                     system=system_prompt,
                     messages=messages,
                     tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
+                    tool_choice={"type": "none"} if stop_tools else anthropic.NOT_GIVEN,
                     **effort_kwargs(CHAT),
                 )
 
@@ -435,7 +417,7 @@ class StreamingGateway:
                     continue
 
                 # Process tool calls if stop_reason is tool_use
-                if stop_reason == "tool_use":
+                if stop_reason == "tool_use" and not stop_tools:
                     messages.append({"role": "assistant", "content": response_content})
 
                     tool_results = []
@@ -481,6 +463,7 @@ class StreamingGateway:
                                 }
                             )
                             guard.record(tool_name, result, tool_input)
+                            streak.record(tool_name, result)
 
                             # Log to context if we have one
                             if current_context_id:
@@ -524,6 +507,9 @@ class StreamingGateway:
                                 }
                             )
 
+                    if streak.gave_up():
+                        tool_results.append(streak.note(user_id, "chat_stream"))
+                        stop_tools = True
                     messages.append({"role": "user", "content": tool_results})
                     # The same round as plain data, which is what a column can hold:
                     # `response_content` is the SDK's own block objects.
