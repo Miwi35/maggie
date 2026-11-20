@@ -11,12 +11,16 @@
 #
 #   1. `ignored` — selects nothing (docs, unit tests, this map, and the tooling:
 #      infra, CI, Taskfiles, scripts, Docker files, agent-os, Claude config).
-#   2. `transversal` — the whole suite, web and mobile; `transversal_web` /
+#   2. `registries` — on a change whose diff is known, a registry file (loaded by
+#      every journey, yet a change in it is nearly always one module's entry)
+#      plays the journeys of the modules its changed lines name, plus the core;
+#      before the line map. Any other case: the rules below.
+#   3. `transversal` — the whole suite, web and mobile; `transversal_web` /
 #      `transversal_mobile` — every journey of that platform.
-#   3. a journey's own file, its `paths` and the globs of its `areas` — that journey,
+#   4. a journey's own file, its `paths` and the globs of its `areas` — that journey,
 #      unless the file is `only` the other platform's (an admin screen never
 #      selects a Maestro flow, an Android screen never a Playwright file).
-#   4. `unmapped` — a file under one of these roots that nothing above claims
+#   5. `unmapped` — a file under one of these roots that nothing above claims
 #      plays every journey of the platforms listed: a file the map forgot runs
 #      too much, never too little. So a file of `e2e/` no journey claims (a
 #      fixture, a page object used everywhere, a runner) plays the suite of its
@@ -173,6 +177,31 @@ coverage:
     - 'agent/app/**/*.py'
     - 'admin/src/**/*.{ts,tsx}'
     - 'mobile/app/src/main/java/**/*.kt'
+
+# Registry files: every journey loads them at start-up — the zones call them
+# transversal, and the line map sees every journey run their lines — yet a
+# change in them is nearly always one module's entry (a menu part, a route, a
+# view model declared). On a change whose diff is known, every changed code line
+# of such a file must name a module: the file then plays the journeys of those
+# modules on its platform, plus the core. One line that names none — or no diff,
+# a file added, deleted or renamed — and the file keeps the rules above (line
+# map, then zones): a registry plays too much, never too little.
+registries:
+  files:
+    - admin/src/components/layout/navigation.ts
+    - mobile/app/src/main/java/com/maggie/app/MaggieApp.kt
+    - mobile/app/src/main/java/com/maggie/app/ui/navigation/NavGraph.kt
+  # The words that name an area in a changed line: an identifier cut at `_` and
+  # at each capital (`HEALTH_ACTIVITY_PATH`, `selectHealthSection`), a string at
+  # `/` (`'/health/activity'`), lower-case, a final `s` dropped. Only words no
+  # generic code uses: a missing word costs a full run, a loose one a missed journey.
+  names:
+    calendar: [calendar, agenda, fullcalendar]
+    cookbook: [cookbook, recipe, meal]
+    finance: [finance]
+    grocery: [grocery, errand]
+    health: [health]
+    notification: [notification, proaction]
 
 areas:
   # Anything the stack runs: the smoke journey stands for it.
