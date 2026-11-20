@@ -28,7 +28,9 @@ import com.maggie.app.data.model.Agenda
 import com.maggie.app.data.model.Period
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.theme.maggieSurface
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 /** The periods that touch [days], a series' occurrences once each: what the chips of a day or a week list. */
 fun periodsOnDays(periods: List<Period>, days: List<LocalDate>): List<Period> =
@@ -36,6 +38,13 @@ fun periodsOnDays(periods: List<Period>, days: List<LocalDate>): List<Period> =
         .filter { period -> days.any(period::coversDay) }
         .distinctBy { it.id }
         .sortedWith(compareBy({ it.startsAt() }, { it.name }))
+
+/** The chips of a Day view: on today, a period whose end has passed is no longer the one running. */
+fun periodsOfTheDay(periods: List<Period>, day: LocalDate, now: Instant, zone: ZoneId): List<Period> {
+    val isToday = day == now.atZone(zone).toLocalDate()
+    return periodsOnDays(periods, listOf(day))
+        .filterNot { isToday && it.endsAt()?.isAfter(now) == false }
+}
 
 /**
  * The chips under the date in the Day and Week views (MAG-815): hatching, a square in the agenda's colour, the
