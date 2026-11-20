@@ -86,10 +86,10 @@ fun TripLine(
                         text = trip.departureHeadline(zone, now),
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.alignByBaseline().testTag(UiTags.tripLine(trip.eventId)),
+                        modifier = Modifier.weight(1f, fill = false).alignByBaseline().testTag(UiTags.tripLine(trip.eventId)),
                     )
                     minutesLeft(trip, now)?.let {
-                        Text(text = timeLeftLabel(it), fontSize = 14.sp, color = accent, modifier = Modifier.alignByBaseline())
+                        Text(text = timeLeftLabel(it), fontSize = 14.sp, color = accent, softWrap = false, maxLines = 1, modifier = Modifier.alignByBaseline())
                     }
                 }
                 eventLine(event, zone)?.let { Text(text = it, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface) }
