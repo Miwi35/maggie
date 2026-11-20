@@ -13,6 +13,14 @@ final readonly class RecordProactionResultCommand
         public string $status,
         public ?string $response = null,
         public ?string $error = null,
+        public ?string $delivery = null,
+        public ?string $topicKey = null,
+        public ?string $impact = null,
+        public ?string $evidence = null,
+        public ?string $deadline = null,
+        public ?string $changed = null,
+        public ?string $notice = null,
+        public ?string $messageLink = null,
     ) {
     }
 }

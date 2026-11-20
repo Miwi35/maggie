@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Message;
 
+use Maggie\Calendar\Enum\ProactionKind;
+
 final readonly class ScheduleProactionCommand
 {
     public function __construct(
@@ -11,6 +13,7 @@ final readonly class ScheduleProactionCommand
         public string $prompt,
         public \DateTimeImmutable $scheduledAt,
         public ?string $summary = null,
+        public ProactionKind $kind = ProactionKind::Reminder,
     ) {
     }
 }

@@ -8,6 +8,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Proaction;
+use Maggie\Calendar\Entity\ProactionOutcome;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Calendar\Enum\TripDecider;
@@ -617,7 +618,7 @@ class ReplanTripsTest extends KernelTestCase
         self::assertCount(2, $this->replans(), 'a run that has started has already read the day');
 
         foreach ($this->replans() as $replan) {
-            $replan->markCompleted('Trajets replanifiés.', $this->at('2026-11-03 10:01:00'));
+            $replan->markCompleted(new ProactionOutcome('Trajets replanifiés.'), $this->at('2026-11-03 10:01:00'));
         }
         $this->em()->flush();
         $this->update('dentist', location: '1 rue du Dernier Cabinet Fictif');

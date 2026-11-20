@@ -14,7 +14,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 /** The executor's report of a run it claimed with claim_due_proactions (MAG-326). */
-#[McpTool(name: 'record_proaction_result', description: 'Records the outcome of a claimed (running) proaction: completed with response (may be empty), or failed with error. Executor only, never offered to the model.')]
+#[McpTool(name: 'record_proaction_result', description: 'Records the outcome of a claimed (running) proaction: completed with response (may be empty), or failed with error. A completed run also keeps delivery (interrupt, thread or none), topic_key, the verdict (impact low|medium|high, evidence weak|solid, deadline ISO 8601, changed), notice (the sentence of the interruption) and message_link (/chat?message=<id>). Executor only, never offered to the model.')]
 class RecordProactionResultTool
 {
     public function __construct(
@@ -23,8 +23,20 @@ class RecordProactionResultTool
     ) {
     }
 
-    public function __invoke(string $id, string $status, ?string $response = null, ?string $error = null): string
-    {
+    public function __invoke(
+        string $id,
+        string $status,
+        ?string $response = null,
+        ?string $error = null,
+        ?string $delivery = null,
+        ?string $topic_key = null,
+        ?string $impact = null,
+        ?string $evidence = null,
+        ?string $deadline = null,
+        ?string $changed = null,
+        ?string $notice = null,
+        ?string $message_link = null,
+    ): string {
         $user = $this->userContext->getUser();
 
         try {
@@ -34,6 +46,14 @@ class RecordProactionResultTool
                 status: $status,
                 response: $response,
                 error: $error,
+                delivery: $delivery,
+                topicKey: $topic_key,
+                impact: $impact,
+                evidence: $evidence,
+                deadline: $deadline,
+                changed: $changed,
+                notice: $notice,
+                messageLink: $message_link,
             ));
         } catch (HandlerFailedException $e) {
             return json_encode(['error' => ($e->getPrevious() ?? $e)->getMessage()], JSON_THROW_ON_ERROR);

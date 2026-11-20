@@ -6,6 +6,8 @@ namespace Maggie\Calendar\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Proaction;
+use Maggie\Calendar\Entity\ProactionOutcome;
+use Maggie\Calendar\Enum\ProactionKind;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Calendar\Message\DeleteEventCommand;
 use Maggie\Calendar\Repository\ProactionRepository;
@@ -26,6 +28,10 @@ class Proactions
 {
     /** At most this many proactions per claim, so one slow run cannot hold a batch. */
     public const CLAIM_LIMIT = 20;
+
+    /** How far back a check reads the topics it already told the owner about (MAG-886). */
+    public const SIGNALED_WINDOW = '-7 days';
+    public const SIGNALED_LIMIT = 20;
 
     private const INSTANT = '/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/';
 
@@ -70,7 +76,7 @@ class Proactions
         return $at;
     }
 
-    public function schedule(User $user, string $prompt, \DateTimeImmutable $at, ?string $summary = null): Proaction
+    public function schedule(User $user, string $prompt, \DateTimeImmutable $at, ?string $summary = null, ProactionKind $kind = ProactionKind::Reminder): Proaction
     {
         if ('' === trim($prompt)) {
             throw new \DomainException('prompt is required: what Maggie does when the proaction runs.');
@@ -88,6 +94,7 @@ class Proactions
 
         $proaction = new Proaction();
         $proaction->setPrompt(trim($prompt));
+        $proaction->setKind($kind);
         $proaction->setSummary(null !== $summary && '' !== trim($summary) ? Proaction::summaryOf($summary) : Proaction::summaryOf($prompt));
         $proaction->setTimeZone($agenda->getTimeZone());
         $proaction->scheduleAt($at);
@@ -148,19 +155,22 @@ class Proactions
         });
     }
 
-    /** What the run gave: completed with Maggie's answer, or failed with the error. */
-    public function record(?User $user, string $id, string $status, ?string $response, ?string $error): Proaction
+    /**
+     * What the run gave: completed with Maggie's answer and how it reached the
+     * owner (MAG-886), or failed with the error.
+     */
+    public function record(?User $user, string $id, string $status, ProactionOutcome $outcome, ?string $error): Proaction
     {
         $proaction = $this->repository->findOneForUser($id, $user)
             ?? throw new \DomainException("Proaction not found: {$id}");
 
-        $outcome = ProactionStatus::fromFilter($status);
+        $finished = ProactionStatus::fromFilter($status);
         if (ProactionStatus::Running !== $proaction->getExecutionStatus()) {
             throw new \DomainException("Proaction {$id} is {$proaction->getExecutionStatus()->value}, not running: claim it with claim_due_proactions first.");
         }
 
-        match ($outcome) {
-            ProactionStatus::Completed => $proaction->markCompleted($response, $this->clock->now()),
+        match ($finished) {
+            ProactionStatus::Completed => $proaction->markCompleted($outcome, $this->clock->now()),
             ProactionStatus::Failed => $proaction->markFailed(null !== $error && '' !== trim($error) ? $error : 'Unknown error.', $this->clock->now()),
             default => throw new \DomainException('status is completed or failed.'),
         };
@@ -168,6 +178,29 @@ class Proactions
         $this->em->flush();
 
         return $proaction;
+    }
+
+    /**
+     * The topics a check already told its owner about these last days, so it does
+     * not say the same thing twice (MAG-886). A reminder gets none: it is never
+     * triaged.
+     *
+     * @return list<array{topic: string, at: string, delivery: string, notice: ?string}>|null
+     */
+    public function signaledTopics(Proaction $proaction): ?array
+    {
+        if (ProactionKind::Check !== $proaction->getKind()) {
+            return null;
+        }
+
+        $since = $this->clock->now()->modify(self::SIGNALED_WINDOW);
+
+        return array_map(static fn (Proaction $told): array => [
+            'topic' => (string) $told->getTopicKey(),
+            'at' => (string) $told->getCompletedAt()?->format('c'),
+            'delivery' => (string) $told->getDelivery()?->value,
+            'notice' => $told->getNotice(),
+        ], $this->repository->findSignaledTopics($proaction->getAgenda()->getUser(), $since, self::SIGNALED_LIMIT));
     }
 
     /**
@@ -182,8 +215,11 @@ class Proactions
             'prompt' => $proaction->getPrompt(),
             'summary' => $proaction->getSummary(),
             'scheduledAt' => $proaction->getStartAt()?->setTimezone(new \DateTimeZone($proaction->getTimeZone()))->format('c'),
+            'kind' => $proaction->getKind()->value,
             'status' => $proaction->getExecutionStatus()->value,
             'response' => $proaction->getResponse(),
+            'delivery' => $proaction->getDelivery()?->value,
+            'topicKey' => $proaction->getTopicKey(),
             'error' => $proaction->getError(),
             'completedAt' => $proaction->getCompletedAt()?->format('c'),
             'userId' => (string) $proaction->getAgenda()->getUser()->getId(),

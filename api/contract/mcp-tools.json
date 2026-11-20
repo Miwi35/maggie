@@ -248,7 +248,7 @@
                 }
             }
         },
-        "description": "Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId and prompt. Executor only, never offered to the model."
+        "description": "Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}). Executor only, never offered to the model."
     },
     "create_event": {
         "name": "create_event",
@@ -4592,6 +4592,62 @@
                         "string"
                     ],
                     "default": null
+                },
+                "delivery": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "topic_key": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "impact": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "evidence": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "deadline": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "changed": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "notice": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "message_link": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
@@ -4599,7 +4655,7 @@
                 "status"
             ]
         },
-        "description": "Records the outcome of a claimed (running) proaction: completed with response (may be empty), or failed with error. Executor only, never offered to the model."
+        "description": "Records the outcome of a claimed (running) proaction: completed with response (may be empty), or failed with error. A completed run also keeps delivery (interrupt, thread or none), topic_key, the verdict (impact low|medium|high, evidence weak|solid, deadline ISO 8601, changed), notice (the sentence of the interruption) and message_link (/chat?message=<id>). Executor only, never offered to the model."
     },
     "remove_grocery_item": {
         "name": "remove_grocery_item",
@@ -4895,6 +4951,13 @@
                         "string"
                     ],
                     "default": null
+                },
+                "kind": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
@@ -4902,7 +4965,7 @@
                 "scheduled_at"
             ]
         },
-        "description": "Schedules ONE run of Maggie: at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). Single occurrence; no RRULE. scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. Returns the proaction (proaction.scheduledAt)."
+        "description": "Schedules ONE run of Maggie: at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). Single occurrence; no RRULE. scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. kind: reminder (default — the owner asked to be told at that time; always interrupts) or check (verifies or watches; speaks only when useful, triaged). Returns the proaction (proaction.scheduledAt)."
     },
     "search": {
         "name": "search",

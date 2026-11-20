@@ -18,12 +18,13 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * one user at a time through X-Maggie-User-Id. A caller acting for a user only
  * ever claims that user's.
  */
-#[McpTool(name: 'claim_due_proactions', description: 'Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId and prompt. Executor only, never offered to the model.')]
+#[McpTool(name: 'claim_due_proactions', description: 'Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}). Executor only, never offered to the model.')]
 class ClaimDueProactionsTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly McpUserContext $userContext,
+        private readonly Proactions $proactions,
     ) {
     }
 
@@ -40,7 +41,15 @@ class ClaimDueProactionsTool
         $claimed = $envelope->last(HandledStamp::class)?->getResult() ?? [];
 
         return json_encode([
-            'proactions' => array_map(static fn (Proaction $p) => Proactions::describe($p), $claimed),
+            'proactions' => array_map(function (Proaction $p): array {
+                $described = Proactions::describe($p);
+                $signaled = $this->proactions->signaledTopics($p);
+                if (null !== $signaled) {
+                    $described['signaledTopics'] = $signaled;
+                }
+
+                return $described;
+            }, $claimed),
             'count' => count($claimed),
         ], JSON_THROW_ON_ERROR);
     }

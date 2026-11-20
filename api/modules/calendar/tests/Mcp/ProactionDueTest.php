@@ -10,10 +10,15 @@ use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Proaction;
+use Maggie\Calendar\Entity\ProactionOutcome;
+use Maggie\Calendar\Enum\ProactionDelivery;
+use Maggie\Calendar\Enum\ProactionKind;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Calendar\Mcp\Tool\ClaimDueProactionsTool;
 use Maggie\Calendar\Mcp\Tool\RecordProactionResultTool;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /** claim_due_proactions and record_proaction_result, the executor's tools (MAG-326). */
@@ -192,6 +197,121 @@ class ProactionDueTest extends KernelTestCase
             self::assertArrayHasKey('error', $data, $status);
         }
         self::assertSame(ProactionStatus::Running, $this->stored('already_running')->getExecutionStatus());
+    }
+
+    public function testACompletedRunKeepsItsDeliveryTopicAndVerdict(): void
+    {
+        // The trace the next check reads back (MAG-886).
+        $data = $this->call(
+            RecordProactionResultTool::class,
+            $this->id('already_running'),
+            'completed',
+            'Votre enveloppe Loisirs est à 72 %, monsieur.',
+            delivery: 'thread',
+            topic_key: 'enveloppe-loisirs',
+            impact: 'low',
+            evidence: 'solid',
+            deadline: '2037-01-15T08:30:00+01:00',
+            changed: 'Passée de 60 % à 72 %.',
+            notice: 'Votre enveloppe Loisirs est à 72 %, monsieur.',
+            message_link: '/chat?message=01JABCDEF',
+        );
+
+        self::assertTrue($data['success'], json_encode($data, JSON_THROW_ON_ERROR));
+        self::assertSame('thread', $data['proaction']['delivery']);
+        self::assertSame('enveloppe-loisirs', $data['proaction']['topicKey']);
+
+        $stored = $this->stored('already_running');
+        self::assertSame(ProactionStatus::Completed, $stored->getExecutionStatus());
+        self::assertSame(ProactionDelivery::Thread, $stored->getDelivery());
+        self::assertSame('enveloppe-loisirs', $stored->getTopicKey());
+        self::assertSame(['impact' => 'low', 'evidence' => 'solid', 'deadline' => '2037-01-15T08:30:00+01:00', 'changed' => 'Passée de 60 % à 72 %.'], $stored->getVerdict());
+        self::assertSame('Votre enveloppe Loisirs est à 72 %, monsieur.', $stored->getNotice());
+        self::assertSame('/chat?message=01JABCDEF', $stored->getMessageLink());
+
+        $this->assertMercureUpdatePublished('/proactions/');
+        $this->assertElasticsearchIndexDispatchedFor(Proaction::class, $this->id('already_running'));
+    }
+
+    /** @return iterable<string, array{array<string, string>}> */
+    public static function badOutcomes(): iterable
+    {
+        yield 'delivery' => [['delivery' => 'push']];
+        yield 'impact' => [['impact' => 'urgent']];
+        yield 'evidence' => [['evidence' => 'strong']];
+        yield 'deadline' => [['deadline' => 'demain']];
+        yield 'impossible deadline' => [['deadline' => '2037-02-30T08:30:00']];
+        yield 'topic' => [['topic_key' => 'Enveloppe Loisirs']];
+        yield 'long topic' => [['topic_key' => str_repeat('a', 81)]];
+        yield 'message link' => [['message_link' => 'https://evil.example/chat?message=1']];
+    }
+
+    /** @param array<string, string> $outcome */
+    #[DataProvider('badOutcomes')]
+    public function testAnInvalidOutcomeIsRefusedAndTheProactionStaysRunning(array $outcome): void
+    {
+        $data = $this->call(RecordProactionResultTool::class, $this->id('already_running'), 'completed', 'Réponse', ...$outcome);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertSame(ProactionStatus::Running, $this->stored('already_running')->getExecutionStatus());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testACheckIsClaimedWithTheTopicsItsUserWasToldAboutThisWeek(): void
+    {
+        $check = $this->proaction('maggie_agenda', 'Vérifie l\'enveloppe Loisirs', ProactionKind::Check);
+        $this->told('maggie_agenda', 'enveloppe-loisirs', ProactionDelivery::Thread, '-2 days', 'Loisirs à 60 %.');
+        $this->told('maggie_agenda', 'enveloppe-loisirs', ProactionDelivery::Interrupt, '-1 day', 'Loisirs à 72 %.');
+        $this->told('maggie_agenda', 'facture-edf', ProactionDelivery::Interrupt, '-3 days', 'Facture EDF due.');
+        // Said nothing, too old, or another user's: never a topic told.
+        $this->told('maggie_agenda', 'detail', ProactionDelivery::None, '-1 day', null);
+        $this->told('maggie_agenda', 'ancien', ProactionDelivery::Thread, '-8 days', 'Ancien.');
+        $this->told('other_maggie_agenda', 'chien', ProactionDelivery::Interrupt, '-1 day', 'Le chien.');
+
+        $data = $this->call(ClaimDueProactionsTool::class, null, $check);
+
+        self::assertSame('check', $data['proactions'][0]['kind']);
+        $topics = $data['proactions'][0]['signaledTopics'];
+        self::assertSame(['enveloppe-loisirs', 'facture-edf'], array_column($topics, 'topic'));
+        self::assertSame('interrupt', $topics[0]['delivery']);
+        self::assertSame('Loisirs à 72 %.', $topics[0]['notice']);
+        self::assertNotEmpty($topics[0]['at']);
+    }
+
+    public function testAReminderIsClaimedWithoutSignaledTopics(): void
+    {
+        $this->told('maggie_agenda', 'enveloppe-loisirs', ProactionDelivery::Interrupt, '-1 day', 'Loisirs à 72 %.');
+
+        $data = $this->call(ClaimDueProactionsTool::class, null, $this->id('future'));
+
+        self::assertSame('reminder', $data['proactions'][0]['kind']);
+        self::assertArrayNotHasKey('signaledTopics', $data['proactions'][0]);
+    }
+
+    /** A pending proaction due now, its id. */
+    private function proaction(string $agenda, string $prompt, ProactionKind $kind): string
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $proaction = (new Proaction())->setPrompt($prompt)->setKind($kind);
+        $proaction->setSummary(Proaction::summaryOf($prompt));
+        $proaction->scheduleAt(new \DateTimeImmutable('-1 minute'));
+        $em->find(Agenda::class, $this->getFixture($agenda)->getId())->addEvent($proaction);
+        $em->persist($proaction);
+        $em->flush();
+
+        return (string) $proaction->getId();
+    }
+
+    private function told(string $agenda, string $topic, ProactionDelivery $delivery, string $ago, ?string $notice): void
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $proaction = (new Proaction())->setPrompt('Vérifie '.$topic)->setKind(ProactionKind::Check);
+        $proaction->setSummary('Vérifie '.$topic);
+        $proaction->scheduleAt(new \DateTimeImmutable($ago));
+        $em->find(Agenda::class, $this->getFixture($agenda)->getId())->addEvent($proaction);
+        $proaction->markRunning()->markCompleted(new ProactionOutcome(response: $notice, delivery: $delivery, topicKey: $topic, notice: $notice), new \DateTimeImmutable($ago));
+        $em->persist($proaction);
+        $em->flush();
     }
 
     public function testAUserCannotRecordTheResultOfAnotherUsersProaction(): void
