@@ -308,3 +308,66 @@ class TestTheDaysSession:
 
         assert 'activity: "sport"' in skill
         assert "Séance A à 18 h 30, 30 min" in skill
+
+
+class TestADigestThatSaysWhatIsEmpty:
+    async def run_spied(self, api):
+        notes = []
+        gateway = _Gateway()
+        proaction = gateway.proaction
+
+        async def spy(prompt, user_id, **kwargs):
+            review = kwargs["review"]
+            kwargs["review"] = lambda text, tool_calls: notes.append(review(text, tool_calls)) or notes[-1]
+            return await proaction(prompt, user_id, **kwargs)
+
+        gateway.proaction = spy
+        return notes, gateway
+
+    async def test_a_digest_that_says_what_is_empty_is_sent_back_once(self, api, storage):
+        notes, gateway = await self.run_spied(api)
+
+        result, _ = await run_digest(gateway, DIGEST)
+
+        assert notes[0].startswith("[Contrôle automatique]") and "« Aucun repas n'est prévu ce soir. »" in notes[0]
+        assert len(notes) == 1
+        assert "Aucun" not in result["response"]
+
+    async def test_one_review_names_both_a_missing_fact_and_an_empty_sentence(self, api, storage):
+        api.agenda["2030-11-14"] = [KINE]
+        notes, gateway = await self.run_spied(api)
+
+        await run_digest(gateway, DIGEST)
+
+        assert len(notes) == 1
+        assert "Kiné, 9 h 15" in notes[0] and "« Aucun repas n'est prévu ce soir. »" in notes[0]
+
+    async def test_an_empty_sentence_left_after_the_review_is_signalled_not_removed(self, api, storage):
+        async def stubborn(prompt, user_id, **kwargs):
+            text = "Bonjour. Aucun repas n'est prévu à midi. Il fera 9 degrés."
+            assert kwargs["review"](text, []).count("Aucun repas") == 1
+            return {"response": text, "tool_calls": [], "context_id": "ctx-1"}
+
+        gateway = _Gateway()
+        gateway.proaction = stubborn
+
+        with patch("app.digest.capture_signal") as signal:
+            result, _ = await run_digest(gateway, DIGEST)
+
+        assert result["response"] == "Bonjour. Aucun repas n'est prévu à midi. Il fera 9 degrés."
+        assert storage.voice.await_args.args[1] == result["response"]
+        signal.assert_called_once()
+        assert signal.call_args.args[0] == "digest_says_empty"
+
+    async def test_a_digest_without_empty_sentence_nor_missing_fact_is_not_sent_back(self, api, storage):
+        gateway = _Gateway()
+
+        async def clean(prompt, user_id, **kwargs):
+            assert kwargs["review"]("Bonjour. Il fera 9 degrés.", []) is None
+            return {"response": "Bonjour. Il fera 9 degrés.", "tool_calls": [], "context_id": "ctx-1"}
+
+        gateway.proaction = clean
+        with patch("app.digest.capture_signal") as signal:
+            await run_digest(gateway, DIGEST)
+
+        signal.assert_not_called()

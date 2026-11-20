@@ -11,8 +11,8 @@ from datetime import date, datetime, time, tzinfo
 
 from app.db.message_repository import message_repo
 from app.db.models import SCREEN_DIGEST, Message
-from app.digest_facts import missing_facts, required_facts, signal
-from app.error_tracking import DIGEST_FACTS_MISSING, capture_signal
+from app.digest_facts import empty_sentences, missing_facts, required_facts, signal
+from app.error_tracking import DIGEST_FACTS_MISSING, DIGEST_SAYS_EMPTY, capture_signal
 from app.rendezvous import DEFAULT_AFTERNOON_POINT_TIME, DIGEST_SUMMARY
 from app.tts.voice_message import VoiceMessageError, send_voice_message
 from app.user_timezone import resolve_user_timezone
@@ -40,7 +40,8 @@ async def run_digest(gateway, proaction) -> tuple[dict, Message | None]:
 
     def review(text: str, tool_calls: list[dict]) -> str | None:
         missing = missing_facts(text, required_facts(tool_calls, day))
-        return signal(missing) if missing else None
+        empty = empty_sentences(text)
+        return signal(missing, empty) if missing or empty else None
 
     result = await gateway.proaction(
         proaction.prompt,
@@ -57,6 +58,10 @@ async def run_digest(gateway, proaction) -> tuple[dict, Message | None]:
     if missing:
         logger.warning(f"Digest of {user_id} still misses {len(missing)} fact(s) after the signal")
         capture_signal(DIGEST_FACTS_MISSING, user_id=user_id, facts=str(len(missing)))
+    empty = empty_sentences(text)
+    if empty:
+        logger.warning(f"Digest of {user_id} still says what is empty after the signal: {len(empty)} sentence(s)")
+        capture_signal(DIGEST_SAYS_EMPTY, user_id=user_id, sentences=str(len(empty)))
     result["response"] = text
 
     context_id = result.get("context_id")

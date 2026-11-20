@@ -2,7 +2,7 @@
 
 import json
 
-from app.digest_facts import Fact, format_hour, missing_facts, required_facts, signal
+from app.digest_facts import Fact, empty_sentences, format_hour, missing_facts, required_facts, signal
 
 DAY = "2030-11-14"
 
@@ -114,3 +114,22 @@ def test_the_signal_names_each_fact_with_its_hour_and_dictates_no_style():
     )
     for style in ("monsieur", "vouvoiement", "Markdown"):
         assert style not in text
+
+
+def test_empty_sentences_finds_what_the_text_says_is_empty():
+    text = "Aucun repas n'est prévu à midi. Aucune tâche sans horaire ne vous attend. Rien de prévu ce soir. Pas de pluie."
+    assert empty_sentences("Aucun repas n'est prévu à midi. Au déjeuner, une soupe.") == ["Aucun repas n'est prévu à midi."]
+    assert len(empty_sentences(text)) == 4
+    assert empty_sentences("Au déjeuner, une soupe. Il ne reste rien à renvoyer.") == []
+
+
+def test_empty_sentences_ignores_case_and_accents():
+    assert empty_sentences("RIEN n'est prévu.\naucune tâche.") == ["RIEN n'est prévu.", "aucune tâche."]
+    assert empty_sentences("pas de repas ce soir") == ["pas de repas ce soir"]
+
+
+def test_the_signal_quotes_the_empty_sentences_next_to_the_missing_facts():
+    note = signal([Fact("event", "Kiné", "09:15")], ["Aucun repas n'est prévu."])
+    assert note.startswith("[Contrôle automatique]")
+    assert "- Kiné, 9 h 15" in note and "- « Aucun repas n'est prévu. »" in note
+    assert note.endswith("Réponds par le digest entier.")
