@@ -165,6 +165,25 @@ describe('CalendarView — trips in the day list', { timeout: 60_000 }, () => {
     expect(await screen.findByText('Jeudi 15 janvier')).toBeInTheDocument()
   })
 
+  test('the day view draws the trip of a recurring occurrence', async () => {
+    const series = { ...event('01SERIES', 'Piscine', new Date(2037, 0, 8, 18)), rrule: 'FREQ=WEEKLY' }
+    serve([series], () => [trip('01SERIES', at(17, 30), { occurrenceStartAt: at(18).toISOString() })])
+    render(<CalendarView />)
+    await openDayView()
+
+    const line = await screen.findByLabelText('Trajet vers Piscine')
+    expect(line).toHaveTextContent('Partir à 17:30')
+  })
+
+  test('the day title keeps the month in lower case', async () => {
+    serve([DENTIST], () => [])
+    render(<CalendarView />)
+    await openDayView()
+
+    const title = await screen.findByText('Jeudi 15 janvier')
+    expect(getComputedStyle(title).textTransform).toBe('none')
+  })
+
   test('the return of a whole-day stay shows in the list, Retour before the hours', async () => {
     const stay = {
       ...event('01STAY', 'Gîte du Pouldu', at(0)),

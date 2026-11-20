@@ -29,6 +29,26 @@ describe('dayRows', () => {
     expect(kinds(rows)).toEqual(['event:a', 'trip:b', 'event:b', 'trip:c', 'event:c'])
   })
 
+  test('a trip of a series sits with the occurrence it serves', () => {
+    const occurrence = (day: number) => ({
+      ...entry(`/api/events/S__2037-01-${day}`, new Date(2037, 0, day, 18)),
+      extendedProps: { masterEventId: '/api/events/S', isVirtualOccurrence: true },
+    })
+    const rows = dayRows([occurrence(15)], [trip('/api/events/S', at(17, 30), { occurrenceStartAt: at(18).toISOString() })], at(8))
+
+    expect(rows.map((row) => row.kind)).toEqual(['trip', 'event'])
+  })
+
+  test('a trip of a series does not attach to another occurrence', () => {
+    const other = {
+      ...entry('/api/events/S__2037-01-15', at(18)),
+      extendedProps: { masterEventId: 'S', isVirtualOccurrence: true },
+    }
+    const rows = dayRows([other], [trip('/api/events/S', at(17, 30), { occurrenceStartAt: new Date(2037, 0, 8, 18).toISOString() })], at(8))
+
+    expect(rows.map((row) => row.kind)).toEqual(['event'])
+  })
+
   test('all-day entries come first', () => {
     const rows = dayRows([entry('a', at(9)), entry('j', at(0), 0, true)], [], at(8))
 
