@@ -15,12 +15,14 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import CloseIcon from '@mui/icons-material/Close'
 import EditIcon from '@mui/icons-material/Edit'
+import SyncIcon from '@mui/icons-material/Sync'
 import { MarkdownText } from '../../components/markdown/MarkdownText'
 import { addDays, parseDay } from '../../dates'
 import { remindersToFrenchText, remindersFromMinutes } from './ReminderPicker'
 import { UrgencyBadge } from './UrgencyBadge'
 import { bySiblingOrder, MOMENT_LABELS, taskIri } from './TaskFormDialog'
 import type { TaskData } from './TaskFormDialog'
+import { ruleText, untilSuffix } from './taskRepeat'
 
 const LEVELS: Record<string, string> = { low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique' }
 
@@ -173,6 +175,16 @@ export const TaskSheet = ({ task, today, onClose, onEdit, onChanged }: TaskSheet
       <Stack spacing={1} sx={{ px: 2, py: 1.5 }}>
         {task.dueDate && <Fact label="Échéance">{longDay(task.dueDate)}</Fact>}
         {scheduled && <Fact label="Programmée">{scheduled}</Fact>}
+        <Fact label="Répéter">
+          {task.rrule ? (
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+              <SyncIcon aria-hidden fontSize="inherit" />
+              {`${ruleText(task.rrule, (task.scheduledDate || task.dueDate)?.slice(0, 10) ?? null)}${untilSuffix(task.rrule) ?? ''}`}
+            </Box>
+          ) : (
+            'Jamais'
+          )}
+        </Fact>
         {reminders && <Fact label="Rappels">{reminders}</Fact>}
         <Fact label="Criticité">{LEVELS[task.criticality] ?? task.criticality}</Fact>
         <Fact label="Priorité">{LEVELS[task.priority] ?? task.priority}</Fact>
