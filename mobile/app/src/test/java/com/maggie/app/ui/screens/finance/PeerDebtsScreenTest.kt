@@ -15,6 +15,7 @@ import com.maggie.app.data.model.PeerDebtSummary
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.data.repository.PeerDebtRepository
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -71,36 +72,76 @@ class PeerDebtsScreenTest {
     }
 
     @Test
-    fun `the two totals are drawn, with what each covers`() {
+    fun `the two totals are drawn without a caption`() {
         val model = viewModel()
         compose.setContent { PeerDebtsScreen(model, onBack = {}, onOpenContact = {}, onAddPerson = {}) }
 
         compose.onNodeWithTag(UiTags.PEER_DEBTS_TILE_OWED_TO_ME).assertIsDisplayed()
         compose.onNodeWithText(formatCents(40000)).assertIsDisplayed()
-        compose.onNodeWithText("avancés sur ton matelas").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.PEER_DEBTS_TILE_I_OWE).assertIsDisplayed()
         compose.onNodeWithText(formatCents(28000)).assertIsDisplayed()
-        compose.onNodeWithText("hors revenus et épargne").assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithText("avancés sur ton matelas").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodesWithText("hors revenus et épargne").fetchSemanticsNodes().size)
     }
 
     @Test
-    fun `by person, Tom shows what compensates and opens into a line per object and the way to his page`() {
+    fun `by person, a row shows the initial, who owes whom and the net`() {
+        val model = viewModel()
+        compose.setContent { PeerDebtsScreen(model, onBack = {}, onOpenContact = {}, onAddPerson = {}) }
+
+        compose.onNodeWithText("E").assertIsDisplayed()
+        compose.onNodeWithText("Emma te doit").assertIsDisplayed()
+        compose.onNodeWithText(formatCents(20000)).assertIsDisplayed()
+        compose.onNodeWithText("T").assertIsDisplayed()
+        compose.onNodeWithText("tu dois à Tom").assertIsDisplayed()
+        compose.onNodeWithText(formatCents(8000)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a person all square says quittes`() {
+        val model = viewModel(
+            summary = PeerDebtSummary(byContact = listOf(ContactBalance("c-ines", "Inès", netCents = 0))),
+        )
+        compose.setContent { PeerDebtsScreen(model, onBack = {}, onOpenContact = {}, onAddPerson = {}) }
+
+        compose.onNodeWithText("quittes").assertIsDisplayed()
+    }
+
+    @Test
+    fun `those who owe come first`() {
+        val model = viewModel(
+            summary = PeerDebtSummary(
+                owedToMeCents = 40000,
+                iOweCents = 28000,
+                byContact = listOf(
+                    ContactBalance("c-tom", "Tom", netCents = -8000),
+                    ContactBalance("c-emma", "Emma", netCents = 20000),
+                ),
+            ),
+        )
+        compose.setContent { PeerDebtsScreen(model, onBack = {}, onOpenContact = {}, onAddPerson = {}) }
+
+        assertTopToBottom("Emma" to compose.onNodeWithText("Emma"), "Tom" to compose.onNodeWithText("Tom"))
+    }
+
+    @Test
+    fun `by person, Tom opens into what compensates, a line per object and the way to his page`() {
         val opened = mutableListOf<String>()
         val model = viewModel()
         compose.setContent { PeerDebtsScreen(model, onBack = {}, onOpenContact = { opened += it }, onAddPerson = {}) }
 
-        compose.onNodeWithText("Emma").assertIsDisplayed()
-        compose.onNodeWithText("te doit ${formatCents(20000)}").assertIsDisplayed()
-        compose.onNodeWithText("tu lui dois ${formatCents(8000)}").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.PEER_DEBTS_COMPENSATION)
-            .assertIsDisplayed()
+        assertEquals(0, compose.onAllNodesWithTag(UiTags.PEER_DEBTS_COMPENSATION).fetchSemanticsNodes().size)
 
         compose.onNode(hasText("Tom") and androidx.compose.ui.test.hasClickAction()).performClick()
 
+        assertEquals(1, compose.onAllNodesWithTag(UiTags.PEER_DEBTS_COMPENSATION).fetchSemanticsNodes().size)
+        assertTopToBottom(
+            "link" to compose.onNodeWithTag(UiTags.PEER_DEBTS_CONTACT_LINK),
+            "compensation" to compose.onNodeWithTag(UiTags.PEER_DEBTS_COMPENSATION),
+        )
         assertEquals(2, compose.onAllNodesWithTag(UiTags.PEER_DEBTS_PERSON_LINE).fetchSemanticsNodes().size)
         compose.onNodeWithText("Essence du road trip").assertIsDisplayed()
         compose.onNodeWithText("depuis le 3 octobre 2026").assertIsDisplayed()
-        compose.onNodeWithText("tu lui dois ${formatCents(28000)}").assertIsDisplayed()
         compose.onNodeWithText("Fiche et comptes de Tom").performClick()
 
         assertEquals(listOf("c-tom"), opened)
