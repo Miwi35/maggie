@@ -101,7 +101,7 @@ test('Santé › Activité shows the synced steps against the goal and the walk 
   const title = `Marche e2e ${test.info().retry}`
   const synced = await api.post('/api/health/sync', {
     data: {
-      days: [{ date: today, steps: 4380 }],
+      days: [{ date: today, steps: 4380, activeKcal: 210 }],
       workouts: [
         {
           externalId: `hc-walk-e2e-${test.info().retry}`,
