@@ -1085,8 +1085,10 @@ class CookingViewModelTest {
 
         server.ring(server.rows.values.single().id)
         nowMs += 1_000
-        viewModel.tick()
-        settle { viewModel.state.ringing.isNotEmpty() }
+        settle {
+            viewModel.tick()
+            viewModel.state.ringing.isNotEmpty()
+        }
 
         assertEquals(before + 2, server.gets)
         assertEquals("Eau", viewModel.state.ringing.single().label)
