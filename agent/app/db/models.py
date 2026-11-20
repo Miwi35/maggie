@@ -60,6 +60,9 @@ class Message(AgentBase):
     # The screen the assistant was summoned from, kept only while the turn runs: a turn taken
     # up again after a restart needs it, and the message itself must stay clean (MAG-30).
     turn_screen_context = Column(Text, nullable=True)
+    # The tool calls of the running turn, to take it up again without redoing an action (MAG-872).
+    # Never published.
+    turn_blocks = Column(JSONB(none_as_null=True), nullable=True)
     # An answer the user cut short (MAG-223): `content` is then only what was said or shown.
     interrupted = Column(Boolean, nullable=False, default=False, server_default=false())
     # On a `decision` line only: what was answered (`approved`, `denied`, `expired`), the action's

@@ -230,7 +230,7 @@ class MessageRepository:
             await session.execute(
                 update(Message)
                 .where(Message.id == message_id, Message.turn_status == TURN_RUNNING)
-                .values(turn_status=None, turn_lease_until=None, turn_screen_context=None)
+                .values(turn_status=None, turn_lease_until=None, turn_screen_context=None, turn_blocks=None)
             )
             await session.commit()
 
@@ -240,6 +240,16 @@ class MessageRepository:
                 update(Message)
                 .where(Message.id == message_id, Message.turn_status == TURN_RUNNING)
                 .values(turn_lease_until=until)
+            )
+            await session.commit()
+
+    async def checkpoint_turn(self, message_id: str, blocks: list[dict]) -> None:
+        """Keep the calls of the running turn, so a process that takes it up can close them (MAG-872)."""
+        async with agent_session() as session:
+            await session.execute(
+                update(Message)
+                .where(Message.id == message_id, Message.turn_status == TURN_RUNNING)
+                .values(turn_blocks=blocks)
             )
             await session.commit()
 
@@ -268,7 +278,7 @@ class MessageRepository:
                     Message.created_at < older_than,
                     or_(Message.turn_lease_until.is_(None), Message.turn_lease_until < datetime.now(UTC)),
                 )
-                .values(turn_status=TURN_EXPIRED, turn_lease_until=None, turn_screen_context=None)
+                .values(turn_status=TURN_EXPIRED, turn_lease_until=None, turn_screen_context=None, turn_blocks=None)
                 .returning(Message.id, Message.user_id)
                 .execution_options(synchronize_session=False)
             )
