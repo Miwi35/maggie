@@ -69,4 +69,14 @@ export class HomePage extends AdminShell {
   eventPanel(title: string): Locator {
     return this.page.getByRole('region', { name: `Fiche : ${title}` })
   }
+
+  /** The tile of the next departure in the Agenda card. */
+  get departureTile(): Locator {
+    return this.content.getByRole('region', { name: 'Prochain départ' })
+  }
+
+  /** The short trip line above the event of that title. */
+  tripLine(title: string): Locator {
+    return this.content.getByLabel(`Trajet vers ${title}`)
+  }
 }
