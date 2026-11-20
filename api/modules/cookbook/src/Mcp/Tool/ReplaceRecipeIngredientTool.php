@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'replace_recipe_ingredient', description: 'Give a line of a recipe another product, without breaking its steps: the steps that used the old ingredient use the new one. ingredientId is the ingredient the recipe line has now; give the new one as withIngredientId or withCiqualAlimCode; quantity and unit are optional (kept when omitted). The text of the steps is never rewritten on a deduction: the answer lists textSuggestions ({position, before, after}) for the steps that cite the old name or quantity — pass rewriteText true only when the user asked for the texts to follow.')]
+#[McpTool(name: 'replace_recipe_ingredient', description: 'Replace the product of a recipe line; steps using the old ingredient use the new one. ingredientId: current line ingredient; new one is withIngredientId or withCiqualAlimCode; quantity, unit kept when omitted. Step texts change only with rewriteText true; the answer lists textSuggestions ({position, before, after}).')]
 class ReplaceRecipeIngredientTool
 {
     public function __construct(
