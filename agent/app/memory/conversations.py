@@ -105,13 +105,28 @@ def _scan(service: MemoryService, user_id: str) -> dict[str, str]:
 
 
 def find_file(service: MemoryService, user_id: str, key: str) -> str | None:
-    """The conversation file of a thread: remembered, else read from the heads of the files themselves."""
+    """The conversation file of a thread: remembered, else read from the heads of the files themselves.
+
+    Synchronous, and it reads the folder: from a coroutine, call it through `asyncio.to_thread`.
+    """
     known = _files.get(user_id)
     rel = known.get(key) if known is not None else None
     if rel is not None and service.folder(user_id).exists(rel):
         return rel
     known = _files[user_id] = _scan(service, user_id)
     return known.get(key)
+
+
+def _locate(service: MemoryService, user_id: str, key: str) -> tuple[str | None, str | None]:
+    """A thread's file and what it holds: reads the folder, so off the event loop."""
+    rel = find_file(service, user_id, key)
+    current = service.folder(user_id).read(rel) if rel else None
+    return rel, current
+
+
+def _new_path(service: MemoryService, user_id: str, first: datetime, subject: str) -> str:
+    """The path of a thread's new file, clear of the files already in the folder: reads the folder."""
+    return paths.conversation_relative(first, subject, service.folder(user_id).files())
 
 
 async def append_messages(
@@ -129,15 +144,14 @@ async def append_messages(
     if not ordered:
         return None
     async with _lock(user_id, key):
-        rel = find_file(service, user_id, key)
-        current = service.folder(user_id).read(rel) if rel else None
+        rel, current = await asyncio.to_thread(_locate, service, user_id, key)
         fresh = [m for m in ordered if current is None or anchor(m.id) not in current]
         if not fresh:
             return rel
         blocks = "".join(render_message(m, tz) for m in fresh)
         if rel is None or current is None:
             first = _as_local(fresh[0].created_at, tz)
-            rel = paths.conversation_relative(first, subject, service.folder(user_id).files())
+            rel = await asyncio.to_thread(_new_path, service, user_id, first, subject)
             text = _header(key, subject, first) + blocks
         else:
             text = current + ("" if current.endswith("\n") else "\n") + blocks
@@ -162,8 +176,7 @@ async def update_carte(
     """
     service = service or memory_service
     async with _lock(user_id, key):
-        rel = find_file(service, user_id, key)
-        current = service.folder(user_id).read(rel) if rel else None
+        rel, current = await asyncio.to_thread(_locate, service, user_id, key)
         if rel is None or current is None:
             return None
         carte = change(carte_mod.parse(current).carte)
@@ -185,10 +198,10 @@ async def update_carte_of_file(
 ) -> bool:
     """`update_carte` for a conversation known by its file. False when the file is gone or has no thread key."""
     service = service or memory_service
-    key = key_of(service, user_id, rel)
+    key = await asyncio.to_thread(key_of, service, user_id, rel)
     if key is None:
         return False
-    found = find_file(service, user_id, key)
+    found = await asyncio.to_thread(find_file, service, user_id, key)
     if found != rel:
         _files.setdefault(user_id, {})[key] = rel
     return await update_carte(user_id, key, change, reason=reason, service=service) is not None

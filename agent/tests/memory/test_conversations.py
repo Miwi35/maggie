@@ -1,4 +1,5 @@
 import asyncio
+import time
 from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -245,3 +246,85 @@ class TestCarteAndMessagesTogether:
         assert all(f"Encore {n}" in text for n in range(5))
         assert text.count(ANECDOTE) == 1
         assert "resume: Résumé 4" in text
+
+
+def _on_loop() -> bool:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
+
+
+KEY = "01JABCDEFGHJKMNPQRSTVWXYZ0"
+
+
+class TestOffTheEventLoop:
+    @staticmethod
+    def spy(monkeypatch, *names: str, delay: float = 0) -> list[tuple[str, bool]]:
+        calls: list[tuple[str, bool]] = []
+
+        def wrap(name: str):
+            original = getattr(conversations, name)
+
+            def wrapper(*args, **kwargs):
+                calls.append((name, _on_loop()))
+                if delay and name == "_scan":
+                    time.sleep(delay)
+                return original(*args, **kwargs)
+
+            return wrapper
+
+        for name in names:
+            monkeypatch.setattr(conversations, name, wrap(name))
+        return calls
+
+    @staticmethod
+    def exchange(*ids: str):
+        return [message(i, "user", f"Message {i}", hour=16, minute=n) for n, i in enumerate(ids)]
+
+    async def test_appending_to_a_thread_reads_the_folder_off_the_event_loop(self, env, monkeypatch):
+        calls = self.spy(monkeypatch, "_scan", "find_file", "_locate", "_new_path")
+        await conversations.append_messages(USER_A, KEY, "Roses", self.exchange("m1"), tz=PARIS, service=env.service)
+        conversations._files.clear()
+
+        await conversations.append_messages(
+            USER_A, KEY, "Roses", self.exchange("m1", "m2"), tz=PARIS, service=env.service
+        )
+
+        assert {"_scan", "_new_path", "_locate"} <= {name for name, _ in calls}
+        assert not [call for call in calls if call[1]]
+
+    async def test_rewriting_a_carte_reads_the_folder_off_the_event_loop(self, env, monkeypatch):
+        rel = await conversations.append_messages(
+            USER_A, KEY, "Roses", self.exchange("m1"), tz=PARIS, service=env.service
+        )
+        conversations._files.clear()
+        calls = self.spy(monkeypatch, "_scan", "find_file", "key_of", "_locate")
+
+        await conversations.update_carte_of_file(USER_A, rel, lambda c: c, reason="test", service=env.service)
+
+        assert {"key_of", "_scan"} <= {name for name, _ in calls}
+        assert not [call for call in calls if call[1]]
+
+    async def test_a_slow_scan_leaves_the_event_loop_free(self, env, monkeypatch):
+        self.spy(monkeypatch, "_scan", delay=0.3)
+        ticks = 0
+
+        async def ticker():
+            nonlocal ticks
+            while True:
+                await asyncio.sleep(0.01)
+                ticks += 1
+
+        task = asyncio.create_task(ticker())
+        try:
+            rel = await conversations.append_messages(
+                USER_A, KEY, "Roses", self.exchange("m1"), tz=PARIS, service=env.service
+            )
+        finally:
+            task.cancel()
+
+        assert ticks >= 10
+        assert rel is not None
+        assert env.service.folder(USER_A).read(rel)

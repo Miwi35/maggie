@@ -552,16 +552,23 @@ async def recall(
     exclude: frozenset[str] = frozenset(),
     limit: int | None = None,
     threshold: float | None = None,
+    cards: asyncio.Future[list[CardView]] | None = None,
 ) -> list[Recalled]:
-    """Level 2 for `text`: the cartes of this user's index that are for it. Not bounded — see `recall_for_turn`."""
+    """Level 2 for `text`: the cartes of this user's index that are for it. Not bounded — see `recall_for_turn`.
+
+    `cards` is a read already started for this turn: it is taken as it comes, never read again, and cancelling
+    this call leaves it running (it is shared).
+    """
     paths.check_user_id(user_id)
     if not text.strip():
         return []
-    cards = await memory_index_repo.cards(user_id)
-    return await asyncio.to_thread(rank, cards, text, today, exclude=exclude, limit=limit, threshold=threshold)
+    loaded = await asyncio.shield(cards) if cards is not None else await memory_index_repo.cards(user_id)
+    return await asyncio.to_thread(rank, loaded, text, today, exclude=exclude, limit=limit, threshold=threshold)
 
 
-async def _recall_outside_thread(user_id: str, text: str, today: date, context_id: str | None) -> list[Recalled]:
+async def _recall_outside_thread(
+    user_id: str, text: str, today: date, context_id: str | None, cards: asyncio.Future[list[CardView]] | None
+) -> list[Recalled]:
     """The recall, leaving out the current thread's own file: it would come back for everything said in it."""
     exclude: set[str] = set()
     if context_id:
@@ -569,7 +576,7 @@ async def _recall_outside_thread(user_id: str, text: str, today: date, context_i
         own = await asyncio.to_thread(conversations.find_file, memory_service, user_id, context_id)
         if own:
             exclude.add(own)
-    return await recall(user_id, text, today, exclude=frozenset(exclude))
+    return await recall(user_id, text, today, exclude=frozenset(exclude), cards=cards)
 
 
 async def recall_for_turn(
@@ -579,6 +586,7 @@ async def recall_for_turn(
     *,
     source: str,
     context_id: str | None = None,
+    cards: asyncio.Future[list[CardView]] | None = None,
 ) -> list[Recalled]:
     """The recall of a turn, bounded: past the delay, or on any failure, nothing — the turn goes on without it."""
     started = time.monotonic()
@@ -588,7 +596,7 @@ async def recall_for_turn(
         if not memory_service.enabled or not text.strip():
             return []
         found = await asyncio.wait_for(
-            _recall_outside_thread(user_id, text, today, context_id), settings.memory_recall_timeout_seconds
+            _recall_outside_thread(user_id, text, today, context_id, cards), settings.memory_recall_timeout_seconds
         )
         outcome = "recalled" if found else "empty"
     except TimeoutError:
