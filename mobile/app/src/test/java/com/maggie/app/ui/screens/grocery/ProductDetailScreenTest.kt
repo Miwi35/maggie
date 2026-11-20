@@ -118,11 +118,15 @@ class ProductDetailScreenTest {
     }
 
     @Test
-    fun `a product row reads category and unit in French and opens the sheet when touched`() {
+    fun `a product row reads where to buy it and opens the sheet when touched`() {
         var opened = 0
-        compose.setContent { ProductRow(product = pasta.copy(defaultUnit = CookbookUnit.PACK), onOpen = { opened++ }) }
+        val product = pasta.copy(preferredStore = "/api/stores/s1")
+        compose.setContent {
+            ProductRow(product = product, where = "Super U", onOpen = { opened++ })
+        }
 
-        compose.onNodeWithText("Féculents · paquet").assertIsDisplayed()
+        compose.onNodeWithText("Super U").assertIsDisplayed()
+        compose.onNodeWithText("en stock").assertIsDisplayed()
         compose.onNodeWithText("Pâtes sèches").performClick()
         assertEquals(1, opened)
     }

@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.grocery
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
@@ -105,15 +107,15 @@ class ProductListShelfScreenTest {
 
         pick(UiTags.PRODUCT_FILTER_STORE, "Super U")
 
-        compose.onNodeWithText("Magasin : Super U").assertIsDisplayed()
+        compose.onNodeWithText("Super U").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.PRODUCT_FILTER_AISLE).assertIsEnabled()
         compose.onNodeWithText("Thon").assertDoesNotExist()
         assertTopToBottom(
-            "Frais" to compose.onNodeWithText("Frais"),
+            "FRAIS" to compose.onNodeWithText("FRAIS"),
             "Yaourt" to compose.onNodeWithText("Yaourt"),
-            "Épicerie" to compose.onNodeWithText("Épicerie"),
+            "ÉPICERIE" to compose.onNodeWithText("ÉPICERIE"),
             "Biscottes" to compose.onNodeWithText("Biscottes"),
-            "Sans rayon" to compose.onNodeWithText("Sans rayon"),
+            "SANS RAYON" to compose.onNodeWithText("SANS RAYON"),
             "Sel" to compose.onNodeWithText("Sel"),
         )
         assertEquals(ProductQuery(storeId = "s1"), queries.last())
@@ -126,7 +128,7 @@ class ProductListShelfScreenTest {
 
         pick(UiTags.PRODUCT_FILTER_AISLE, "Frais")
 
-        compose.onNodeWithText("Rayon : Frais").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PRODUCT_FILTER_AISLE).assertTextContains("Frais")
         compose.onNodeWithText("Yaourt").assertIsDisplayed()
         compose.onNodeWithText("Biscottes").assertDoesNotExist()
         compose.onNodeWithText("Sel").assertDoesNotExist()
@@ -140,7 +142,7 @@ class ProductListShelfScreenTest {
 
         pick(UiTags.PRODUCT_FILTER_AISLE, "Sans rayon")
 
-        compose.onNodeWithText("Rayon : Sans rayon").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PRODUCT_FILTER_AISLE).assertTextContains("Sans rayon")
         compose.onNodeWithText("Sel").assertIsDisplayed()
         compose.onNodeWithText("Yaourt").assertDoesNotExist()
         assertEquals(ProductQuery("s1", AisleFilter.None), queries.last())
@@ -154,9 +156,18 @@ class ProductListShelfScreenTest {
 
         pick(UiTags.PRODUCT_FILTER_STORE, "Biocoop")
 
-        compose.onNodeWithText("Magasin : Biocoop").assertIsDisplayed()
-        compose.onNodeWithText("Rayon : Frais").assertDoesNotExist()
+        compose.onNodeWithText("Biocoop").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PRODUCT_FILTER_AISLE).assertTextEquals("Rayon")
         assertEquals(ProductQuery(storeId = "s2"), queries.last())
+    }
+
+    @Test
+    fun `the store sheet offers Tous`() {
+        show(yaourt)
+
+        compose.onNodeWithTag(UiTags.PRODUCT_FILTER_STORE).performClick()
+
+        compose.onNode(hasTestTag(UiTags.PRODUCT_FILTER_OPTION) and hasText("Tous")).assertIsDisplayed()
     }
 
     @Test
