@@ -12,13 +12,17 @@ class SkillEntry:
     description: str
     tags: list[str]
     content: str = field(default="", repr=False, compare=False)
+    locked: bool = field(default=False, compare=False)
 
 
-def render_markdown(name: str, description: str, tags: list[str], content: str) -> str:
-    """A skill as a Markdown file with YAML frontmatter — what get_skill returns and the skill folder holds."""
-    frontmatter = yaml.dump(
-        {"name": name, "description": description, "tags": tags}, allow_unicode=True, default_flow_style=False
-    )
+def render_markdown(name: str, description: str, tags: list[str], content: str, locked: bool = False) -> str:
+    """A skill as a Markdown file with YAML frontmatter — what get_skill returns and the skill folder holds.
+
+    A locked skill (the owner wrote it) carries `verrouillee: true`; an unlocked one has no such key."""
+    meta: dict = {"name": name, "description": description, "tags": tags}
+    if locked:
+        meta["verrouillee"] = True
+    frontmatter = yaml.dump(meta, allow_unicode=True, default_flow_style=False)
     return f"---\n{frontmatter}---\n\n{content}\n"
 
 
@@ -45,5 +49,6 @@ def parse_markdown(source: str | bytes | Path, default_name: str = "") -> tuple[
         name=name,
         description=str(frontmatter.get("description") or ""),
         tags=[str(tag) for tag in tags] if isinstance(tags, list) else [str(tags)],
+        locked=frontmatter.get("verrouillee") is True,
     )
     return entry, body

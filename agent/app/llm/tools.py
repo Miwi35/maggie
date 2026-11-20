@@ -19,7 +19,7 @@ from app.memory.tools import NATIVE_HANDLERS as MEMORY_HANDLERS
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
 from app.policy.summary import build_summary
 from app.redaction import redact
-from app.skills.index import skill_index
+from app.skills.index import LOCKED_SKILL_DETAIL, SkillLocked, skill_index
 from app.tts.voice_message import SEND_VOICE_MESSAGE_TOOL, handle_send_voice_message
 
 logger = logging.getLogger(__name__)
@@ -295,6 +295,10 @@ async def _handle_delete_instruction(arguments: dict, user_id: str) -> str:
     return json.dumps({"deleted": True, "id": instruction_id})
 
 
+def _locked_skill_result(e: SkillLocked) -> str:
+    return json.dumps({"error": "locked", "skill": e.name, "detail": LOCKED_SKILL_DETAIL}, ensure_ascii=False)
+
+
 async def _handle_create_skill(arguments: dict, user_id: str) -> str:
     name = arguments.get("name", "")
     description = arguments.get("description", "")
@@ -306,7 +310,10 @@ async def _handle_create_skill(arguments: dict, user_id: str) -> str:
         return json.dumps({"error": "'name' must be 200 characters or fewer"})
     if not isinstance(tags, list):
         return json.dumps({"error": "'tags' must be a list of strings"})
-    entry = await skill_index.create(name, description, tags, content, user_id)
+    try:
+        entry = await skill_index.create(name, description, tags, content, user_id)
+    except SkillLocked as e:
+        return _locked_skill_result(e)
     return json.dumps({"name": entry.name, "description": entry.description, "tags": entry.tags})
 
 
@@ -332,13 +339,16 @@ async def _handle_update_skill(arguments: dict, user_id: str) -> str:
         return json.dumps({"error": "'name' is required"})
     if arguments.get("tags") is not None and not isinstance(arguments["tags"], list):
         return json.dumps({"error": "'tags' must be a list of strings"})
-    entry = await skill_index.update(
-        name,
-        description=arguments.get("description"),
-        tags=arguments.get("tags"),
-        content=arguments.get("content"),
-        user_id=user_id,
-    )
+    try:
+        entry = await skill_index.update(
+            name,
+            description=arguments.get("description"),
+            tags=arguments.get("tags"),
+            content=arguments.get("content"),
+            user_id=user_id,
+        )
+    except SkillLocked as e:
+        return _locked_skill_result(e)
     if entry is None:
         return json.dumps({"error": f"Skill '{name}' not found"})
     return json.dumps({"name": entry.name, "description": entry.description, "tags": entry.tags})

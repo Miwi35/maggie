@@ -109,9 +109,9 @@ class SkillFiles(MemoryService):
         found = self.documents().get(name)
         return (found[1], found[2]) if found else None
 
-    async def save(self, name: str, description: str, tags: list[str], content: str) -> str:
+    async def save(self, name: str, description: str, tags: list[str], content: str, *, locked: bool = False) -> str:
         """Write the skill's file (replacing the one of that name), queue it for the bucket. Returns the file."""
-        text = render_markdown(name, description, tags, content)
+        text = render_markdown(name, description, tags, content, locked=locked)
         folder = self.folder(SCOPE)
         existing = self.documents().get(name)
         rel = existing[0] if existing else paths.unique_relative("", paths.filename_for(name), folder.files())

@@ -319,6 +319,14 @@ class TestParseMarkdown:
     def test_no_frontmatter_is_none(self):
         assert parse_markdown("juste du texte", default_name="x") is None
 
+    def test_the_lock_round_trips_and_no_key_is_written_when_unlocked(self):
+        locked = render_markdown(*RAPPEL, locked=True)
+
+        assert "verrouillee: true" in locked
+        assert parse_markdown(locked)[0].locked is True
+        assert "verrouillee" not in self.TEXT
+        assert parse_markdown(self.TEXT)[0].locked is False
+
     def test_a_single_tag_is_a_list(self):
         assert parse_markdown("---\nname: a\ntags: seul\n---\n\nC\n")[0].tags == ["seul"]
 
