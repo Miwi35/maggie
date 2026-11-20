@@ -161,6 +161,24 @@ class BankAuthorizationTest extends KernelTestCase
         self::assertSame($connection->getId(), $accounts[0]->getBankConnection()->getId());
     }
 
+    public function testTheBankSessionIsStoredSealed(): void
+    {
+        $this->loadFixtures('account.yaml');
+
+        $startHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['url' => 'https://bank.example/c'])));
+        $connection = $this->starter($startHttp)->execute($this->getFixture('test_user'), 'N26')['connection'];
+        $completeHttp = new MockHttpClient(fn () => new MockResponse(json_encode(['session_id' => 'session-42', 'accounts' => []])));
+        $this->completer($completeHttp)->execute($connection->getState(), 'the-code');
+
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $stored = $em->getConnection()->fetchOne('SELECT session_id FROM bank_connection WHERE id = ?', [$connection->getId()->toRfc4122()]);
+        self::assertStringStartsWith('v1.', $stored);
+        self::assertStringNotContainsString('session-42', $stored);
+
+        $em->clear();
+        self::assertSame('session-42', $em->find(BankConnection::class, $connection->getId())->getSessionId());
+    }
+
     public function testAnAccountAlreadyTrackedByHandIsAdoptedRatherThanDuplicated(): void
     {
         // The fixture holds a hand-typed "Compte courant" at Crédit Agricole.
