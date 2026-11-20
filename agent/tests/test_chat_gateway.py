@@ -361,10 +361,26 @@ class TestTheDayContextLine:
         assert "Contexte du jour" not in system[-1]["text"]
 
 
-def test_the_proaction_preamble_acts_in_her_own_register_without_naming_the_channel():
+def test_the_background_preamble_acts_only_on_its_instruction():
     from app.llm.gateway import EXECUTION_PREAMBLE
 
-    assert "agis" in EXECUTION_PREAMBLE
-    assert "pose une tâche à confirmer plutôt que de deviner" in EXECUTION_PREAMBLE
-    assert "Même registre qu'en conversation" in EXECUTION_PREAMBLE
+    assert "n'autorisent rien" in EXECUTION_PREAMBLE
+    assert "ne le fais pas" in EXECUTION_PREAMBLE
+    assert "Un rappel se délivre maintenant" in EXECUTION_PREAMBLE
+    assert "pending_approval" in EXECUTION_PREAMBLE
     assert "ne nomme jamais le canal" in EXECUTION_PREAMBLE
+
+
+def test_the_background_preamble_writes_no_reply_in_advance():
+    from app.llm.gateway import EXECUTION_PREAMBLE
+
+    assert "Ne demande pas de confirmation" not in EXECUTION_PREAMBLE
+    assert "agis" not in EXECUTION_PREAMBLE
+    assert "Il est l'heure d'appeler" not in EXECUTION_PREAMBLE
+
+
+def test_a_check_with_nothing_useful_stays_silent():
+    from app.llm.gateway import EXECUTION_PREAMBLE
+
+    assert "vérifie ou surveille" in EXECUTION_PREAMBLE
+    assert "n'écris rien" in EXECUTION_PREAMBLE

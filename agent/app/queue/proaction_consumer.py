@@ -136,7 +136,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             result_is_digest = False
             result = await gateway.proaction(proaction.prompt, proaction.user_id, summary=proaction.summary)
         # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
-        if result["response"] and not result_is_digest and not is_silent_trip_run(proaction.summary):
+        if result["response"].strip() and not result_is_digest and not is_silent_trip_run(proaction.summary):
             # Stored in the thread the gateway routed it to. Without a thread the
             # message is an orphan: the reply it invites is routed against a
             # conversation that never mentions it, and the summary of the thread
@@ -183,7 +183,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     # reply to a reminder is the next thing to be routed against this thread's summary.
     # After the record: the message is delivered, a summary that fails does not undo it.
     context_id = result.get("context_id")
-    if result["response"] and context_id:
+    if result["response"].strip() and context_id:
         try:
             await context_summarizer.maybe_summarize(context_id)
         except Exception as e:

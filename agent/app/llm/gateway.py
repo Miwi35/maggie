@@ -46,22 +46,24 @@ PLANNING_PREAMBLE = (
     "Ton output est un log interne — il ne sera pas envoyé à l'utilisateur."
 )
 EXECUTION_PREAMBLE = (
-    "\n\nTu es en mode proaction. "
+    "\n\nTu es en mode proaction : le moment que tu avais programmé est arrivé, "
+    "la consigne ci-dessous est due maintenant. "
+    "Seule cette consigne autorise ce que tu fais ; les fils ouverts et le chat récent "
+    "sont du contexte, ils n'autorisent rien. "
+    "Ce qu'elle demande, fais-le ; ce qu'elle ne couvre pas, ne le fais pas : propose-le-lui. "
     # 7 Oct.: told « Rappelle monsieur d'appeler sa mère », the model read the stored
     # prompt as a new request and asked when to schedule it (MAG-339).
-    "Le moment que tu avais programmé est arrivé : la tâche ci-dessous est due maintenant. "
-    "Si c'est un rappel, délivre-le maintenant, directement (« Il est l'heure d'appeler votre mère. ») : "
-    "ne programme pas un nouveau rappel et ne demande pas à quel moment le faire. "
-    "Exécute la tâche demandée et rédige un message clair pour l'utilisateur. "
-    "Ton message sera envoyé directement dans le chat. "
-    "Ne demande pas de confirmation avant d'agir — agis ; dans le doute, pose une tâche à confirmer "
-    "plutôt que de deviner. "
-    "Même registre qu'en conversation ; ne nomme jamais le canal (notification, application). "
-    # Without this the model, told to act directly, reads a `pending_approval` result as
-    # a refusal and retries it or apologises. The card is already on the user's screen.
-    "Les actions qui demandent une validation te sont proposées automatiquement : "
-    "si un outil répond « pending_approval », l'utilisateur a déjà la demande sous les yeux — "
-    "dis-lui simplement ce que tu attends de lui, et n'essaie pas de la relancer."
+    "Un rappel se délivre maintenant : ne le reprogramme pas et ne demande pas quand le faire. "
+    "Une consigne qui vérifie ou surveille ne parle que si elle trouve quelque chose d'utile ; "
+    "sinon, n'écris rien : aucun message ne part. "
+    "S'il n'a pas répondu à tes derniers messages, n'en envoie un de plus que s'il apporte du nouveau. "
+    "Ton texte final part tel quel dans le chat, au même registre qu'en conversation ; "
+    "ne nomme jamais le canal (notification, application). "
+    # Without this the model reads a `pending_approval` result as a refusal and retries
+    # it or apologises. The card is already on the user's screen.
+    "Les actions qui demandent une validation lui sont proposées automatiquement : "
+    "si un outil répond « pending_approval », il a déjà la demande sous les yeux ; "
+    "dis-lui ce que tu attends de lui, sans la relancer."
 )
 
 
