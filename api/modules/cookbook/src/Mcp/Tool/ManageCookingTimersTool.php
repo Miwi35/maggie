@@ -23,7 +23,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * les pâtes ? ». Nothing is deduced: a missing field is an error that comes
  * back with the timers as they stand, for Maggie to pick from.
  */
-#[McpTool(name: 'manage_cooking_timers', description: 'List, start, pause, resume, add time to, or cancel the user\'s kitchen timers of the Cuisine activity. list returns the running, paused and done timers with label, step, remainingSeconds and endsAt — answer « how long left for the pasta? » from it. start needs label, recipeId, stepPosition and durationSeconds. pause, resume and cancel need timerId; add needs timerId and seconds (negative to remove time, 60 for one more minute). A refused call returns error plus the current timers: ask the user rather than guess.')]
+#[McpTool(name: 'manage_cooking_timers', description: 'Actions: list, start, pause, resume, add, cancel. list returns running, paused and done timers (label, step, remainingSeconds, endsAt). start needs label, recipeId, stepPosition, durationSeconds; pause, resume, cancel need timerId; add needs timerId and seconds (negative removes). A refusal returns error plus the current timers.')]
 class ManageCookingTimersTool
 {
     public function __construct(

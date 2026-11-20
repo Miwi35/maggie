@@ -54,7 +54,7 @@
                 "label"
             ]
         },
-        "description": "Add an item to the grocery list by label. Works for any product: food ingredients, household supplies, hygiene items, etc. If a matching product exists, its preferred store is auto-assigned. For unknown products, determine the store from store descriptions (e.g. potatoes → greengrocer, toilet paper → supermarket). Set storeId directly when you can determine it. Only ask the user when you genuinely cannot determine the right store. A product appears once on the list: adding one already there (not yet ticked) accumulates on its line, next to the needs of the planned meals, instead of making a second line — even in another unit (« 300 g + 2 pièces » stays one line). A product bought in a packaging (pack, jar…) is always counted in packagings, rounded up, and keeps the quantity asked apart (`desiredQuantity`: « 1,4 kg » of a 500 g pack is 3 packs, still 1,4 kg). Give either `quantity` (with `unit`) or `packagings` (whole number ≥ 1), never both; `packagings` only for a product that has a packaging (`packagingUnit` in manage_products). With neither, a packaged product gets its default restock (`restockQuantity` packagings), else what the week's planned meals need rounded up to whole packagings, else one packaging. The result always carries `recipeNeed` (what the meals planned over the next 7 days need of the product, in base units, e.g. 1200 g, null when none) and `coversWeek`: when it is false the line was added but does not cover that need — say so to the user and offer to cover it: `packagingsToCover` is the packagings the line needs in total, so adding `packagingsToCover` − `quantity` more (a new addition with `packagings`) brings it there."
+        "description": "Adds an item by label. A matching product's preferred store is assigned, else storeId or storeName. A product already on the list (not ticked) accumulates on its line, even in another unit. quantity with unit, or packagings (whole number >= 1, packaged products only), never both. A packaged product is counted in packagings, rounded up (asked quantity kept in desiredQuantity); with neither: restockQuantity, else the 7-day meal need, else 1. Returns productId, recipeNeed (base units, null when none), coversWeek, packagingsToCover."
     },
     "answer_task_reminder": {
         "name": "answer_task_reminder",
@@ -123,7 +123,7 @@
                 "productId"
             ]
         },
-        "description": "Set the preferred/fallback store, the shelf life and the aisle of a product. shelfLifeDays indicates how many days the product stays fresh (null = non-perishable). aisle puts the product in an aisle of a store, by aisle id or by name — a name the store does not have yet creates the aisle, last on the way through the store (see manage_aisles); an empty string leaves the product without an aisle there. The aisle is in aisleStoreId, else in the preferred store (the one given here, or the product's). A product has one aisle per store: « Crèmerie » at one store and « Frais » at another are two calls."
+        "description": "Sets a product's preferredStoreId, fallbackStoreId, shelfLifeDays (null: non-perishable) and aisle: id or name (an unknown name creates it, see manage_aisles; empty string: none). The aisle applies to aisleStoreId, else the preferred store."
     },
     "cancel_proaction": {
         "name": "cancel_proaction",
@@ -180,7 +180,7 @@
                 "groceryItemId"
             ]
         },
-        "description": "Toggle the checked state of a grocery item. Set checked=true when bought, false to uncheck."
+        "description": "Sets the checked state of an item: checked=true when bought, false to uncheck."
     },
     "check_routine": {
         "name": "check_routine",
@@ -225,7 +225,7 @@
                 "option"
             ]
         },
-        "description": "Answer a « Séance manquée » proposal (a workout_makeup notification, whose relatedEntityIri is the proposal): plan the make-up the user chose. makeup_id is the proposal's id or IRI; option is softer (the same session tonight at the next quarter hour), shorter (a shorter one tonight) or tomorrow (the same session tomorrow at the same hour). Creates a planned workout and returns {success, makeup, workout}. softer and shorter only while the notification offers them (the day of the miss, ending by 23:00): later, only tomorrow. A proposal answers once: already chosen, obsolete because a session done kept the missed one, or softer/shorter too late → {error, status}. Never reproach a missed session."
+        "description": "Plans the make-up chosen for a missed-session proposal. makeup_id: proposal id or IRI. option: softer (same session tonight, next quarter hour), shorter (shorter one tonight), tomorrow (same session tomorrow); softer and shorter only while offered (day of the miss, until 23:00). Creates a planned workout: {success, makeup, workout}. A proposal answers once: already chosen, obsolete or option too late → {error, status}."
     },
     "claim_due_proactions": {
         "name": "claim_due_proactions",
@@ -392,7 +392,7 @@
                 "name"
             ]
         },
-        "description": "Create a new recipe. A recipe is its ingredients and its steps: with neither, nothing is created and the error says what is missing — never create an empty recipe from a title alone (a screenshot of a page shows the title and the photo, not the recipe). When the user has not given them and you cannot read them from the source (the page, a screenshot, a quoted message), tell the user so and offer to read the page or ask for the ingredients and the method. Ingredients is a JSON array of objects with quantity, unit, and either ingredientId or ciqualAlimCode (to auto-create an Ingredient from Ciqual). Link every ingredient to the closest Ciqual food (search_ciqual_foods first; raw or cooked as the recipe uses it — « bouquet garni » is aromatic herbs): the nutrition per serving only counts an ingredient that has its Ciqual values. When a line is in pieces (unit piece), add pieceWeightGrams, the weight in grams of one piece (an onion ≈ 100, a garlic clove ≈ 5, a carrot ≈ 125, a stock cube ≈ 10): a piece with no weight is left out of the nutrition. Tags is a comma-separated list. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it. The method goes in steps, notes keep the tips. Steps is a JSON array of the steps, in order (the first is step 1), each {text, durationMinutes?, background?, ingredientIds?, utensils?, waitsFor?}: ingredientIds names ingredients of the recipe by ingredientId or by name (only a link: a partial quantity goes in the text); utensils are utensil ids or names, added to the recipe's utensils; background (needs a duration) means the timer runs while the cook moves on; waitsFor lists the positions of earlier steps that must be finished first."
+        "description": "Create a recipe; with no ingredients and no steps it is refused, the error saying what is missing. ingredients: JSON array of {quantity, unit, ingredientId or ciqualAlimCode (creates the Ingredient from that Ciqual food), pieceWeightGrams?}; nutrition counts only ingredients with Ciqual values, and piece lines with pieceWeightGrams. steps: JSON array in order of {text, durationMinutes?, background? (timer runs while the cook moves on), ingredientIds? (recipe ids or names), utensils?, waitsFor? (earlier step positions)}. utensils: JSON array of ids or names; unknown names are added. tags: comma-separated."
     },
     "create_task": {
         "name": "create_task",
@@ -522,7 +522,7 @@
                 "recipeId"
             ]
         },
-        "description": "Delete a recipe by ID. Meals that have no other recipe are deleted with it (their shopping leaves the grocery list); meals with other recipes keep them. Returns deletedMeals, the number of meals deleted."
+        "description": "Delete a recipe by id. Meals with no other recipe are deleted with it (their shopping leaves the grocery list); other meals keep their recipes. Returns deletedMeals."
     },
     "delete_task": {
         "name": "delete_task",
@@ -583,7 +583,7 @@
                 }
             }
         },
-        "description": "End shopping errand. Archives all checked (bought) items as past errands, one per store (errands: id, storeName, itemCount; read them back with list_past_errands), and removes them from the list, puts the products they carried back In Stock (restockedProducts: tell the user which ones) and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants. storeId ends the errand of that store only; paidAmountCents (whole cents, zero or more, needs storeId) records what was paid at its till."
+        "description": "Archives checked items as past errands, one per store (errands: id, storeName, itemCount), removes them from the list, puts their products In Stock (restockedProducts), returns the unchecked items. storeId ends that store only; paidAmountCents (whole cents, needs storeId) records what was paid."
     },
     "envelope_adjustments": {
         "name": "envelope_adjustments",
@@ -699,7 +699,7 @@
                 "toDate"
             ]
         },
-        "description": "Top up the grocery list with the recurring items that are due again; running it twice changes nothing. Meals add nothing by themselves: mealsToChoose names the meals of the date range whose ingredients the owner has not chosen yet (id, date, slot, summary) — offer to choose them with manage_meal_groceries (preview, then add). Date format: YYYY-MM-DD."
+        "description": "Top up the grocery list with recurring items due again (idempotent). Meals add nothing: mealsToChoose lists meals in the date range (YYYY-MM-DD) whose ingredients are not chosen (id, date, slot, summary), to choose with manage_meal_groceries."
     },
     "get_activity_status": {
         "name": "get_activity_status",
@@ -729,7 +729,7 @@
                 "date"
             ]
         },
-        "description": "Read the user's calorie balance of one day (Santé › Nutrition), date YYYY-MM-DD. Returns {date, eatenKcal, plannedKcal, expendedKcal, balanceKcal, proteinG, carbsG, fatG, plannedMeals}: eatenKcal is the food journal of the day; plannedKcal the day's planned meals not eaten yet (one serving of each recipe); expendedKcal the consolidated expenditure of get_daily_energy (null while the health profile is incomplete); balanceKcal = eatenKcal + plannedKcal - expendedKcal (null with it), positive when more is taken in than spent. Within ±150 kcal the day is balanced: say so plainly, never as a verdict. The macros, in grams, add the eaten and the planned. plannedMeals lists the day's planned meals not eaten yet, each {mealId, slot, label, kcal, proteinG, carbsG, fatG} (kcal null: its recipes have no figures, it plans nothing)."
+        "description": "Reads one day's calorie balance, date YYYY-MM-DD. Returns {date, eatenKcal, plannedKcal (planned meals not yet eaten), expendedKcal (get_daily_energy), balanceKcal = eaten + planned - expended, proteinG, carbsG, fatG, plannedMeals: [{mealId, slot, label, kcal, proteinG, carbsG, fatG}]}. expendedKcal, balanceKcal are null while the profile is incomplete."
     },
     "get_daily_energy": {
         "name": "get_daily_energy",
@@ -748,7 +748,7 @@
                 "to"
             ]
         },
-        "description": "Read the user's energy expenditure day by day (Santé › Suivi), from and to included (YYYY-MM-DD, at most 400 days). Returns {days: [...]}, one per local day, each {date, steps, activeKcal, bmrKcal, workoutKcal, stepsKcal, expendedKcal}. steps and activeKcal are Health Connect's of the day (null without data), already de-duplicated; bmrKcal is the basal metabolism (null while the health profile is incomplete); workoutKcal is the kcal of the day's done sessions; stepsKcal is activeKcal minus the sessions Health Connect already counted, never negative; expendedKcal = bmrKcal + activeKcal, plus the sessions Health Connect has not seen (a session typed by hand, kcal or MET × weight × duration) — sessions are never added twice. expendedKcal is null while bmrKcal is."
+        "description": "Reads energy expenditure per day, from and to included (YYYY-MM-DD, max 400 days). Returns {days}: per local day {date, steps, activeKcal (Health Connect), bmrKcal, workoutKcal, stepsKcal (activeKcal minus sessions Health Connect counted), expendedKcal = bmrKcal + activeKcal + sessions Health Connect did not see}. Null without data; bmrKcal and expendedKcal null while the profile is incomplete."
     },
     "get_day_context": {
         "name": "get_day_context",
@@ -874,7 +874,7 @@
                 }
             }
         },
-        "description": "Read the exercise reference catalogue (Santé › Coach sportif). Arguments, all optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior or core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall — keeps only the exercises doable with that gear, bodyweight ones included; an empty list keeps bodyweight only), slug (one exercise). Returns {exercises: [...]}, each {slug, name (French), pattern, primaryMuscles, secondaryMuscles, kind (compound or isolation), equipment, nervousCost (low, medium, high), eccentric, cue, unit (reps, seconds or meters), perSide, loadable (a weighted bag can add load), ladders: [{ladder, branch, position}]} — position 1 is the softest step of that progression ladder. An unknown slug, pattern or equipment returns {error}."
+        "description": "Reads the exercise catalogue. Optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior, core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall; empty = bodyweight only), slug. Returns {exercises}: {slug, name, pattern, primaryMuscles, secondaryMuscles, kind, equipment, nervousCost, eccentric, unit (reps, seconds, meters), perSide, loadable, ladders}. Unknown value: {error}."
     },
     "get_fasting": {
         "name": "get_fasting",
@@ -889,7 +889,7 @@
                 "date"
             ]
         },
-        "description": "Read the user's intermittent fast of one day (Santé › Nutrition), date YYYY-MM-DD. Nothing is started by hand: the food journal decides. Returns {date, protocol, windowStart, windowEnd, openedAt, lastIntakeAt, state, nightFastMinutes}: protocol is fasting hours:eating window hours (14:10, 16:8, 18:6 or 20:4), null when the user does not fast (change it with update_health_profile); windowStart and windowEnd « HH:MM », the eating window of the profile; openedAt the day's first intake, which opens the window; lastIntakeAt the latest intake so far, the fast in progress counts from it; state fasting (nothing eaten yet today), open (window open, until windowEnd) or closed (window over, fasting until tomorrow's windowStart); nightFastMinutes the fast that ended that day, from the day before's last intake to the day's first. A future day gives its window only. Encourage, never reproach: a window eaten past is not a fault."
+        "description": "Reads one day's intermittent fast, date YYYY-MM-DD, derived from the food journal. Returns {date, protocol (14:10, 16:8, 18:6, 20:4; null if none), windowStart, windowEnd (HH:MM), openedAt (first intake), lastIntakeAt, state (fasting: nothing eaten yet; open: until windowEnd; closed), nightFastMinutes (previous day's last intake to this day's first)}. A future day gives its window only."
     },
     "get_finance_dashboard": {
         "name": "get_finance_dashboard",
@@ -941,7 +941,7 @@
                 }
             }
         },
-        "description": "Get the grocery list with items grouped by store in visit order, and within a store aisle by aisle in the order of the way through it (`aisle`: {id, name, position}, null for an item without an aisle in that store — those come last), then by position. By default hides deferred items (buyAfter in the future) from the store groups and lists them, with their date, in `later`. Set includeDeferred=true to see them in the store groups instead. A product has one line: the needs of every planned meal, of the restock and of manual additions add up on it. `needed` is that total need in base units (g, ml or the counted unit — « 800 g », or « 300 g + 2 pièces » when the units cannot be added); `quantity` and `unit` are what to buy: for a product bought in a packaging a whole number of packagings counted once on the total (800 g of pasta in 500 g packs is 2 paquets, shown with « 800 g pour les repas »; `desiredQuantity`/`desiredUnit` is the quantity asked in base units, e.g. 1400 g in 3 packs, which `quantity` rounds up to whole packagings and may exceed); a product without packaging has no quantity to adjust, its quantity is the need itself. `packaging` (what the product is bought in, with its content when known, e.g. a 500 g pack; null when it has none) and `stockState` (in_stock, low or out)."
+        "description": "The list by store in visit order, then aisle (aisle {id, name, position}, null last), then position. Items with buyAfter in the future are in later; includeDeferred=true moves them into the store groups. One line per product: needed (base units), quantity and unit to buy (whole packagings for a packaged product), desiredQuantity, desiredUnit, packaging (null when none), stockState."
     },
     "get_health_day": {
         "name": "get_health_day",
@@ -956,7 +956,7 @@
                 "date"
             ]
         },
-        "description": "Read the user's health journal entry of one local day (Santé › Journal), date as YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt, steps, eatenKcal, expendedKcal, balanceKcal, sportMinutes, mood, fatigue, note, notedBy, notedAt}}. weightKg and bodyFatPercent come from the day's first weighing not set aside, at weighedAt; null without a weighing that day (never the day before's). steps are Health Connect's; eatenKcal what was recorded as eaten; expendedKcal the consolidated expenditure; sportMinutes the done sessions' minutes; any of them null when nothing was recorded. balanceKcal is eatenKcal − expendedKcal, except today: the live balance, planned meals included. mood and fatigue are scored 1 to 10, note is free text, notedBy (user or maggie) and notedAt say who wrote them last and when. A day with nothing recorded has id null and every figure null."
+        "description": "Reads one local day of the health journal, date YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt (first weighing of the day not set aside), steps, eatenKcal, expendedKcal, balanceKcal (eaten - expended; today live, planned meals included), sportMinutes, mood, fatigue (1-10), note, notedBy (user, maggie), notedAt}}. Null when nothing is recorded."
     },
     "get_health_profile": {
         "name": "get_health_profile",
@@ -964,7 +964,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Read the user's health profile (Santé › Configuration). Returns sex (male or female), birthYear and age (current year minus birthYear), heightCm, weightKg (the latest weighing not set aside, read from Santé › Suivi), activityLevel (sedentary × 1.2, light × 1.375, moderate × 1.55, active × 1.725, very_active × 1.9), mode (computed: the day's need is computed; entered: the user typed it in enteredNeedKcal), bmrKcal (basal metabolism, Mifflin-St Jeor), needKcal (the day's need, the reference of the recipes' kcal gauges), factor (needKcal ÷ bmrKcal), and the physical activity settings: stepGoal (steps a day), suggestionWindowStart and suggestionWindowEnd (« HH:MM », when Maggie may suggest a session), sessionMinutes (15, 20 or 30) and stepSource (health_connect or none). bmrKcal and needKcal are null while sex, age, height or weight is missing. id is null while the profile has never been written."
+        "description": "Reads the health profile. Returns {id (null if never written), sex, birthYear, age, heightCm, weightKg (latest weighing not set aside), activityLevel (sedentary x1.2 to very_active x1.9), mode (computed, entered), bmrKcal, needKcal, factor (need / bmr), stepGoal, suggestionWindowStart, suggestionWindowEnd, sessionMinutes, stepSource}. bmrKcal, needKcal null while sex, age, height or weight is missing."
     },
     "get_independence_counter": {
         "name": "get_independence_counter",
@@ -1015,7 +1015,7 @@
                 "exercise"
             ]
         },
-        "description": "What to prescribe next for one exercise (Santé › Sport), by the coded progression rules: never compute a progression yourself, ask this. exercise: catalogue slug (see get_exercises); variant: normal (default), soft (same step, one set less, 3 reps in reserve, an eccentric exercise replaced by the previous step) or deload (half the sets, same step, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription is an exercise line ready for manage_workouts {exercise, name, unit, step, sets, target, targetMin, targetMax, loadKg, restSeconds, tempo, targetRir, cue} — its exercise can differ from the one asked (step_up, step_down, stagnation_variant, placement); reason says why, in a word: start, placement, more reps, more load, a tempo, step up or down, a lighter load, a softer variant, less volume, keep, soft or deload (say it in a sentence, never the rule); basedOn the ids of the sessions the rule read. Unknown slug or variant: {error}."
+        "description": "Returns the next prescription for one exercise from the coded progression rules. exercise: catalogue slug; variant: normal (default), soft (one set less, 3 reps in reserve), deload (half the sets, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription = an exercise line for manage_workouts (its exercise may differ from the one asked); reason = the rule applied; basedOn = ids of the sessions read. Unknown slug or variant: {error}."
     },
     "get_project_planning": {
         "name": "get_project_planning",
@@ -1031,7 +1031,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Products the user buys often and that are due again (« tu en prends souvent »), computed from the past errands: each product bought at least 3 times, with everyDays (median gap between purchases, in days), lastBoughtOn and dueOn (YYYY-MM-DD), usualQuantity and usualUnit (median quantity, null when unknown). Use it for « il me manque quelque chose ? ». Products already on the grocery list, on a recurring grocery item, or dismissed (« Pas besoin ») are left out. To add one, call add_grocery_item with its name and usual quantity."
+        "description": "Products bought 3+ times in past errands and due again: everyDays (median gap), lastBoughtOn, dueOn (YYYY-MM-DD), usualQuantity, usualUnit (null when unknown). Products already listed, recurring or dismissed are left out."
     },
     "get_recipe": {
         "name": "get_recipe",
@@ -1053,7 +1053,7 @@
                 "recipeId"
             ]
         },
-        "description": "Get a recipe by ID with its ingredients, the utensils it is made with and its steps (in order: text, durationMinutes, background, ingredients, utensils, waitsFor — the positions of the steps it waits for). guests (1 or more) answers the quantities scaled to that many people — × guests / servings, rounded as a cook reads them — without changing the recipe; the answer then says scaledFor and scaleFactor."
+        "description": "Get a recipe by id with ingredients, utensils and steps (text, durationMinutes, background, ingredients, utensils, waitsFor = positions awaited). guests (1 or more) scales quantities (x guests / servings) without changing the recipe; the answer carries scaledFor and scaleFactor."
     },
     "get_recurring_operations": {
         "name": "get_recurring_operations",
@@ -1093,7 +1093,7 @@
                 }
             }
         },
-        "description": "List the fruits and vegetables in season in metropolitan France for a month (1 = January … 12 = December; default: the current month in the user's timezone), from the seasonality calendar, and the user's own products in season that month. Use it to suggest seasonal meals or to say what is in season. To change the season of one of the user's products, use manage_products (seasonMonths)."
+        "description": "Fruits and vegetables in season in metropolitan France for month (1-12, default: current), and the user's own products in season (season set by manage_products seasonMonths)."
     },
     "get_tasks": {
         "name": "get_tasks",
@@ -1135,7 +1135,7 @@
                 "date"
             ]
         },
-        "description": "Where the user stands in the strength program on one day (Santé › Sport), date YYYY-MM-DD. Returns {date, programWeek, phase, deload, stagnating, week, hardSetsByPattern}: programWeek counts from the first calibration session done (null before it); phase calibration (weeks 1-2), ramp_up (3-4) or normal; deload {due, reason scheduled (8 weeks) | stagnation (2 exercises or more stagnating) | hard_sessions (difficulty 9 or more twice in the week) | null, weeksSinceLast}: when due, plan the week's sessions with variant deload; stagnating the slugs without gain for more than 14 days; week {planned, done} the strength sessions of the Monday-Sunday week; hardSetsByPattern the sets done that week close to failure, per movement pattern. Invalid date: {error}."
+        "description": "Reads the strength program status, date YYYY-MM-DD. Returns {date, programWeek (from the first done calibration session), phase (calibration weeks 1-2, ramp_up 3-4, normal), deload {due, reason (scheduled, stagnation, hard_sessions, null), weeksSinceLast}, stagnating (slugs without gain for over 14 days), week {planned, done}, hardSetsByPattern}. Invalid date: {error}."
     },
     "get_treasury_outlook": {
         "name": "get_treasury_outlook",
@@ -1259,7 +1259,7 @@
                 }
             }
         },
-        "description": "Past errands (« courses passées »), most recent first: what the user bought, where and when — e.g. « qu'est-ce que j'ai acheté la dernière fois chez Carrefour ? » is store=\"Carrefour\", limit=1. Each errand is one store (storeName, null when the lines had none), endedAt (ISO 8601) and its items: label, quantity, unit, product (IRI, null for a free-text line) and the packaging the product had then (packagingUnit, packagingSize, packagingSizeUnit, null when unknown). store matches the store name in part, case-insensitively; limit is 1 to 20 (5 by default). An errand is archived by end_errand."
+        "description": "Past errands, most recent first: one store each (storeName, null when none), endedAt (ISO 8601), items (label, quantity, unit, product IRI or null, packaging fields). store matches the name in part, case-insensitively; limit 1-20 (default 5)."
     },
     "list_places": {
         "name": "list_places",
@@ -1525,7 +1525,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update (rename and/or move), reorder or delete the aisles of a store. Aisles are the shelves of one store in the order the user walks through it (position 1 = first); the grocery list shows each store's items aisle by aisle in that order, items without an aisle last. list/create/reorder need storeId; update/delete need aisleId. create puts the aisle last unless position says where. reorder takes aisleIds: every aisle of the store, first one first. Deleting an aisle leaves its products without an aisle in that store. To put a product in an aisle, use assign_product_store."
+        "description": "Actions: list, create, update (rename and/or move), reorder, delete the aisles of a store (position 1 first). list, create, reorder need storeId; update, delete need aisleId. create is last unless position is given. reorder takes aisleIds (all of the store). Deleting leaves its products without an aisle there."
     },
     "manage_body_measurements": {
         "name": "manage_body_measurements",
@@ -1629,7 +1629,7 @@
                 "action"
             ]
         },
-        "description": "List, record, update, delete or set aside the user's body measurements: weight, body fat, waist size. action: list, create, update, delete or exclude. When the user says « Je pèse 72,4 kg » (or « 72,4 ce matin »), call create with weightKg 72.4 and nothing else: measuredAt defaults to now and source to manual. A measurement has measuredAt (ISO 8601 WITH time and offset, e.g. 2026-10-21T07:12:00+02:00; omit it for « now », never a date alone — ask the hour of a past one), weightKg (kilograms, decimal, more than 0 and at most 500), bodyFatPercent (percent, more than 0 and less than 100), waistCm (centimetres, more than 0 and at most 300) — at least one of the three —, source (manual, health_connect, withings; defaults to manual), externalId (optional, unique per user, de-duplicates an import) and excluded (true: set aside, still listed but never counted in the day's weight or the trend). list returns the most recent first, excluded ones included, filters on after and before (ISO 8601 with offset, on measuredAt), limit default 30, max 366. update, delete and exclude need measurementId; on update only the fields provided change (excluded: false takes back a measurement set aside); exclude sets it aside (a weighing that is not the user's, a wrong reading) without deleting it. Returns {measurements: [...]} for list and {success, measurement} otherwise, each with sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the measurement as it is now."
+        "description": "Actions: list, create, update, delete, exclude. Fields: measuredAt (ISO 8601 with offset, default now), weightKg (max 500), bodyFatPercent (<100), waistCm (max 300), all >0, at least one on create; source (manual default, health_connect, withings), externalId, excluded (kept, not counted). update, delete, exclude need measurementId; update changes only fields given. list: after, before, limit (max 366). Returns {measurements} or {success, measurement}. Refusal changes nothing: {error, field?, current?}."
     },
     "manage_categories": {
         "name": "manage_categories",
@@ -1838,7 +1838,7 @@
                 "action"
             ]
         },
-        "description": "List, start, pause, resume, add time to, or cancel the user's kitchen timers of the Cuisine activity. list returns the running, paused and done timers with label, step, remainingSeconds and endsAt — answer « how long left for the pasta? » from it. start needs label, recipeId, stepPosition and durationSeconds. pause, resume and cancel need timerId; add needs timerId and seconds (negative to remove time, 60 for one more minute). A refused call returns error plus the current timers: ask the user rather than guess."
+        "description": "Actions: list, start, pause, resume, add, cancel. list returns running, paused and done timers (label, step, remainingSeconds, endsAt). start needs label, recipeId, stepPosition, durationSeconds; pause, resume, cancel need timerId; add needs timerId and seconds (negative removes). A refusal returns error plus the current timers."
     },
     "manage_envelopes": {
         "name": "manage_envelopes",
@@ -2042,7 +2042,7 @@
                 "action"
             ]
         },
-        "description": "List, record, update or delete what the user ate (Santé › Nutrition). action: list, create, update or delete. list needs date (YYYY-MM-DD) and returns {intakes: [...], plannedMeals: [...]}: the day's journal, and its planned meals not eaten yet with their mealId, slot, label and kcal. create records an intake: either mealId alone — the planned meal is eaten, its figures (one serving of each recipe) are copied, once per meal; eatenAt defaults to now — or, for anything else, eatenAt (ISO 8601 WITH time and offset, e.g. 2026-11-07T12:30:00+01:00: « à midi » is today at 12:00; never a date alone) and label (« Salade César ») with kcal (integer 0 to 10000) and optionally proteinG, carbsG, fatG (grams, 0 when not given) and quantityGrams; or a Ciqual food: ciqualCode (from search_ciqual_foods) with quantityGrams, whose kcal and macros come from Ciqual unless given, label defaulting to the food's name. Estimate the figures of a dish yourself and say they are estimated. update needs foodIntakeId; only the fields provided change, nothing is recomputed. delete needs foodIntakeId; deleting a meal's intake puts the meal back among the planned ones. Returns {success, intake} (with sourceLabel in French) for create and update. A refused call changes nothing and answers {error, field?, current?}: current is the intake as it is now, or the day's journal for a create."
+        "description": "Actions: list, create, update, delete. list needs date (YYYY-MM-DD): {intakes, plannedMeals (not yet eaten)}. create, one of: mealId alone (eats the planned meal, eatenAt defaults to now); else eatenAt (ISO 8601 with offset, required) + label + kcal (0-10000), optional proteinG, carbsG, fatG (grams), quantityGrams; ciqualCode (search_ciqual_foods) + eatenAt + quantityGrams, kcal and macros from Ciqual unless given. update, delete need foodIntakeId; update changes only fields given, nothing recomputed; deleting a meal's intake makes the meal planned again. Returns {success, intake}. Refusal: {error, field?, current?}, nothing changes."
     },
     "manage_ingredients": {
         "name": "manage_ingredients",
@@ -2176,7 +2176,7 @@
                 "action"
             ]
         },
-        "description": "Create, update, or delete food ingredients. Categories: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Link every ingredient to the closest Ciqual food (raw or cooked as the recipe uses it — « bouquet garni » is aromatic herbs): call search_ciqual_foods and pass the ciqualAlimCode, the macros and micronutrients come with it; use search_ingredients to look one up. When a recipe counts the ingredient in pieces (piece), set pieceWeightGrams, the weight in grams of one piece (an onion ≈ 100, a garlic clove ≈ 5, a carrot ≈ 125, a stock cube ≈ 10): without it the pieces weigh nothing in the recipe nutrition. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. To empty an optional field on update, list its name in clear (defaultUnit, ciqualAlimCode, kcalPer100g, proteinPer100g, carbsPer100g, fatPer100g, pieceWeightGrams, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity)."
+        "description": "Actions: create (needs name, category), update and delete (need ingredientId). category: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. ciqualAlimCode (search_ciqual_foods) supplies macros and micronutrients. pieceWeightGrams: grams of one piece, for recipe nutrition. packagingUnit, with packagingSize and packagingSizeUnit for its content, always together (pack, 500, g). stockState: in_stock (default), low, out. restockQuantity: packagings to buy when out (integer, 0 or more). autoRestock: relists itself. clear (update): optional fields to empty (not name, category, stockState, autoRestock)."
     },
     "manage_investments": {
         "name": "manage_investments",
@@ -2508,7 +2508,7 @@
                 "action"
             ]
         },
-        "description": "Choose which ingredients of a planned meal go on the grocery list. preview lists the meal's ingredients with the quantity to buy in packagings (toBuy), the product's stock state (in_stock, low, out) and suggested=true when it is low or out: tell the owner which ones are running low and ask which to add. add puts only the chosen ones on the list, in packagings, and replaces what the meal had put there before: ingredientIds is a comma-separated list of ingredientId from preview, empty to add nothing."
+        "description": "Choose the ingredients of a planned meal that go on the grocery list. preview lists them with toBuy (packagings), stock state (in_stock, low, out), suggested=true when low or out. add puts only ingredientIds (comma-separated, from preview; empty adds nothing) on the list, replacing what the meal put there."
     },
     "manage_meal_settings": {
         "name": "manage_meal_settings",
@@ -2530,7 +2530,7 @@
                 "action"
             ]
         },
-        "description": "Read or change the meal settings. defaultGuests is how many people a meal is cooked for when it names no guests of its own (1 or more, 2 until the user sets it). Action get returns the settings; action update sets defaultGuests, which is required, and rescales on the grocery list what the meals still to come that follow the default had put there — a meal with its own guests keeps them."
+        "description": "Actions: get, update. defaultGuests: people per meal without guests of its own (1 or more, 2 by default). update needs it and rescales the grocery list for upcoming meals following the default."
     },
     "manage_meals": {
         "name": "manage_meals",
@@ -2608,7 +2608,7 @@
                 "action"
             ]
         },
-        "description": "List, plan, update, or delete meals. A meal is a day and a slot, never a time: date, fromDate and toDate are YYYY-MM-DD with no hour, slot is lunch or dinner, and recipeIds is a comma-separated list. List needs fromDate and toDate, or query: to find a meal the user names (« le boeuf bourguignon ») in every agenda, pass query, the distinctive word(s) of its title (case, accents, ligatures and typos do not matter) and no dates: the search then covers the next year; with dates it stays inside them. Look a meal up this way before telling the user it does not exist, then pass its id to update or delete. create answers groceryPreview: the meal's ingredients with their stock, to choose from with manage_meal_groceries add. guests is how many people the meal is cooked for (1 or more): the recipes' quantities scale to it, and changing it on update rescales what the meal put on the grocery list. Without guests a meal follows the user's default (manage_meal_settings); useDefaultGuests true on update gives it back to the default. Every meal answered carries guests and guestsIsDefault."
+        "description": "Actions: list, create, update, delete. A meal is a date (YYYY-MM-DD) and a slot (lunch, dinner); recipeIds comma-separated. list needs fromDate and toDate, or query (title words, tolerant to case, accents, typos; all agendas, next year when no dates). create needs date and slot, returns groceryPreview (ingredients with stock), to choose from with manage_meal_groceries. guests (1 or more) scales recipes and, on update, the grocery list; unset follows the manage_meal_settings default, useDefaultGuests true restores it. update and delete need mealId."
     },
     "manage_notifications": {
         "name": "manage_notifications",
@@ -2673,7 +2673,7 @@
                 "action"
             ]
         },
-        "description": "Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance, message (a chat message you write outside a conversation in progress: relatedEntityIri /chat?message={id} opens it), question (a question with boxes to tick, given interaction {kind: choice, options, multiple, questionId}); give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention."
+        "description": "Actions: create, list, delete, and mark as read (unknown ones refused, valid listed). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri, the screen a tap opens (/api/events/{id}, /api/tasks/{id}, /finance/banks, message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId."
     },
     "manage_operations": {
         "name": "manage_operations",
@@ -3359,7 +3359,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete non-food products (household, hygiene, cleaning, other). Create food items with manage_ingredients instead — they are products too, so they show up in the list. To search by name use search_products. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. Packaging is what the product is bought in: packagingUnit (pack, jar, bottle…), and optionally its content packagingSize + packagingSizeUnit, always together — a 500 g pack is packagingUnit=pack, packagingSize=500, packagingSizeUnit=g; a jar of unknown content is packagingUnit=jar alone. Stock: stockState says what is left at home — in_stock (default), low or out; restockQuantity is how many packagings to buy when it runs out (a whole number, 0 or more); autoRestock (true/false) puts it back on the list by itself. Season: seasonMonths lists the months (1 = January … 12 = December) a fruit or vegetable is in season in metropolitan France; it is pre-filled from the seasonality calendar on create when the name is known, and inSeason says whether the product is in season this month (null: no season). To empty an optional field on update, list its name in clear (defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths)."
+        "description": "Actions: list, create, update, delete non-food products (food: manage_ingredients). Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. packagingUnit, with packagingSize and packagingSizeUnit together. stockState: in_stock (default), low, out. restockQuantity: packagings, whole number >= 0; seasonMonths: months 1-12 in season in France, pre-filled on create when the name is known; inSeason returned. clear lists fields to empty: defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths."
     },
     "manage_project_funding": {
         "name": "manage_project_funding",
@@ -3573,7 +3573,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete recurring grocery items — the staples automatically added to generated lists. Frequency: weekly, biweekly, monthly. Give either a productId or a customLabel. To empty an optional field on update, list its name in clear (productId, customLabel, quantity, unit); an item must keep a productId or a customLabel."
+        "description": "Actions: list, create, update, delete recurring items, added to generated lists. frequency: weekly, biweekly, monthly. Needs a productId or a customLabel. clear lists fields to empty: productId, customLabel, quantity, unit; one of the two must remain."
     },
     "manage_safety_cushion": {
         "name": "manage_safety_cushion",
@@ -3751,7 +3751,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update, or delete stores. Stores represent shops with a visit order and a description of what they sell (used to auto-assign products). To empty an optional field on update, list its name in clear (description)."
+        "description": "Actions: list, create, update, delete stores, with visitOrder and a description of what they sell (used to assign products). clear lists fields to empty: description."
     },
     "manage_transactions": {
         "name": "manage_transactions",
@@ -4020,7 +4020,7 @@
                 "action"
             ]
         },
-        "description": "List, create, rename, or delete the user's kitchen utensils (oven, Thermomix, mandoline…), the catalogue recipes say they are made with. A name is unique whatever its case: create answers the existing utensil when the name is already there. Deleting a utensil removes it from its recipes, which stay."
+        "description": "Actions: list, create, rename, delete kitchen utensils (oven, Thermomix...). create and rename need name (255 characters at most); rename and delete need utensilId. Names are unique whatever the case: create returns the existing one. Delete removes it from its recipes."
     },
     "manage_workouts": {
         "name": "manage_workouts",
@@ -4278,7 +4278,7 @@
                 "action"
             ]
         },
-        "description": "List, create, update or delete the user's workouts (running, walking, cycling, swimming, strength, climbing, other). action: list, create, update or delete. A workout has type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 WITH time and offset, e.g. 2026-10-20T07:10:00+02:00 — never a date alone, ask the user for the hour), durationMinutes (whole minutes, 1 to 1440), distanceMeters (whole METRES, optional: 5.4 km is 5400), kcal (optional, 0 to 20000), avgHeartRate (optional, bpm, 20 to 250), feeling (optional: very_good, good, hard, very_hard), notes (optional), source (manual, watch, activity, estimated, planned; defaults to manual on create — planned is a session still to do) externalId (optional, unique per user, de-duplicates an import), difficulty (optional, how hard the whole session was, 1 to 10 — a session done only, refused on a planned one), variant (optional, a coach session: normal, calibration, soft, deload) and exercises (optional, the ordered list of the session's exercises, always sent WHOLE: the list given replaces the previous one, nothing is merged). Each exercise: exercise (a slug of get_exercises), step (its position on the ladder), sets, target (reps, seconds or metres per set, in the exercise's unit), targetMin, targetMax, restSeconds, tempo (optional, true = 3 s down and 1 s pause), loadKg (optional, only for a loadable exercise), targetRir (optional, 0 to 4), cue (optional, else the catalogue's), feeling (optional: too_easy, right, too_hard) and done (optional, the sets done, each {reps} or {seconds} or {meters} in the exercise's unit, plus loadKg if loadable) — feeling and done on a session done only. Read back, each exercise also has name and unit from the catalogue. Read back, a workout also has keeps (the id of the planned session this session done keeps, set by Maggie), streak (the planned sessions kept in a row once it kept it; mention it only at the end of a session), makeupOf (the id of the missed session a planned make-up replaces) and makeupOption (softer, shorter, tomorrow) — all read only. list returns the most recent first and filters on type, source, exercise (a slug: the sessions holding it), after and before (ISO 8601 with offset, on startedAt), limit default 20, max 100. update and delete need workoutId; on update only the fields provided change (nothing is cleared, an optional field is edited in the admin). create needs type, title, startedAt and durationMinutes — nothing is deduced: ask the user for what is missing. Returns {workouts: [...]} for list and {success, workout} otherwise, each workout with typeLabel, feelingLabel and sourceLabel in French. A refused call changes nothing and answers {error, field?, current?}: current is the workout as it is now. A planned strength session is refused (error, field, current = the week's strength sessions) when the week already has 3, when it starts less than 24 h from another, or when it would be the third of the week with an eccentric exercise or less than 48 h from another one: propose another slot, nothing is moved."
+        "description": "Actions: list, create, update, delete. Fields: type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 with offset), durationMinutes, distanceMeters (metres), kcal, avgHeartRate, feeling (very_good, good, hard, very_hard), source (manual default, watch, activity, estimated, planned = still to do), externalId, difficulty (1-10), variant (normal, calibration, soft, deload), exercises: ordered list, always sent WHOLE, replaces the previous one. Exercise: exercise (slug), step, sets, target (per set), targetMin, targetMax, restSeconds, tempo (true = 3 s down, 1 s pause), loadKg, targetRir, cue, feeling (too_easy, right, too_hard), done (list of {reps}, {seconds} or {meters}, plus loadKg); both done only. create needs type, title, startedAt, durationMinutes. update, delete need workoutId; update changes given fields only. list filters type, source, exercise (slug), after, before (on startedAt), limit (max 100). Returns {workouts} or {success, workout}. Refusal (nothing changes): {error, field?, current?}. A planned strength session is refused (current = the week's strength sessions) if the week has 3, it is under 24 h from another, or it is the 3rd with an eccentric exercise or under 48 h from another."
     },
     "mark_grocery_item_missing": {
         "name": "mark_grocery_item_missing",
@@ -4297,7 +4297,7 @@
                 "groceryItemId"
             ]
         },
-        "description": "Mark an unchecked grocery item as missing in the store it was planned in (out of stock there). The item moves to its product's fallback store when one exists, otherwise it stays in the same store. missing=false cancels: the item goes back to the store it was missing from."
+        "description": "Marks an unchecked item missing: it moves to the product's fallback store if any, else stays. missing=false moves it back to the store it was missing from."
     },
     "monthly_review": {
         "name": "monthly_review",
@@ -4355,7 +4355,7 @@
                 "storeId"
             ]
         },
-        "description": "When a store is closed, move all unchecked items from that store to their fallback stores."
+        "description": "Moves every unchecked item of a closed store to its product's fallback store."
     },
     "plan_annual_budget": {
         "name": "plan_annual_budget",
@@ -4588,7 +4588,7 @@
                 "groceryItemId"
             ]
         },
-        "description": "Remove a specific item from the grocery list."
+        "description": "Removes an item from the list."
     },
     "reorder_grocery_items": {
         "name": "reorder_grocery_items",
@@ -4603,7 +4603,7 @@
                 "items"
             ]
         },
-        "description": "Reorder grocery items by setting their position. Pass an array of {id, position} pairs."
+        "description": "Sets item positions from items, a list of {id, position}."
     },
     "replace_recipe_ingredient": {
         "name": "replace_recipe_ingredient",
@@ -4654,7 +4654,7 @@
                 "ingredientId"
             ]
         },
-        "description": "Give a line of a recipe another product, without breaking its steps: the steps that used the old ingredient use the new one. ingredientId is the ingredient the recipe line has now; give the new one as withIngredientId or withCiqualAlimCode; quantity and unit are optional (kept when omitted). The text of the steps is never rewritten on a deduction: the answer lists textSuggestions ({position, before, after}) for the steps that cite the old name or quantity — pass rewriteText true only when the user asked for the texts to follow."
+        "description": "Replace the product of a recipe line; steps using the old ingredient use the new one. ingredientId: current line ingredient; new one is withIngredientId or withCiqualAlimCode; quantity, unit kept when omitted. Step texts change only with rewriteText true; the answer lists textSuggestions ({position, before, after})."
     },
     "save_bilan_step": {
         "name": "save_bilan_step",
@@ -4921,7 +4921,7 @@
                 "query"
             ]
         },
-        "description": "Search the Ciqual (ANSES) French food composition database by name. Returns foods with core macros (kcal, protein, carbs, fat per 100g). Use this to find nutrition data for ingredients."
+        "description": "Search the Ciqual (ANSES) food database by name. Returns code and kcal, protein, carbs, fat per 100 g."
     },
     "search_ingredients": {
         "name": "search_ingredients",
@@ -4936,7 +4936,7 @@
                 "query"
             ]
         },
-        "description": "Search food ingredients by name. Returns matching ingredients with id, name, and category."
+        "description": "Search the user's ingredients by name. Returns id, name and category."
     },
     "search_products": {
         "name": "search_products",
@@ -4951,7 +4951,7 @@
                 "query"
             ]
         },
-        "description": "Search all products (food and non-food) by name. Returns matching products with id, name, category, and type."
+        "description": "Searches products (food and non-food) by name; returns id, name, category and type."
     },
     "search_recipes": {
         "name": "search_recipes",
@@ -4974,7 +4974,7 @@
                 }
             }
         },
-        "description": "Search recipes by name or tag. Provide either query (name search) or tag (tag search)."
+        "description": "Search recipes by query (name) or tag; one of the two is required."
     },
     "set_day_plan": {
         "name": "set_day_plan",
@@ -5240,7 +5240,7 @@
                 "date"
             ]
         },
-        "description": "Write what the user told you about their day in the health journal (Santé › Journal): date (YYYY-MM-DD, the local day the answer is about — the evening review is today), and at least one of mood (how they feel, a whole number 1 to 10, 10 the best), fatigue (how tired they are, a whole number 1 to 10, 10 the most tired) and note (free text in their own words, at most 2000 characters; a blank note removes it). Only the arguments given change; a day not in the journal yet is laid down. The entry shows « avec Maggie » and the time. Never invent a score: ask for it. Returns {\"success\": true, \"day\": …} as get_health_day reads it, or {\"error\", \"field\", \"current\"} naming the refused field with the day as it is; nothing is changed then."
+        "description": "Writes a day of the health journal: date (YYYY-MM-DD) and at least one of mood (1-10, 10 best), fatigue (1-10, 10 most tired), note (max 2000 characters; blank removes it). Only arguments given change; a missing day is created, marked as written by Maggie. Returns {success, day} or {error, field, current}."
     },
     "update_health_profile": {
         "name": "update_health_profile",
@@ -5378,7 +5378,7 @@
                 }
             }
         },
-        "description": "Change the user's health profile (Santé › Configuration): only the arguments given change, the others keep their value; give at least one. sex: male or female. birthYear: the year of birth (age = current year − birthYear; « j'ai 38 ans » in 2026 is 1988). heightCm: whole centimetres, 100 to 250. weightKg: kilograms, more than 0 and at most 500 — recorded as a manual weighing taken now, listed in Santé › Suivi. activityLevel: sedentary, light, moderate, active or very_active. mode: computed (the day's need is the basal metabolism × the activity factor, rounded to 10 kcal) or entered (the day's need is enteredNeedKcal). enteredNeedKcal: whole kcal, 1000 to 5000, by steps of 50. stepGoal: steps a day, 500 to 50000, by steps of 500 (« mon objectif de pas, c'est 10 000 » is 10000). suggestionWindowStart and suggestionWindowEnd: « HH:MM », the end after the start — when Maggie may suggest a session. sessionMinutes: 15, 20 or 30. stepSource: health_connect or none. fastingProtocol: the intermittent fasting protocol, fasting hours:eating window hours — 14:10, 16:8, 18:6 or 20:4 (« je passe au 18:6 » is 18:6) — or none to stop fasting (« arrête le jeûne »). fastingWindowStart: « HH:MM », when the eating window opens (« à partir de 13 h » is 13:00); it lasts the protocol's window hours. Returns {\"success\": true, \"profile\": …} with the profile as get_health_profile reads it, or {\"error\", \"field\"} naming the refused field; nothing is changed then."
+        "description": "Changes the health profile: given arguments only, at least one. sex (male, female), birthYear, heightCm (100-250), weightKg (max 500, also recorded as a weighing), activityLevel (sedentary, light, moderate, active, very_active), mode (computed, entered), enteredNeedKcal (1000-5000), stepGoal (500-50000), suggestionWindowStart, suggestionWindowEnd (HH:MM, end after start), sessionMinutes (15, 20, 30), stepSource (health_connect, none), fastingProtocol (14:10, 16:8, 18:6, 20:4, none), fastingWindowStart (HH:MM). Returns {success, profile}, or {error, field}."
     },
     "update_recipe": {
         "name": "update_recipe",
@@ -5449,7 +5449,7 @@
                 "recipeId"
             ]
         },
-        "description": "Update an existing recipe. Only provided fields will be updated. Ingredients replaces the full list if provided. Each ingredient object needs quantity, unit, and either ingredientId or ciqualAlimCode. Link every ingredient to the closest Ciqual food (search_ciqual_foods first) and, for a line in pieces (unit piece), add pieceWeightGrams, the weight in grams of one piece: without them the ingredient is left out of the nutrition per serving. To empty an optional field, list its name in clear (notes); an empty tags string empties the tags. Utensils is a JSON array of what the recipe is made with, each a utensil id (from manage_utensils) or a name — a name not in the catalogue yet is added to it; it replaces the full list if provided, and [] empties it. The method goes in steps, notes keep the tips. Steps is a JSON array of the steps, in order (the first is step 1), each {text, durationMinutes?, background?, ingredientIds?, utensils?, waitsFor?}: ingredientIds names ingredients of the recipe by ingredientId or by name (only a link: a partial quantity goes in the text); utensils are utensil ids or names, added to the recipe's utensils; background (needs a duration) means the timer runs while the cook moves on; waitsFor lists the positions of earlier steps that must be finished first. Steps replaces the full list if provided, and [] empties it."
+        "description": "Update a recipe; only given fields change. ingredients, steps and utensils replace the whole list, formatted as in create_recipe; [] empties steps and utensils. tags: comma-separated, empty string empties. clear: [notes] empties the notes. Unknown recipeId is an error."
     },
     "update_stock": {
         "name": "update_stock",
@@ -5468,7 +5468,7 @@
                 "state"
             ]
         },
-        "description": "Say what is left of a product at home: state is in_stock, low (nearly out) or out. Use it when the user says they are nearly out of something or have run out — not add_grocery_item. product is a product id or its name. When the product is set to restock by itself (autoRestock with a restockQuantity), its restock quantity is put on the grocery list for you and the answer says what was added; otherwise nothing is added and the answer says why. The answer also lists the meals of the next 7 days whose recipes use the product: tell the user about them."
+        "description": "Sets what is left of a product at home: state in_stock, low or out; product is an id or a name. An autoRestock product with a restockQuantity is added to the list. Returns what was added or why not, and the next 7 days' meals using it."
     },
     "update_task": {
         "name": "update_task",

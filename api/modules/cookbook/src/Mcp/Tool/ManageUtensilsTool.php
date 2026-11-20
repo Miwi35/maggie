@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_utensils', description: 'List, create, rename, or delete the user\'s kitchen utensils (oven, Thermomix, mandoline…), the catalogue recipes say they are made with. A name is unique whatever its case: create answers the existing utensil when the name is already there. Deleting a utensil removes it from its recipes, which stay.')]
+#[McpTool(name: 'manage_utensils', description: 'Actions: list, create, rename, delete kitchen utensils (oven, Thermomix...). create and rename need name (255 characters at most); rename and delete need utensilId. Names are unique whatever the case: create returns the existing one. Delete removes it from its recipes.')]
 class ManageUtensilsTool
 {
     public function __construct(

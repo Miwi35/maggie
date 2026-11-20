@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Grocery\Service\PurchaseSuggestions;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_purchase_suggestions', description: 'Products the user buys often and that are due again (« tu en prends souvent »), computed from the past errands: each product bought at least 3 times, with everyDays (median gap between purchases, in days), lastBoughtOn and dueOn (YYYY-MM-DD), usualQuantity and usualUnit (median quantity, null when unknown). Use it for « il me manque quelque chose ? ». Products already on the grocery list, on a recurring grocery item, or dismissed (« Pas besoin ») are left out. To add one, call add_grocery_item with its name and usual quantity.')]
+#[McpTool(name: 'get_purchase_suggestions', description: 'Products bought 3+ times in past errands and due again: everyDays (median gap), lastBoughtOn, dueOn (YYYY-MM-DD), usualQuantity, usualUnit (null when unknown). Products already listed, recurring or dismissed are left out.')]
 class GetPurchaseSuggestionsTool
 {
     public function __construct(

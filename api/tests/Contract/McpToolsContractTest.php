@@ -44,19 +44,7 @@ final class McpToolsContractTest extends KernelTestCase
 
     private const DESCRIPTION_BUDGET_PER_TOOL = 1_500;
 
-    /** Ratchet: lowered by MAG-840 (80 000, done) and MAG-841 (60 000). */
-    private const TOTAL_DESCRIPTION_BUDGET = 80_000;
-
-    /**
-     * Tools still above the per-tool budget. Emptied by MAG-840 (finance) and
-     * MAG-841 (the rest), then removed.
-     */
-    private const OVER_BUDGET_TOOLS = [
-        'add_grocery_item',
-        'create_recipe',
-        'manage_body_measurements',
-        'manage_workouts',
-    ];
+    private const TOTAL_DESCRIPTION_BUDGET = 60_000;
 
     public function testTheToolListMatchesTheContract(): void
     {
@@ -143,9 +131,6 @@ final class McpToolsContractTest extends KernelTestCase
     public function testNoToolDescriptionExceedsTheBudgetPerTool(): void
     {
         foreach ($this->tools() as $name => $tool) {
-            if (\in_array($name, self::OVER_BUDGET_TOOLS, true)) {
-                continue;
-            }
             $length = self::descriptionLength($tool);
             self::assertLessThanOrEqual(self::DESCRIPTION_BUDGET_PER_TOOL, $length, sprintf(
                 'The tool "%s" describes itself in %d characters (description + arguments), over the %d budget. Say what it does, its arguments, its return and its refusals — not how Maggie should use it (agent-os/standards/api/mcp-tools.md § Descriptions).',
@@ -165,18 +150,6 @@ final class McpToolsContractTest extends KernelTestCase
             $total,
             self::TOTAL_DESCRIPTION_BUDGET,
         ));
-    }
-
-    public function testTheOverBudgetListOnlyNamesToolsStillOverIt(): void
-    {
-        $tools = $this->tools();
-        foreach (self::OVER_BUDGET_TOOLS as $name) {
-            self::assertArrayHasKey($name, $tools, sprintf('OVER_BUDGET_TOOLS names "%s", which no longer exists: remove it.', $name));
-            self::assertGreaterThan(self::DESCRIPTION_BUDGET_PER_TOOL, self::descriptionLength($tools[$name]), sprintf(
-                '"%s" is now within the per-tool budget: remove it from OVER_BUDGET_TOOLS.',
-                $name,
-            ));
-        }
     }
 
     public function testNoDescriptionRepeatsThePromptsDateRule(): void

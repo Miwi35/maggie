@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_stock', description: 'Say what is left of a product at home: state is in_stock, low (nearly out) or out. Use it when the user says they are nearly out of something or have run out — not add_grocery_item. product is a product id or its name. When the product is set to restock by itself (autoRestock with a restockQuantity), its restock quantity is put on the grocery list for you and the answer says what was added; otherwise nothing is added and the answer says why. The answer also lists the meals of the next 7 days whose recipes use the product: tell the user about them.')]
+#[McpTool(name: 'update_stock', description: 'Sets what is left of a product at home: state in_stock, low or out; product is an id or a name. An autoRestock product with a restockQuantity is added to the list. Returns what was added or why not, and the next 7 days\' meals using it.')]
 class UpdateStockTool
 {
     private const MEAL_WINDOW_DAYS = 7;

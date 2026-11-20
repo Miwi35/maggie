@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Health\Service\TrainingHistory;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_training_status', description: 'Where the user stands in the strength program on one day (Santé › Sport), date YYYY-MM-DD. Returns {date, programWeek, phase, deload, stagnating, week, hardSetsByPattern}: programWeek counts from the first calibration session done (null before it); phase calibration (weeks 1-2), ramp_up (3-4) or normal; deload {due, reason scheduled (8 weeks) | stagnation (2 exercises or more stagnating) | hard_sessions (difficulty 9 or more twice in the week) | null, weeksSinceLast}: when due, plan the week\'s sessions with variant deload; stagnating the slugs without gain for more than 14 days; week {planned, done} the strength sessions of the Monday-Sunday week; hardSetsByPattern the sets done that week close to failure, per movement pattern. Invalid date: {error}.')]
+#[McpTool(name: 'get_training_status', description: 'Reads the strength program status, date YYYY-MM-DD. Returns {date, programWeek (from the first done calibration session), phase (calibration weeks 1-2, ramp_up 3-4, normal), deload {due, reason (scheduled, stagnation, hard_sessions, null), weeksSinceLast}, stagnating (slugs without gain for over 14 days), week {planned, done}, hardSetsByPattern}. Invalid date: {error}.')]
 final class GetTrainingStatusTool
 {
     public function __construct(

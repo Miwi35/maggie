@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'end_errand', description: 'End shopping errand. Archives all checked (bought) items as past errands, one per store (errands: id, storeName, itemCount; read them back with list_past_errands), and removes them from the list, puts the products they carried back In Stock (restockedProducts: tell the user which ones) and returns remaining unchecked items. The agent should then ask the user about EACH remaining item: keep on the list for later, or remove. Use remove_grocery_item to remove items the user no longer wants. storeId ends the errand of that store only; paidAmountCents (whole cents, zero or more, needs storeId) records what was paid at its till.')]
+#[McpTool(name: 'end_errand', description: 'Archives checked items as past errands, one per store (errands: id, storeName, itemCount), removes them from the list, puts their products In Stock (restockedProducts), returns the unchecked items. storeId ends that store only; paidAmountCents (whole cents, needs storeId) records what was paid.')]
 class EndErrandTool
 {
     public function __construct(

@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_recurring_groceries', description: 'List, create, update, or delete recurring grocery items — the staples automatically added to generated lists. Frequency: weekly, biweekly, monthly. Give either a productId or a customLabel. To empty an optional field on update, list its name in clear (productId, customLabel, quantity, unit); an item must keep a productId or a customLabel.')]
+#[McpTool(name: 'manage_recurring_groceries', description: 'Actions: list, create, update, delete recurring items, added to generated lists. frequency: weekly, biweekly, monthly. Needs a productId or a customLabel. clear lists fields to empty: productId, customLabel, quantity, unit; one of the two must remain.')]
 class ManageRecurringGroceriesTool
 {
     public function __construct(

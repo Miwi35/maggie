@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_notifications', description: 'Create, list, mark as read, or delete notifications. Use create to reach the user on their own devices (push notification): a proaction you took or an approval you are waiting for — type is one of proaction, approval, reminder, task_due, grocery, finance, message (a chat message you write outside a conversation in progress: relatedEntityIri /chat?message={id} opens it), question (a question with boxes to tick, given interaction {kind: choice, options, multiple, questionId}); give a short title, an optional body, and relatedEntityIri (e.g. /api/events/{id}, /api/tasks/{id}, /finance/banks) so tapping it opens the right screen. Use unreadOnly to see what still needs attention.')]
+#[McpTool(name: 'manage_notifications', description: 'Actions: create, list, delete, and mark as read (unknown ones refused, valid listed). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri, the screen a tap opens (/api/events/{id}, /api/tasks/{id}, /finance/banks, message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId.')]
 class ManageNotificationsTool
 {
     public function __construct(

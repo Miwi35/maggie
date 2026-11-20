@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_stores', description: 'List, create, update, or delete stores. Stores represent shops with a visit order and a description of what they sell (used to auto-assign products). To empty an optional field on update, list its name in clear (description).')]
+#[McpTool(name: 'manage_stores', description: 'Actions: list, create, update, delete stores, with visitOrder and a description of what they sell (used to assign products). clear lists fields to empty: description.')]
 class ManageStoresTool
 {
     public function __construct(

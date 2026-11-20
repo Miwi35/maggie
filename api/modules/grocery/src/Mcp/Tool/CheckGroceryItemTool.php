@@ -11,7 +11,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'check_grocery_item', description: 'Toggle the checked state of a grocery item. Set checked=true when bought, false to uncheck.')]
+#[McpTool(name: 'check_grocery_item', description: 'Sets the checked state of an item: checked=true when bought, false to uncheck.')]
 class CheckGroceryItemTool
 {
     public function __construct(

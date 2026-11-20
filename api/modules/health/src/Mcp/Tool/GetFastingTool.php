@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Health\Service\FastingReader;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_fasting', description: 'Read the user\'s intermittent fast of one day (Santé › Nutrition), date YYYY-MM-DD. Nothing is started by hand: the food journal decides. Returns {date, protocol, windowStart, windowEnd, openedAt, lastIntakeAt, state, nightFastMinutes}: protocol is fasting hours:eating window hours (14:10, 16:8, 18:6 or 20:4), null when the user does not fast (change it with update_health_profile); windowStart and windowEnd « HH:MM », the eating window of the profile; openedAt the day\'s first intake, which opens the window; lastIntakeAt the latest intake so far, the fast in progress counts from it; state fasting (nothing eaten yet today), open (window open, until windowEnd) or closed (window over, fasting until tomorrow\'s windowStart); nightFastMinutes the fast that ended that day, from the day before\'s last intake to the day\'s first. A future day gives its window only. Encourage, never reproach: a window eaten past is not a fault.')]
+#[McpTool(name: 'get_fasting', description: 'Reads one day\'s intermittent fast, date YYYY-MM-DD, derived from the food journal. Returns {date, protocol (14:10, 16:8, 18:6, 20:4; null if none), windowStart, windowEnd (HH:MM), openedAt (first intake), lastIntakeAt, state (fasting: nothing eaten yet; open: until windowEnd; closed), nightFastMinutes (previous day\'s last intake to this day\'s first)}. A future day gives its window only.')]
 final class GetFastingTool
 {
     public function __construct(

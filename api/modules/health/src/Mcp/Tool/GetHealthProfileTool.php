@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Health\Service\HealthProfileReader;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_health_profile', description: 'Read the user\'s health profile (Santé › Configuration). Returns sex (male or female), birthYear and age (current year minus birthYear), heightCm, weightKg (the latest weighing not set aside, read from Santé › Suivi), activityLevel (sedentary × 1.2, light × 1.375, moderate × 1.55, active × 1.725, very_active × 1.9), mode (computed: the day\'s need is computed; entered: the user typed it in enteredNeedKcal), bmrKcal (basal metabolism, Mifflin-St Jeor), needKcal (the day\'s need, the reference of the recipes\' kcal gauges), factor (needKcal ÷ bmrKcal), and the physical activity settings: stepGoal (steps a day), suggestionWindowStart and suggestionWindowEnd (« HH:MM », when Maggie may suggest a session), sessionMinutes (15, 20 or 30) and stepSource (health_connect or none). bmrKcal and needKcal are null while sex, age, height or weight is missing. id is null while the profile has never been written.')]
+#[McpTool(name: 'get_health_profile', description: 'Reads the health profile. Returns {id (null if never written), sex, birthYear, age, heightCm, weightKg (latest weighing not set aside), activityLevel (sedentary x1.2 to very_active x1.9), mode (computed, entered), bmrKcal, needKcal, factor (need / bmr), stepGoal, suggestionWindowStart, suggestionWindowEnd, sessionMinutes, stepSource}. bmrKcal, needKcal null while sex, age, height or weight is missing.')]
 final class GetHealthProfileTool
 {
     public function __construct(
