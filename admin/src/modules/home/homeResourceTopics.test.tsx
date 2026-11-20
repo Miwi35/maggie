@@ -73,3 +73,7 @@ test('the Finance card listens to the resources the dashboard is made of', () =>
     ]),
   )
 })
+
+test('the Agenda card listens to the trips of its events', () => {
+  expect(HOME_RESOURCE_TOPICS).toContain('/api/trips/{id}')
+})

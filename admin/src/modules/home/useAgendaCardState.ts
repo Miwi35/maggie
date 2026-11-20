@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { addDays, localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
+import type { Trip } from '../calendar/trips'
 import { useLiveRead } from '../calendar/calendarLive'
 import { ApiStatusError, apiUrl, headers } from '../calendar/taskViews'
 import { composeAgendaState } from './cards/agendaCardState'
@@ -29,12 +30,14 @@ async function read(day: HomeDay): Promise<AgendaHomeState> {
   })
 
   try {
-    const [events, agendas] = await Promise.all([
+    const [events, agendas, trips] = await Promise.all([
       members<ApiEvent>(`/events?${period}`, 'Événements'),
       members<ApiAgenda>('/agendas?pagination=false', 'Agendas'),
+      // Best effort: a failed trips read gives a card without trips, never an error.
+      members<Trip>(`/trips?date=${date}&pagination=false`, 'Trajets').catch(() => [] as Trip[]),
     ])
 
-    return composeAgendaState(date, day === 'today' ? now.getTime() : null, events, agendas)
+    return composeAgendaState(date, day === 'today' ? now.getTime() : null, events, agendas, trips)
   } catch (e) {
     // A module that is not there answers 404: its card is not drawn, which is not an error.
     if (e instanceof ApiStatusError && e.status === 404) return composeAgendaState(date, null, [], [])
