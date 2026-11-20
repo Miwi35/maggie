@@ -96,6 +96,37 @@ test('the day view lists the trip before its event, and follows it without a rel
   expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
 })
 
+test('the day view lists the trip of today\'s occurrence of a weekly series', async ({ page, api }) => {
+  const title = `Piscine, série, trajet ${test.info().retry}`
+  const calendar = new CalendarPage(page)
+  const today = parisDay()
+  const weekAgo = parisDay(new Date(e2eNow().getTime() - 7 * 86_400_000))
+  const created = await callMcpTool(api, 'create_event', {
+    title,
+    start_date: weekAgo,
+    start_time: '14:00',
+    end_date: weekAgo,
+    end_time: '15:00',
+    location: DENTIST,
+    rrule: 'FREQ=WEEKLY',
+  })
+  expect(created.error, JSON.stringify(created)).toBeUndefined()
+  const eventId = (created.event as { id: string }).id
+
+  const now = e2eNow().toISOString()
+  expect((await api.put('/api/me/location', { data: { ...HOME, accuracy: 10, capturedAt: now } })).status()).toBe(204)
+  expect((await api.put('/api/me/car', { data: { ...CAR, parkedAt: now } })).status()).toBe(204)
+  const kept = await callMcpTool(api, 'set_trip', { eventId, mode: 'drive', origin: 'position', date: today })
+  expect(kept.error, JSON.stringify(kept)).toBeUndefined()
+
+  await openSubscribed(page, () => calendar.open())
+  await calendar.chooseView('Jour')
+
+  await expect(calendar.tripLine(title)).toContainText('Partir à')
+
+  expect((await api.delete(`/api/events/${eventId}`)).status()).toBe(204)
+})
+
 test('the trip of a 5-minute event is a line of its own, outside the event', async ({ page, api }) => {
   const title = `Passage éclair, trajet ${test.info().retry}`
   const calendar = new CalendarPage(page)
