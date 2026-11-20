@@ -1,6 +1,9 @@
 package com.maggie.app.ui.screens.shared
 
 import androidx.compose.ui.test.assertContentDescriptionContains
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -290,5 +293,119 @@ class TaskFormScreenTest {
         assertEquals(JsonArray(emptyList()), body["reminders"])
         // The due date is another field: it stays.
         assertEquals("2026-10-13", body["dueDate"]?.jsonPrimitive?.content)
+    }
+
+    // « Répéter » and « Jusqu’au » (MAG-887).
+
+    private val onTuesday = task.copy(scheduledDate = "2026-11-24")
+    private val everyOtherTuesday = onTuesday.copy(rrule = "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU")
+
+    private fun chooseRepeat(preset: RepeatPreset) {
+        compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.taskFormRepeat(preset.key)).performClick()
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `Répéter sits under Programmée at Jamais, without Jusqu’au`() {
+        showEdit(task = onTuesday)
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT).performScrollTo().assertContentDescriptionContains("Jamais", substring = true)
+        compose.onNodeWithTag(UiTags.TASK_FORM_UNTIL).assertDoesNotExist()
+        assertTopToBottom(
+            "programmée" to compose.onNodeWithTag(UiTags.TASK_FORM_SCHEDULED),
+            "répéter" to compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT),
+            "criticité" to compose.onNodeWithText("Criticité"),
+        )
+    }
+
+    @Test
+    fun `the Répéter menu lists the six choices in order, the current one checked`() {
+        showEdit(task = everyOtherTuesday)
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT).performScrollTo().performClick()
+
+        assertTopToBottom(
+            *RepeatPreset.entries.map { it.label to compose.onNodeWithTag(UiTags.taskFormRepeat(it.key)) }.toTypedArray(),
+        )
+        compose.onAllNodesWithContentDescription("Choix actuel").assertCountEquals(1)
+    }
+
+    @Test
+    fun `Toutes les deux semaines on a Tuesday reads Un mardi sur deux and shows Jusqu’au at Aucune fin`() {
+        showEdit(task = onTuesday)
+
+        chooseRepeat(RepeatPreset.BIWEEKLY)
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT).assertContentDescriptionContains("Un mardi sur deux", substring = true)
+        compose.onNodeWithTag(UiTags.TASK_FORM_UNTIL).performScrollTo().assertContentDescriptionContains("Aucune fin", substring = true)
+    }
+
+    // « Personnalisé… » opens an `AlertDialog`, which hangs Robolectric's idling: its fields are
+    // covered by `RepeatRuleFieldsTest`, the dialog only frames them.
+
+    @Test
+    fun `creating sends the rule`() {
+        val created = mutableListOf<TaskCreateRequest>()
+        showCreate(onCreate = { created += it })
+        compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT).assertIsNotEnabled()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SCHEDULED).performClick()
+        compose.onNodeWithTag(UiTags.PICKER_TOMORROW).performClick()
+
+        chooseRepeat(RepeatPreset.DAILY)
+        compose.onNodeWithTag(UiTags.TASK_FORM_TITLE).performTextInput("Arroser")
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+
+        assertEquals("FREQ=DAILY", created.single().rrule)
+    }
+
+    @Test
+    fun `editing only the day sends the stored rule unchanged`() {
+        val updates = mutableListOf<JsonObject>()
+        showEdit(onUpdate = { updates += it }, task = everyOtherTuesday)
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_SCHEDULED).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PICKER_TOMORROW).performClick()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+
+        assertEquals("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU", updates.single()["rrule"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `Jamais on a repeating task sends rrule null and hides Jusqu’au`() {
+        val updates = mutableListOf<JsonObject>()
+        showEdit(onUpdate = { updates += it }, task = everyOtherTuesday)
+        compose.onNodeWithTag(UiTags.TASK_FORM_UNTIL).performScrollTo().assertExists()
+
+        chooseRepeat(RepeatPreset.NEVER)
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_UNTIL).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+        assertEquals(JsonNull, updates.single()["rrule"])
+    }
+
+    @Test
+    fun `an end day adds UNTIL to the rule sent`() {
+        val updates = mutableListOf<JsonObject>()
+        showEdit(onUpdate = { updates += it }, task = everyOtherTuesday.copy(rrule = "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;UNTIL=20261231"))
+
+        compose.onNodeWithTag(UiTags.TASK_FORM_UNTIL).performScrollTo().assertContentDescriptionContains("Jeu. 31 déc.", substring = true)
+        compose.onNodeWithContentDescription("Effacer : Jusqu’au").performClick()
+        compose.onNodeWithTag(UiTags.TASK_FORM_UNTIL).assertContentDescriptionContains("Aucune fin", substring = true)
+        compose.onNodeWithTag(UiTags.TASK_FORM_SUBMIT).performClick()
+
+        assertEquals("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU", updates.single()["rrule"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `Répéter is disabled without a day and absent for a subtask`() {
+        showEdit(task = Task(id = "t2", title = "Sans jour"))
+        compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT).performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `Répéter is absent for a subtask`() {
+        showEdit(task = truck.copy(scheduledDate = "2026-11-24"))
+        compose.onNodeWithTag(UiTags.TASK_FORM_REPEAT).assertDoesNotExist()
     }
 }
