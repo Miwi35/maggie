@@ -75,6 +75,9 @@ export const FINANCE_DASHBOARD_PATH = '/finance/dashboard'
 /** Santé › Suivi (MAG-706): a page of its own, the weighings' resource has no list of its own. */
 export const HEALTH_SUIVI_PATH = '/health/suivi'
 
+/** Santé › Activité (MAG-897): the day's steps against the goal, the active sessions and the week, right after Sport. */
+export const HEALTH_ACTIVITY_PATH = '/health/activity'
+
 /** Santé › Nutrition (MAG-748): the day's balance, its macros and the food journal, right after Suivi. */
 export const HEALTH_NUTRITION_PATH = '/health/nutrition'
 
@@ -227,10 +230,11 @@ export const NAVIGATION: NavModule[] = [
   },
   {
     label: 'Santé',
-    // The mockup's order (`Admin-Sport`): Suivi, Sport, Activité, Nutrition, Journal, Configuration — Activité joins after Sport with its part.
+    // The mockup's order (`Admin-Sport`): Suivi, Sport, Activité, Nutrition, Journal, Configuration — Activité sits after Sport.
     parts: [
       { label: 'Suivi', path: HEALTH_SUIVI_PATH },
       resourcePart('Sport', 'workouts'),
+      { label: 'Activité', path: HEALTH_ACTIVITY_PATH },
       { label: 'Nutrition', path: HEALTH_NUTRITION_PATH },
       { label: 'Journal', path: HEALTH_JOURNAL_PATH },
       { label: 'Configuration', path: HEALTH_CONFIGURATION_PATH },
