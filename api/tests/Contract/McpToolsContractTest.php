@@ -44,8 +44,8 @@ final class McpToolsContractTest extends KernelTestCase
 
     private const DESCRIPTION_BUDGET_PER_TOOL = 1_500;
 
-    /** Ratchet: lowered by MAG-840 (80 000) and MAG-841 (60 000). */
-    private const TOTAL_DESCRIPTION_BUDGET = 122_000;
+    /** Ratchet: lowered by MAG-840 (80 000, done) and MAG-841 (60 000). */
+    private const TOTAL_DESCRIPTION_BUDGET = 80_000;
 
     /**
      * Tools still above the per-tool budget. Emptied by MAG-840 (finance) and
@@ -54,29 +54,8 @@ final class McpToolsContractTest extends KernelTestCase
     private const OVER_BUDGET_TOOLS = [
         'add_grocery_item',
         'create_recipe',
-        'detect_internal_transfers',
-        'get_finance_dashboard',
-        'get_finance_scores',
-        'get_independence_counter',
-        'get_project_planning',
-        'get_recurring_operations',
-        'get_treasury_outlook',
-        'get_upcoming_projection',
         'manage_body_measurements',
-        'manage_envelopes',
-        'manage_investments',
-        'manage_loans',
-        'manage_operations',
-        'manage_peer_debts',
-        'manage_project_funding',
-        'manage_projects',
-        'manage_scenarios',
-        'manage_transactions',
-        'manage_treasury_settings',
         'manage_workouts',
-        'plan_annual_budget',
-        'preview_project',
-        'suggest_recurring_operations',
     ];
 
     public function testTheToolListMatchesTheContract(): void

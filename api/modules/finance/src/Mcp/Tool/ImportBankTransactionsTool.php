@@ -12,7 +12,7 @@ use Maggie\Finance\UseCase\ImportStatement;
 use Maggie\Finance\UseCase\ReadBankStatement;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'import_bank_transactions', description: 'Import into Maggie ONLY the bank movements the user chose, after read_bank_statement showed them and the user agreed — never a whole period, never without their go-ahead. accountId, from and to are the ones given to read_bank_statement (the bank is read again over the same period); refs[] are the ref values of the chosen entries (200 at most). A movement already in Maggie is skipped, so running it again imports nothing. Answers {imported, skipped, unknownRefs (asked for, but not found in the bank\'s answer), transactionIds}; or status history_unavailable / rate_limited with the bank\'s message, and nothing is imported. The movements arrive without a category, like those of the regular sync: qualify them afterwards with manage_transactions (or manage_peer_debts for a transfer with a person). The regular sync is untouched.')]
+#[McpTool(name: 'import_bank_transactions', description: 'Imports chosen bank movements into Maggie. accountId, from, to: as given to read_bank_statement (the bank is read again); refs[]: ref values of chosen entries, 200 at most. Movements already in Maggie are skipped, so a rerun imports nothing. Returns {imported, skipped, unknownRefs (absent from the bank\'s answer), transactionIds}; or status history_unavailable / rate_limited with the bank\'s message, nothing imported. Error: refs empty or above 200. Imported movements have no category, like the regular sync (qualify with manage_transactions, manage_peer_debts for a transfer with a person).')]
 class ImportBankTransactionsTool
 {
     private const MAX_REFS = 200;
