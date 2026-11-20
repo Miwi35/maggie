@@ -28,7 +28,7 @@
 //           left as found when it exists; `drop-product` deletes it (MAG-573)
 //   shelve: LABEL is an existing product; it takes AISLE (by name) in STORE — the aisle the
 //           products list groups it under, waited for in the API's own `store`+`aisle`
-//           filter (MAG-606)
+//           filter (MAG-606). USUAL=yes also makes STORE the product's usual store (MAG-900)
 //   meals, drop-meals: LABEL is the product's name. `meals` plans, in the week to
 //           come, a 500 g meal (tomorrow) and a 300 g meal (in three days) of it,
 //           each from a recipe of its own: the 800 g « pour les recettes » of the add
@@ -316,6 +316,10 @@ if (ACTION === 'add') {
     return entry.store !== store
   })
   aisles.push({ store: store, aisle: aisle.id })
+  const patch = { aisles: aisles }
+  if (typeof USUAL !== 'undefined' && USUAL === 'yes') {
+    patch.preferredStore = '/api/stores/' + store
+  }
   const response = http.request(base + '/api/products/' + productId, {
     method: 'PATCH',
     headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
@@ -433,7 +437,7 @@ if (ACTION === 'add') {
   const response = http.request(base + '/api/products/' + product.id, {
     method: 'PATCH',
     headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
-    body: JSON.stringify({ aisles: aisles }),
+    body: JSON.stringify(patch),
   })
   if (!response.ok) {
     fail('PATCH /api/products/' + product.id + ' answered ' + response.status + ': ' + response.body)
