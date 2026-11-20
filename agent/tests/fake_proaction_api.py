@@ -23,7 +23,7 @@ class FakeProactionApi:
         self.proactions: dict[str, dict] = {}
         self.calls: list[tuple[str, dict, str | None]] = []
         self.down = False
-        # `get_events_by_date`'s answer, by day: the agenda the planning reads.
+        # `get_events`'s answer, by day: the agenda the planning reads.
         self.agenda: dict[str, list[dict]] = {}
         # The trips kept with `set_trip` (MAG-657), by event id; `estimate_trip` answers departAt from `depart_at`.
         self.trips: dict[str, dict] = {}
@@ -121,9 +121,10 @@ class FakeProactionApi:
     def _list_daily_rendezvous(self, arguments: dict, user_id: str | None) -> dict:
         return {"users": [u for u in self.rendezvous if user_id is None or u["userId"] == user_id]}
 
-    def _get_events_by_date(self, arguments: dict, user_id: str | None) -> dict:
-        events = self.agenda.get(str(arguments.get("date")), [])
-        return {"date": arguments.get("date"), "events": events, "count": len(events)}
+    def _get_events(self, arguments: dict, user_id: str | None) -> dict:
+        day = str(arguments.get("from"))
+        events = self.agenda.get(day, [])
+        return {"from": day, "to": arguments.get("to"), "events": events, "count": len(events)}
 
     def _event(self, event_id: str) -> dict | None:
         return next((e for events in self.agenda.values() for e in events if e["id"] == event_id), None)

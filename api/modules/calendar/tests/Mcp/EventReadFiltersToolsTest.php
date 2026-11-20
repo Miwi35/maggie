@@ -4,13 +4,12 @@ namespace Maggie\Calendar\Tests\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
-use Maggie\Calendar\Mcp\Tool\GetEventsByDateTool;
-use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
+use Maggie\Calendar\Mcp\Tool\GetEventsTool;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
- * get_upcoming_events and get_events_by_date narrow to some agendas and find an event by its
+ * get_events narrows to some agendas and find an event by its
  * title, however far away it is (MAG-325).
  */
 class EventReadFiltersToolsTest extends KernelTestCase
@@ -25,25 +24,28 @@ class EventReadFiltersToolsTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function upcoming(?int $days = null, ?array $agendas = null, ?string $query = null): array
+    private function events(?string $from = null, ?string $to = null, ?array $agendas = null, ?string $query = null): array
     {
         return json_decode(
-            (self::getContainer()->get(GetUpcomingEventsTool::class))($days, $agendas, $query),
+            (self::getContainer()->get(GetEventsTool::class))($from, $to, $query, $agendas),
             true,
             512,
             JSON_THROW_ON_ERROR,
         );
     }
 
+    /** @return array<string, mixed> The next $days days from today, or the tool's own window. */
+    private function upcoming(?int $days = null, ?array $agendas = null, ?string $query = null): array
+    {
+        $to = null === $days ? null : (new \DateTimeImmutable('today', new \DateTimeZone('Europe/Paris')))->modify('+'.($days - 1).' days')->format('Y-m-d');
+
+        return $this->events(null, $to, $agendas, $query);
+    }
+
     /** @return array<string, mixed> */
     private function byDate(string $date, ?array $agendas = null, ?string $query = null, ?string $endDate = null): array
     {
-        return json_decode(
-            (self::getContainer()->get(GetEventsByDateTool::class))($date, $agendas, $query, $endDate),
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
-        );
+        return $this->events($date, $endDate ?? $date, $agendas, $query);
     }
 
     private function tomorrow(): string
@@ -256,8 +258,8 @@ class EventReadFiltersToolsTest extends KernelTestCase
 
         $data = $this->byDate($tomorrow, null, null, $inThreeDays);
 
-        self::assertSame($tomorrow, $data['date']);
-        self::assertSame($inThreeDays, $data['endDate']);
+        self::assertSame($tomorrow, $data['from']);
+        self::assertSame($inThreeDays, $data['to']);
         self::assertContains('Squash', $this->summaries($data));
         foreach ($this->summaries($this->byDate($tomorrow)) as $summary) {
             self::assertContains($summary, $this->summaries($data));
@@ -281,9 +283,10 @@ class EventReadFiltersToolsTest extends KernelTestCase
         $tomorrow = $this->tomorrow();
 
         self::assertStringContainsString('YYYY-MM-DD', $this->byDate($tomorrow, null, null, 'demain')['error']);
-        self::assertStringContainsString('is before date', $this->byDate($tomorrow, null, null, '2000-01-01')['error']);
+        self::assertStringContainsString('YYYY-MM-DD', $this->events('lundi')['error']);
+        self::assertStringContainsString('is before from', $this->byDate($tomorrow, null, null, '2000-01-01')['error']);
         $tooFar = (new \DateTimeImmutable($tomorrow))->modify('+31 days')->format('Y-m-d');
-        self::assertStringContainsString('at most 30 days', $this->byDate($tomorrow, null, null, $tooFar)['error']);
+        self::assertStringContainsString('at most 31 days', $this->byDate($tomorrow, null, null, $tooFar)['error']);
         $lastDay = (new \DateTimeImmutable($tomorrow))->modify('+30 days')->format('Y-m-d');
         self::assertArrayNotHasKey('error', $this->byDate($tomorrow, null, null, $lastDay));
     }
@@ -317,7 +320,7 @@ class EventReadFiltersToolsTest extends KernelTestCase
         }
     }
 
-    public function testBothToolsRefuseAnAnonymousCaller(): void
+    public function testTheToolRefusesAnAnonymousCaller(): void
     {
         self::assertSame(MissingMcpUserException::MESSAGE, $this->upcoming(7, ['Défaut'], 'piano')['error']);
         self::assertSame(MissingMcpUserException::MESSAGE, $this->byDate($this->tomorrow(), ['Défaut'], 'piano')['error']);

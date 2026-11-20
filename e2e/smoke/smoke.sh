@@ -301,7 +301,7 @@ assert_contains "$unscripted" '[fake-llm] aucun sc' \
 
 agenda="$(chat "$AGENDA_QUESTION")"
 assert_contains "$agenda" 'déjeuner avec Alex' "the scripted answer comes back"
-assert_eq get_upcoming_events "$(printf '%s' "$agenda" | jq -r '.tool_calls[0].name // empty')" \
+assert_eq get_events "$(printf '%s' "$agenda" | jq -r '.tool_calls[0].name // empty')" \
   "the scripted tool really ran"
 if printf '%s' "$agenda" | jq -e '.tool_calls[0].result | fromjson | if type == "object" then has("error") else false end' >/dev/null 2>&1; then
   fail "the tool ran but errored — result: $(printf '%s' "$agenda" | jq -r '.tool_calls[0].result' | head -c 300)"
@@ -309,7 +309,7 @@ else
   pass "the tool returned the seeded agenda, not an error"
 fi
 # The recurring event, and not the seeded lunch: the lunch sits at the anchor
-# plus twelve hours, so `get_upcoming_events` — which counts from *now* — drops
+# plus twelve hours, so `get_events` — which counts from *now* — drops
 # it once the afternoon starts, and the step would pass in the morning and fail
 # in the evening. Accent-free too, because the tool result is PHP's json_encode
 # and arrives escaped as \uXXXX.

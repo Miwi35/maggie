@@ -13,8 +13,8 @@ turns:
   - tools:
       - name: list_instructions
         input: {kind: planning}
-      - name: get_events_by_date
-        input: {date: "${today}"}
+      - name: get_events
+        input: {from: "${today}", to: "${today}"}
       - name: list_proactions
         input: {from: "${today}", to: "${today}"}
   - tools:

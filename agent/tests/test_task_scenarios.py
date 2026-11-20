@@ -21,7 +21,7 @@ TASK_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
 OTHER_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7X"
 OFFERED = [
     {"name": name, "input_schema": {}}
-    for name in ("get_events_by_date", "get_tasks", "update_task", "add_grocery_item", "create_task")
+    for name in ("get_events", "get_tasks", "update_task", "add_grocery_item", "create_task")
 ]
 
 
@@ -75,7 +75,7 @@ class TestTheDay:
     async def test_it_reads_the_agenda_and_today_then_someday_and_writes_nothing(self, api):
         result = await ask([{"role": "user", "content": "Qu'est-ce que j'ai aujourd'hui ?"}])
 
-        assert called(result) == ["get_events_by_date", "get_tasks", "get_tasks"]
+        assert called(result) == ["get_events", "get_tasks", "get_tasks"]
         assert [args for name, args in api.calls if name == "get_tasks"] == [{"view": "today"}, {"view": "someday"}]
         assert "update_task" not in called(result)
 
@@ -93,7 +93,7 @@ class TestTheDay:
 
         result = await ask([{"role": "user", "content": merged}])
 
-        assert called(result) == ["get_events_by_date", "get_tasks", "get_tasks"]
+        assert called(result) == ["get_events", "get_tasks", "get_tasks"]
 
 
 class TestTheYes:

@@ -3,7 +3,7 @@
 #
 # Same trick as 06-planning-custody-day.yaml: the first two rounds are 07-planning-read.yaml's,
 # this one only matches once the agenda is in the history. The id of the Dentiste comes from the
-# `get_events_by_date` result of this very run (`results_matches`), and the day is today's — the
+# `get_events` result of this very run (`results_matches`), and the day is today's — the
 # journey pins the clock. The journey's WireMock
 # route puts departAt at 13:34 for a 14:00 start (walk 4, drive 14, walk 3, 5 minutes of margin).
 name: planning-trips
@@ -19,8 +19,8 @@ turns:
   - tools:
       - name: list_instructions
         input: {kind: planning}
-      - name: get_events_by_date
-        input: {date: "${today}"}
+      - name: get_events
+        input: {from: "${today}", to: "${today}"}
       - name: list_proactions
         input: {from: "${today}", to: "${today}"}
   - tools:

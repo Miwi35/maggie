@@ -245,7 +245,7 @@ class TestTheGuard:
 
         assert guard.review(NOTED) is Verdict.RETRY
 
-    @pytest.mark.parametrize("tool", ["memory_search", "memory_open", "list_skills", "date_time", "get_upcoming_events"])
+    @pytest.mark.parametrize("tool", ["memory_search", "memory_open", "list_skills", "date_time", "get_events"])
     def test_a_read_does_not_count(self, tool):
         guard = ClaimGuard(LEARNING_OFFERED)
         guard.record(tool, json.dumps({"result": "ok"}))

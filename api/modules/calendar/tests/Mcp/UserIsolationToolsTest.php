@@ -10,9 +10,8 @@ use Maggie\Calendar\Mcp\Tool\CheckConflictsTool;
 use Maggie\Calendar\Mcp\Tool\CreateEventTool;
 use Maggie\Calendar\Mcp\Tool\DeleteEventTool;
 use Maggie\Calendar\Mcp\Tool\DeleteTaskTool;
-use Maggie\Calendar\Mcp\Tool\GetEventsByDateTool;
+use Maggie\Calendar\Mcp\Tool\GetEventsTool;
 use Maggie\Calendar\Mcp\Tool\GetTasksTool;
-use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -114,41 +113,41 @@ class UserIsolationToolsTest extends KernelTestCase
         self::assertArrayNotHasKey('tasks', $data);
     }
 
-    public function testGetEventsByDateOnlyReturnsTheCallersEvents(): void
+    public function testGetEventsOnlyReturnsTheCallersEvents(): void
     {
         $this->loadFixtures('UserIsolationToolsTest.yaml');
         $this->loginFixtureUser();
 
-        $data = $this->decode((self::getContainer()->get(GetEventsByDateTool::class))($this->tomorrow()));
+        $data = $this->decode((self::getContainer()->get(GetEventsTool::class))($this->tomorrow(), $this->tomorrow()));
 
         self::assertSame(['Own event'], $this->summaries($data));
     }
 
-    public function testGetEventsByDateWithoutUserIsRefused(): void
+    public function testGetEventsWithoutUserIsRefused(): void
     {
         $this->loadFixtures('UserIsolationToolsTest.yaml');
 
-        $data = $this->decode((self::getContainer()->get(GetEventsByDateTool::class))($this->tomorrow()));
+        $data = $this->decode((self::getContainer()->get(GetEventsTool::class))($this->tomorrow(), $this->tomorrow()));
 
         self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
         self::assertArrayNotHasKey('events', $data);
     }
 
-    public function testGetUpcomingEventsOnlyReturnsTheCallersEvents(): void
+    public function testGetEventsFromNowOnlyReturnsTheCallersEvents(): void
     {
         $this->loadFixtures('UserIsolationToolsTest.yaml');
         $this->loginFixtureUser();
 
-        $data = $this->decode((self::getContainer()->get(GetUpcomingEventsTool::class))(7));
+        $data = $this->decode((self::getContainer()->get(GetEventsTool::class))());
 
         self::assertSame(['Own event'], $this->summaries($data));
     }
 
-    public function testGetUpcomingEventsWithoutUserIsRefused(): void
+    public function testGetEventsFromNowWithoutUserIsRefused(): void
     {
         $this->loadFixtures('UserIsolationToolsTest.yaml');
 
-        $data = $this->decode((self::getContainer()->get(GetUpcomingEventsTool::class))(7));
+        $data = $this->decode((self::getContainer()->get(GetEventsTool::class))());
 
         self::assertSame(MissingMcpUserException::MESSAGE, $data['error']);
         self::assertArrayNotHasKey('events', $data);

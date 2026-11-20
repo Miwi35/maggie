@@ -2,7 +2,7 @@
 # 15 min avant de le déposer » is an instruction, and the agenda says which days.
 #
 # The fake reads no tool result, but the history does carry them one round later: the
-# third call of the run sees what `get_events_by_date` answered in the first. So this
+# third call of the run sees what `get_events` answered in the first. So this
 # scenario only matches once « Garde Tom » is in the agenda of the day it plans — on any
 # other day 07-planning-read.yaml answers that there is nothing to schedule. Its first
 # two turns are 07's, never played here: a scenario's turns are counted from the run's
@@ -20,8 +20,8 @@ turns:
   - tools:
       - name: list_instructions
         input: {kind: planning}
-      - name: get_events_by_date
-        input: {date: '\1'}
+      - name: get_events
+        input: {from: '\1', to: '\1'}
       - name: list_proactions
         input: {from: '\1', to: '\1'}
   - tools:

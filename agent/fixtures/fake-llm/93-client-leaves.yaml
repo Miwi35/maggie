@@ -11,6 +11,6 @@ match:
 
 turns:
   - tools:
-      - name: get_upcoming_events
-        input: {days: 7}
+      - name: get_events
+        input: {}
   - text: "J'ai regardé votre agenda pendant que vous étiez parti : rien d'urgent."

@@ -12,6 +12,6 @@ match:
 
 turns:
   - tools:
-      - name: get_upcoming_events
+      - name: get_events
         input: {query: "piano"}
   - text: "J'ai trouvé la série « Cours de piano » : c'est bien celle-là que je supprime ?"

@@ -224,7 +224,7 @@ class TestShippedSkills:
         await index.rebuild()
 
         digest = await index.get("digest") or ""
-        for tool in ("get_weather", "get_events_by_date", "get_tasks", "manage_meals", "get_grocery_list"):
+        for tool in ("get_weather", "get_events", "get_tasks", "manage_meals", "get_grocery_list"):
             assert tool in digest
         for forbidden in ("list_trips", "get_finance_scores", "get_activity_status", "Tes consignes d'hier soir"):
             assert forbidden not in digest

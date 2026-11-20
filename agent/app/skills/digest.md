@@ -13,7 +13,7 @@ Quand une proaction demande le digest du matin (« Fais le digest du matin »). 
 Pour le jour concerné (date du jour au format YYYY-MM-DD, sur le fuseau de l'utilisateur) :
 
 1. `get_weather` avec `date`. Un résultat `error` : le service est en panne, continue sans météo.
-2. `get_events_by_date` avec `date` : les rendez-vous. Un événement `activity: "sport"` est la séance prévue (agenda « Santé ») : son titre est celui de la séance.
+2. `get_events` avec `from` et `to` (le jour) : les rendez-vous. Un événement `activity: "sport"` est la séance prévue (agenda « Santé ») : son titre est celui de la séance.
 3. `get_tasks` avec `view: "today"` : les tâches programmées aujourd'hui (`scheduledMoment` : `morning`, `afternoon`, `evening` ou `time` avec `scheduledTime`) et celles sans heure.
 4. `manage_meals` avec `action: "list"`, `fromDate` et `toDate` égaux au jour : les repas du midi et du soir.
 5. `get_grocery_list` : seulement pour savoir si la liste attend. Elle est du contexte, jamais récitée.

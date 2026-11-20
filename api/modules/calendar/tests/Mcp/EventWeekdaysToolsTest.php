@@ -7,9 +7,8 @@ use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Mcp\Tool\CreateEventTool;
-use Maggie\Calendar\Mcp\Tool\GetEventsByDateTool;
+use Maggie\Calendar\Mcp\Tool\GetEventsTool;
 use Maggie\Calendar\Mcp\Tool\GetEventTool;
-use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
 use Maggie\Calendar\Mcp\Tool\UpdateEventTool;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -63,7 +62,7 @@ class EventWeekdaysToolsTest extends KernelTestCase
         $this->loginFixtureUser();
         $before = $this->storedEvents();
 
-        $data = $this->call(GetEventsByDateTool::class, '2026-10-20');
+        $data = $this->call(GetEventsTool::class, '2026-10-20', '2026-10-20');
         $holidays = $this->eventNamed($data, 'Vacances de la Toussaint');
 
         self::assertSame('2026-10-17', $holidays['startDate']);
@@ -80,7 +79,7 @@ class EventWeekdaysToolsTest extends KernelTestCase
         $this->loginFixtureUser();
 
         // The tool reads the day it is asked for from midnight to midnight in the server's zone (UTC).
-        $data = $this->call(GetEventsByDateTool::class, '2026-10-24');
+        $data = $this->call(GetEventsTool::class, '2026-10-24', '2026-10-24');
         $late = $this->eventNamed($data, 'Soirée qui finit tard');
 
         // 22:30 UTC on Saturday the 24th is 00:30 on Sunday the 25th in Paris.
@@ -104,23 +103,23 @@ class EventWeekdaysToolsTest extends KernelTestCase
         self::assertSame('dimanche', $timed['endWeekday']);
     }
 
-    public function testGetUpcomingEventsSaysTheWeekday(): void
+    public function testGetEventsSaysTheWeekdayFromNow(): void
     {
         $this->loginFixtureUser();
         $tomorrow = new \DateTimeImmutable('tomorrow', new \DateTimeZone('Europe/Paris'));
         $expected = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'][(int) $tomorrow->format('N') - 1];
 
-        $event = $this->eventNamed($this->call(GetUpcomingEventsTool::class, 3), 'Demain matin');
+        $event = $this->eventNamed($this->call(GetEventsTool::class), 'Demain matin');
 
         self::assertSame($expected, $event['startWeekday']);
         self::assertSame($expected, $event['endWeekday']);
     }
 
-    public function testGetEventsByDateRefusesADateThatIsNotOne(): void
+    public function testGetEventsRefusesADateThatIsNotOne(): void
     {
         $this->loginFixtureUser();
 
-        $data = $this->call(GetEventsByDateTool::class, 'lundi 24 octobre');
+        $data = $this->call(GetEventsTool::class, 'lundi 24 octobre');
 
         self::assertStringContainsString('YYYY-MM-DD', $data['error']);
         self::assertArrayNotHasKey('events', $data);
@@ -129,8 +128,8 @@ class EventWeekdaysToolsTest extends KernelTestCase
     public function testTheReadsAreRefusedWithoutUser(): void
     {
         foreach ([
-            [GetEventsByDateTool::class, ['2026-10-20']],
-            [GetUpcomingEventsTool::class, [7]],
+            [GetEventsTool::class, ['2026-10-20', '2026-10-20']],
+            [GetEventsTool::class, []],
             [GetEventTool::class, [(string) $this->getFixture('toussaint')->getId()]],
         ] as [$tool, $arguments]) {
             $data = $this->call($tool, ...$arguments);

@@ -174,7 +174,7 @@ class TestTheShippedPolicy:
 
     @pytest.mark.parametrize(
         "tool",
-        ["search_recipes", "get_upcoming_events", "create_event", "update_event", "memory_search", "get_skill"],
+        ["search_recipes", "get_events", "create_event", "update_event", "memory_search", "get_skill"],
     )
     def test_everything_else_is_still_hers_to_do(self, tool):
         # The policy exists to hold back a handful of calls; a file that quietly turned

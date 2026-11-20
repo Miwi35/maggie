@@ -5,7 +5,7 @@ channel: chat
 
 steps:
   - user_message: "Merci Maggie."
-    forbidden_tools: [get_tasks, get_upcoming_events, get_grocery_list]
+    forbidden_tools: [get_tasks, get_events, get_grocery_list]
     expected_absent: ["Autre chose", "?"]
     expected_behavior: >
       Elle répond en un mot ou deux, comme « Je vous en prie. », sans relancer,

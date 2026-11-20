@@ -36,7 +36,7 @@ class TestRecordingARound:
         ]
 
     def test_two_calls_of_one_round_keep_their_order(self):
-        blocks = record([_call("toolu_1"), _call("toolu_2", name="get_upcoming_events")])
+        blocks = record([_call("toolu_1"), _call("toolu_2", name="get_events")])
 
         assert [use["id"] for use in blocks[0]["content"]] == ["toolu_1", "toolu_2"]
         assert [result["tool_use_id"] for result in blocks[1]["content"]] == ["toolu_1", "toolu_2"]

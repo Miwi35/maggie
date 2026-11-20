@@ -29,7 +29,7 @@ PLANNING_RESULT = {
     "response": "Proaction posée : le digest à 7 h.",
     "tool_calls": [
         {"name": "list_instructions", "input": {"kind": "planning"}, "result": json.dumps([INSTRUCTION])},
-        {"name": "get_events_by_date", "input": {"date": "2026-10-29"}, "result": json.dumps({"events": []})},
+        {"name": "get_events", "input": {"date": "2026-10-29"}, "result": json.dumps({"events": []})},
         {
             "name": "schedule_proaction",
             "input": {"prompt": SCHEDULED["prompt"], "scheduled_at": "2026-10-29T07:00:00", "summary": "Digest du matin"},
@@ -109,7 +109,7 @@ class TestPlanningIsKept:
         assert entry["response"] == "Proaction posée : le digest à 7 h."
         assert [call["name"] for call in entry["toolCalls"]] == [
             "list_instructions",
-            "get_events_by_date",
+            "get_events",
             "schedule_proaction",
             "schedule_proaction",
         ]
@@ -145,7 +145,7 @@ class TestPlanningIsKept:
         assert await _journal() == []
 
     async def test_a_long_tool_result_is_cut_short(self, journal_db):
-        long = {"response": "ok", "tool_calls": [{"name": "get_events_by_date", "input": {}, "result": "x" * 5000}]}
+        long = {"response": "ok", "tool_calls": [{"name": "get_events", "input": {}, "result": "x" * 5000}]}
 
         await scheduler.generate_proactions(_gateway(long), "user-1")
 
@@ -167,7 +167,7 @@ class TestProactionRunIsKept:
             {
                 "response": "Je n'ai pas pu lire ton agenda.",
                 "tool_calls": [
-                    {"name": "get_events_by_date", "input": {"date": "2026-10-29"}, "result": '{"error": "Agenda unavailable"}'},
+                    {"name": "get_events", "input": {"date": "2026-10-29"}, "result": '{"error": "Agenda unavailable"}'},
                     {"name": "get_weather", "input": {}, "result": '{"sky": "éclaircies"}'},
                 ],
                 "usage": {"input_tokens": 900, "output_tokens": 40},
@@ -178,7 +178,7 @@ class TestProactionRunIsKept:
         entry = run.to_dict()
         assert (entry["kind"], entry["proactionId"], entry["summary"]) == ("proaction", SCHEDULED["id"], "Digest du matin")
         failing = [(call["name"], call["error"]) for call in entry["toolCalls"] if call["error"]]
-        assert failing == [("get_events_by_date", "Agenda unavailable")]
+        assert failing == [("get_events", "Agenda unavailable")]
         assert (entry["inputTokens"], entry["outputTokens"]) == (900, 40)
         assert entry["durationMs"] >= 0
 

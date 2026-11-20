@@ -182,7 +182,7 @@ class TestTheGuard:
         assert guard.review(FALSE_CLAIM) is Verdict.RETRY
 
     def test_the_signal_states_the_fact_and_names_no_tool(self):
-        for tool in ("schedule_proaction", "create_task", "create_skill", "add_instruction", "memory_write_fiche", "get_events_by_date"):
+        for tool in ("schedule_proaction", "create_task", "create_skill", "add_instruction", "memory_write_fiche", "get_events"):
             assert tool not in REMINDER_SIGNAL
 
     def test_an_event_without_reminders_does_not(self):

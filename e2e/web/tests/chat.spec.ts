@@ -222,7 +222,7 @@ test('a scripted question runs its tool and streams the answer back', async ({ p
   expect(isUnscripted(answer), `no scenario matched — Maggie said: ${answer}`).toBe(false)
 
   // The tool really ran, against the real MCP server and the seeded database.
-  expect(calledTools(events)).toContain('get_upcoming_events')
+  expect(calledTools(events)).toContain('get_events')
 
   // More than one delta: a single one would mean the gateway buffered the
   // whole answer, which is the bug streaming exists to avoid.
@@ -428,8 +428,8 @@ test('the days booked in holidays come from the weekdays the agenda gives, not f
   expect(isUnscripted(assistantText(events)), `no scenario matched — Maggie said: ${assistantText(events)}`).toBe(false)
 
   // The holidays were read through the real tool, then the three days were written.
-  expect(calledTools(events).filter((tool) => ['get_events_by_date', 'create_event'].includes(tool))).toEqual([
-    'get_events_by_date',
+  expect(calledTools(events).filter((tool) => ['get_events', 'create_event'].includes(tool))).toEqual([
+    'get_events',
     'create_event',
     'create_event',
     'create_event',
@@ -1354,7 +1354,7 @@ test('the day is read late task first, one undated task is offered, and it gets 
   const offer = await chat.send(TASKS_OF_THE_DAY.question)
   const answer = assistantText(offer)
   expect(isUnscripted(answer), `no scenario for the question — Maggie said: ${answer}`).toBe(false)
-  expect(calledTools(offer)).toEqual(['get_events_by_date', 'get_tasks', 'get_tasks'])
+  expect(calledTools(offer)).toEqual(['get_events', 'get_tasks', 'get_tasks'])
   expect(toolResults(offer).map((result) => result.status)).toEqual(['success', 'success', 'success'])
 
   // Then the late task comes first and the undated one is offered, not planned.

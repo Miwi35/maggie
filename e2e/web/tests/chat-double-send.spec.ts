@@ -45,7 +45,7 @@ test('the same message sent twice while Maggie answers makes one turn and one an
     const secondEvents = parseAgUiStream(second)
 
     // The tool ran once, in the first turn only.
-    expect(calledTools(firstEvents).filter((tool) => tool === 'get_upcoming_events')).toHaveLength(1)
+    expect(calledTools(firstEvents).filter((tool) => tool === 'get_events')).toHaveLength(1)
     expect(calledTools(secondEvents)).toEqual([])
     // And the client sees one answer in each stream, the same one.
     expect(countEvents(firstEvents, 'TEXT_MESSAGE_START')).toBe(1)

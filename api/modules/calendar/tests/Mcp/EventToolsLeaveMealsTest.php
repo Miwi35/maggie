@@ -4,8 +4,7 @@ namespace Maggie\Calendar\Tests\Mcp;
 
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
-use Maggie\Calendar\Mcp\Tool\GetEventsByDateTool;
-use Maggie\Calendar\Mcp\Tool\GetUpcomingEventsTool;
+use Maggie\Calendar\Mcp\Tool\GetEventsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /** MAG-323: Maggie reads meals through the meals tool; an event tool must not list them a second time. */
@@ -23,7 +22,7 @@ class EventToolsLeaveMealsTest extends KernelTestCase
 
     public function testUpcomingEventsLeaveOutTheMeals(): void
     {
-        $data = json_decode(self::getContainer()->get(GetUpcomingEventsTool::class)(7), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode(self::getContainer()->get(GetEventsTool::class)(), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertSame(['Tomorrow meeting'], array_column($data['events'], 'summary'));
         self::assertSame(1, $data['count']);
@@ -33,7 +32,7 @@ class EventToolsLeaveMealsTest extends KernelTestCase
     {
         $tomorrow = (new \DateTimeImmutable('tomorrow'))->format('Y-m-d');
 
-        $data = json_decode(self::getContainer()->get(GetEventsByDateTool::class)($tomorrow), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode(self::getContainer()->get(GetEventsTool::class)($tomorrow, $tomorrow), true, 512, JSON_THROW_ON_ERROR);
 
         self::assertSame(['Tomorrow meeting'], array_column($data['events'], 'summary'));
         self::assertSame(1, $data['count']);

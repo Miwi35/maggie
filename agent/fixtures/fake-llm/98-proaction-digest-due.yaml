@@ -20,8 +20,8 @@ turns:
   - tools:
       - name: get_weather
         input: {date: '${today}'}
-      - name: get_events_by_date
-        input: {date: '${today}'}
+      - name: get_events
+        input: {from: '${today}', to: '${today}'}
       - name: get_tasks
         input: {view: today}
       - name: manage_meals

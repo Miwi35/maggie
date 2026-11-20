@@ -12,7 +12,7 @@ from app.memory.agent_memory import MemoryBlocks
 from app import user_timezone
 
 SMOKE_QUESTION = (
-    "Appelle l'outil get_upcoming_events sans query, puis réponds en une phrase : "
+    "Appelle l'outil get_events sans query, puis réponds en une phrase : "
     "quel est le titre exact de l'événement dont la description est « code 4242 » ?"
 )
 
@@ -134,14 +134,14 @@ class TestTheSmokeQuestion:
             result = await run_tool_loop(
                 "Tu es Maggie.",
                 [{"role": "user", "content": SMOKE_QUESTION}],
-                [{"name": "get_upcoming_events", "description": "", "input_schema": {"type": "object"}}],
+                [{"name": "get_events", "description": "", "input_schema": {"type": "object"}}],
                 client=chosen,
                 tool_router=router,
                 user_id="smoke-id",
                 model="claude-sonnet-5",
             )
 
-        assert [call["name"] for call in result["tool_calls"]] == ["get_upcoming_events"]
+        assert [call["name"] for call in result["tool_calls"]] == ["get_events"]
         assert "Rendez-vous smoke 1234" in result["response"]
         real.messages.create.assert_not_called()
         assert DEFAULT_FIXTURES_DIR.joinpath("99-smoke-prod-event-title.yaml").exists()

@@ -141,7 +141,7 @@ class TestMcpClient:
             ]
         )
 
-        result = await client.call_tool("get_upcoming_events", {})
+        result = await client.call_tool("get_events", {})
 
         assert result == "ok"
         assert route.call_count == 2
@@ -155,7 +155,7 @@ class TestMcpClient:
 
         route = respx.post(mcp_server_url).mock(side_effect=httpx.ConnectError("refused"))
 
-        result = await client.call_tool("get_upcoming_events", {})
+        result = await client.call_tool("get_events", {})
 
         assert json.loads(result) == {"error": "No response from MCP server"}
         assert route.call_count == 3

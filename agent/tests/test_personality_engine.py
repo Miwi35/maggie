@@ -179,7 +179,7 @@ class TestPersonalityEngine:
             mock_repo.get = AsyncMock(return_value=None)
             prompt = await engine.get_system_prompt("user-1")
 
-        assert "get_events_by_date" in prompt and "get_upcoming_events" in prompt
+        assert "get_events" in prompt and "get_events" in prompt
         assert "de mémoire ni d'après l'historique" in prompt
         assert "— le mardi 6 octobre —" in prompt
         assert "memory_open" in prompt and "n'en invente jamais" in prompt

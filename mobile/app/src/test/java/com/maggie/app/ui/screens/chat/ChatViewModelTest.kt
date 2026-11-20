@@ -2877,11 +2877,11 @@ class ChatViewModelTest {
         val events = liveRun()
         push(events, AgUiEvent.RunStarted("run-1"))
 
-        push(events, AgUiEvent.ToolCallStart("call-1", "get_upcoming_events"))
+        push(events, AgUiEvent.ToolCallStart("call-1", "get_events"))
 
         val state = viewModel.uiState.value
         assertEquals(AgentState.ACTING, state.agentState)
-        assertEquals(listOf(ToolCallItem("call-1", "get_upcoming_events", ToolCallStatus.RUNNING)), state.toolCalls)
+        assertEquals(listOf(ToolCallItem("call-1", "get_events", ToolCallStatus.RUNNING)), state.toolCalls)
         events.close()
     }
 
@@ -2889,9 +2889,9 @@ class ChatViewModelTest {
     fun `a tool call that ends succeeds and Maggie goes back to thinking`() = runTest {
         val events = liveRun()
         push(events, AgUiEvent.RunStarted("run-1"))
-        push(events, AgUiEvent.ToolCallStart("call-1", "get_upcoming_events"))
+        push(events, AgUiEvent.ToolCallStart("call-1", "get_events"))
 
-        push(events, AgUiEvent.ToolCallEnd("call-1", "get_upcoming_events"))
+        push(events, AgUiEvent.ToolCallEnd("call-1", "get_events"))
 
         val state = viewModel.uiState.value
         assertEquals(AgentState.THINKING, state.agentState)

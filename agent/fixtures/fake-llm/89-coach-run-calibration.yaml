@@ -12,8 +12,8 @@ turns:
   - tools:
       - name: get_training_status
         input: {date: '${next_monday}'}
-      - name: get_events_by_date
-        input: {date: '${next_monday}', endDate: '${next_sunday}'}
+      - name: get_events
+        input: {from: '${next_monday}', to: '${next_sunday}'}
       - name: get_coach_method
         input: {section: calibrage}
   - tools:

@@ -394,12 +394,11 @@ A2A_ALLOWED_TOOLS = frozenset(
     {
         "check_conflicts",
         "get_finance_scores",
-        "get_events_by_date",
+        "get_events",
         "get_finance_dashboard",
         "get_grocery_list",
         "get_recipe",
         "get_tasks",
-        "get_upcoming_events",
         "list_past_errands",
         "search",
         "search_ciqual_foods",

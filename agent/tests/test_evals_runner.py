@@ -36,7 +36,7 @@ class TestParsingScenarios:
             {
                 "name": "agenda",
                 "user_message": "mon agenda ?",
-                "expected_tools": ["get_upcoming_events"],
+                "expected_tools": ["get_events"],
                 "expected_behavior": "Elle lit l'agenda.",
             },
             source="agenda.yaml",
@@ -44,7 +44,7 @@ class TestParsingScenarios:
 
         assert scenario.channel == "chat"
         assert len(scenario.steps) == 1
-        assert scenario.steps[0].expected_tools == ["get_upcoming_events"]
+        assert scenario.steps[0].expected_tools == ["get_events"]
 
     def test_a_scenario_is_written_text_unless_it_says_spoken(self):
         written = parse_scenario({"name": "a", "user_message": "salut"}, source="a.yaml")
@@ -145,12 +145,12 @@ class TestCheckingAStep:
 
     def test_a_tool_that_was_not_called(self):
         problems = check_step(
-            Step(user_message="mon agenda ?", expected_tools=["get_upcoming_events"]),
+            Step(user_message="mon agenda ?", expected_tools=["get_events"]),
             Answer(text="Vous avez un déjeuner.", tools=[]),
         )
 
         assert len(problems) == 1
-        assert "get_upcoming_events" in problems[0]
+        assert "get_events" in problems[0]
         # The worst failure Maggie can have: confirming without acting. The
         # message has to say what she did call.
         assert "none" in problems[0]
@@ -297,22 +297,22 @@ class TestDrivingTheAgent:
                 200,
                 json={
                     "response": "Vous avez un déjeuner.",
-                    "tool_calls": [{"name": "get_upcoming_events", "input": {}, "result": "[]"}],
+                    "tool_calls": [{"name": "get_events", "input": {}, "result": "[]"}],
                 },
             )
 
         answer = await self._stack(handler).chat("mon agenda ?")
 
         assert answer.text == "Vous avez un déjeuner."
-        assert answer.tools == ["get_upcoming_events"]
+        assert answer.tools == ["get_events"]
         assert answer.context_action is None
 
     async def test_the_stream_is_reassembled_from_its_events(self):
         events = [
             {"type": "RUN_STARTED", "runId": "r1"},
             {"type": "CUSTOM", "name": "context_update", "value": {"action": "matched", "id": "c1"}},
-            {"type": "TOOL_CALL_START", "toolCallId": "t1", "toolName": "get_upcoming_events"},
-            {"type": "TOOL_CALL_END", "toolCallId": "t1", "toolName": "get_upcoming_events"},
+            {"type": "TOOL_CALL_START", "toolCallId": "t1", "toolName": "get_events"},
+            {"type": "TOOL_CALL_END", "toolCallId": "t1", "toolName": "get_events"},
             {"type": "TEXT_MESSAGE_START", "messageId": "m1", "role": "assistant"},
             {"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "Vous avez "},
             {"type": "TEXT_MESSAGE_CONTENT", "messageId": "m1", "delta": "un déjeuner."},
@@ -327,7 +327,7 @@ class TestDrivingTheAgent:
         answer = await self._stack(handler).stream("mon agenda ?")
 
         assert answer.text == "Vous avez un déjeuner."
-        assert answer.tools == ["get_upcoming_events"]
+        assert answer.tools == ["get_events"]
         assert answer.context_action == "matched"
 
 

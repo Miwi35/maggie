@@ -7,7 +7,7 @@
 # at all, so whatever is written here is what the tool receives. 2099 is the
 # right constant rather than merely an acceptable one: the journey has to find
 # this event by itself, and any nearby date would mix it into what the seeded
-# dashboards and `get_upcoming_events` compute from the real clock. Nothing
+# dashboards and `get_events` compute from the real clock. Nothing
 # reads it as "upcoming" — the journey reaches it through the calendar's
 # `?eventId=` deep link, which goes to whatever date the event carries.
 #

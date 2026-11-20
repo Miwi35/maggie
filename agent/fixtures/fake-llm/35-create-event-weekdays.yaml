@@ -1,6 +1,6 @@
 # « Le vendredi de la première semaine des vacances, lundi et vendredi de la deuxième »
 # (MAG-431): Maggie called the 24th of October a Monday, and the event landed on a Saturday.
-# She now reads the holidays with `get_events_by_date`, whose answer carries the day of the
+# She now reads the holidays with `get_events`, whose answer carries the day of the
 # week of each date, and books the three days from it.
 #
 # 2097-10-19 is a Saturday, like the 17th of October 2026: the holidays run from that Saturday
@@ -15,8 +15,8 @@ match:
 
 turns:
   - tools:
-      - name: get_events_by_date
-        input: {date: "2097-10-19"}
+      - name: get_events
+        input: {from: "2097-10-19", to: "2097-10-19"}
   - tools:
       - name: create_event
         input:

@@ -9,13 +9,13 @@ description: Read the agenda through the calendar tool, then follow up on it.
 channel: chat
 
 # « cette semaine » and not « aujourd'hui »: the seeded lunch sits at the anchor
-# plus twelve hours, so `get_upcoming_events` — which counts from *now* — drops it
+# plus twelve hours, so `get_events` — which counts from *now* — drops it
 # during the afternoon. An on-demand run would then report a prompt regression
 # that is really a data artefact. The recurring piano lesson is inside a 7-day
 # window at any hour.
 steps:
   - user_message: "Qu'est-ce que j'ai de prévu cette semaine ?"
-    expected_tools: [get_upcoming_events]
+    expected_tools: [get_events]
     expected_contains: ["piano"]
     expected_absent: ["je n'ai pas accès", "je ne peux pas accéder"]
     expected_behavior: >
