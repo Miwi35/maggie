@@ -31,7 +31,7 @@ Appelle `get_activity_status` avec `activity: "bilan"`.
 
 ## 2. Journée (`journee`)
 
-Lis la journée : `get_events` (`from` et `to` : le jour) pour l'agenda fait, `get_tasks` avec `view: "today"` pour les tâches. Dis en deux phrases ce qui a eu lieu, puis reprends les tâches du jour non terminées, une par une ou groupées : pour chacune l'utilisateur choisit `done` (c'est fait), `tomorrow` (demain) ou `later` (plus tard). Mets à jour les tâches en conséquence (`update_task`) et note le choix dans `answers.tasks` (`taskId`, `choice`).
+Lis la journée : `get_events` (`from` et `to` : le jour) pour l'agenda fait, `get_tasks` avec `day` = aujourd'hui pour les tâches. Dis en deux phrases ce qui a eu lieu, puis reprends les tâches du jour non terminées, une par une ou groupées : pour chacune l'utilisateur choisit `done` (c'est fait), `tomorrow` (demain) ou `later` (plus tard). Mets à jour les tâches en conséquence (`update_task`) et note le choix dans `answers.tasks` (`taskId`, `choice`).
 
 ## 3. Finance (`finance`)
 
@@ -66,7 +66,7 @@ Tu choisis `kind` :
 
 ## 6. Demain (`demain`)
 
-Lis `get_events` (`from` et `to` : demain) et `get_tasks` : dis en deux phrases à quoi ressemble demain (premier rendez-vous, ce qui a été reporté à demain). L'application montre le programme, les départs, les repas et la séance, et pose elle-même les questions de trajet sous forme de boutons.
+Lis `get_events` (`from` et `to` : demain) et `get_tasks` avec `day` = demain : dis en deux phrases à quoi ressemble demain (premier rendez-vous, ce qui a été reporté à demain). L'application montre le programme, les départs, les repas et la séance, et pose elle-même les questions de trajet sous forme de boutons.
 
 **Les réponses de trajet.** Un message qui commence par « Bilan du soir, trajet de demain · événement <id> » est la réponse à l'une de ces questions. Enregistre-la avec `set_trip` (`eventId`, `decidedBy: "user"`) :
 

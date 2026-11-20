@@ -12,7 +12,7 @@ channel: chat
 mock_tool_results:
   get_weather: '{"days": [{"date": "2026-10-30", "temperature_min_c": 9.5, "temperature_max_c": 18.5, "rain_probability_percent": 70, "rain_mm": 3.4, "alerts": []}]}'
   get_events: '{"events": [{"id": "01JKINE", "summary": "Kiné", "startAt": "2026-10-30T09:15:00+01:00", "allDay": false, "status": "confirmed", "agenda": "Défaut", "location": "12 rue de Brest, Rennes"}], "count": 1}'
-  get_tasks: '{"tasks": [{"title": "Appeler le garage", "scheduledDate": "2026-10-30", "scheduledMoment": "time", "scheduledTime": "18:00", "isDone": false}, {"title": "Renvoyer le dossier de la mutuelle", "scheduledDate": null, "overdueDays": 2, "urgency": "high", "isDone": false}], "counts": {"today": 1}}'
+  get_tasks: '{"tasks": [{"title": "Appeler le garage", "scheduledDate": "2026-10-30", "scheduledMoment": "time", "scheduledTime": "18:00", "isDone": false}, {"title": "Renvoyer le dossier de la mutuelle", "scheduledDate": null, "overdueDays": 2, "urgency": "high", "isDone": false}], "total": 2}'
   manage_meals: '{"meals": [{"date": "2026-10-30", "slot": "dinner", "recipes": [{"name": "Soupe de potiron"}]}]}'
   get_grocery_list: '{"stores": []}'
 

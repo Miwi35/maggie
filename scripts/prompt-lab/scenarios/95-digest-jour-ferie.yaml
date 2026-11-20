@@ -9,7 +9,7 @@ channel: chat
 mock_tool_results:
   get_weather: '{"days": [{"date": "2026-11-11", "temperature_min_c": 6, "temperature_max_c": 12, "rain_probability_percent": 10, "alerts": []}]}'
   get_events: '{"events": [{"id": "01JRESTO", "summary": "Déjeuner au restaurant Chez Marcel", "startAt": "2026-11-11T12:30:00+01:00", "allDay": false, "status": "confirmed", "agenda": "Défaut", "location": "Rennes"}], "count": 1}'
-  get_tasks: '{"tasks": [], "counts": {"today": 0}}'
+  get_tasks: '{"tasks": [], "total": 0}'
   manage_meals: '{"meals": []}'
   get_grocery_list: '{"stores": [{"name": "Supermarché", "items": [{"name": "Lait"}, {"name": "Pain"}, {"name": "Pâtes"}]}]}'
 
