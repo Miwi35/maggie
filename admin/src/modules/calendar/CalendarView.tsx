@@ -54,9 +54,10 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { EventClickArg, EventDropArg } from '@fullcalendar/core'
 import type { EventResizeDoneArg } from '@fullcalendar/interaction'
 import frLocale from '@fullcalendar/core/locales/fr'
-import type { DatesSetArg, EventContentArg, EventInput } from '@fullcalendar/core'
-import { TripLine } from './TripLine'
-import { isReturn, tripsByEvent, type Trip } from './trips'
+import type { DatesSetArg, EventInput } from '@fullcalendar/core'
+import { DayAgenda, type DayEntryInput } from './DayAgenda'
+import { entriesOfDay } from './dayAgenda'
+import type { Trip } from './trips'
 import { EventCreateDialog } from './EventCreateDialog'
 import { TaskFormDialog, type TaskData } from './TaskFormDialog'
 import { EventDetailPopover } from './EventDetailPopover'
@@ -561,13 +562,25 @@ const formatDateRange = (start: Date, end: Date): string => {
   return `${startDay} ${startMonth} – ${endDay} ${endMonth}`
 }
 
+interface OpenableEvent {
+  id: string
+  title: string
+  allDay: boolean
+  start: Date | null
+  end: Date | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  extendedProps: Record<string, any>
+}
+
 const getToolbarTitle = (view: CalendarView, range: { start: Date; end: Date } | null): string => {
   if (!range) return ''
   if (view === 'dayGridMonth') {
     return range.start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
   }
   if (view === 'timeGridDay') {
-    return range.start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    const day = range.start.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+    return day.charAt(0).toUpperCase() + day.slice(1)
   }
   return formatDateRange(range.start, range.end)
 }
@@ -1250,35 +1263,6 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     ]
   }, [coloredEvents, enabledCalendars, calendars, moduleAgendas, layers, taskEvents, mealEvents, proactionEvents])
 
-  // --- The trip line under an event of the day view (« Partir à l'heure ») ---
-  const tripOfEvent = useMemo(() => tripsByEvent(rawTrips), [rawTrips])
-  // FullCalendar's own markup, plus the line, in the day view only — the other views keep the
-  // default rendering. Kept for the whole day view: taking the option back when the last trip
-  // goes would leave the old line drawn.
-  const renderEventContent = useMemo(
-    () =>
-      currentView === 'timeGridDay'
-        ? (arg: EventContentArg) => {
-            const eventTrips = tripOfEvent.get(arg.event.id) ?? []
-
-            return (
-              <div className="fc-event-main-frame">
-                {arg.timeText && <div className="fc-event-time">{arg.timeText}</div>}
-                <div className="fc-event-title-container">
-                  <div className="fc-event-title fc-sticky">{arg.event.title || ' '}</div>
-                </div>
-                {eventTrips
-                  .filter((trip) => !arg.event.allDay || isReturn(trip))
-                  .map((trip) => (
-                    <TripLine key={trip.id} trip={trip} />
-                  ))}
-              </div>
-            )
-          }
-        : undefined,
-    [currentView, tripOfEvent],
-  )
-
   // The periods of a short range, read apart from the events: they hold no slot (MAG-816).
   // Resolves `true` when what it read differs from what the screen holds.
   const loadPeriods = useCallback(
@@ -1367,10 +1351,9 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     setDialogOpen(true)
   }, [])
 
-  const handleEventClick = useCallback(
-    (arg: EventClickArg) => {
-      arg.jsEvent.preventDefault()
-      const fcEvent = arg.event
+  // The sheet of an event, from FullCalendar's grid or from the day list.
+  const openEvent = useCallback(
+    (fcEvent: OpenableEvent, anchor: HTMLElement) => {
       const calId = fcEvent.extendedProps.calendarId || ''
       const isProaction = Boolean(fcEvent.extendedProps.isProaction)
       const activity = activityAgenda(fcEvent.extendedProps.activity)
@@ -1398,9 +1381,40 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         calendarIri: fcEvent.extendedProps.calendarIri,
         activity: fcEvent.extendedProps.activity ?? null,
       })
-      setPopoverAnchorEl(arg.el)
+      setPopoverAnchorEl(anchor)
     },
     [calendarColorMap, calendarNameMap, theme.palette.primary.main],
+  )
+
+  const handleEventClick = useCallback(
+    (arg: EventClickArg) => {
+      arg.jsEvent.preventDefault()
+      openEvent(arg.event, arg.el)
+    },
+    [openEvent],
+  )
+
+  const openDayEntry = useCallback(
+    (entry: DayEntryInput, anchor: HTMLElement) => {
+      const allDay = Boolean(entry.allDay)
+      const toDate = (value: unknown): Date | null => {
+        if (typeof value !== 'string') return value instanceof Date ? value : null
+
+        return allDay && value.length === 10 ? parseDay(value) : new Date(value)
+      }
+      openEvent(
+        {
+          id: String(entry.id),
+          title: String(entry.title ?? ''),
+          allDay,
+          start: toDate(entry.start),
+          end: toDate(entry.end),
+          extendedProps: entry.extendedProps ?? {},
+        },
+        anchor,
+      )
+    },
+    [openEvent],
   )
 
   const refreshEvents = useCallback(() => {
@@ -2434,14 +2448,25 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
               onOpen={handleOpenPeriod}
             />
           )}
-          <Box sx={{ flex: 1, minHeight: 0 }}>
+          {/* The day is a list, not FullCalendar's grid (MAG-858). FullCalendar stays mounted, empty and hidden:
+              it keeps the date, `datesSet` and the range the events and the trips are read for. */}
+          {currentView === 'timeGridDay' && (
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <DayAgenda
+                entries={activeRange ? entriesOfDay(filteredEvents, activeRange.start, activeRange.end) : []}
+                trips={rawTrips}
+                agendaName={(entry) => calendarNameMap.get(entry.calendarId ?? '') ?? ''}
+                onOpen={openDayEntry}
+              />
+            </Box>
+          )}
+          <Box sx={{ flex: 1, minHeight: 0, display: currentView === 'timeGridDay' ? 'none' : undefined }}>
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             locale={frLocale}
-            events={filteredEvents}
-            eventContent={renderEventContent}
+            events={currentView === 'timeGridDay' ? [] : filteredEvents}
             datesSet={handleDatesSet}
             selectable={!moduleCalendar}
             selectMirror={true}

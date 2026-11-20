@@ -44,8 +44,18 @@ const respond = (trip: { ok: boolean; status?: number; navigationUrl?: unknown }
   fetchMock.mockImplementation((url: string) =>
     Promise.resolve(
       url.startsWith('/api/trips/')
-        ? { ok: trip.ok, status: trip.status ?? (trip.ok ? 200 : 500), json: async () => ({ navigationUrl: trip.navigationUrl }) }
-        : { ok: true, status: 200, json: async () => [] },
+        ? {
+            ok: trip.ok,
+            status: trip.status ?? (trip.ok ? 200 : 500),
+            json: async () => ({ navigationUrl: trip.navigationUrl, durationMinutes: 21, event: '/api/events/01EV' }),
+          }
+        : url.startsWith('/api/events/')
+          ? {
+              ok: true,
+              status: 200,
+              json: async () => ({ startAt: new Date(2037, 0, 15, 17, 30).toISOString(), location: 'École Jean-Moulin' }),
+            }
+          : { ok: true, status: 200, json: async () => [] },
     ),
   )
 
@@ -145,5 +155,28 @@ describe('MaggieInterruptionHost — departure alert (MAG-659)', () => {
 
     expect(open).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
+  })
+
+  test('the departure toaster reads the event hour, place and door-to-door time', async () => {
+    respond({ ok: true, navigationUrl: WAZE })
+    setup()
+    FakeEventSource.instances[0].emit(departure)
+
+    expect(await screen.findByText('17:30 · École Jean-Moulin · 21 min porte à porte')).toBeInTheDocument()
+  })
+
+  test('Déjà en route closes and marks read without opening anything', async () => {
+    respond({ ok: true, navigationUrl: WAZE })
+    setup()
+    FakeEventSource.instances[0].emit(departure)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Déjà en route' }))
+
+    expect(open).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledWith(
+      'notifications',
+      expect.objectContaining({ id: '/api/notifications/n9', data: { readAt: expect.any(String) } }),
+    )
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
   })
 })
