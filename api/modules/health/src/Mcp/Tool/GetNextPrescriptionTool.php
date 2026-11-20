@@ -10,7 +10,7 @@ use Maggie\Health\Service\ProgressionRules;
 use Maggie\Health\Service\TrainingHistory;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_next_prescription', description: 'What to prescribe next for one exercise (Santé › Sport), by the coded progression rules: never compute a progression yourself, ask this. exercise: catalogue slug (see get_exercises); variant: normal (default), soft (same step, one set less, 3 reps in reserve, an eccentric exercise replaced by the previous step) or deload (half the sets, same step, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription is an exercise line ready for manage_workouts {exercise, name, unit, step, sets, target, targetMin, targetMax, loadKg, restSeconds, tempo, targetRir, cue} — its exercise can differ from the one asked (step_up, step_down, stagnation_variant, placement); reason says why, in a word: start, placement, more reps, more load, a tempo, step up or down, a lighter load, a softer variant, less volume, keep, soft or deload (say it in a sentence, never the rule); basedOn the ids of the sessions the rule read. Unknown slug or variant: {error}.')]
+#[McpTool(name: 'get_next_prescription', description: 'Returns the next prescription for one exercise from the coded progression rules. exercise: catalogue slug; variant: normal (default), soft (one set less, 3 reps in reserve), deload (half the sets, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription = an exercise line for manage_workouts (its exercise may differ from the one asked); reason = the rule applied; basedOn = ids of the sessions read. Unknown slug or variant: {error}.')]
 final class GetNextPrescriptionTool
 {
     public function __construct(
