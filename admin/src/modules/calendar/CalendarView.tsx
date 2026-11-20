@@ -622,6 +622,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const [miniCalDate, setMiniCalDate] = useState(new Date())
   const [currentView, setCurrentView] = useState<CalendarView>('dayGridMonth')
   const [activeRange, setActiveRange] = useState<{ start: Date; end: Date } | null>(null)
+  const [axisWidth, setAxisWidth] = useState(52)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogStart, setDialogStart] = useState<Date | undefined>()
   const [dialogEnd, setDialogEnd] = useState<Date | undefined>()
@@ -1315,6 +1316,8 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       setMiniCalDate(arg.view.currentStart)
       setCurrentView(arg.view.type as CalendarView)
       setActiveRange({ start: arg.view.currentStart, end: arg.view.currentEnd })
+      const axis = calendarBoxRef.current?.querySelector('.fc-timegrid-axis')
+      if (axis && axis.getBoundingClientRect().width > 0) setAxisWidth(Math.round(axis.getBoundingClientRect().width))
       fetchEvents(start, end)
       void loadPeriods(start, end)
     },
@@ -2446,6 +2449,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
               weekStart={localDay(activeRange.start)}
               agendas={calendars}
               onOpen={handleOpenPeriod}
+              axisWidth={axisWidth}
             />
           )}
           {/* The day is a list, not FullCalendar's grid (MAG-858). FullCalendar stays mounted, empty and hidden:
