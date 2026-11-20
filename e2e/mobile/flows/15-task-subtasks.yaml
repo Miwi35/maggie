@@ -81,6 +81,7 @@ tags:
     element:
       id: "subtask_delete"
     timeout: 20000
+    centerElement: true
 - tapOn:
     id: "subtask_delete"
     index: 0

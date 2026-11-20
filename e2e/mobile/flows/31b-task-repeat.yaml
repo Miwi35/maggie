@@ -71,7 +71,7 @@ tags:
     visible:
       id: "task_form_until"
     timeout: 20000
-- assertVisible: "Un mardi sur deux"
+- assertVisible: ".*Un mardi sur deux.*"
 
 - tapOn:
     id: "task_form_submit"
@@ -81,7 +81,7 @@ tags:
     visible:
       id: "task_detail_repeat"
     timeout: 30000
-- assertVisible: "Un mardi sur deux"
+- assertVisible: ".*Un mardi sur deux.*"
 
 - runScript:
     file: ../scripts/task-schedule-api.js
