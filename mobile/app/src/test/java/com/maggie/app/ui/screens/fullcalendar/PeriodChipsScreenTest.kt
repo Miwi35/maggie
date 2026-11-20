@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Instant
 import java.time.LocalDate
 
 /** The chips under the date of the Day and Week views (MAG-815): what they say, where they sit, what a tap does. */
@@ -49,6 +50,45 @@ class PeriodChipsScreenTest {
         compose.onNodeWithText("Garde Léo").assertIsDisplayed()
         compose.onNodeWithText("jusqu'au ven. 18:00").assertIsDisplayed()
         compose.onNodeWithText("jusqu'au 1er nov.").assertIsDisplayed()
+    }
+
+    private val outgoing = Period(
+        id = "pa", name = "Garde A", agenda = "/api/agendas/a1",
+        startAt = "2026-11-13T15:00:00Z", endAt = "2026-11-20T15:00:00Z",
+    )
+    private val incoming = Period(
+        id = "pb", name = "Garde B", agenda = "/api/agendas/a1",
+        startAt = "2026-11-20T15:00:00Z", endAt = "2026-11-27T15:00:00Z",
+    )
+
+    private fun dayAt(day: LocalDate, now: String) = compose.setContent {
+        DayTimelineView(
+            currentDate = day, events = emptyList(), onNavigateForward = {}, onNavigateBackward = {},
+            periods = listOf(outgoing, incoming), agendas = agendas, clock = { Instant.parse(now) },
+        )
+    }
+
+    @Test
+    fun `today, a period that ended this afternoon is no longer a chip`() {
+        dayAt(LocalDate.of(2026, 11, 20), "2026-11-20T20:33:00Z")
+
+        compose.onNodeWithTag(UiTags.periodChip("pb")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.periodChip("pa")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `today before the end, both periods are chips`() {
+        dayAt(LocalDate.of(2026, 11, 20), "2026-11-20T09:00:00Z")
+
+        compose.onNodeWithTag(UiTags.periodChip("pa")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.periodChip("pb")).assertIsDisplayed()
+    }
+
+    @Test
+    fun `another day lists every period that covers it`() {
+        dayAt(LocalDate.of(2026, 11, 19), "2026-11-20T20:33:00Z")
+
+        compose.onNodeWithTag(UiTags.periodChip("pa")).assertIsDisplayed()
     }
 
     @Test
