@@ -154,6 +154,7 @@ import com.maggie.app.ui.screens.finance.PlacementViewModel
 import com.maggie.app.ui.screens.fullcalendar.PeriodViewModel
 import com.maggie.app.ui.screens.health.SportViewModel
 import com.maggie.app.ui.screens.health.SuiviViewModel
+import com.maggie.app.ui.screens.health.ActivityViewModel
 import com.maggie.app.ui.screens.health.NutritionViewModel
 import com.maggie.app.ui.screens.health.JournalViewModel
 import com.maggie.app.ui.screens.health.ConfigurationViewModel
@@ -594,6 +595,7 @@ class MaggieApp : Application() {
             viewModel { SportViewModel(get(), get(), get()) }
             viewModel { SuiviViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { NutritionViewModel(get(), get(), get()) }
+            viewModel { ActivityViewModel(get(), get(), get(), get(), get()) }
             viewModel { JournalViewModel(get(), get(), get()) }
             viewModel { ConfigurationViewModel(get(), get(), get(), get(), get()) }
             viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }

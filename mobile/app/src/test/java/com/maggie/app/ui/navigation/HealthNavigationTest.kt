@@ -7,9 +7,9 @@ import org.junit.Test
 class HealthNavigationTest {
 
     @Test
-    fun `Santé has five sections in the mockup's order, Suivi, Sport, Nutrition, Journal, then Configuration last`() {
-        assertEquals(listOf("suivi", "sport", "nutrition", "journal", "configuration"), HealthSection.entries.map { it.key })
-        assertEquals(listOf("Suivi", "Sport", "Nutrition", "Journal", "Configuration"), HealthSection.entries.map { it.label })
+    fun `Santé has six sections in the mockup's order, Suivi, Sport, Activité, Nutrition, Journal, then Configuration last`() {
+        assertEquals(listOf("suivi", "sport", "activity", "nutrition", "journal", "configuration"), HealthSection.entries.map { it.key })
+        assertEquals(listOf("Suivi", "Sport", "Activité", "Nutrition", "Journal", "Configuration"), HealthSection.entries.map { it.label })
         assertEquals(Screen.HealthJournal.route, HealthSection.JOURNAL.route)
         assertEquals("health/journal", Screen.HealthJournal.route)
         assertEquals(Screen.HealthNutrition.route, HealthSection.NUTRITION.route)
@@ -20,6 +20,8 @@ class HealthNavigationTest {
         assertEquals("health/suivi", Screen.HealthSuivi.route)
         assertEquals(Screen.HealthSport.route, HealthSection.SPORT.route)
         assertEquals("health/sport", Screen.HealthSport.route)
+        assertEquals(Screen.HealthActivity.route, HealthSection.ACTIVITY.route)
+        assertEquals("health/activity", Screen.HealthActivity.route)
     }
 
     @Test
@@ -44,6 +46,7 @@ class HealthNavigationTest {
         assertEquals(HealthSection.NUTRITION, HealthSection.pageOf(Screen.HealthNutrition.route))
         assertEquals(HealthSection.JOURNAL, HealthSection.pageOf(Screen.HealthJournal.route))
         assertEquals(HealthSection.SPORT, HealthSection.pageOf(Screen.HealthSport.route))
+        assertEquals(HealthSection.ACTIVITY, HealthSection.pageOf(Screen.HealthActivity.route))
         assertEquals(HealthSection.CONFIGURATION, HealthSection.pageOf(Screen.HealthConfiguration.route))
     }
 
