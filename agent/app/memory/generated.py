@@ -82,6 +82,8 @@ Chaque fiche commence par une **carte** (en-tête YAML entre deux lignes `---`) 
   l'heure, ou une donnée de l'application). `dit` : tu l'as dit. `observé` : lu dans les données de l'application.
   `déduit` : Maggie l'a conclu elle-même — elle te le dit chaque fois qu'elle s'en sert.
 - « Ce qui n'est plus vrai » : ce qui a été remplacé, barré, avec la date et la raison. Rien n'est effacé en silence.
+  Une affirmation peut finir par « valide jusqu'au AAAA-MM-JJ » : passé ce jour, la nuit la range ici, comme une
+  déduction de Maggie que rien n'a reconfirmée en 60 jours.
 
 ## Corriger
 

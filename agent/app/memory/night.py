@@ -4,6 +4,8 @@ Three rhythms write the memory: right away during the turn (MAG-17), along the w
 goes quiet (MAG-15, `encoder.py`), and this one — what needs a second look. In order, one step after the other:
 
   1. **cartes**    catch up the missing cartes, and only those (the conversations themselves are never touched);
+  1b. **échéances** put what is past its day and the deductions nothing reconfirmed under « Ce qui n'est plus vrai »,
+                   without the model;
   2. **fiches**    read each conversation not read yet, oldest first, and create or complete the fiches it
                    justifies; the newest word wins, the old wording stays in the fiche dated and marked replaced,
                    and a doubt becomes a question to ask the owner — never a silent decision;
@@ -64,7 +66,7 @@ SCOPE_TIDIED = "tidied"
 SCOPE_FORGOTTEN = "forgotten"
 SCOPE_HABITS = "habits"
 HABITS_WEEK = "habits:week"
-STEPS = ("cartes", "fiches", "regularites", "habitudes", "rangement", "oubli", "orphelines", "rappels")
+STEPS = ("cartes", "echeances", "fiches", "regularites", "habitudes", "rangement", "oubli", "orphelines", "rappels")
 
 MAX_TOKENS = 3000
 MAX_MESSAGES = 120
@@ -531,6 +533,43 @@ class NightKeeper:
                 p.failed(unit, "la conversation n'a pas de fil connu")
                 continue
             p.note("cartes", _stem(conversation.path))
+
+    # ------------------------------------------------------------------ 1b. what has lapsed
+
+    async def _step_echeances(self, p: _Pass) -> None:
+        delay = settings.memory_night_deduction_after_days
+        for fiche in await p.service.fiches(p.user_id):
+            if fiche.archived or fiche.unreadable:
+                continue
+            if not fiches.lapsed(fiches.parse_body(fiche.body).known, p.today, delay):
+                continue
+            try:
+                parsed = carte_mod.parse(await p.service.read(p.user_id, fiche.path) or "")
+            except UnreadableFile:
+                p.note("laissees", {"unite": fiche.path, "pourquoi": "illisible"})
+                continue
+            body = fiches.parse_body(parsed.body)
+            due = fiches.lapsed(body.known, p.today, delay)
+            if not due:
+                continue
+            gone = {id(c) for c, _ in due}
+            body.known = [c for c in body.known if id(c) not in gone]
+            for claim, motif in due:
+                claim.replaced_on, claim.motif = p.today.isoformat(), motif
+                body.replaced.append(claim)
+            if not body.known:
+                parsed.carte.extra[ARCHIVED_KEY] = p.today.isoformat()
+            await p.service.write(
+                p.user_id,
+                fiche.path,
+                carte_mod.render(parsed.carte, fiches.render_body(body)),
+                reason=p.reason(f"échéances : {len(due)} affirmation(s) qui ne sont plus vraies"),
+            )
+            for claim, motif in due:
+                if motif.startswith("valable"):
+                    p.note("echues", {"chemin": fiche.path, "texte": claim.texte, "motif": motif})
+                else:
+                    p.note("deductions_de_cote", {"chemin": fiche.path, "texte": claim.texte, "motif": motif})
 
     # ------------------------------------------------------------------ 2. the conversations, one by one
 
@@ -1611,6 +1650,8 @@ _LABELS = (
     ("scissions", "scission(s)"),
     ("renommees", "renommage(s)"),
     ("deplacees", "déplacement(s)"),
+    ("echues", "affirmation(s) échue(s)"),
+    ("deductions_de_cote", "déduction(s) mise(s) de côté"),
     ("archivees", "fiche(s) mise(s) de côté"),
     ("questions", "question(s) à poser"),
     ("liens", "lien(s) tissé(s)"),
