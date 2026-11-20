@@ -106,10 +106,10 @@ object MaggieTokens {
 
     /** One hue per module, as (light, dark). */
     object Module {
-        val cuisine = Color(0xFF2F62B8) to Color(0xFF8FB8FF)
+        val cuisine = Color(0xFF9A4F12) to Color(0xFFF5B57A)
 
-        /** The Courses activity's hue (MAG-762): `#8FB8FF`, which Cuisine is to leave for the apricot. */
-        val courses = cuisine
+        /** Courses' blue (MAG-762, MAG-906): the hue Cuisine left for the apricot. */
+        val courses = Color(0xFF2F62B8) to Color(0xFF8FB8FF)
         val comptes = Color(0xFF1B7352) to Color(0xFF7FD1AE)
         val sport = Color(0xFFBF372D) to Color(0xFFFF8A80)
         val travail = Color(0xFF4F7011) to Color(0xFFB8DE6F)

@@ -110,3 +110,14 @@ test('no text on the dashboard asks for a weight the page does not load', async 
   expect(asked.length, 'no text was found on the dashboard at all').toBeGreaterThan(0)
   expect(asked.filter(({ weight }) => !loaded.includes(weight))).toEqual([])
 })
+
+test('Cuisine wears the apricot and Courses keeps its own blue, read from the tokens', async ({ page }) => {
+  await page.goto('/recipes')
+
+  const menu = page.getByRole('menuitem', { name: 'Cuisine' }).first()
+  await expect(menu).toBeVisible()
+  const color = await menu.evaluate((element) => getComputedStyle(element).color)
+
+  expect(asColor(color).hex).toBe(TOKENS.module.cuisine.light.toUpperCase())
+  await expect(page.locator('[data-module="courses"]').first()).toBeVisible()
+})

@@ -17,7 +17,7 @@ import com.maggie.app.ui.theme.MaggieTokens
 /** The module whose hue a [ModuleFab] wears. */
 enum class FabModule(val color: Color) {
     AGENDA(MaggieTokens.Module.agenda.second),
-    GROCERY(MaggieTokens.Module.cuisine.second),
+    GROCERY(MaggieTokens.Module.courses.second),
     COOKBOOK(MaggieTokens.Module.cuisine.second),
     FINANCE(MaggieTokens.Module.finance.second),
     TASKS(MaggieTokens.Module.taches.second),

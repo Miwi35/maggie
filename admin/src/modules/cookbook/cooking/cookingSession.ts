@@ -1,3 +1,5 @@
+import { TOKENS } from '../../../design/tokens'
+
 /** The route of the activity: `?meal=<id>` or `?recipe=<id>` says what it cooks. */
 export const COOKING_ACTIVITY_PATH = '/activites/cuisine'
 
@@ -5,7 +7,7 @@ export const COOKING_ACTIVITY_PATH = '/activites/cuisine'
 export const COOKING_FALLBACK_PATH = '/meals'
 
 /** The Cuisine activity's colour. */
-export const COOKING_COLOR = '#8FB8FF'
+export const COOKING_COLOR = TOKENS.module.cuisine.dark
 
 export const launchPathOf = (origin: CookingOrigin): string =>
   origin.kind === 'meal' ? mealLaunchPath(origin.id) : recipeLaunchPath(origin.id)

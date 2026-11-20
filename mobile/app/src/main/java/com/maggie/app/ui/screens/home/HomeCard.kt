@@ -51,7 +51,7 @@ fun homeModuleColor(module: String): Color {
     return when (module) {
         HomeModules.TASKS -> pick(MaggieTokens.Module.taches)
         HomeModules.AGENDA -> pick(MaggieTokens.Module.agenda)
-        HomeModules.GROCERY -> pick(MaggieTokens.Module.cuisine)
+        HomeModules.GROCERY -> pick(MaggieTokens.Module.courses)
         HomeModules.CUISINE -> pick(MaggieTokens.Module.cuisine)
         HomeModules.HEALTH -> pick(MaggieTokens.Module.sport)
         HomeModules.FINANCE -> pick(MaggieTokens.Module.comptes)

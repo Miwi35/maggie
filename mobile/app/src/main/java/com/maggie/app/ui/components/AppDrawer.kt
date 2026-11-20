@@ -87,7 +87,7 @@ internal fun DrawerTint.color(): Color {
         DrawerTint.ACCENT -> MaterialTheme.colorScheme.primary
         DrawerTint.AGENDA -> pick(MaggieTokens.Module.agenda)
         DrawerTint.TASKS -> pick(MaggieTokens.Module.taches)
-        DrawerTint.GROCERY -> pick(MaggieTokens.Module.cuisine)
+        DrawerTint.GROCERY -> pick(MaggieTokens.Module.courses)
         DrawerTint.CUISINE -> pick(MaggieTokens.Module.cuisine)
         DrawerTint.FINANCE -> pick(MaggieTokens.Module.finance)
         DrawerTint.SPORT -> pick(MaggieTokens.Module.sport)

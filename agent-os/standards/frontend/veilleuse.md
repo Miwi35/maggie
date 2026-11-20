@@ -6,7 +6,7 @@ Les valeurs sont dans `design/tokens.json` (voir `global/design-system.md`) ; `a
 
 ## Règles
 
-- **Un seul accent violet** (`brand.primary` en sombre, `primaryLight` en clair). La seule autre couleur vive est la teinte du module (`theme.palette.module.cuisine|comptes|sport|travail`), jamais pour un bouton.
+- **Un seul accent violet** (`brand.primary` en sombre, `primaryLight` en clair). La seule autre couleur vive est la teinte du module (`theme.palette.module.cuisine|courses|comptes|sport|travail`), jamais pour un bouton.
 - **Surfaces** : la carte se détache du fond par la couleur (`paper`, `raised`), pas par une bordure ni une ombre. Séparateurs : `divider` (blanc 6 % sombre, noir 8 % clair).
 - **Formes** : boutons, puces et onglets en pilule (999) ; champs 12 ; cartes 16 ; dialogues 20.
 - **Police** : Geist 300–600 (jamais un poids non chargé, cf. `index.html`), Geist Mono pour le code, **chiffres tabulaires partout** (`MuiCssBaseline`). Les tailles et hauteurs de ligne restent celles de MUI : une ligne de liste ne grandit pas.

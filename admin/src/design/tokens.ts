@@ -59,7 +59,8 @@ export const TOKENS = {
   },
   /** One hue per module, of the same lightness; the menu draws it at 16 % behind the icon. */
   module: {
-    cuisine: { light: '#2F62B8', dark: '#8FB8FF' },
+    cuisine: { light: '#9A4F12', dark: '#F5B57A' },
+    courses: { light: '#2F62B8', dark: '#8FB8FF' },
     comptes: { light: '#1B7352', dark: '#7FD1AE' },
     sport: { light: '#BF372D', dark: '#FF8A80' },
     travail: { light: '#4F7011', dark: '#B8DE6F' },

@@ -155,7 +155,8 @@ class TokensContractTest {
         assertEquals(hex(0x7FD1AE), MaggieTokens.Module.finance.second)
         assertEquals(hex(0x7FD1AE), MaggieTokens.Module.comptes.second)
         assertEquals(hex(0xE8A9D9), MaggieTokens.Module.taches.second)
-        assertEquals(hex(0x8FB8FF), MaggieTokens.Module.cuisine.second)
+        assertEquals(hex(0xF5B57A), MaggieTokens.Module.cuisine.second)
+        assertEquals(hex(0x8FB8FF), MaggieTokens.Module.courses.second)
         assertEquals(hex(0xFF8A80), MaggieTokens.Module.sport.second)
         assertEquals(hex(0xB8DE6F), MaggieTokens.Module.travail.second)
         assertEquals(hex(0xF2C46D), MaggieTokens.Module.saga.second)
@@ -234,6 +235,7 @@ class TokensContractTest {
         with(MaggieTokens.Module) {
             for ((name, pair) in listOf(
                 "cuisine" to cuisine,
+                "courses" to courses,
                 "comptes" to comptes,
                 "sport" to sport,
                 "travail" to travail,
