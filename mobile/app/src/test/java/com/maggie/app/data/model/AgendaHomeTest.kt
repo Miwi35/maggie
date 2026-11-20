@@ -162,4 +162,62 @@ class AgendaHomeTest {
 
         assertEquals(listOf("a", "z", "tie", "early", "late"), ordered.map { it.id })
     }
+
+    private fun tripTo(event: String, departAt: String, id: String = "trip-$event") =
+        Trip(id = id, event = "/api/events/$event", departAt = departAt)
+
+    @Test
+    fun `trips sit with their event, soonest first`() {
+        val late = tripTo("next", "2026-10-14T14:30:00Z", id = "late")
+        val early = tripTo("next", "2026-10-14T14:00:00Z", id = "early")
+        val state = day(done, next, later).copy(trips = listOf(late, early, tripTo("later", "2026-10-14T15:00:00Z")))
+
+        val rows = state.timeline(now, compact = false).following
+
+        assertEquals(listOf("early", "late"), rows.first { it.event.id == "next" }.trips.map { it.id })
+        assertEquals(listOf("trip-later"), rows.first { it.event.id == "later" }.trips.map { it.id })
+        assertTrue(state.timeline(now, compact = false).past.single().trips.isEmpty())
+    }
+
+    @Test
+    fun `the next departure is the first trip still to leave`() {
+        val left = tripTo("done", "2026-10-14T06:09:00Z")
+        val soon = tripTo("next", "2026-10-14T13:04:00Z")
+        val after = tripTo("later", "2026-10-14T15:05:00Z")
+        val state = day(done, next, later).copy(trips = listOf(after, left, soon))
+
+        assertEquals("trip-next", state.timeline(now, compact = false).nextTripId)
+    }
+
+    @Test
+    fun `once its time passes the next departure is the following trip`() {
+        val soon = tripTo("next", "2026-10-14T13:04:00Z")
+        val after = tripTo("later", "2026-10-14T15:05:00Z")
+        val state = day(next, later).copy(trips = listOf(soon, after))
+
+        assertEquals("trip-later", state.timeline(Instant.parse("2026-10-14T13:04:00Z"), compact = false).nextTripId)
+        assertNull(state.timeline(Instant.parse("2026-10-14T15:05:00Z"), compact = false).nextTripId)
+    }
+
+    @Test
+    fun `tomorrow has trips and no next departure`() {
+        val state = day(next).copy(trips = listOf(tripTo("next", "2026-10-14T13:04:00Z")))
+
+        val timeline = state.timeline(null, compact = true)
+
+        assertNull(timeline.nextTripId)
+        assertEquals(1, timeline.following.single().trips.size)
+    }
+
+    @Test
+    fun `on a phone the event of the next departure is never cut`() {
+        val events = (1..6).map { timed("e$it", "2026-10-14T%02d:00:00Z".format(it + 12), "2026-10-14T%02d:30:00Z".format(it + 12)) }
+        val state = AgendaHomeState(date = "2026-10-14", events = events, trips = listOf(tripTo("e6", "2026-10-14T17:30:00Z")))
+
+        val timeline = state.timeline(now, compact = true)
+
+        assertEquals(listOf("e1", "e2", "e3", "e6"), timeline.following.map { it.event.id })
+        assertEquals(2, timeline.hidden)
+        assertEquals("trip-e6", timeline.nextTripId)
+    }
 }

@@ -13,6 +13,8 @@ import java.time.ZoneId
 data class AgendaHomeState(
     val date: String,
     val events: List<AgendaHomeEvent> = emptyList(),
+    /** The day's trips whose event is in [events] (MAG-866). */
+    val trips: List<Trip> = emptyList(),
 )
 
 /** One event of the card. [locationShort] is the place without its address (« Cabinet Martin »). */
@@ -104,7 +106,8 @@ data class AgendaHomeEvent(
 /** How a row stands against the « maintenant » line. [PLAIN] is a row of a day that has no line (tomorrow). */
 enum class AgendaRowKind { PAST, CURRENT, NEXT, LATER, PLAIN }
 
-data class AgendaRow(val event: AgendaHomeEvent, val kind: AgendaRowKind)
+/** [trips] are those of the event, soonest first; the card draws them just above it. */
+data class AgendaRow(val event: AgendaHomeEvent, val kind: AgendaRowKind, val trips: List<Trip> = emptyList())
 
 /**
  * The card's rows: the whole-day block on top, then [past] (done, above the line), the line, then [following].
@@ -116,6 +119,8 @@ data class AgendaTimeline(
     val following: List<AgendaRow>,
     val hasNowLine: Boolean,
     val hidden: Int = 0,
+    /** The first trip still to leave; null without a clock (tomorrow), which has no next departure. */
+    val nextTripId: String? = null,
 ) {
     val isEmpty: Boolean get() = allDay.isEmpty() && past.isEmpty() && following.isEmpty()
 }
@@ -132,11 +137,15 @@ const val PHONE_MAX_FOLLOWING = 4
  * tomorrow, and the whole-day block, are never cut.
  */
 fun AgendaHomeState.timeline(now: Instant?, compact: Boolean): AgendaTimeline {
-    val allDay = events.filter { it.allDay }.map { AgendaRow(it, AgendaRowKind.PLAIN) }
+    val tripsByEvent = trips.sortedBy { it.departInstant ?: Instant.MAX }.groupBy { it.eventId }
+    fun row(event: AgendaHomeEvent, kind: AgendaRowKind) = AgendaRow(event, kind, tripsByEvent[event.id].orEmpty())
+    val allDay = events.filter { it.allDay }.map { row(it, AgendaRowKind.PLAIN) }
     val timed = events.filterNot { it.allDay }
     if (now == null) {
-        return AgendaTimeline(allDay, emptyList(), timed.map { AgendaRow(it, AgendaRowKind.PLAIN) }, hasNowLine = false)
+        return AgendaTimeline(allDay, emptyList(), timed.map { row(it, AgendaRowKind.PLAIN) }, hasNowLine = false)
     }
+
+    val nextTrip = trips.filter { (it.departInstant ?: Instant.MIN) > now }.minByOrNull { it.departInstant!! }
 
     val (over, rest) = timed.partition { (it.end ?: Instant.MAX) <= now }
     var nextTaken = false
@@ -147,19 +156,22 @@ fun AgendaHomeState.timeline(now: Instant?, compact: Boolean): AgendaTimeline {
             !nextTaken -> AgendaRowKind.NEXT.also { nextTaken = true }
             else -> AgendaRowKind.LATER
         }
-        AgendaRow(event, kind)
+        row(event, kind)
     }
-    val past = over.map { AgendaRow(it, AgendaRowKind.PAST) }
+    val past = over.map { row(it, AgendaRowKind.PAST) }
 
-    if (!compact) return AgendaTimeline(allDay, past, following, hasNowLine = true)
+    if (!compact) return AgendaTimeline(allDay, past, following, hasNowLine = true, nextTripId = nextTrip?.id)
 
     val shownPast = past.takeLast(PHONE_MAX_PAST)
-    val shownFollowing = following.take(PHONE_MAX_FOLLOWING)
+    val kept = following.take(PHONE_MAX_FOLLOWING)
+    val tripRow = following.firstOrNull { it.event.id == nextTrip?.eventId }
+    val shownFollowing = if (tripRow != null && tripRow !in kept) kept.dropLast(1) + tripRow else kept
     return AgendaTimeline(
         allDay,
         shownPast,
         shownFollowing,
         hasNowLine = true,
+        nextTripId = nextTrip?.id,
         hidden = (past.size - shownPast.size) + (following.size - shownFollowing.size),
     )
 }
