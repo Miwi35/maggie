@@ -187,7 +187,9 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
   // The index catches up after the event: the counts alone are read again then, the aisles are not.
   const indexed = useRef<ReturnType<typeof setTimeout>>(undefined)
   const aislesRef = useRef<Aisle[]>([])
-  aislesRef.current = aisles
+  useEffect(() => {
+    aislesRef.current = aisles
+  }, [aisles])
 
   useEffect(() => {
     reload()
