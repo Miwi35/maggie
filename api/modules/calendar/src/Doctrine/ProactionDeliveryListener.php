@@ -46,6 +46,7 @@ final class ProactionDeliveryListener
     {
         $uow = $args->getObjectManager()->getUnitOfWork();
 
+        // Updates only: a proaction is created pending, so its creation is never a run completing.
         foreach ($uow->getScheduledEntityUpdates() as $entity) {
             if ($entity instanceof Proaction) {
                 $this->pending[] = [$entity, $uow->getEntityChangeSet($entity)];

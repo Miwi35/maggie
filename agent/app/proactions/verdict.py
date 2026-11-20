@@ -64,7 +64,8 @@ class Verdict:
         """What the API keeps of it on the proaction (`record_proaction_result`)."""
         record = {"impact": self.impact, "evidence": self.evidence}
         if self.deadline is not None:
-            record["deadline"] = self.deadline.isoformat()
+            # To the second, with its offset: the shape the API reads (`ProactionOutcome::INSTANT`).
+            record["deadline"] = self.deadline.isoformat(timespec="seconds")
         if self.changed:
             record["changed"] = self.changed
         return record
