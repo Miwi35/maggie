@@ -93,10 +93,16 @@ tags:
       id: "task_detail_repeat"
     timeout: 30000
 - assertVisible: ".*Un mardi sur deux.*"
-- back
-
-# Tâches › Tâches: the row carries ↻.
-- back
+# Tâches › Tâches: the row carries ↻. On a phone the sheet is closed, then the Agenda left for the
+# Accueil; on a tablet the sheet is the Agenda's detail pane and the rail is on screen: no back.
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "detail_pane"
+    commands:
+      - back
+      - back
 - runFlow:
     file: ../subflows/open-destination.yaml
     env:
