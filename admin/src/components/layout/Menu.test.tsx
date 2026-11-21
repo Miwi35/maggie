@@ -386,6 +386,22 @@ describe('CustomMenu — the modules of the mockup', () => {
     expect(hrefs()).toEqual(MODULES.flatMap(([name, href]) => (name === 'Agenda' ? [href, '/calendar', '/periods'] : [href])))
   })
 
+  test('paints Agenda and Calendrier in the agenda hue on /calendar', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/calendar')
+    await screen.findByRole('menuitem', { name: 'Réglages' })
+
+    expect(document.querySelector('[data-module="agenda"]')).not.toBeNull()
+    expect(screen.getByRole('menuitem', { name: 'Calendrier' })).toHaveClass('Mui-selected')
+  })
+
+  test('paints Périodes as the current entry on /periods', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/periods')
+
+    expect(await screen.findByRole('menuitem', { name: 'Périodes' })).toHaveClass('Mui-selected')
+  })
+
   test('Agenda lists Périodes', async () => {
     stubPersonality('Maggie')
     renderMenuAt('/periods')

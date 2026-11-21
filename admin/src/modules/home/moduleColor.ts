@@ -1,10 +1,10 @@
 import type { Theme } from '@mui/material/styles'
 import type { ModuleName } from '../../theme'
 
-/** The theme only has a few module hues: the Accueil's seven modules share them by family. */
+/** The Accueil's modules read their own hue; those without one (leisure, health) share their family's. */
 const HUES: Record<string, ModuleName> = {
   tasks: 'travail',
-  agenda: 'travail',
+  agenda: 'agenda',
   grocery: 'courses',
   cuisine: 'cuisine',
   health: 'sport',

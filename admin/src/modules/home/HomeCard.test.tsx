@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { veilleuseLightTheme } from '../../theme'
+import { TOKENS } from '../../design/tokens'
 import { HomeActionCard, HomeCard } from './HomeCard'
 import type { ReactElement } from 'react'
 
@@ -30,6 +31,12 @@ describe('HomeCard', () => {
     expect(screen.getByRole('heading', { name: 'Finance' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Finance' })).toHaveAttribute('href', '/finance/dashboard')
     expect(screen.getByText('Contenu libre')).toBeInTheDocument()
+  })
+
+  test('writes the Agenda title in the agenda hue', () => {
+    renderCard(<HomeCard module="agenda" title="Agenda" to="/calendar" />)
+
+    expect(screen.getByRole('link', { name: 'Agenda' })).toHaveStyle({ color: TOKENS.module.agenda.light })
   })
 
   test('opens the module from its header, with the mouse or the keyboard', async () => {
