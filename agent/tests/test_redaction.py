@@ -54,6 +54,19 @@ def test_an_iban_and_a_timestamp_are_left_alone(text):
     assert redact(text) == text
 
 
+@pytest.mark.parametrize("card", ["Carte :\n4111111111111111", "\t4111 1111 1111 1111", "(4111-1111-1111-1111)."])
+def test_a_card_in_a_json_tool_result_is_masked(card):
+    assert MASK in redact(json.dumps({"content": card}))
+
+
+@pytest.mark.parametrize(
+    "uuid",
+    ["ab411111-1111-1111-11cd-e378f1dfb000", "cafe4111-1111-1111-1111-abcdef000000", "41111111-1111-1111-a111-000000000000"],
+)
+def test_digits_inside_an_identifier_are_not_a_card(uuid):
+    assert redact(f'{{"messageId": "{uuid}"}}') == f'{{"messageId": "{uuid}"}}'
+
+
 def test_an_sk_key_and_a_jwt_are_masked():
     jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop"
     assert redact("clé sk-ant-api03-abcdefghijklmnopqrstuvwx") == f"clé {MASK}"

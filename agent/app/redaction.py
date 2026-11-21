@@ -31,7 +31,9 @@ _MIN_LENGTH = 8
 
 _SK_KEY = re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}")
 _JWT = re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")
-_CARD = re.compile(r"(?<!\d)(?<!\d[ -])[2-6](?:[ -]?\d){12,18}(?![ -]?\d)")
+# Never inside a word: the digits of a UUID or a ULID are not a card, and a masked identifier breaks the tool loop.
+# An escaped `\n`, `\t` or `\r` of a JSON tool result still starts one.
+_CARD = re.compile(r"(?:(?<=\\[ntr])|(?<![\w-]))(?<!\d[ -])[2-6](?:[ -]?\d){12,18}(?![ -]?\d)(?!-?\w)")
 
 
 def known_secrets() -> list[str]:
