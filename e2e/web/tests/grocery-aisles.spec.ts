@@ -140,7 +140,11 @@ test('the grocery list follows the aisles reordered on the stores page — MAG-4
     await expect(storeRow).toContainText('3 rayons · 3 produits')
     await storeRow.click()
     const aisles = shell.content.getByTestId('store-aisles').getByTestId('store-aisle')
-    await expect(aisles).toHaveText(['Fruits et légumes', 'Crèmerie', 'Boulangerie'])
+    const names = aisles.getByTestId('store-aisle-name')
+    const ranks = aisles.getByTestId('store-aisle-rank')
+    await expect(names).toHaveText(['Fruits et légumes', 'Crèmerie', 'Boulangerie'])
+    await expect(ranks).toHaveText(['1', '2', '3'])
+    await expect(aisles.getByTestId('store-aisle-count')).toHaveText(['1 produit', '1 produit', '1 produit'])
 
     const moved = page.waitForResponse(
       (response) => response.url().includes(`/api/aisles/${bakery.id}`) && response.request().method() === 'PATCH',
@@ -153,7 +157,8 @@ test('the grocery list follows the aisles reordered on the stores page — MAG-4
     const response = await moved
     expect(response.status(), `the API refused the move: ${await response.text()}`).toBe(200)
     expect(response.request().postDataJSON()).toEqual({ position: 1 })
-    await expect(aisles).toHaveText(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
+    await expect(names).toHaveText(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
+    await expect(ranks).toHaveText(['1', '2', '3'])
 
     // --- Then: the list reads bakery, fruit, dairy --------------------------
     await expect
