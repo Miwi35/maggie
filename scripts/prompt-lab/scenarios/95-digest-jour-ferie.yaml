@@ -18,7 +18,7 @@ steps:
       [Proaction due maintenant] Fais le digest du matin (compétence digest). Nous sommes le mercredi 11 novembre 2026.
       Contexte du jour : aujourd'hui, période en cours « Férié 11 novembre ».
     expected_tools: [get_weather, get_events, get_grocery_list]
-    forbidden_tools: [send_voice_message, list_trips, get_finance_scores, ask_owner]
+    forbidden_tools: [send_voice_message, list_trips, get_finance_summary, ask_owner]
     expected_absent: ["?", "**", "Lait", "Pâtes", "Pain", "monsieur"]
     expected_behavior: >
       Elle dit, d'après le contexte du jour, que le 11 novembre est férié, avec sa conséquence. Elle fait le lien avec la liste de courses

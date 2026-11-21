@@ -270,7 +270,7 @@ class UpdateTransactionHandler
 
         $advance = $this->references->transaction($command->repaysTransactionId, $transaction->getUser(), 'Advance');
         if (TransferKind::Advance !== $advance->getTransferKind() || $advance->getAmountCents() >= 0) {
-            throw new \DomainException('repaysTransactionId must name the debit leg of an advance (get_savings_advances lists them).');
+            throw new \DomainException('repaysTransactionId must name the debit leg of an advance (get_finance_summary lists them, section advances).');
         }
 
         $transaction->setRepays($advance);
