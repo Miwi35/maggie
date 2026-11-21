@@ -443,10 +443,16 @@ test('the evening review arrives as a message notification, never as a proaction
     )
     .not.toBeNull()
 
-  const notifications = (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100')).filter(
-    (n) => n.relatedEntityIri === `/chat?message=${review!.id}`,
-  )
-  expect(notifications.map((n) => n.type)).toEqual(['message'])
+  // The agent notifies right after storing the message: wait for it.
+  await expect
+    .poll(
+      async () =>
+        (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100'))
+          .filter((n) => n.relatedEntityIri === `/chat?message=${review!.id}`)
+          .map((n) => n.type),
+      { message: 'the review was never notified', timeout: 30_000, intervals: [1_000] },
+    )
+    .toEqual(['message'])
 })
 
 /**
