@@ -12,6 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Place;
 use Maggie\Calendar\Entity\Trip;
+use Maggie\Calendar\Enum\TripCarAt;
 use Maggie\Calendar\Enum\TripDecider;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
@@ -146,11 +147,11 @@ class TripToolsTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function setTrip(string $eventId, string $mode = 'drive', ?string $origin = 'position', ?string $decidedBy = null, ?string $arriveAt = null, ?string $leg = null, ?string $departAt = null, ?string $date = null): array
+    private function setTrip(string $eventId, string $mode = 'drive', ?string $origin = 'position', ?string $decidedBy = null, ?string $arriveAt = null, ?string $leg = null, ?string $departAt = null, ?string $date = null, ?string $carAt = null): array
     {
         $this->fake();
 
-        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy, $arriveAt, $leg, $departAt, $date), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode((self::getContainer()->get(SetTripTool::class))($eventId, $mode, $origin, $decidedBy, $arriveAt, $leg, $departAt, $date, $carAt), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /** @return array<string, mixed> */
@@ -243,6 +244,54 @@ class TripToolsTest extends KernelTestCase
         // To the event's owner, through its agenda.
         $topics = array_merge(...array_map(static fn ($update): array => $update->getTopics(), $this->getMercureHub()->getUpdates()));
         self::assertContains('/users/'.$this->id('test_user').$topic, $topics);
+    }
+
+    /** MAG-929: from home, the car the phone saw parked 30 km away is not walked to. */
+    public function testSetTripFromHomeKeepsNoWalkToACarParkedElsewhere(): void
+    {
+        $capturedAt = Clock::get()->now()->modify('-2 minutes');
+        self::getContainer()->get(UserLocations::class)->save($this->id('test_user'), static function ($location) use ($capturedAt): void {
+            $location->moveTo(48.40, -1.68, 10.0, $capturedAt);
+            $location->parkCar(48.40, -1.68, $capturedAt);
+        });
+
+        $result = $this->setTrip($this->id('dentist'), origin: 'home');
+
+        self::assertTrue($result['success'] ?? false, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertArrayNotHasKey('carAt', $result['trip']);
+        $trip = $this->storedTrips()[0];
+        self::assertSame([
+            ['kind' => 'drive', 'minutes' => 14],
+            ['kind' => 'walk', 'minutes' => 3],
+        ], $trip->getSteps());
+        self::assertEquals(new \DateTimeImmutable('2026-11-03T13:38:00+01:00'), $trip->getDepartAt());
+        self::assertSame(self::HOME, [$trip->getCarLatitude(), $trip->getCarLongitude()]);
+        self::assertNull($trip->getCarAt());
+        $this->assertMercureUpdatePublished('/api/trips/'.$trip->getId());
+    }
+
+    public function testSetTripKeepsCarAt(): void
+    {
+        $this->atHomeWithTheCarAway();
+
+        $result = $this->setTrip($this->id('dentist'), origin: 'home', decidedBy: 'user', carAt: 'parked');
+
+        self::assertTrue($result['success'] ?? false, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame('parked', $result['trip']['carAt']);
+        $trip = $this->storedTrips()[0];
+        self::assertSame(TripCarAt::Parked, $trip->getCarAt());
+        self::assertSame('walk', $trip->getSteps()[0]['kind']);
+        self::assertSame('parked', $this->mercurePayloadsOn('/api/trips/'.$trip->getId())[0]['carAt']);
+    }
+
+    public function testSetTripRefusesAnUnknownCarAtAndKeepsNothing(): void
+    {
+        $this->atHomeWithTheCarAway();
+
+        $result = $this->setTrip($this->id('dentist'), carAt: 'garage');
+
+        self::assertSame('carAt', $result['field'] ?? null, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame([], $this->storedTrips());
     }
 
     public function testAWholeDayEventWithAnArrivalGetsATripCountedBackFromIt(): void

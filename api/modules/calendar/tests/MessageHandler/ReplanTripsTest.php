@@ -11,6 +11,7 @@ use Maggie\Calendar\Entity\Proaction;
 use Maggie\Calendar\Entity\ProactionOutcome;
 use Maggie\Calendar\Entity\Trip;
 use Maggie\Calendar\Enum\ProactionStatus;
+use Maggie\Calendar\Enum\TripCarAt;
 use Maggie\Calendar\Enum\TripDecider;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
@@ -642,5 +643,32 @@ class ReplanTripsTest extends KernelTestCase
         $this->bus()->dispatch(new ReplanTripsCommand((string) new Ulid(), ReplanTripsCommand::EVENT_UPDATED));
 
         self::assertSame([], $this->replans());
+    }
+
+    /** MAG-929: the user said the car stayed where the phone saw it parked; the recheck walks to it too. */
+    public function testTheRecheckKeepsCarAt(): void
+    {
+        // 300 m north of home.
+        $this->parkCar(48.1127);
+        $event = $this->em()->find(Event::class, $this->id('dentist'));
+        $trip = (new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
+            mode: TripMode::Drive,
+            origin: new TripOrigin(TripOrigin::PLACE, $this->id('home'), 'la maison', 48.11, -1.68),
+            steps: [new RouteLeg(TripMode::Drive, 600), new RouteLeg(TripMode::Walk, 600)],
+            durationMinutes: 20,
+            departAt: $this->at('2026-11-03 13:35:00'),
+            navigationUrl: 'https://waze.com/ul',
+            parkingKnown: true,
+            carAt: TripCarAt::Parked,
+        ), TripDecider::User, $this->at('2026-11-03 09:00:00'));
+        $this->em()->persist($trip);
+        $this->em()->flush();
+
+        self::getContainer()->get(TripRecheck::class)->recheck($trip);
+
+        $trip = $this->storedTrip('dentist');
+        self::assertSame(['walk', 'drive', 'walk'], array_column($trip->getSteps(), 'kind'));
+        self::assertSame(TripCarAt::Parked, $trip->getCarAt());
+        self::assertSame([48.1127, -1.68], [$trip->getCarLatitude(), $trip->getCarLongitude()]);
     }
 }

@@ -41,7 +41,7 @@ class TripRecheck
             $days = self::daysMoved($trip->getOccurrenceStartAt(), TripOccurrence::startOf($event));
             $estimate = TripLeg::Return === $trip->getLeg()
                 ? $this->planner->estimate($event, $trip->getMode(), TripOrigin::POSITION, null, TripLeg::Return, self::shift($trip->getDepartAt(), $days))
-                : $this->planner->estimate($event, $trip->getMode(), $this->origin($trip), self::shift($trip->getArriveAt(), $days));
+                : $this->planner->estimate($event, $trip->getMode(), $this->origin($trip), self::shift($trip->getArriveAt(), $days), carAt: $trip->getCarAt());
         } catch (InvalidTripException|RoutingException) {
             return TripRecheckOutcome::NeedsChoice;
         }

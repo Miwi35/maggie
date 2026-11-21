@@ -48,6 +48,9 @@ final class TripJson
             $json['carLatitude'] = $trip->getCarLatitude();
             $json['carLongitude'] = $trip->getCarLongitude();
         }
+        if (null !== $trip->getCarAt()) {
+            $json['carAt'] = $trip->getCarAt()->value;
+        }
 
         return $json;
     }

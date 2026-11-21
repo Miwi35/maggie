@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maggie\Calendar\Service;
 
+use Maggie\Calendar\Enum\TripCarAt;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Routing\RouteLeg;
@@ -14,7 +15,10 @@ use Maggie\Calendar\Routing\RouteLeg;
  */
 final readonly class TripEstimate
 {
-    /** @param list<RouteLeg> $steps */
+    /**
+     * @param list<RouteLeg> $steps
+     * @param TripCarAt|null $carAt where the user said the car is, as sent; not part of {@see self::toArray()}
+     */
     public function __construct(
         public TripMode $mode,
         public TripOrigin $origin,
@@ -27,6 +31,7 @@ final readonly class TripEstimate
         public ?float $carLongitude = null,
         public ?\DateTimeImmutable $arriveAt = null,
         public TripLeg $leg = TripLeg::Outbound,
+        public ?TripCarAt $carAt = null,
     ) {
     }
 

@@ -180,9 +180,9 @@ class EstimateTripToolTest extends KernelTestCase
      *
      * @return array<string, mixed>
      */
-    private function estimate(string $eventRef, array $modes = ['drive'], ?string $origin = null): array
+    private function estimate(string $eventRef, array $modes = ['drive'], ?string $origin = null, ?string $carAt = null): array
     {
-        return $this->call($this->id($eventRef), $modes, $origin);
+        return $this->call($this->id($eventRef), $modes, $origin, carAt: $carAt);
     }
 
     /**
@@ -190,9 +190,9 @@ class EstimateTripToolTest extends KernelTestCase
      *
      * @return array<string, mixed>
      */
-    private function call(string $eventId, array $modes, ?string $origin = null, ?string $arriveAt = null, ?string $date = null): array
+    private function call(string $eventId, array $modes, ?string $origin = null, ?string $arriveAt = null, ?string $date = null, ?string $carAt = null): array
     {
-        return json_decode(($this->tool())($eventId, $modes, $origin, $arriveAt, date: $date), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode(($this->tool())($eventId, $modes, $origin, $arriveAt, date: $date, carAt: $carAt), true, 512, JSON_THROW_ON_ERROR);
     }
 
     /** Where the phone was, $minutesAgo before the clock, and where the car is parked. */
@@ -383,6 +383,54 @@ class EstimateTripToolTest extends KernelTestCase
         self::assertSame(self::HOME, [$drive['carLatitude'], $drive['carLongitude']]);
         self::assertSame(['DRIVE', 'WALK'], $this->routedModes());
         self::assertSame('2026-11-03T13:38:00+01:00', $drive['departAt']);
+    }
+
+    public function testCarAtParkedWalksToWhereThePhoneSawTheCar(): void
+    {
+        // 300 m north of home.
+        $this->at(self::HOME, car: [48.1127, -1.68]);
+
+        $drive = $this->estimate('dentist', ['drive'], 'home', 'parked')['estimates'][0];
+
+        self::assertSame([
+            ['kind' => 'walk', 'minutes' => 4],
+            ['kind' => 'drive', 'minutes' => 14],
+            ['kind' => 'walk', 'minutes' => 3],
+        ], self::steps($drive));
+        self::assertSame([48.1127, -1.68], [$drive['carLatitude'], $drive['carLongitude']]);
+        self::assertSame('2026-11-03T13:34:00+01:00', $drive['departAt']);
+    }
+
+    public function testCarAtParkedWithoutACarSeenParkedIsRefused(): void
+    {
+        $this->at(self::HOME);
+
+        $result = $this->estimate('dentist', ['drive'], 'home', 'parked');
+
+        self::assertSame('carAt', $result['field'] ?? null, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertStringStartsWith('carAt: ', $result['error']);
+        self::assertSame([], $this->routedModes());
+    }
+
+    public function testCarAtOriginFromThePositionNeedsNoWalk(): void
+    {
+        $this->at(self::HOME, car: [48.1127, -1.68]);
+
+        $drive = $this->estimate('dentist', ['drive'], null, 'origin')['estimates'][0];
+
+        self::assertSame(['drive', 'walk'], array_column(self::steps($drive), 'kind'));
+        self::assertSame(self::HOME, [$drive['carLatitude'], $drive['carLongitude']]);
+        self::assertSame(['DRIVE', 'WALK'], $this->routedModes());
+    }
+
+    public function testAnUnknownCarAtIsRefused(): void
+    {
+        $this->at(self::HOME, car: [48.1127, -1.68]);
+
+        $result = $this->estimate('dentist', ['drive'], null, 'garage');
+
+        self::assertSame('carAt', $result['field'] ?? null, json_encode($result, JSON_THROW_ON_ERROR));
+        self::assertSame([], $this->requests);
     }
 
     public function testAWholeDayEventWithAnArrivalCountsBackFromIt(): void

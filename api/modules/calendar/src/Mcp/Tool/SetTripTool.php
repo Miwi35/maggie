@@ -20,7 +20,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'set_trip', description: 'Set the trip to an event: recomputed now, replaces the trip for that leg and occurrence. date (YYYY-MM-DD, Paris): the occurrence\'s day; required for a repeating event, else optional and must match. mode: drive, transit, walk, bicycle. origin: position (phone position), place:<id> or event:<id>. arriveAt: ISO 8601 Paris time, whole-day event only, refused otherwise. decidedBy: user (origin kept) or maggie (default). leg: outbound (default) or return (event place to home: no origin/arriveAt; departAt ISO 8601 Paris time is never moved; alert stops 30 min after). Returns {success, trip: {id, eventId, event: {summary, startAt, location}, leg, occurrenceStartAt, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?}}, Refused: nothing changes, {error, field}; Google down: {error}.')]
+#[McpTool(name: 'set_trip', description: 'Set the trip to an event: recomputed now, replaces the trip for that leg and occurrence. date (YYYY-MM-DD, Paris): the occurrence\'s day; required for a repeating event, else optional and must match. mode: drive, transit, walk, bicycle. origin: position (phone position), place:<id> or event:<id>. arriveAt: ISO 8601 Paris time, whole-day event only, refused otherwise. decidedBy: user (origin kept) or maggie (default). leg: outbound (default) or return (event place to home: no origin/arriveAt; departAt ISO 8601 Paris time is never moved; alert stops 30 min after). carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip\'s origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, leg, occurrenceStartAt, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?, carAt?}}, Refused: nothing changes, {error, field}; Google down: {error}.')]
 final class SetTripTool
 {
     public function __construct(
@@ -41,6 +41,8 @@ final class SetTripTool
         ?string $leg = null,
         ?string $departAt = null,
         ?string $date = null,
+        #[Schema(enum: ['parked', 'origin'])]
+        ?string $carAt = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -54,6 +56,8 @@ final class SetTripTool
             $decider = TripDecider::tryFrom($decidedBy ?? TripDecider::Maggie->value)
                 ?? throw new InvalidTripException('decidedBy', "« {$decidedBy} » is not who decided: user or maggie.");
 
+            $car = EstimateTripTool::carAt($carAt);
+
             $tripLeg = TripLeg::tryFrom($leg ?? TripLeg::Outbound->value)
                 ?? throw new InvalidTripException('leg', "« {$leg} » is not a leg: outbound or return.");
             if (null === $origin && TripLeg::Outbound === $tripLeg) {
@@ -61,7 +65,7 @@ final class SetTripTool
             }
 
             try {
-                $envelope = $this->bus->dispatch(new SetTripCommand((string) $user->getId(), $eventId, $tripMode, $origin ?? 'position', $decider, $arriveAt, $tripLeg, $departAt, $date));
+                $envelope = $this->bus->dispatch(new SetTripCommand((string) $user->getId(), $eventId, $tripMode, $origin ?? 'position', $decider, $arriveAt, $tripLeg, $departAt, $date, $car));
             } catch (HandlerFailedException $e) {
                 // A refusal or Google failing is Maggie's to read; anything else is ours.
                 $cause = $e->getPrevious() ?? $e;

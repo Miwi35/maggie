@@ -46,6 +46,7 @@ class SetTripHandler
             null === $command->arriveAt ? null : TripPlanner::parseArriveAt($command->arriveAt),
             $command->leg,
             null === $command->departAt ? null : TripPlanner::parseArriveAt($command->departAt, 'departAt'),
+            $command->carAt,
         );
     }
 }
