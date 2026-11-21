@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { subscribeAgentFeed } from '../../hooks/agentFeed'
 import { getStoredUserId } from '../../hooks/agentTopics'
+import { playChime } from './chime'
 import { readFeedMessage, type Interruption } from './interruptions'
 
 /** How long « Plus tard » waits before Maggie speaks again. */
 export const LATER_DELAY_MS = 10 * 60 * 1000
+
+/** A message the hub replays later than this is no news: it does not ring. */
+export const MESSAGE_CHIME_WINDOW_MS = 60_000
 
 /** What `setTimeout` can wait for: past it the delay wraps and fires at once. */
 const MAX_TIMEOUT_MS = 2 ** 31 - 1
@@ -27,6 +31,8 @@ interface Options {
  * (MAG-6): those wait in the queue while it is open, and interrupt if it closes
  * with the question still unanswered. Nothing else is in the chat: a notification
  * interrupts over it too.
+ *
+ * A message of Maggie (`message`, MAG-923) never interrupts: it rings, the portrait counts it unread.
  */
 export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
   const [queue, setQueue] = useState<Interruption[]>([])
@@ -78,6 +84,13 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
     [withdraw],
   )
 
+  const ring = useCallback((message: { id: string; createdAt: number | null }) => {
+    if (seen.current.has(message.id)) return
+    seen.current.add(message.id)
+    if (message.createdAt !== null && Date.now() - message.createdAt > MESSAGE_CHIME_WINDOW_MS) return
+    playChime()
+  }, [])
+
   useEffect(() => {
     const userId = getStoredUserId()
     if (!userId) return
@@ -86,9 +99,10 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
       const event = readFeedMessage(raw)
       if (!event) return
       if (event.kind === 'withdraw') withdraw(event.id)
+      else if (event.kind === 'message') ring(event)
       else enqueue(event.interruption)
     })
-  }, [enqueue, withdraw])
+  }, [enqueue, ring, withdraw])
 
   // The questions already waiting when the admin opens: nothing is published for them.
   useEffect(() => {

@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { LATER_DELAY_MS, useMaggieInterruption } from './useMaggieInterruption'
+import { playChime } from './chime'
+import { LATER_DELAY_MS, MESSAGE_CHIME_WINDOW_MS, useMaggieInterruption } from './useMaggieInterruption'
+
+vi.mock('./chime')
 
 class FakeEventSource {
   static instances: FakeEventSource[] = []
@@ -276,6 +279,57 @@ describe('useMaggieInterruption', () => {
         expect(result.current.current).toMatchObject({ source: 'notification', title: 'close 27', message: 'Détail' })
       },
     )
+
+    describe('a message of Maggie', () => {
+      const message = (overrides: Record<string, unknown> = {}) =>
+        notification({ type: 'message', body: 'Votre digest du matin est disponible.', createdAt: new Date().toISOString(), ...overrides })
+
+      beforeEach(() => vi.mocked(playChime).mockClear())
+
+      test('a message notification rings once and queues nothing', () => {
+        const { result } = setup()
+
+        stream().emit(message())
+
+        expect(result.current.current).toBeNull()
+        expect(playChime).toHaveBeenCalledTimes(1)
+      })
+
+      test('the same message twice rings once', () => {
+        setup()
+
+        stream().emit(message())
+        stream().emit(message())
+
+        expect(playChime).toHaveBeenCalledTimes(1)
+      })
+
+      test('a message replayed by the hub more than a minute later does not ring', () => {
+        setup()
+
+        stream().emit(message({ createdAt: new Date(Date.now() - MESSAGE_CHIME_WINDOW_MS - 1000).toISOString() }))
+
+        expect(playChime).not.toHaveBeenCalled()
+      })
+
+      test('a message rings with the chat open too', () => {
+        const { result } = setup(true)
+
+        stream().emit(message())
+
+        expect(result.current.current).toBeNull()
+        expect(playChime).toHaveBeenCalledTimes(1)
+      })
+
+      test('a proaction notification still interrupts', () => {
+        const { result } = setup()
+
+        stream().emit(message({ type: 'proaction' }))
+
+        expect(result.current.current).toMatchObject({ source: 'notification' })
+        expect(playChime).not.toHaveBeenCalled()
+      })
+    })
 
     test('a notification with nowhere to go has no link', () => {
       const { result } = setup()

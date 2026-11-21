@@ -129,6 +129,45 @@ test('an event reminder interrupts the open admin, and « Plus tard » closes it
   await expect(interruption).toBeHidden()
 })
 
+test('a message of Maggie rings without interrupting, and the next request still interrupts', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
+  const dashboard = new HomePage(page)
+  await page.addInitScript(() => {
+    const w = window as unknown as { __maggieChimeNotes: number }
+    w.__maggieChimeNotes = 0
+    const create = AudioContext.prototype.createOscillator
+    AudioContext.prototype.createOscillator = function (this: AudioContext) {
+      w.__maggieChimeNotes += 1
+      return create.call(this)
+    }
+  })
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+
+  await publishOnHub(
+    page,
+    `/users/${session.user.id}/api/notifications/e2e-message-1`,
+    notification('e2e-message-1', 'Maggie', {
+      type: 'message',
+      body: 'Votre digest du matin est disponible.',
+      relatedEntityIri: '/chat?message=01JE2EMESSAGE0000000000000',
+      createdAt: e2eNow().toISOString(),
+    }),
+  )
+
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __maggieChimeNotes: number }).__maggieChimeNotes)).toBeGreaterThan(0)
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+
+  await publishOnHub(
+    page,
+    `/users/${session.user.id}/api/notifications/e2e-message-2`,
+    notification('e2e-message-2', 'Rappel e2e : après le message'),
+  )
+
+  const interruption = page.getByRole('alertdialog')
+  await expect(interruption).toContainText('Rappel e2e : après le message')
+  await expect(interruption).not.toContainText('Votre digest du matin est disponible.')
+})
+
 test('« C\'est noté » on an event reminder marks it read and closes it, and the bell stops counting it', async ({
   interruptedUser,
 }) => {
