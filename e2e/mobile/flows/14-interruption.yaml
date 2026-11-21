@@ -16,6 +16,9 @@ tags:
 # showing, so it can only arrive from the live feed. Tapping « Plus tard » closes the toaster;
 # the second notification is then answered with its link, which opens what it announces.
 #
+# A message of Maggie sent just before is never an interruption (MAG-927): the toaster shows the
+# finance alert that follows, and the message's text never appears on screen.
+#
 # Needs `E2E_BASE_URL` and `E2E_LOGIN_TOKEN`, which `run.sh` passes with `-e`.
 
 - launchApp:
@@ -29,6 +32,11 @@ tags:
 
 - runScript:
     file: ../scripts/interruption-api.js
+    env:
+      MESSAGE: "Message simple de Maggie e2e"
+
+- runScript:
+    file: ../scripts/interruption-api.js
 
 - extendedWaitUntil:
     visible:
@@ -36,6 +44,7 @@ tags:
     timeout: 40000
 - assertVisible: "MAGGIE · maintenant"
 - assertVisible: "Un point sur vos comptes ?"
+- assertNotVisible: "Votre bilan du soir vous attend."
 - assertVisible: "C'est noté"
 - assertVisible: "Ouvrir les finances"
 
