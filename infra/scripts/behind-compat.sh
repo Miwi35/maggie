@@ -160,14 +160,14 @@ grep -E '^(\.github/|infra/|scripts/|e2e/impact-map\.yml$)' "$TMP/main.files" | 
 
 # select_side <side-name> <ref> <files> <out> — the zone selection of one side.
 select_side() {
-  local name="$1" ref="$2" files="$3" out="$4" registry_files="" diff_args=()
+  local tag="$1" ref="$2" files="$3" out="$4" registry_files="" diff_args=()
   registry_files="$( (. scripts/e2e/lib.sh; e2e_map_json | jq -r '.registries.files[]?') 2>/dev/null)" || registry_files=""
   local hits
   hits="$(grep -Fx -f <(printf '%s\n' "$registry_files") "$files" 2>/dev/null || true)"
   if [ -n "$hits" ]; then
     # shellcheck disable=SC2086 # one path per line, none with a space
-    git diff -U0 --no-color --no-ext-diff --no-renames "$base" "$ref" -- $hits > "$TMP/$name.diff" || return 1
-    diff_args=(--diff "$TMP/$name.diff")
+    git diff -U0 --no-color --no-ext-diff --no-renames "$base" "$ref" -- $hits > "$TMP/$tag.diff" || return 1
+    diff_args=(--diff "$TMP/$tag.diff")
   fi
   scripts/e2e/impacted.sh select "${diff_args[@]}" < "$files" > "$out" 2>/dev/null
 }
