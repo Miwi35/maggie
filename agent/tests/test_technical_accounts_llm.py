@@ -7,13 +7,14 @@ from app.llm import client as client_module
 from app.llm.client import client_for
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import LLMGateway
+from app.llm.held_secret import has_owner_secret
 from app.llm.runner import run_tool_loop
 from app.memory.agent_memory import MemoryBlocks
 from app import user_timezone
 
 SMOKE_QUESTION = (
     "Appelle l'outil get_events sans query, puis réponds en une phrase : "
-    "quel est le titre exact de l'événement dont la description est « code 4242 » ?"
+    "quel est le titre exact de l'événement dont la description est « référence smoke-1763700000-4242 » ?"
 )
 
 
@@ -125,7 +126,7 @@ class TestTheSmokeQuestion:
         monkeypatch.setattr("app.llm.client.settings.fake_llm_fixtures_dir", "")
         monkeypatch.setattr("app.llm.fake.settings.fake_llm_fixtures_dir", "")
         client_module._technical_client = None
-        events = {"events": [{"id": "1", "summary": "Rendez-vous smoke 1234", "description": "code 4242"}], "count": 1}
+        events = {"events": [{"id": "1", "summary": "Rendez-vous smoke 1234", "description": "référence smoke-1763700000-4242"}], "count": 1}
         router = MagicMock(call_tool=AsyncMock(return_value=json.dumps(events)))
         real = _anthropic()
 
@@ -145,3 +146,10 @@ class TestTheSmokeQuestion:
         assert "Rendez-vous smoke 1234" in result["response"]
         real.messages.create.assert_not_called()
         assert DEFAULT_FIXTURES_DIR.joinpath("99-smoke-prod-event-title.yaml").exists()
+
+
+def test_the_smoke_question_is_never_held():
+    for n in range(1000):
+        ref = f"smoke-{1763700000 + n}-{(n * 37) % 32768}"
+        question = SMOKE_QUESTION.replace("smoke-1763700000-4242", ref)
+        assert has_owner_secret(question) is False, ref

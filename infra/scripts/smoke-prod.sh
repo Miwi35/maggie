@@ -275,24 +275,24 @@ else
   fail "DELETE /agent/smoke/history did not answer 200 — the account's history may weigh on the answer"
 fi
 
-code="$RANDOM$RANDOM"
+ref="smoke-$(date +%s)-$RANDOM"
 title="Rendez-vous smoke $RANDOM$RANDOM"
 # « sans query »: the query matches titles and places, not descriptions (MAG-16), and a
-# model that passed the code as query found nothing and rolled the release back (MAG-565).
-QUESTION="Appelle l'outil get_events sans query, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « code $code » ?"
+# model that passed the reference as query found nothing and rolled the release back (MAG-565).
+QUESTION="Appelle l'outil get_events sans query, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « référence $ref » ?"
 
 # A POST is not retried: a timed-out one may still have written. It gets
 # WRITE_TIMEOUT instead of 15 s — on a cold pod the event's took longer, and the
 # release was rolled back although the event existed and Maggie read it (MAG-386).
 agenda="$(curl -sS --max-time "$WRITE_TIMEOUT" -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
-  -d "$(jq -nc --arg n "Smoke test $code" '{name: $n}')" "$BASE_URL/api/agendas" 2>/dev/null || true)"
+  -d "$(jq -nc --arg n "Smoke test $ref" '{name: $n}')" "$BASE_URL/api/agendas" 2>/dev/null || true)"
 agenda_id="$(printf '%s' "$agenda" | jq -r '.id // empty' 2>/dev/null)"
 
 event="" event_status=""
 if [ -n "$agenda_id" ]; then
   rm -f "$tmp/event"
   event_status="$(curl -sS -o "$tmp/event" --max-time "$WRITE_TIMEOUT" -w '%{http_code}' -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
-    -d "$(jq -nc --arg t "$title" --arg d "code $code" --arg a "/api/agendas/$agenda_id" \
+    -d "$(jq -nc --arg t "$title" --arg d "référence $ref" --arg a "/api/agendas/$agenda_id" \
       --arg s "$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%S+00:00')" \
       --arg e "$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%M:%S+00:00')" \
       '{summary: $t, description: $d, agenda: $a, startAt: $s, endAt: $e}')" "$BASE_URL/api/events" 2>/dev/null || true)"
