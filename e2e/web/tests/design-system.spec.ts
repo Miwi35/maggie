@@ -126,3 +126,25 @@ test('Cuisine wears the apricot and Courses keeps its own blue, read from the to
   expect(asColor(color).hex).toBe(TOKENS.module.cuisine.light.toUpperCase())
   await expect(shell.menuItem('Courses').locator('[data-module="courses"]')).toBeVisible()
 })
+
+test('Agenda wears its turquoise in the menu and on its Accueil card, read from the tokens', async ({ page }) => {
+  const shell = new AdminShell(page)
+  await shell.goto(ROUTES.calendar)
+  await shell.expectLoaded()
+  await shell.openMenu()
+
+  const menu = shell.menuItem('Agenda')
+  await expect(menu).toBeVisible()
+  const color = await menu.evaluate((element) => getComputedStyle(element).color)
+
+  expect(asColor(color).hex).toBe(TOKENS.module.agenda.light.toUpperCase())
+  await expect(menu.locator('[data-module="agenda"]')).toBeVisible()
+
+  await shell.goto(ROUTES.home)
+  await shell.expectLoaded()
+  const title = page.locator('[data-testid="home-card-agenda"]').getByRole('link').first()
+  await expect(title).toBeVisible()
+  const titleColor = await title.evaluate((element) => getComputedStyle(element).color)
+
+  expect(asColor(titleColor).hex).toBe(TOKENS.module.agenda.light.toUpperCase())
+})
