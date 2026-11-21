@@ -17,6 +17,9 @@ enum class ModuleHue(internal val hue: Pair<Color, Color>) {
     HEALTH(MaggieTokens.Module.sport),
 }
 
+/** Journal-Tel mockup's day rail in the dark theme: no token carries it. */
+val JOURNAL_DAY_RAIL_DARK = Color(0xFF15141E)
+
 /** Whether the app is drawn on the dark Veilleuse — the theme's own choice, not the system's. */
 @Composable
 @ReadOnlyComposable

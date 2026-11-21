@@ -1,7 +1,6 @@
 package com.maggie.app.ui.screens.health
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,27 +9,31 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,9 +49,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.HealthDay
 import com.maggie.app.ui.UiTags
@@ -60,6 +68,8 @@ import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.HealthSection
 import com.maggie.app.ui.navigation.LocalModuleBar
+import com.maggie.app.ui.theme.JOURNAL_DAY_RAIL_DARK
+import com.maggie.app.ui.theme.isMaggieDark
 import com.maggie.app.ui.theme.maggieSurface
 import java.time.LocalDate
 import java.time.ZoneId
@@ -165,22 +175,35 @@ private fun JournalContent(
     }
 }
 
-/** « ‹ Aujourd’hui samedi 7 nov. › »: no day after today. */
+/** « ‹ Aujourd’hui samedi 7 nov. › » on a rail: no day after today. */
 @Composable
 private fun DayHeader(date: LocalDate, today: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit) {
     val surface = maggieSurface()
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onPrevious, modifier = Modifier.testTag(UiTags.JOURNAL_PREVIOUS)) {
+    val (relative, dateText) = journalDayParts(date, today)
+    val title = buildAnnotatedString {
+        if (relative != null) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = surface.text)) { append(relative) }
+            append(" ")
+        }
+        withStyle(SpanStyle(color = if (relative != null) surface.textMuted else surface.text)) { append(dateText) }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (isMaggieDark()) JOURNAL_DAY_RAIL_DARK else surface.track, RoundedCornerShape(999.dp))
+            .padding(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onPrevious, modifier = Modifier.size(44.dp).testTag(UiTags.JOURNAL_PREVIOUS)) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Jour précédent")
         }
         Text(
-            journalDayTitle(date, today),
-            fontSize = 16.sp,
-            color = surface.text,
+            title,
+            fontSize = 15.sp,
             modifier = Modifier.weight(1f).testTag(UiTags.JOURNAL_TITLE),
             textAlign = TextAlign.Center,
         )
-        IconButton(onClick = onNext, enabled = date < today, modifier = Modifier.testTag(UiTags.JOURNAL_NEXT)) {
+        IconButton(onClick = onNext, enabled = date < today, modifier = Modifier.size(44.dp).testTag(UiTags.JOURNAL_NEXT)) {
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Jour suivant")
         }
     }
@@ -210,10 +233,13 @@ private fun Scale(label: String, value: Int?, onPick: (Int) -> Unit, tag: String
     val surface = maggieSurface()
     val accent = MaterialTheme.colorScheme.primary
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(label, fontSize = 14.sp, color = surface.textMuted)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, fontSize = 14.sp, color = surface.textMuted)
+            Text(value?.let { "$it / 10" } ?: DASH, fontSize = 15.sp, color = surface.text)
+        }
         Row(
             modifier = Modifier.fillMaxWidth().selectableGroup().semantics { contentDescription = label }.testTag(tag),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             HealthDay.SCALE.forEach { n ->
                 val chosen = n == value
@@ -228,15 +254,15 @@ private fun Scale(label: String, value: Int?, onPick: (Int) -> Unit, tag: String
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(30.dp)
-                            .background(if (chosen) accent else Color.Transparent, CircleShape)
-                            .border(1.dp, if (chosen) accent else surface.caption.copy(alpha = 0.5f), CircleShape),
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .background(if (chosen) accent else surface.raised, RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             "$n",
-                            fontSize = 13.sp,
-                            color = if (chosen) MaterialTheme.colorScheme.onPrimary else surface.text,
+                            fontSize = 15.sp,
+                            color = if (chosen) MaterialTheme.colorScheme.onPrimary else surface.textMuted,
                         )
                     }
                 }
@@ -253,12 +279,21 @@ private fun NoteCard(date: LocalDate, saved: String?, saving: Boolean, onSave: (
     MaggieCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Note", fontSize = 14.sp, color = surface.textMuted)
-            OutlinedTextField(
+            TextField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text("Comment s’est passée la journée ?") },
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.JOURNAL_NOTE),
+                placeholder = { Text("Note du jour") },
+                textStyle = TextStyle(fontSize = 15.sp),
+                shape = RoundedCornerShape(14.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = surface.raised,
+                    unfocusedContainerColor = surface.raised,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    errorIndicatorColor = Color.Transparent,
+                ),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp).testTag(UiTags.JOURNAL_NOTE),
             )
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 FilledTonalButton(
@@ -279,29 +314,39 @@ private fun FiguresCard(entry: HealthDay?, zone: ZoneId, onSelectSection: (Healt
     val surface = maggieSurface()
     MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Indicateurs du jour" }.testTag(UiTags.JOURNAL_FIGURES)) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            Text("Indicateurs du jour", fontSize = 14.sp, color = surface.textMuted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
-            Figure("Poids", journalWeight(entry, zone), UiTags.JOURNAL_WEIGHT, UiTags.JOURNAL_WEIGHT_VALUE) { onSelectSection(HealthSection.SUIVI) }
-            Figure("Pas", entry?.steps?.let(::formatCount) ?: DASH, UiTags.JOURNAL_STEPS, UiTags.JOURNAL_STEPS_VALUE) { onSelectSection(HealthSection.SUIVI) }
-            Figure("Bilan", balanceLabel(entry?.balanceKcal) ?: DASH, UiTags.JOURNAL_BALANCE, UiTags.JOURNAL_BALANCE_VALUE) { onSelectSection(HealthSection.NUTRITION) }
-            Figure("Sport", journalSport(entry?.sportMinutes), UiTags.JOURNAL_SPORT, UiTags.JOURNAL_SPORT_VALUE) { onSelectSection(HealthSection.SPORT) }
+            Text("Indicateurs", fontSize = 14.sp, color = surface.textMuted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+            Figure("Poids", journalWeightValue(entry), journalWeighing(entry, zone), UiTags.JOURNAL_WEIGHT, UiTags.JOURNAL_WEIGHT_VALUE) { onSelectSection(HealthSection.SUIVI) }
+            Figure("Pas", entry?.steps?.let(::formatCount) ?: DASH, null, UiTags.JOURNAL_STEPS, UiTags.JOURNAL_STEPS_VALUE) { onSelectSection(HealthSection.SUIVI) }
+            Figure("Bilan calorique", balanceLabel(entry?.balanceKcal) ?: DASH, journalIntake(entry), UiTags.JOURNAL_BALANCE, UiTags.JOURNAL_BALANCE_VALUE) { onSelectSection(HealthSection.NUTRITION) }
+            Figure("Sport", journalSport(entry?.sportMinutes), null, UiTags.JOURNAL_SPORT, UiTags.JOURNAL_SPORT_VALUE) { onSelectSection(HealthSection.SPORT) }
         }
     }
 }
 
 @Composable
-private fun Figure(label: String, value: String, tag: String, valueTag: String, onOpen: () -> Unit) {
+private fun RowDivider() {
+    HorizontalDivider(color = maggieSurface().text.copy(alpha = 0.06f))
+}
+
+@Composable
+private fun Figure(label: String, value: String, sub: String?, tag: String, valueTag: String, onOpen: () -> Unit) {
     val surface = maggieSurface()
+    RowDivider()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .clickable(onClickLabel = "Ouvrir", role = Role.Button, onClick = onOpen)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 14.sp, color = surface.caption, modifier = Modifier.weight(1f))
-        Text(value, fontSize = 15.sp, color = surface.text, modifier = Modifier.testTag(valueTag))
+        Text(label, fontSize = 14.sp, color = surface.textMuted, modifier = Modifier.width(128.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(value, fontSize = 15.sp, color = surface.text, modifier = Modifier.testTag(valueTag))
+            sub?.let { Text(it, fontSize = 12.sp, color = surface.caption) }
+        }
+        Text("›", fontSize = 15.sp, color = surface.caption)
     }
 }
 
@@ -322,24 +367,41 @@ private fun HistoryCard(days: List<HealthDay>, selected: LocalDate, onSelect: (L
             }
             days.forEach { day ->
                 val date = runCatching { LocalDate.parse(day.date) }.getOrNull() ?: return@forEach
+                RowDivider()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 48.dp)
+                        .heightIn(min = 56.dp)
                         .background(if (date == selected) surface.text.copy(alpha = 0.07f) else Color.Transparent)
                         .selectable(selected = date == selected, onClick = { onSelect(date) })
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 16.dp)
                         .testTag(UiTags.journalPast(day.date)),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(dayLabel(date), fontSize = 14.sp, color = surface.text)
-                        day.note?.let { Text(it, fontSize = 12.sp, color = surface.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    }
-                    Text(journalScales(day), fontSize = 13.sp, color = surface.textMuted)
+                    Text(journalShortDay(date), fontSize = 14.sp, color = surface.text, modifier = Modifier.width(72.dp))
+                    Text(
+                        day.note ?: DASH,
+                        fontSize = 14.sp,
+                        color = surface.textMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ScalePill("M ${day.mood ?: DASH}")
+                    ScalePill("F ${day.fatigue ?: DASH}")
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ScalePill(text: String) {
+    Box(
+        modifier = Modifier.height(24.dp).background(maggieSurface().raised, RoundedCornerShape(999.dp)).padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, fontSize = 12.sp, color = maggieSurface().textMuted)
     }
 }

@@ -7,7 +7,7 @@ tags:
 #
 # Étant donné une pesée de 71,6 kg aujourd'hui, créée par l'API
 # Quand j'ouvre Santé › Journal et je note moral 7, fatigue 4 et une note
-# Alors l'entrée du jour affiche 71,6 kg et mes notes
+# Alors l'entrée du jour affiche 71,6 kg avec « première pesée · … » dessous, « 7 / 10 », « 4 / 10 » et mes notes
 # Et Santé › Suivi affiche la carte Moral · fatigue
 #
 # A new user, so the journal holds one day: the one `scripts/health-journal-api.js` lays down
@@ -74,6 +74,7 @@ tags:
       id: "journal_weight_value"
       text: "71,6 kg.*"
     timeout: 10000
+- assertVisible: "première pesée · .*"
 - scrollUntilVisible:
     element:
       id: "journal_mood"
@@ -88,6 +89,8 @@ tags:
       id: "journal_fatigue_4"
       checked: true
     timeout: 10000
+- assertVisible: "7 / 10"
+- assertVisible: "4 / 10"
 - extendedWaitUntil:
     visible: "Bonne marche MAG-750"
     timeout: 10000

@@ -24,6 +24,13 @@ fun journalDayTitle(date: LocalDate, today: LocalDate): String = when (date) {
     else -> journalDate(date).replaceFirstChar { it.uppercase() }
 }
 
+/** The header split in two: « Aujourd’hui » / « Hier » (or none) and the date; joined by a space it is [journalDayTitle]. */
+fun journalDayParts(date: LocalDate, today: LocalDate): Pair<String?, String> = when (date) {
+    today -> "Aujourd’hui" to journalDate(date)
+    today.minusDays(1) -> "Hier" to journalDate(date)
+    else -> null to journalDate(date).replaceFirstChar { it.uppercase() }
+}
+
 /** `21:42` in [zone], or `null` when the API sent no parsable time. */
 fun journalTime(iso: String?, zone: ZoneId): String? =
     iso?.let { runCatching { OffsetDateTime.parse(it).atZoneSameInstant(zone).format(CLOCK) }.getOrNull() }
@@ -36,6 +43,27 @@ fun notedByMaggie(day: HealthDay?, zone: ZoneId): String? {
 
 /** « M 7 · F 4 », what a past day's row says of its scales; an unset one is a dash. */
 fun journalScales(day: HealthDay): String = "M ${day.mood ?: DASH} · F ${day.fatigue ?: DASH}"
+
+private val SHORT_WEEKDAYS = listOf("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
+
+/** « ven. 6 », a past day's row. */
+fun journalShortDay(date: LocalDate): String = "${SHORT_WEEKDAYS[date.dayOfWeek.value - 1]} ${date.dayOfMonth}"
+
+/** `71,6 kg`, or a dash without a weight. */
+fun journalWeightValue(day: HealthDay?): String = day?.weightKg?.let { "${formatKg(it)} kg" } ?: DASH
+
+/** « première pesée · 07:12 », « première pesée » without a readable time, « pas de pesée » without a weight. */
+fun journalWeighing(day: HealthDay?, zone: ZoneId): String {
+    if (day?.weightKg == null) return "pas de pesée"
+    return listOfNotNull("première pesée", journalTime(day.weighedAt, zone)).joinToString(" · ")
+}
+
+/** « apport 1 500 · dépense 2 100 », `null` unless both are known. */
+fun journalIntake(day: HealthDay?): String? {
+    val eaten = day?.eatenKcal ?: return null
+    val expended = day.expendedKcal ?: return null
+    return "apport ${formatCount(eaten)} · dépense ${formatCount(expended)}"
+}
 
 /** `71,6 kg` and the time of the first weighing, `71,6 kg · 07:12`; a dash without one. */
 fun journalWeight(day: HealthDay?, zone: ZoneId): String {
