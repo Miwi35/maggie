@@ -15,6 +15,7 @@ enum class ModuleHue(internal val hue: Pair<Color, Color>) {
     CUISINE(MaggieTokens.Module.cuisine),
     COURSES(MaggieTokens.Module.courses),
     HEALTH(MaggieTokens.Module.sport),
+    AGENDA(MaggieTokens.Module.agenda),
 }
 
 /** Journal-Tel mockup's day rail in the dark theme: no token carries it. */
