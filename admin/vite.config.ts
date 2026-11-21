@@ -1,6 +1,8 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
+import { TOKENS } from './src/design/tokens'
 
 // Vendor chunks whose content changes with a dependency bump, not with a deploy: the
 // browser keeps them from one release to the next (MAG-546). Each lib lives in the
@@ -20,7 +22,42 @@ function manualChunks(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Installable admin (MAG-894). One service worker, `/admin/sw.js`: Web Push will
+    // graft onto it rather than add a second. Navigations go network first so a
+    // deploy is seen at once; the cached shell only serves when offline. Nothing
+    // for `/api` or Mercure is ever cached.
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      manifest: {
+        name: 'Maggie',
+        short_name: 'Maggie',
+        lang: 'fr',
+        start_url: '/admin/',
+        scope: '/admin/',
+        display: 'standalone',
+        background_color: TOKENS.surface.light.background,
+        theme_color: TOKENS.brand.primary,
+        icons: [
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: { cacheName: 'admin-shell', networkTimeoutSeconds: 3 },
+          },
+        ],
+      },
+    }),
+  ],
   base: '/admin',
   // Source maps for the nightly's coverage only (« Sélection e2e par couverture »):
   // the e2e journeys map Chromium's coverage of the bundle back to admin/src

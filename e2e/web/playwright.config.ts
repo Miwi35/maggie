@@ -81,6 +81,9 @@ export default defineConfig({
     launchOptions: {
       args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
     },
+    // The admin registers a service worker (MAG-894); the journeys mock requests a
+    // worker would intercept. Only the PWA journey allows it.
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
