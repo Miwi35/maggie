@@ -557,7 +557,7 @@ class TestLockedSkillTools:
         index = await self._locked_index()
         with patch("app.llm.tools.skill_index", index):
             result = await ToolRouter().call_tool(
-                "create_skill", {"name": "verrouillee", "description": "X", "content": "Remplacé"}, user_id="u"
+                "create_skill", {"name": "verrouillee", "description": "X", "tags": [], "content": "Remplacé"}, user_id="u"
             )
 
         assert json.loads(result)["error"] == "locked"
