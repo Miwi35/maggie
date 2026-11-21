@@ -914,6 +914,22 @@
         },
         "description": "Reads the financial picture of a month in one call. year and month: the month to read (default: current). Amounts are integer cents. Returns scores (week and month rhythm); tiles {accounts (total, safety cushion, available), budget (root envelopes consumed vs budgeted, expected salary), planning (independence counter, net saving capacity)}; nextProject (first planned project with gatheredCents and purchaseMonth YYYY-MM, following[], delay; null without project within 36 months); todo {toSortCount, rejectionsToSettleCount, reviewReady, advanceToRepayCents, owedToMeCents, iOweCents}; plus account balances, rolling twelve months, envelope gauges and biggest spending posts."
     },
+    "get_finance_projection": {
+        "name": "get_finance_projection",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "months": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Projects what comes, from entered data only (nothing is extrapolated). months: 1 to 12 (default: to the end of the month after the expected salary). Integer cents. salary {isConfigured, expectedOn, referenceCents, isLate, delayDays, shortfallCents}, balanceCents (checking today), projection[] day by day, overdraft {isForecast, onDate, worstBalanceCents, limitCents}, outstandingAdvancesCents; nextWeek and nextMonth: the week and month after this one with incomeCents, expenseCents, netCents and their lines. Moves no money."
+    },
     "get_finance_scores": {
         "name": "get_finance_scores",
         "inputSchema": {
@@ -929,6 +945,22 @@
             }
         },
         "description": "Reads the budget scores for a date (date: YYYY-MM-DD, default today): week, month and global (the worse of month and year). Each is green (\"Dans le vert\"), neutral (\"Dans les clous\"), orange (\"Attention\") or red (\"Dépassement\"), with reasons (codes, amounts in cents, e.g. mandatory_category_exceeded, no_budget). Colour comes from envelopes only; the week is always neutral. Each week and month has spentCents (every real debit to date), expectedSpentCents (planned to date), plannedCents (whole period), the daily curve, planned debits and unclassifiedCount / unclassifiedCents (debits without category, included in spentCents)."
+    },
+    "get_finance_summary": {
+        "name": "get_finance_summary",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "period": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                }
+            }
+        },
+        "description": "Reads the financial state of a period (period: YYYY-MM, default current month, or YYYY). spending: every debit against what was planned, with the daily curve. envelopes: consumed vs budgeted. satisfaction: worth keeping vs avoidable. savings: put aside vs planned capacity. cushion. toQualify: unqualified lines. scores: week, month and global colours with their reasons (null for a year). salary: reference monthly salary, its source (declared, expected, measured, unknown) and the delay. advances: money taken from savings, outstanding per source. independence: how far the rentes cover the lifestyle. Integer cents."
     },
     "get_grocery_list": {
         "name": "get_grocery_list",
