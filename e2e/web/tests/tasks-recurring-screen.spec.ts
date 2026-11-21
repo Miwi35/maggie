@@ -1,6 +1,7 @@
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, parisDay } from '../fixtures/index.js'
 import { waitForIndexed } from '../helpers/api.js'
+import { ROUTES } from '../pages/routes.js'
 import { TasksPage } from '../pages/TasksPage.js'
 
 /**
@@ -71,9 +72,8 @@ test('a task made to repeat every other Tuesday shows ↻ and its rule, and chec
 
   // When I open its row, « Modifier », and choose « Toutes les deux semaines »…
   const tasks = new TasksPage(page)
-  await tasks.goto('/')
-  await tasks.select('À venir')
-  await tasks.row(title).click()
+  await tasks.goto(ROUTES.tasksUpcoming)
+  await tasks.openTask(title)
   await tasks.sheet.getByRole('button', { name: 'Modifier la tâche' }).click()
   await tasks.repeatField.click()
   await page.getByRole('option', { name: 'Toutes les deux semaines', exact: true }).click()
@@ -85,7 +85,7 @@ test('a task made to repeat every other Tuesday shows ↻ and its rule, and chec
   await expect.poll(async () => (await stored(api, id)).rrule).toBe(RULE)
   await expect(tasks.repeatMark(tasks.row(title))).toBeVisible()
   await expect(tasks.repeatMark(tasks.row(title))).toHaveAccessibleName('Répétée')
-  await tasks.row(title).click()
+  await tasks.openTask(title)
   await expect(tasks.sheet.getByText('Répéter', { exact: true })).toBeVisible()
   await expect(tasks.sheet.getByText('Un mardi sur deux', { exact: true })).toBeVisible()
 

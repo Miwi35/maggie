@@ -193,6 +193,11 @@ export class TasksPage extends AdminShell {
     return Number(label)
   }
 
+  /** Opens the sheet of a task from its row. */
+  async openTask(title: string): Promise<void> {
+    await this.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
+  }
+
   /** The row of a task in the list on screen. */
   row(title: string): Locator {
     return this.content.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
