@@ -132,7 +132,7 @@ class TestTheMorningDigest:
         assert ("get_weather", {"date": "2030-11-14"}, USER) in api.calls
         assert ("get_events", {"from": "2030-11-14", "to": "2030-11-14"}, USER) in api.calls
         assert ("get_tasks", {"day": "2030-11-14"}, USER) in api.calls
-        assert not {"send_voice_message", "list_trips", "get_finance_scores"} & set(tools_called(result))
+        assert not {"send_voice_message", "list_trips", "get_finance_summary"} & set(tools_called(result))
         assert "degrés" in result["response"]
         assert "ce soir, la préparation du weekend" in result["response"].lower()
 

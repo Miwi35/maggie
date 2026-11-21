@@ -36,8 +36,8 @@ class GetFinanceProjectionTool
 
         return json_encode(
             $this->getTreasuryOutlook->execute($user, null, $months) + [
-                'nextWeek' => $upcoming['week'] ?? null,
-                'nextMonth' => $upcoming['month'] ?? null,
+                'nextWeek' => $upcoming['week'],
+                'nextMonth' => $upcoming['month'],
             ],
             JSON_THROW_ON_ERROR,
         );

@@ -16,10 +16,10 @@ class MindStateTest {
 
     @Test
     fun `an unknown tool falls back on its verb and never shows its name`() {
-        assertEquals("Consultation de vos données", toolActivityLabel("get_independence_counter"))
+        assertEquals("Consultation de vos données", toolActivityLabel("get_finance_summary"))
         assertEquals("Modification d'un élément", toolActivityLabel("manage_loans"))
         assertEquals("Action de Maggie", toolActivityLabel("mystery"))
-        listOf("get_independence_counter", "manage_loans", "mystery").forEach {
+        listOf("get_finance_summary", "manage_loans", "mystery").forEach {
             assertFalse(toolActivityLabel(it).contains("_") || toolActivityLabel(it).contains(it))
         }
     }

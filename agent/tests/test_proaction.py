@@ -723,7 +723,7 @@ class TestACheckGetsTheVerdictTool:
 TREASURY_ALERT_PROMPT = (
     "Alerte trésorerie du 2026-10-31. Le salaire attendu le 2026-10-25 n'est pas arrivé : 6 jour(s) de retard.\n"
     "Le compte courant passerait à découvert le 2026-11-06 (solde le plus bas : -100,00 €, limite de découvert autorisée : 0,00 €).\n"
-    "Avance conseillée : 100,00 €, depuis le compte « Livret A » (source : get_treasury_outlook, solde du compte 6 000,00 €).\n"
+    "Avance conseillée : 100,00 €, depuis le compte « Livret A » (source : get_finance_projection, solde du compte 6 000,00 €).\n"
     "Tu ne fais que proposer : n'exécute aucun virement."
 )
 TREASURY_OUTLOOK = {
@@ -775,7 +775,7 @@ class TestTreasuryAlertProaction:
         gateway.tool_router.get_tool_definitions = AsyncMock(
             return_value=[
                 {
-                    "name": "get_treasury_outlook",
+                    "name": "get_finance_projection",
                     "description": "Read the treasury until the salary comes.",
                     "input_schema": {"type": "object", "properties": {}},
                 }
@@ -830,7 +830,7 @@ class TestTreasuryAlertProaction:
 
         assert result["status"] == "completed"
         sent = json.loads(route.calls.last.request.content)
-        assert sent["params"]["name"] == "get_treasury_outlook"
+        assert sent["params"]["name"] == "get_finance_projection"
         assert route.calls.last.request.headers["X-Maggie-User-Id"] == proaction.user_id
         assert json.loads(result["toolCalls"][0]["result"])["overdraft"]["onDate"] == "2026-11-06"
         repo.record.assert_awaited_once()
