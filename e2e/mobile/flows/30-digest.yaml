@@ -18,7 +18,7 @@ env:
 #   min 10°, 3 mm, 70 %, wind 23 km/h), Maggie's vocal is there to play and the Agenda card holds the appointment
 #
 # When I go back to the Accueil, the tile is gone (the opening told the server, Mercure told the Accueil); when I open
-# the chat, the thread holds the announcement and the `chat_digest_card`, which opens the screen again.
+# the chat, the thread holds the announcement, its vocal bubble (`voice_play`) and the `chat_digest_card`, which opens the screen again.
 #
 # What is not here: the order of the blocks, the empty cards, a weather in error and the tablet's two
 # columns are the JVM's (`DigestScreenTest`, `DigestViewModelTest`). It runs as a user of its own: the digest
@@ -92,6 +92,8 @@ env:
       id: "chat_digest_card"
     timeout: 20000
 - assertVisible: "Votre digest du matin est disponible."
+- assertVisible:
+    id: "voice_play"
 - assertVisible: "Digest du matin"
 - tapOn:
     id: "chat_digest_card"
