@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest'
+import { TOKENS } from '../../../design/tokens'
 import {
   advance,
   back,
@@ -20,10 +21,15 @@ import {
   saveSession,
   skipRecipe,
   withGuests,
+  COOKING_COLOR,
 } from './cookingSession'
 
 describe('cookingSession', () => {
   beforeEach(() => sessionStorage.clear())
+
+  test("the Cuisine activity wears module.cuisine's dark hue, not a copy", () => {
+    expect(COOKING_COLOR).toBe(TOKENS.module.cuisine.dark)
+  })
 
   test('the launch addresses', () => {
     expect(mealLaunchPath('M1')).toBe('/activites/cuisine?meal=M1')

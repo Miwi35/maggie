@@ -58,7 +58,7 @@ const renderShell = (props: Partial<React.ComponentProps<typeof ActivityShell>> 
   const onQuit = vi.fn()
   const view = render(
     <ThemeProvider theme={veilleuseDarkTheme}>
-      <ActivityShell color="#8FB8FF" name="Cuisine" onQuit={onQuit} {...props}>
+      <ActivityShell color="#F5B57A" name="Cuisine" onQuit={onQuit} {...props}>
         <p>Contenu</p>
       </ActivityShell>
     </ThemeProvider>,
@@ -79,11 +79,11 @@ describe('ActivityShell', () => {
 
   test("draws the activity's colour as a radial halo on the night background (MAG-617)", () => {
     installBrowser()
-    renderShell({ color: '#8FB8FF' })
+    renderShell({ color: '#F5B57A' })
 
     const background = window.getComputedStyle(screen.getByTestId('activity-shell')).backgroundImage
     expect(background).toContain('radial-gradient(900px 640px at 78% 30%')
-    expect(background).toContain('rgba(143, 184, 255, 0.16)')
+    expect(background).toContain('rgba(245, 181, 122, 0.16)')
   })
 
   test('tints the halo with the colour it is given, not with the accent of the theme', () => {

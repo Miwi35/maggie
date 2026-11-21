@@ -26,6 +26,12 @@ class ModuleThemeTest {
     }
 
     @Test
+    fun `the Cuisine screens wear the apricot and the Courses activity the blue`() {
+        assertEquals(MaggieTokens.Module.cuisine.second, MaggieDarkColorScheme.inModule(ModuleHue.CUISINE).primary)
+        assertEquals(MaggieTokens.Module.courses.second, MaggieDarkColorScheme.inModule(ModuleHue.COURSES).primary)
+    }
+
+    @Test
     fun `a selected chip is the hue over the surface`() {
         val scheme = MaggieDarkColorScheme.inModule(ModuleHue.FINANCE)
 

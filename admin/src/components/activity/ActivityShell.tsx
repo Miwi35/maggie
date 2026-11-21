@@ -25,7 +25,7 @@ import { useWakeLock } from './useWakeLock'
 const TOUCH_TARGET = 64
 
 interface ActivityShellProps {
-  /** The activity's colour (Cuisine `#8FB8FF`): the accent of everything inside. */
+  /** The activity's colour (Cuisine `#F5B57A`): the accent of everything inside. */
   color: string
   /** Names the activity for the screen reader: « Quitter <name> » is the ✕. */
   name: string

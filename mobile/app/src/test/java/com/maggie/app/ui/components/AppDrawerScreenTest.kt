@@ -154,18 +154,32 @@ class AppDrawerScreenTest {
         assertEquals(0.79f, sheet.value / window.value, 0.02f)
     }
 
-    /** The palette of the charter is the tokens', and Courses reads in `module.cuisine` there (`#8FB8FF`), as the admin does. */
+    /** The palette of the charter is the tokens', and Courses reads in `module.courses` there (`#8FB8FF`), as the admin does. */
     @Test
-    fun `Courses is drawn in the cuisine hue of the charter, not in the rhythm's orange`() {
+    fun `Courses is drawn in its own hue of the charter, not in the cuisine apricot`() {
         var grocery = Color.Unspecified
         var expected = Color.Unspecified
         compose.setContent {
             grocery = DrawerTint.GROCERY.color()
-            val pair = MaggieTokens.Module.cuisine
+            val pair = MaggieTokens.Module.courses
             expected = if (isMaggieDark()) pair.second else pair.first
         }
         compose.waitForIdle()
 
         assertEquals(expected, grocery)
+    }
+
+    @Test
+    fun `Cuisine is drawn in the apricot of the charter`() {
+        var cuisine = Color.Unspecified
+        var expected = Color.Unspecified
+        compose.setContent {
+            cuisine = DrawerTint.CUISINE.color()
+            val pair = MaggieTokens.Module.cuisine
+            expected = if (isMaggieDark()) pair.second else pair.first
+        }
+        compose.waitForIdle()
+
+        assertEquals(expected, cuisine)
     }
 }

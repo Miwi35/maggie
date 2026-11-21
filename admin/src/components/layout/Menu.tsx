@@ -34,7 +34,7 @@ const MODULE_LOOKS: Record<string, { icon: ReactElement; hue?: ModuleName }> = {
   [HOME_LABEL]: { icon: <HomeIcon /> },
   Agenda: { icon: <CalendarMonthIcon /> },
   Tâches: { icon: <TaskAltIcon />, hue: 'taches' },
-  Courses: { icon: <ShoppingCartIcon />, hue: 'cuisine' },
+  Courses: { icon: <ShoppingCartIcon />, hue: 'courses' },
   Cuisine: { icon: <RestaurantMenuIcon />, hue: 'cuisine' },
   Santé: { icon: <FitnessCenterIcon />, hue: 'sport' },
   Finance: { icon: <AccountBalanceWalletIcon />, hue: 'comptes' },

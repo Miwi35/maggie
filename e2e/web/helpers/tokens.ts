@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 export interface Tokens {
   surface: Record<'light' | 'dark', { background: string; text: string }>
   typography: { family: string; weight: Record<string, number> }
+  module: Record<string, Record<'light' | 'dark', string>>
 }
 
 /** `design/tokens.json`, from `/e2e` in the container or from the checkout. */

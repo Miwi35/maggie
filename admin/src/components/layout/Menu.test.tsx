@@ -299,6 +299,15 @@ describe('CustomMenu — the modules of the mockup', () => {
     ])
   })
 
+  test('paints Cuisine in the apricot and Courses in its own blue', async () => {
+    stubPersonality('Maggie')
+    renderMenuAt('/recipes')
+
+    const cuisine = await screen.findByRole('menuitem', { name: 'Cuisine' })
+    expect(cuisine.querySelector('[data-module="cuisine"]')).not.toBeNull()
+    expect(screen.getByRole('menuitem', { name: 'Courses' }).querySelector('[data-module="courses"]')).not.toBeNull()
+  })
+
   test('opens Santé in the mockup order — Suivi, Sport, Activité, Nutrition, Journal, Configuration last —, the current entry in the hue of the module', async () => {
     stubPersonality('Maggie')
     renderMenuAt('/workouts')

@@ -88,7 +88,7 @@ class ActivityScaffoldScreenTest {
         val halo = compose.onNode(SemanticsMatcher.keyIsDefined(HaloColorKey)).fetchSemanticsNode().config[HaloColorKey]
 
         assertEquals(MaggieDarkColorScheme.inModule(ModuleHue.CUISINE).primary, halo)
-        assertEquals(Color(0xFF8FB8FF), halo)
+        assertEquals(Color(0xFFF5B57A), halo)
     }
 
     @Test
