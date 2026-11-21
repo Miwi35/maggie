@@ -232,6 +232,7 @@ areas:
     - e2e/mobile/scripts/event-api.js
   interruptions:
     - admin/src/components/maggie/**
+    - mobile/app/src/main/java/com/maggie/app/data/interruption/**
   realtime:
     - admin/src/hooks/{useMercure,mercureUrl}.ts
     - mobile/app/src/main/java/com/maggie/app/data/mercure/**
