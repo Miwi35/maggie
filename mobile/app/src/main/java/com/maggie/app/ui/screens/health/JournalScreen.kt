@@ -68,6 +68,7 @@ import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.HealthSection
 import com.maggie.app.ui.navigation.LocalModuleBar
+import com.maggie.app.ui.theme.JOURNAL_DAY_RAIL_DARK
 import com.maggie.app.ui.theme.isMaggieDark
 import com.maggie.app.ui.theme.maggieSurface
 import java.time.LocalDate
@@ -174,8 +175,6 @@ private fun JournalContent(
     }
 }
 
-private val DAY_RAIL_DARK = Color(0xFF15141E)
-
 /** « ‹ Aujourd’hui samedi 7 nov. › » on a rail: no day after today. */
 @Composable
 private fun DayHeader(date: LocalDate, today: LocalDate, onPrevious: () -> Unit, onNext: () -> Unit) {
@@ -191,7 +190,7 @@ private fun DayHeader(date: LocalDate, today: LocalDate, onPrevious: () -> Unit,
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isMaggieDark()) DAY_RAIL_DARK else surface.track, RoundedCornerShape(999.dp))
+            .background(if (isMaggieDark()) JOURNAL_DAY_RAIL_DARK else surface.track, RoundedCornerShape(999.dp))
             .padding(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
