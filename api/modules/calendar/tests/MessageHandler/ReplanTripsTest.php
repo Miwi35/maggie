@@ -7,6 +7,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Place;
 use Maggie\Calendar\Entity\Proaction;
 use Maggie\Calendar\Entity\ProactionOutcome;
 use Maggie\Calendar\Entity\Trip;
@@ -650,6 +651,10 @@ class ReplanTripsTest extends KernelTestCase
     {
         // 300 m north of home.
         $this->parkCar(48.1127);
+        // The fake geocodes every address at the dentist: the places saved without coordinates would
+        // tie with it, and the one without a parking could win. Located away, only the dentist matches.
+        $this->em()->find(Place::class, $this->id('gym'))->setCoordinates(48.13, -1.70);
+        $this->em()->find(Place::class, $this->id('pool'))->setCoordinates(48.09, -1.65);
         $event = $this->em()->find(Event::class, $this->id('dentist'));
         $trip = (new Trip($event, TripOccurrence::startOf($event)))->apply(new TripEstimate(
             mode: TripMode::Drive,
