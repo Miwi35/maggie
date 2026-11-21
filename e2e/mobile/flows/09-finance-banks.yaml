@@ -99,7 +99,7 @@ tags:
 - tapOn: "Connecter une banque"
 
 - extendedWaitUntil:
-    visible: "Choisir une banque"
+    visible: "Rechercher une banque"
     timeout: 20000
 
 - tapOn:

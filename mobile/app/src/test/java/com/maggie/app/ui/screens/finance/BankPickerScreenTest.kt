@@ -51,8 +51,19 @@ class BankPickerScreenTest {
             BankPickerContent(banks, loading = false, country = "FR", onCountry = { asked += it }, onPick = {}, onBack = {})
         }
 
-        compose.onNodeWithText("CH").performClick()
+        compose.onNodeWithText("France").performClick()
+        compose.onNodeWithText("Suisse").performClick()
 
         assertEquals(listOf("CH"), asked)
+    }
+
+    @Test
+    fun `titleAndCountryPillFollowTheMockup`() {
+        compose.setContent {
+            BankPickerContent(banks, loading = false, country = "FR", onCountry = {}, onPick = {}, onBack = {})
+        }
+
+        compose.onNodeWithText("Connecter une banque").assertIsDisplayed()
+        compose.onNodeWithText("France").assertIsDisplayed()
     }
 }
