@@ -105,8 +105,12 @@ class RecordingGateway:
         self.asked: list[str] = []
         self.screens: list[str | None] = []
         self.images: list = []
+        self.checkpoints: list = []
 
-    async def chat_stream(self, message, user_id, user_msg_id, screen_context=None, image=None, **_kwargs):
+    async def chat_stream(
+        self, message, user_id, user_msg_id, screen_context=None, image=None, checkpoint=None, **_kwargs
+    ):
+        self.checkpoints.append(checkpoint)
         self.asked.append(message)
         self.screens.append(screen_context)
         self.images.append(image)
@@ -198,6 +202,33 @@ class TestAnAgentThatRestarts:
 
         assert gateway.screens == ["[Contexte de l'écran]\nPage : https://exemple.fr"]
         assert (await message_repo.get(lost.id)).turn_screen_context is None
+
+    @pytest.mark.asyncio
+    async def test_a_resumed_turn_gets_back_the_calls_it_had_started(self, chat_db):
+        lost = await orphan(chat_db, content="mets le dentiste", age=timedelta(minutes=1))
+        calls = [{"role": "assistant", "content": [{"type": "tool_use", "id": "tu-1", "name": "a", "input": {}}]}]
+        await message_repo.checkpoint_turn(lost.id, calls)
+        gateway = RecordingGateway()
+        runner = TurnRunner()
+
+        await runner.resume_lost_turns(gateway)
+        await runner.idle()
+
+        assert gateway.checkpoints == [calls]
+        assert (await message_repo.get(lost.id)).turn_blocks is None
+
+    @pytest.mark.asyncio
+    async def test_a_finished_or_expired_turn_forgets_its_calls(self, chat_db):
+        finished = await orphan(chat_db, content="un", age=timedelta(minutes=1))
+        expired = await orphan(chat_db, content="deux", age=timedelta(hours=5))
+        for message in (finished, expired):
+            await message_repo.checkpoint_turn(message.id, [{"role": "assistant", "content": []}])
+
+        await message_repo.finish_turn(finished.id)
+        await message_repo.expire_stale_turns(older_than=datetime.now(UTC) - timedelta(hours=1))
+
+        assert (await message_repo.get(finished.id)).turn_blocks is None
+        assert (await message_repo.get(expired.id)).turn_blocks is None
 
     @pytest.mark.asyncio
     async def test_the_screenshot_reaches_the_model_and_a_resumed_turn_has_none(self, chat_db):

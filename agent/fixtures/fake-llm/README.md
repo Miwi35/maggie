@@ -290,3 +290,5 @@ reads the agenda and cites « Séance A à 18 h 30, 30 min » among the appointm
    a scenario calls a tool the agent was not offered, which is how a module
    dropping out of `discovery.scan_dirs` shows up here.
 4. Data the tools need goes in `api/fixtures/e2e/`, like any other e2e data.
+
+`tool_choice={"type": "none"}` is respected (MAG-872): the scripted turn then gives its text and none of its tools, which is how the loop's stop after three failures of one tool is played (`97-tool-fails-three-times.yaml`).

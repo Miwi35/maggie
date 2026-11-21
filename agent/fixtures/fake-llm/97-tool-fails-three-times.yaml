@@ -1,0 +1,22 @@
+# The loop stops a tool that failed three times in a row (MAG-872): the fourth turn would
+# call it again, but the loop forbids tools, so the model's text is the answer.
+name: tool-fails-three-times
+description: After three failures of one tool the model answers in its own words.
+
+match:
+  user_contains: "ajoute du pain chez le boulanger fantôme"
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input: {label: "pain", storeName: "boulanger fantôme"}
+  - tools:
+      - name: add_grocery_item
+        input: {label: "pain", storeName: "boulanger fantôme"}
+  - tools:
+      - name: add_grocery_item
+        input: {label: "pain", storeName: "boulanger fantôme"}
+  - text: "Je n'arrive pas à ajouter le pain : je ne trouve pas ce boulanger dans vos magasins. Lequel voulez-vous ?"
+    tools:
+      - name: add_grocery_item
+        input: {label: "pain", storeName: "boulanger fantôme"}

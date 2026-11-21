@@ -1,5 +1,6 @@
 import asyncio
 import json
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -301,3 +302,61 @@ class TestConcurrentReconnect:
 
 async def _no_response(*_args, **_kwargs) -> None:
     return None
+
+
+class TestInvalidParams:
+    @respx.mock
+    async def test_call_tool_invalid_params_names_the_fields_and_the_expected_form(
+        self, client: McpClient, mcp_server_url: str
+    ):
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+        schema = {"type": "object", "properties": {"quantity": {"type": "integer"}}}
+        client._tools = [{"name": "add_grocery_item", "inputSchema": schema}]
+        respx.post(mcp_server_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "error": {
+                        "code": -32602,
+                        "message": "Invalid parameters for tool 'add_grocery_item'",
+                        "data": {
+                            "validation_errors": [
+                                {"pointer": "/quantity", "keyword": "type", "message": "Must be of type integer"}
+                            ]
+                        },
+                    },
+                },
+            )
+        )
+
+        with patch("app.mcp.client.capture_signal") as signal:
+            result = await client.call_tool("add_grocery_item", {"quantity": "x"})
+
+        assert json.loads(result) == {
+            "error": "invalid_input",
+            "tool": "add_grocery_item",
+            "fields": [{"field": "quantity", "problem": "Must be of type integer"}],
+            "expected": schema,
+        }
+        signal.assert_not_called()
+        await client.disconnect()
+
+    @respx.mock
+    async def test_call_tool_another_json_rpc_error_keeps_its_message(self, client: McpClient, mcp_server_url: str):
+        client._http_client = httpx.AsyncClient(timeout=30.0)
+        client._session_id = "session-existing"
+        respx.post(mcp_server_url).mock(
+            return_value=httpx.Response(
+                200, json={"jsonrpc": "2.0", "id": 1, "error": {"code": -32603, "message": "Internal boom"}}
+            )
+        )
+
+        with patch("app.mcp.client.capture_signal") as signal:
+            result = await client.call_tool("add_grocery_item", {})
+
+        assert json.loads(result) == {"error": "Internal boom"}
+        assert signal.call_args.kwargs["reason"] == "jsonrpc_error"
+        await client.disconnect()

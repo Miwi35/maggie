@@ -3,10 +3,21 @@
 `replay` is the half that matters: the API rejects a conversation whose `tool_result` is
 not immediately behind the `tool_use` carrying its id, and a rejected call is read by the
 user as « une erreur est survenue ». So every malformed shape below has to come back
-empty rather than nearly right.
+empty rather than nearly right. A call whose result never came is the exception: it is
+closed as interrupted (MAG-872).
 """
 
-from app.llm.tool_blocks import TOOL_RESULT_MAX_CHARS, TRUNCATION_MARK, record, replay
+import json
+
+from app.llm.tool_blocks import (
+    INTERRUPTED_RESULT,
+    TOOL_RESULT_MAX_CHARS,
+    TRUNCATION_MARK,
+    close_interrupted,
+    record,
+    record_partial,
+    replay,
+)
 
 
 def _call(tool_id: str = "toolu_1", name: str = "get_grocery_list", result: str = '{"items": []}') -> dict:
@@ -88,20 +99,9 @@ class TestReplayingARound:
 
 
 class TestWhatReplayRefuses:
-    def test_a_call_whose_result_went_missing(self):
-        blocks = record([_call()])
-
-        assert replay([blocks[0]]) == []
-
     def test_a_result_whose_id_does_not_match_its_call(self):
         blocks = record([_call()])
         blocks[1]["content"][0]["tool_use_id"] = "toolu_other"
-
-        assert replay(blocks) == []
-
-    def test_a_round_with_more_calls_than_results(self):
-        blocks = record([_call("toolu_1"), _call("toolu_2")])
-        blocks[1]["content"].pop()
 
         assert replay(blocks) == []
 
@@ -144,7 +144,7 @@ class TestWhatReplayRefuses:
         assert replay(blocks) == []
 
     def test_a_round_that_is_only_half_a_round(self):
-        """An odd number of turns means something other than the loop wrote this column."""
+        """An id used twice means something other than the loop wrote this column."""
         blocks = record([_call()])
 
         assert replay([*blocks, blocks[0]]) == []
@@ -164,3 +164,48 @@ class TestWhatReplayRefuses:
         )
         for stored in stored_values:
             assert replay(stored) == [], stored
+
+
+class TestClosingInterruptedCalls:
+    def test_a_call_without_its_result_is_closed_as_interrupted(self):
+        blocks = record([_call()])
+
+        turns = replay([blocks[0]])
+
+        assert turns[0] == blocks[0]
+        assert turns[1]["content"] == [
+            {"type": "tool_result", "tool_use_id": "toolu_1", "content": INTERRUPTED_RESULT}
+        ]
+
+    def test_the_calls_that_ran_keep_their_result_and_the_rest_are_closed(self):
+        blocks = record([_call("toolu_1"), _call("toolu_2")])
+        blocks[1]["content"].pop()
+
+        results = replay(blocks)[1]["content"]
+
+        assert results[0]["content"] == '{"items": []}'
+        assert results[1] == {"type": "tool_result", "tool_use_id": "toolu_2", "content": INTERRUPTED_RESULT}
+
+    def test_a_whole_round_is_left_as_it_is(self):
+        blocks = record([_call("toolu_1"), _call("toolu_2")])
+
+        assert close_interrupted(blocks) == blocks
+
+    def test_a_round_in_progress_holds_every_call_and_the_results_so_far(self):
+        uses = [{"id": "toolu_1", "name": "a", "input": {}}, {"id": "toolu_2", "name": "b", "input": {}}]
+
+        assert [t["role"] for t in record_partial(uses, [])] == ["assistant"]
+        partial = record_partial(uses, [{**uses[0], "result": "ok"}])
+
+        assert [len(t["content"]) for t in partial] == [2, 1]
+        assert partial[1]["content"][0]["content"] == "ok"
+        assert len(close_interrupted(partial)[1]["content"]) == 2
+
+    def test_results_out_of_order_are_still_dropped(self):
+        blocks = record([_call("toolu_1"), _call("toolu_2")])
+        blocks[1]["content"].reverse()
+
+        assert replay(blocks) == []
+
+    def test_the_interrupted_result_is_stable_json(self):
+        assert json.loads(INTERRUPTED_RESULT)["error"] == "interrupted"

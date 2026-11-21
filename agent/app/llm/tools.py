@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 
@@ -10,6 +11,7 @@ from app.db.pending_action_repository import pending_action_repo
 from app.llm.message_reply import ANSWER_APPROVAL_TOOL, handle_answer_approval
 from app.llm.questions import ASK_OWNER, ASK_OWNER_TOOL, handle_ask_owner
 from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time
+from app.llm.tool_failures import invalid_input
 from app.mcp.client import mcp_client
 from app.memory import conversations
 from app.memory.tools import MEMORY_TOOL_NAMES, MEMORY_TOOLS
@@ -440,6 +442,18 @@ def _native_tools() -> list[dict]:
     ]
 
 
+@functools.cache
+def _native_schemas() -> dict[str, dict]:
+    return {tool["name"]: tool.get("input_schema") or {} for tool in _native_tools()}
+
+
+def _missing_native_fields(name: str, arguments: dict) -> list[str]:
+    schema = _native_schemas().get(name)
+    if schema is None:
+        return []
+    return [field for field in schema.get("required", []) if field not in arguments]
+
+
 def _native_tool_names() -> frozenset[str]:
     """Every tool the agent serves itself: an MCP tool by the same name is not offered.
 
@@ -531,6 +545,10 @@ class ToolRouter:
         if name in EXECUTOR_ONLY_MCP_TOOLS:
             logger.warning(f"Call to an executor-only tool refused: {name}")
             return json.dumps({"error": f"Tool '{name}' is not available"})
+
+        if missing := _missing_native_fields(name, arguments):
+            schema = _native_schemas()[name]
+            return invalid_input(name, [{"field": f, "problem": "missing"} for f in missing], schema)
 
         held = await self._apply_policy(name, arguments, user_id, source, context_id)
         if held is not None:
