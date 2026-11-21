@@ -181,13 +181,16 @@ describe('NutritionPage', () => {
         'Bilan du jour',
         '7 jours',
         'Macros',
-        'Jeûne',
-        'Jeûnes, 14 jours',
         'Journal',
         'Ajouter',
+        'Jeûne',
+        'Jeûnes, 14 jours',
       ]),
     )
-    expect(screen.getByTestId('nutrition-day')).toHaveTextContent('Aujourd’hui')
+    expect(within(bilan()).getByRole('region', { name: '7 jours' })).toBeInTheDocument()
+    expect(within(bilan()).getByRole('region', { name: 'Macros' })).toBeInTheDocument()
+    expect(within(journal()).getByRole('region', { name: 'Ajouter' })).toBeInTheDocument()
+    expect(screen.getByTestId('nutrition-day')).toHaveTextContent('Mercredi 21 octobre')
 
     await waitFor(() => expect(screen.getAllByTestId('week-day')).toHaveLength(7))
     expect(screen.getByRole('img', { name: /^Aujourd’hui : −1\s307 kcal$/ })).toBeInTheDocument()
@@ -200,16 +203,29 @@ describe('NutritionPage', () => {
     expect(screen.getByTestId('macro-fat')).toHaveTextContent('16,3 g')
 
     const apple = await within(journal()).findByTestId('intake-row-01APPLE')
-    expect(apple).toHaveTextContent('Pomme')
-    expect(apple).toHaveTextContent('10:30 · 150 g')
-    expect(apple).toHaveTextContent('78 kcal')
+    expect(within(journal()).getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+      'Heure',
+      'Aliment',
+      'Quantité',
+      'kcal',
+      'P',
+      'G',
+      'L',
+      'Source',
+      '',
+    ])
+    const cells = within(apple).getAllByRole('cell')
+    expect(cells.slice(0, 5).map((cell) => cell.textContent)).toEqual(['10 h 30', 'Pomme', '150 g', '78', '0,4'])
     expect(within(apple).getByTestId('intake-source')).toHaveTextContent('Saisie')
     expect(calls(fetcher, 'GET', '/api/health/food-intakes')[0][0]).toBe('/api/health/food-intakes?date[after]=2026-10-21&date[before]=2026-10-21')
 
     const planned = within(journal()).getByTestId('planned-row-01MEAL')
+    expect(planned).toHaveStyle({ opacity: '0.55' })
+    expect(planned).toHaveTextContent('Déjeuner')
     expect(planned).toHaveTextContent('Bol quinoa poulet')
-    expect(planned).toHaveTextContent('Prévu · Déjeuner')
-    expect(within(planned).getByRole('button', { name: 'Mangé : Bol quinoa poulet' })).toBeInTheDocument()
+    expect(planned).toHaveTextContent('515')
+    expect(planned).toHaveTextContent('Prévu')
+    expect(within(planned).getByRole('button', { name: 'Marquer mangé : Bol quinoa poulet' })).toBeInTheDocument()
   })
 
   test('+100 kcal reads « Équilibre », in a neutral ink, never an alert colour', async () => {
@@ -250,7 +266,7 @@ describe('NutritionPage', () => {
     const fetcher = stubApi(server)
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Mangé : Bol quinoa poulet' }))
+    await user.click(await screen.findByRole('button', { name: 'Marquer mangé : Bol quinoa poulet' }))
 
     expect(bodyOf(fetcher, 'POST', '/api/health/food-intakes')).toEqual({ mealId: '01MEAL' })
     await waitFor(() => expect(within(bilan()).getByTestId('balance-parts')).toHaveTextContent(/^Mangé 515 kcal · Prévu 0 kcal/))
@@ -268,11 +284,11 @@ describe('NutritionPage', () => {
     })
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Mangé : Bol quinoa poulet' }))
+    await user.click(await screen.findByRole('button', { name: 'Marquer mangé : Bol quinoa poulet' }))
 
     expect(await screen.findByText('This meal is already eaten.')).toBeInTheDocument()
     expect(calls(fetcher, 'POST', '/api/health/food-intakes')).toHaveLength(1)
-    expect(within(journal()).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(journal()).getAllByTestId(/^(intake|planned)-row-/)).toHaveLength(2)
   })
 
   test('the bin deletes the intake and the journal reads the day again', async () => {
@@ -362,6 +378,15 @@ describe('NutritionPage', () => {
     expect(within(form).getByRole('textbox', { name: 'Libellé' })).toHaveValue('Gâteau')
   })
 
+  test('the fast comes last, in its own cell', async () => {
+    stubApi({ balance: balanceOf(), intakes: [] })
+    renderPage()
+
+    const cell = await screen.findByTestId('nutrition-fasting-cell')
+    expect(within(cell).getByTestId('fasting-card')).toBeInTheDocument()
+    expect(cell.parentElement?.lastElementChild).toBe(cell)
+  })
+
   test('the day before is one click away, and the next day never goes past today', async () => {
     const user = userEvent.setup()
     const fetcher = stubApi({ balance: balanceOf(), intakes: [] })
@@ -370,7 +395,7 @@ describe('NutritionPage', () => {
     expect(await screen.findByRole('button', { name: 'Jour suivant' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Jour précédent' }))
 
-    expect(screen.getByTestId('nutrition-day')).toHaveTextContent('mar. 20 oct.')
+    expect(screen.getByTestId('nutrition-day')).toHaveTextContent('Mardi 20 octobre')
     await waitFor(() =>
       expect(calls(fetcher, 'GET', '/api/health/daily-balance').map(([url]) => url)).toContain('/api/health/daily-balance?date=2026-10-20'),
     )

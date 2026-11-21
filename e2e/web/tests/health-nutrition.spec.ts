@@ -90,9 +90,9 @@ test('Santé › Nutrition: « Mangé » moves the planned lunch into what was e
     await nutrition.navigateTo('Nutrition', 'Santé')
     await expect(nutrition.balanceCard).toBeVisible()
     await expect(nutrition.planned).toHaveText(`Prévu ${kcal(before.plannedKcal)} kcal`)
-    await expect(nutrition.plannedRow(meal)).toContainText('515 kcal')
+    await expect(nutrition.plannedRow(meal)).toContainText('515')
 
-    // …and press « Mangé » on it,
+    // …and press « Marquer mangé » on it,
     const intakeId = await nutrition.markEaten(meal)
 
     // Then the bilan moves from planned to eaten, on screen…
@@ -102,6 +102,7 @@ test('Santé › Nutrition: « Mangé » moves the planned lunch into what was e
     await expect(nutrition.planned).toHaveText(`Prévu ${kcal(left)} kcal`)
     await expect(nutrition.plannedRow(meal)).toHaveCount(0)
     await expect(nutrition.intakeRow(intakeId).getByTestId('intake-source')).toHaveText('Repas')
+    await expect(nutrition.intakeCells(intakeId).first()).toHaveText(/^\d{1,2} h \d{2}$/)
 
     // …and in the API: the meal is no longer planned, it is eaten, its macros counted once.
     const after = await balanceOf(api, today)
