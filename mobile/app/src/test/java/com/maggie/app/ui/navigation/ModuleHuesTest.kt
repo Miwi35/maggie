@@ -29,6 +29,12 @@ class ModuleHuesTest {
     }
 
     @Test
+    fun `agenda routes wear the agenda hue`() {
+        listOf(Screen.Calendar.route, Screen.PeriodList.route, Screen.PeriodForm.route)
+            .forEach { assertEquals(it, ModuleHue.AGENDA, moduleHueOf(it)) }
+    }
+
+    @Test
     fun `the Courses activity keeps the Cuisine hue (MAG-762)`() {
         assertEquals(ModuleHue.COURSES, moduleHueOf(Screen.GroceryRun.route))
     }
@@ -55,7 +61,6 @@ class ModuleHuesTest {
     @Test
     fun `other screens keep Maggie's violet`() {
         assertNull(moduleHueOf(Screen.Home.route))
-        assertNull(moduleHueOf(Screen.Calendar.route))
         assertNull(moduleHueOf(Screen.Grocery.route))
         assertNull(moduleHueOf(Screen.Settings.route))
         assertNull(moduleHueOf(Screen.Loading.route))

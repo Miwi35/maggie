@@ -22,6 +22,12 @@ private val TASK_ROUTES = setOf(
     DeepLinks.TASK_FOCUS_ROUTE,
 )
 
+private val AGENDA_ROUTES = setOf(
+    Screen.Calendar.route,
+    Screen.PeriodList.route,
+    Screen.PeriodForm.route,
+)
+
 private val FINANCE_ONLY_ROUTES = setOf(
     Screen.ProjectForm.route,
     Screen.FinanceReviewActivity.route,
@@ -45,6 +51,7 @@ internal fun moduleHueOf(route: String?): ModuleHue? = when {
     route == null -> null
     FinanceSection.of(route) != null || route in FINANCE_ONLY_ROUTES -> ModuleHue.FINANCE
     route in TASK_ROUTES -> ModuleHue.TASKS
+    route in AGENDA_ROUTES -> ModuleHue.AGENDA
     route in COOKING_ROUTES -> ModuleHue.CUISINE
     route == Screen.GroceryRun.route -> ModuleHue.COURSES
     HealthSection.pageOf(route) != null || route == Screen.HealthSportForm.route || route == Screen.SportActivity.route || route == Screen.SportActivityEnd.route -> ModuleHue.HEALTH
