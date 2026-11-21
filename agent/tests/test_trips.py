@@ -45,6 +45,10 @@ class TestTheShippedTripsSkill:
         assert SKILL.index("estimate_trip") < SKILL.index("`set_trip` (`eventId`, `mode`, `origin`)")
         assert all(mode in SKILL for mode in ("drive", "transit", "walk", "bicycle"))
 
+    def test_the_car_left_elsewhere_is_said_with_car_at(self):
+        assert "carAt=parked" in SKILL
+        assert "carAt=origin" in SKILL
+
     def test_no_fixed_mode_rule(self):
         assert "3 km" not in SKILL
         assert "sous la pluie" not in SKILL

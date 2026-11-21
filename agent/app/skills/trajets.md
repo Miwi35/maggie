@@ -24,6 +24,8 @@ Ne mets `decidedBy=user` que pour une origine que l'utilisateur a lui-même choi
 
 Appelle `estimate_trip` avec l'origine et les modes plausibles (`drive`, `transit`, `walk`, `bicycle`). Écarte ceux que la météo, la distance ou ses habitudes rendent absurdes. Compare les durées et choisis. Enregistre le choix avec `set_trip` (`eventId`, `mode`, `origin`). Pour un événement répété, passe `date` (le jour planifié, `YYYY-MM-DD`) à `estimate_trip` et `set_trip` : chaque occurrence a son trajet.
 
+En voiture depuis la maison ou un lieu, le calcul compte la voiture à l'origine. Si l'utilisateur dit que sa voiture est restée ailleurs, passe `carAt=parked` ; s'il l'a avec lui en partant de sa position, `carAt=origin`.
+
 ## Stationnement
 
 En voiture, si le trajet répond `parkingKnown=false`, dis-le à l'utilisateur et demande-lui où il se gare. Pose une proaction non silencieuse (`schedule_proaction`) dans quelques minutes, au résumé « Où se garer · <titre> ». Enregistre sa réponse avec `save_place`.
