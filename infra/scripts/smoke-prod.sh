@@ -279,7 +279,9 @@ code="$RANDOM$RANDOM"
 title="Rendez-vous smoke $RANDOM$RANDOM"
 # « sans query »: the query matches titles and places, not descriptions (MAG-16), and a
 # model that passed the code as query found nothing and rolled the release back (MAG-565).
-QUESTION="Appelle l'outil get_events sans query, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « code $code » ?"
+# « marqueur », never « code »: a code of 4 to 8 digits written to the chat is held back as a
+# secret (MAG-871), and one run in seven rolled the release back on Maggie's refusal (MAG-886).
+QUESTION="Appelle l'outil get_events sans query, puis réponds en une phrase : quel est le titre exact de l'événement dont la description est « marqueur $code » ?"
 
 # A POST is not retried: a timed-out one may still have written. It gets
 # WRITE_TIMEOUT instead of 15 s — on a cold pod the event's took longer, and the
@@ -292,7 +294,7 @@ event="" event_status=""
 if [ -n "$agenda_id" ]; then
   rm -f "$tmp/event"
   event_status="$(curl -sS -o "$tmp/event" --max-time "$WRITE_TIMEOUT" -w '%{http_code}' -X POST "${AUTH[@]}" "${LD_JSON[@]}" \
-    -d "$(jq -nc --arg t "$title" --arg d "code $code" --arg a "/api/agendas/$agenda_id" \
+    -d "$(jq -nc --arg t "$title" --arg d "marqueur $code" --arg a "/api/agendas/$agenda_id" \
       --arg s "$(date -u -d '+1 hour' '+%Y-%m-%dT%H:%M:%S+00:00')" \
       --arg e "$(date -u -d '+2 hours' '+%Y-%m-%dT%H:%M:%S+00:00')" \
       '{summary: $t, description: $d, agenda: $a, startAt: $s, endAt: $e}')" "$BASE_URL/api/events" 2>/dev/null || true)"

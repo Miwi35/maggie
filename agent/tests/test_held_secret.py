@@ -49,6 +49,18 @@ def test_an_ordinary_message_is_kept(said):
     assert mask_owner_secrets(said) == said
 
 
+# The production smoke's question (infra/scripts/smoke-prod.sh, QUESTION): its marker is
+# $RANDOM$RANDOM, 2 to 10 digits. Labelled « code », one run in seven was held back as a secret and
+# the release rolled back (MAG-886, run 44868369019).
+@pytest.mark.parametrize("marker", ["12", "4821", "12345678", "3276732767"])
+def test_the_smoke_question_is_never_held(marker):
+    question = (
+        "Appelle l'outil get_events sans query, puis réponds en une phrase : "
+        f"quel est le titre exact de l'événement dont la description est « marqueur {marker} » ?"
+    )
+    assert mask_owner_secrets(question) == question
+
+
 def test_a_held_message_brings_the_consign_before_the_screen():
     said, screen = hold_secrets("4821", None)
     assert said == MASK
