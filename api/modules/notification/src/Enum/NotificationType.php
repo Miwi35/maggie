@@ -9,7 +9,7 @@ enum NotificationType: string
     case Reminder = 'reminder';
     /** A bank's consent is about to run out (or has): the user has to reconnect it. */
     case ConsentExpiring = 'consent_expiring';
-    /** Something Maggie did on her own initiative (a proaction) and wants the user to see. */
+    /** The interruption of a proaction (MAG-886): strong, it interrupts. */
     case Proaction = 'proaction';
     /** A task reaches its due date. */
     case TaskDue = 'task_due';
@@ -27,7 +27,7 @@ enum NotificationType: string
     case CookingTimer = 'cooking_timer';
     /** Time to leave for an event: one per `departAt` of its trip (MAG-655). */
     case Departure = 'departure';
-    /** A chat message from Maggie outside a conversation in progress (MAG-687). */
+    /** A message of Maggie in the thread (MAG-687): it never interrupts, the push is a conversation notification. */
     case Message = 'message';
     /** Maggie hesitates and puts a question with boxes to tick, answered by `/agent/questions/{id}/answer` (MAG-717). */
     case Question = 'question';

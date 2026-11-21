@@ -168,6 +168,10 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             delivery = decide(
                 proaction.kind, result["response"], verdict, list(proaction.signaled_topics), datetime.now(UTC)
             )
+            if is_bilan(proaction.summary) and delivery is Delivery.INTERRUPT:
+                # The evening review is a message, not a request (owner, 21 Nov.): it reaches the owner as a
+                # `message` notification, never as an interruption.
+                delivery = Delivery.THREAD
             trace = {
                 "delivery": delivery.value,
                 "topic_key": verdict.topic if verdict else None,
@@ -199,9 +203,16 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 ui_blocks=ui_blocks,
                 screen=screen,
             )
-            # Out of any conversation, the user is told by the API once the run is recorded as an
-            # interruption: one sentence and the link to this message. A message left in the thread
-            # tells nobody (MAG-886).
+            # An interruption is announced by the API once the run is recorded (one sentence and the link
+            # to this message); a message left in the thread tells nobody (MAG-886), except the review,
+            # which notifies itself as a `message` like the digest.
+            if is_bilan(proaction.summary):
+                await notify_message(
+                    proaction.user_id,
+                    stored.id,
+                    stored.content,
+                    has_audio=bool(getattr(stored, "audio", None)),
+                )
             trace["message_link"] = message_link(stored.id, screen)
             trace["notice"] = (verdict.headline if verdict else None) or message_preview(
                 result["response"], has_audio=bool(getattr(stored, "audio", None))

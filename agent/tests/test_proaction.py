@@ -558,6 +558,15 @@ class TestProactionTriage:
         # The API notifies on the transition: the agent no longer does it itself.
         notify.assert_not_awaited()
 
+    async def test_a_reminder_that_is_no_review_still_interrupts_and_does_not_notify_itself(self):
+        notify = AsyncMock()
+
+        with patch("app.queue.proaction_consumer.notify_message", notify):
+            consumed = await _consume({"response": "C'est l'heure.", "tool_calls": []}, summary="Rappel")
+
+        assert consumed.proactions.record.await_args.kwargs["delivery"] == "interrupt"
+        notify.assert_not_awaited()
+
     async def test_a_check_with_a_low_verdict_goes_to_the_thread_silently(self):
         notify = AsyncMock()
         result = {

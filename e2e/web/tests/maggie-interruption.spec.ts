@@ -403,13 +403,56 @@ test('a proaction asked for in the chat sits in the « Maggie » agenda, runs on
   const delivered = messages.filter((m) => m.role === 'assistant' && m.content === "C'est l'heure de boire un verre d'eau !")
   expect(delivered).toHaveLength(1)
 
-  // A reminder the owner asked for always interrupts (MAG-886): the API notifies it, with a link to the message.
+  // A reminder the owner asked for always interrupts (MAG-886): the API notifies it as a `proaction`, with a link to the message.
   const run = ((await callMcpTool(api, 'list_proactions', {})).proactions as ListedProaction[]).find((p) => p.id === id)
   expect({ kind: run?.kind, delivery: run?.delivery }).toEqual({ kind: 'reminder', delivery: 'interrupt' })
   const notified = (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100')).filter(
-    (n) => n.type === 'message' && n.relatedEntityIri === `/chat?message=${delivered[0].id}`,
+    (n) => n.type === 'proaction' && n.relatedEntityIri === `/chat?message=${delivered[0].id}`,
   )
   expect(notified).toHaveLength(1)
+})
+
+test('the evening review arrives as a message notification, never as a proaction one', async ({ interruptedUser }) => {
+  test.setTimeout(240_000)
+  const { api } = interruptedUser
+
+  const scheduled = await callMcpTool(api, 'schedule_proaction', {
+    prompt: "Fais le bilan de la journée avec l'utilisateur (compétence bilan-soir, ouverture par le rendez-vous du soir).",
+    summary: 'Bilan de la journée',
+    scheduled_at: new Date(e2eNow().getTime() + 3_600_000).toISOString(),
+  })
+  const id = (scheduled.proaction as { id?: string } | undefined)?.id
+  expect(id, JSON.stringify(scheduled)).toBeDefined()
+
+  const moved = await api.patch(`/api/events/${id}`, {
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+    data: { startAt: new Date(e2eNow().getTime() - 60_000).toISOString() },
+  })
+  expect(moved.ok(), `PATCH /api/events/${id} answered ${moved.status()}: ${await moved.text()}`).toBe(true)
+
+  type StoredMessage = { id: string; role: string; blocks?: unknown[] | null }
+  let review: StoredMessage | undefined
+  await expect
+    .poll(
+      async () => {
+        const messages = (await (await api.get('/agent/messages?limit=10')).json()) as StoredMessage[]
+        review = messages.find((m) => m.role === 'assistant' && JSON.stringify(m.blocks ?? []).includes('"bilan"'))
+        return review?.id ?? null
+      },
+      { message: 'the review message never arrived', timeout: 180_000, intervals: [2_000] },
+    )
+    .not.toBeNull()
+
+  // The agent notifies right after storing the message: wait for it.
+  await expect
+    .poll(
+      async () =>
+        (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100'))
+          .filter((n) => n.relatedEntityIri === `/chat?message=${review!.id}`)
+          .map((n) => n.type),
+      { message: 'the review was never notified', timeout: 30_000, intervals: [1_000] },
+    )
+    .toEqual(['message'])
 })
 
 /**

@@ -103,6 +103,17 @@ final class PushMessageFactoryTest extends TestCase
         self::assertArrayNotHasKey('silent', $data);
     }
 
+    public function testAProactionInterruptionGoesOnTheChatChannelWithItsMessageLink(): void
+    {
+        $notification = $this->notification(NotificationType::Proaction, 'Maggie', 'Votre enveloppe est à 72 %', '/chat?message=01JMSG0123456789ABCDEFGHJK');
+
+        $data = (new PushMessageFactory())->build($notification, 't')['data'];
+
+        self::assertSame('chat_v2', $data['channel']);
+        self::assertSame('01JMSG0123456789ABCDEFGHJK', $data['messageId']);
+        self::assertSame('maggie://chat?message=01JMSG0123456789ABCDEFGHJK', $data['link']);
+    }
+
     public function testADigestMessageOpensTheDigestAtThatMessage(): void
     {
         $notification = $this->notification(NotificationType::Message, 'Maggie', 'Bonjour', '/digest?message=01JMSG0123456789ABCDEFGHJK');

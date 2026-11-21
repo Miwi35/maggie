@@ -64,7 +64,7 @@ class TestTheReviewMessage:
         monkeypatch.setattr(proaction_consumer, "_record", AsyncMock())
         monkeypatch.setattr(proaction_consumer, "_journal", AsyncMock())
         monkeypatch.setattr(proaction_consumer, "notify_message", AsyncMock())
-        create = AsyncMock(return_value=SimpleNamespace(id="m"))
+        create = AsyncMock(return_value=SimpleNamespace(id="m", content="On fait le point ?"))
         monkeypatch.setattr(proaction_consumer.message_repo, "create", create)
         gateway = AsyncMock()
         gateway.proaction.return_value = {"response": "On fait le point ?", "tool_calls": [], "context_id": None}
@@ -79,6 +79,20 @@ class TestTheReviewMessage:
         assert create.await_args.kwargs["ui_blocks"] == [
             {"type": "bilan", "day": today, "route": "maggie://activity/bilan"}
         ]
+
+    async def test_the_review_is_recorded_as_a_message_in_the_thread(self, run):
+        gateway, create = run
+
+        await proaction_consumer.execute_proaction(gateway, proaction())
+
+        assert proaction_consumer._record.await_args.kwargs["delivery"] == "thread"
+
+    async def test_the_review_notifies_one_message_linking_the_chat(self, run):
+        gateway, create = run
+
+        await proaction_consumer.execute_proaction(gateway, proaction())
+
+        proaction_consumer.notify_message.assert_awaited_once_with(USER, "m", "On fait le point ?", has_audio=False)
 
     async def test_another_proaction_carries_no_bilan_block(self, run):
         gateway, create = run
