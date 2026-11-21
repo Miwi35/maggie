@@ -109,4 +109,52 @@ class PushDeliveryTest {
 
         verify(exactly = 1) { notifier.show(open, any(), any()) }
     }
+
+    // --- A message of Maggie is a conversation, never an interruption (MAG-927)
+
+    private val message = PushPayload.from(mapOf("notificationId" to "n-m", "title" to "Maggie", "type" to "message", "body" to "Votre bilan du soir vous attend.", "messageId" to "01JE2EMESSAGE0000000000000"))!!
+
+    @Test
+    fun `a message in the foreground is the conversation notification, never an interruption`() {
+        PushDelivery(center, { notifier }, noCar(), isForeground = { true }).deliver(message)
+
+        assertNull(center.current.value)
+        verify(exactly = 1) { notifier.show(message, any(), any()) }
+    }
+
+    @Test
+    fun `a message while the conversation is on screen is shown nowhere`() {
+        center.hold("message")
+
+        PushDelivery(center, { notifier }, noCar(), isForeground = { true }).deliver(message)
+
+        assertNull(center.current.value)
+        verify(exactly = 0) { notifier.show(any(), any(), any()) }
+    }
+
+    @Test
+    fun `a message in the background is the conversation notification`() {
+        PushDelivery(center, { notifier }, noCar(), isForeground = { false }).deliver(message)
+
+        assertNull(center.current.value)
+        verify(exactly = 1) { notifier.show(message, any(), any()) }
+    }
+
+    @Test
+    fun `a proaction in the foreground is still an interruption`() {
+        val proaction = PushPayload.from(mapOf("notificationId" to "n-p", "title" to "Idée", "type" to "proaction"))!!
+
+        PushDelivery(center, { notifier }, noCar(), isForeground = { true }).deliver(proaction)
+
+        assertEquals(proaction, center.current.value)
+        verify(exactly = 0) { notifier.show(any(), any(), any()) }
+    }
+
+    @Test
+    fun `back from the car, a message goes to the tray even in the foreground`() {
+        PushDelivery(center, { notifier }, noCar(), isForeground = { true }).backOnPhone(listOf(message))
+
+        assertNull(center.current.value)
+        verify(exactly = 1) { notifier.show(message, any(), any()) }
+    }
 }
