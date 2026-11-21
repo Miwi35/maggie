@@ -40,7 +40,8 @@ fun recurrenceLabel(rrule: String?): String? {
  * « ven. 23 oct. 18:00 → ven. 30 oct. 18:00 · une semaine sur deux », or « 18 oct. → 1er nov. » for days. The end
  * of a day-long period is shown included.
  */
-fun periodDatesLabel(period: Period): String {
+fun periodDatesLabel(period: Period, now: Instant? = null): String {
+    val period = if (now != null) period.atOccurrence(now) else period
     val zone = period.zone
     val range = if (period.allDay) {
         val first = period.firstDay
@@ -80,14 +81,16 @@ private fun monthTitle(day: LocalDate): String = day.format(MONTH_YEAR).replaceF
 fun periodGroups(periods: List<Period>, tab: PeriodTab, now: Instant, zone: ZoneId): List<PeriodGroup> {
     fun startOf(period: Period): Instant = period.startsAt() ?: Instant.EPOCH
     fun monthOf(period: Period): LocalDate = (period.firstDay ?: startOf(period).atZone(zone).toLocalDate()).withDayOfMonth(1)
+    fun nextMonthOf(period: Period): LocalDate = monthOf(period.atOccurrence(now))
+    fun nextStartOf(period: Period): Instant = period.occurrenceAt(now)?.first ?: startOf(period)
     return when (tab) {
         PeriodTab.UPCOMING -> {
-            val live = periods.filterNot { it.hasEnded(now) }.sortedBy(::startOf)
+            val live = periods.filterNot { it.hasEnded(now) }.sortedBy(::nextStartOf)
             val ongoing = live.filter { it.isOngoing(now) }
             val coming = live.filterNot { it.isOngoing(now) }
             buildList {
                 if (ongoing.isNotEmpty()) add(PeriodGroup("En cours", ongoing))
-                coming.groupBy(::monthOf).forEach { (month, rows) -> add(PeriodGroup(monthTitle(month), rows)) }
+                coming.groupBy(::nextMonthOf).forEach { (month, rows) -> add(PeriodGroup(monthTitle(month), rows)) }
             }
         }
         PeriodTab.PAST -> periods.filter { it.hasEnded(now) }

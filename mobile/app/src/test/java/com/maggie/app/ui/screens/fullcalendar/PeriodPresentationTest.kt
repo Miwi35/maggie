@@ -79,4 +79,28 @@ class PeriodPresentationTest {
         val upcoming = periodGroups(listOf(forever), PeriodTab.UPCOMING, now, zone)
         assertEquals(listOf("En cours"), upcoming.map { it.title })
     }
+
+    private val biweekly = timed("garde", "2024-01-05T15:00:00Z", "2024-01-12T15:00:00Z", "FREQ=WEEKLY;INTERVAL=2")
+
+    @Test
+    fun `a repeated period shows its current occurrence`() {
+        val inOccurrence = Instant.parse("2026-11-23T10:00:00Z")
+        val groups = periodGroups(listOf(biweekly), PeriodTab.UPCOMING, inOccurrence, zone)
+        assertEquals(listOf("En cours"), groups.map { it.title })
+        assertEquals(
+            "ven. 20 nov. 16:00 → ven. 27 nov. 16:00 · une semaine sur deux",
+            periodDatesLabel(biweekly, inOccurrence),
+        )
+    }
+
+    @Test
+    fun `a repeated period whose occurrence ended goes to the month of the next one`() {
+        val after = Instant.parse("2026-11-27T16:00:00Z")
+        val groups = periodGroups(listOf(biweekly), PeriodTab.UPCOMING, after, zone)
+        assertEquals(listOf("Décembre 2026"), groups.map { it.title })
+        assertEquals(
+            "ven. 4 déc. 16:00 → ven. 11 déc. 16:00 · une semaine sur deux",
+            periodDatesLabel(biweekly, after),
+        )
+    }
 }

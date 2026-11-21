@@ -126,6 +126,8 @@ class PeriodViewModel(
         _uiState.value = _uiState.value.copy(tab = tab)
     }
 
+    fun now(): java.time.Instant = clock.instant()
+
     fun groups(): List<PeriodGroup> {
         val state = _uiState.value
         return periodGroups(state.periods, state.tab, clock.instant(), clock.zone)
