@@ -20,6 +20,33 @@ import com.maggie.app.ui.screens.shared.parseColor
 fun periodColor(period: Period, agendas: List<Agenda>, fallback: Color): Color =
     agendas.firstOrNull { it.id == period.agendaId }?.let { parseColor(it.color) } ?: fallback
 
+/** The hatching of a period chip, as in the mockup: wide bands at 10 %, no solid fill, so the label stays readable. */
+data class ChipHatching(val fill: Color, val stripe: Color, val band: Dp, val step: Dp)
+
+fun periodChipHatching(color: Color) =
+    ChipHatching(fill = Color.Transparent, stripe = color.copy(alpha = 0.10f), band = 6.dp, step = 12.dp)
+
+@Composable
+fun HatchedChipBackground(color: Color, modifier: Modifier = Modifier) {
+    val hatching = periodChipHatching(color)
+    Canvas(modifier) {
+        val step = hatching.step.toPx()
+        val band = hatching.band.toPx()
+        // A 135° band of perpendicular width `band` spans band * sqrt(2) along the horizontal.
+        val stroke = band * 1.4142135f
+        var x = -size.height
+        while (x < size.width + size.height) {
+            drawLine(
+                hatching.stripe,
+                Offset(x, size.height),
+                Offset(x + size.height, 0f),
+                strokeWidth = stroke,
+            )
+            x += step * 1.4142135f
+        }
+    }
+}
+
 /** A bar hatched in [color]: what says « period » rather than « event » (MAG-815). */
 @Composable
 fun HatchedBar(color: Color, modifier: Modifier = Modifier, spacing: Dp = 5.dp) {
