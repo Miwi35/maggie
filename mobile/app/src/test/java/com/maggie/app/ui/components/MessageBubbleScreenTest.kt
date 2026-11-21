@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.AudioAttachment
 import com.maggie.app.data.model.ChatMessage
 import com.maggie.app.data.model.MessageFeedback
 import com.maggie.app.screentest.ScreenRule
@@ -186,4 +187,26 @@ class MessageBubbleScreenTest {
     // idling (AppNotIdleException), so it is not driven here. Its state lives in the ViewModel
     // (`ChatUiState.commentingMessageId`): opening it, « Envoyer » and « Passer » are covered by
     // `ChatViewModelTest`; the dialog only renders that state.
+
+    @Test
+    fun `a voice message whose text is its transcript shows the bubble alone`() {
+        val voice = ChatMessage(
+            id = "v-1",
+            role = "assistant",
+            content = "[warmly] Ta journée.",
+            audio = AudioAttachment(durationMs = 4_000, transcript = "Ta journée."),
+        )
+        compose.setContent { MessageBubble(voice) }
+
+        compose.onNodeWithTag(UiTags.VOICE_PLAY).assertIsDisplayed()
+        compose.onNodeWithText("Ta journée.").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a message without audio shows its text and no voice bubble`() {
+        compose.setContent { MessageBubble(ChatMessage(id = "a-1", role = "assistant", content = "Bonjour.")) }
+
+        compose.onNodeWithText("Bonjour.").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.VOICE_PLAY).assertDoesNotExist()
+    }
 }
