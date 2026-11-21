@@ -93,7 +93,7 @@ test('a task made to repeat every other Tuesday shows ↻ and its rule, and chec
   await tasks.checkbox(title).click()
 
   // …the next one is open fourteen days later with the same rule, and the done one has none.
-  const next = await waitForIndexed<StoredTask>(api, TASKS, (t) => title === t.title && null === t.completedAt && id !== t.id, {
+  const next = await waitForIndexed<StoredTask>(api, TASKS, (t) => title === t.title && null === (t.completedAt ?? null) && id !== t.id, {
     what: `The next "${title}"`,
   })
   expect(next.scheduledDate?.slice(0, 10)).toBe(daysFrom(tuesday, 14))
