@@ -22,6 +22,11 @@ set -euo pipefail
 #     infra/scripts/green-jobs.sh). A job without a filter is expected on every
 #     run: skipped is a failure for it.
 #
+# `fresh` (« Up to date with main ») judges the lag behind main (MAG-922,
+# infra/scripts/behind-compat.sh): its verdict is shown below, and a run that
+# went on a `replay` is refused — the CI of a head the train has to rebase proves
+# nothing. It is not in the list: it is skipped outside `synchronize`.
+#
 # Anything else is red: failure, cancelled, skipped for another reason, absent
 # from `needs` (a job renamed in ci.yml but not here).
 # =============================================================================
@@ -60,6 +65,10 @@ reused() { jq -e --arg job "$1" '(.changes.outputs.reuse // "[]") | fromjson | i
 changes="$(result_of changes)"
 printf '%-18s %s\n' changes "$changes"
 [ "$changes" = success ] || fail "Detect changes did not succeed ($changes)"
+
+verdict="$(jq -r '.fresh.outputs.verdict // empty' <<<"$NEEDS")"
+printf '%-18s %s\n' "head vs main" "${verdict:-not judged}"
+[ "$verdict" != replay ] || fail "the head is behind main and must be replayed (rebase): this run proves nothing"
 
 for entry in "${REQUIRED[@]}"; do
   job="${entry%%:*}"
