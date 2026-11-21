@@ -56,7 +56,7 @@ internal fun AgentRendezvousCards(
         )
         RendezvousCard(
             title = "Bilan du soir",
-            description = "Le point sur la journée, relancé 30 min plus tard.",
+            description = "Le point sur la journée.",
             enabled = preferences.eveningReviewEnabled,
             time = preferences.eveningReviewTime,
             switchTag = UiTags.SETTINGS_REVIEW_SWITCH,
