@@ -26,3 +26,10 @@ when@prod:
                 # lives in var/cache (not var/share), rebuilt by every warmup.
                 mcp_discovery.cache:
                     adapter: cache.adapter.system
+
+when@e2e:
+    framework:
+        cache:
+            pools:
+                mcp_discovery.cache:
+                    adapter: cache.adapter.system

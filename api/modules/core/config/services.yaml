@@ -63,7 +63,8 @@ services:
 # is built by `cache:warmup` (the prod image runs it at build) into the
 # `mcp_discovery.cache` pool of config/packages/cache.yaml, and read from there.
 # CachedMcpDiscoveryPass hands the cached discoverer to the MCP builder.
-# dev/test/e2e keep the dynamic discovery.
+# dev/test keep the dynamic discovery; e2e reads the catalogue like prod (the
+# stack's code does not change during a run, `task e2e:cache:clear` rebuilds it).
 when@prod:
     services:
         Mcp\Capability\Discovery\Discoverer:
@@ -123,6 +124,29 @@ when@e2e:
 
         Maggie\Core\E2e\:
             resource: '../src/E2e/'
+
+        Mcp\Capability\Discovery\Discoverer:
+            arguments:
+                $logger: '@logger'
+
+        app.mcp.discovery_cache:
+            class: Symfony\Component\Cache\Psr16Cache
+            arguments: ['@mcp_discovery.cache']
+
+        Mcp\Capability\Discovery\CachedDiscoverer:
+            arguments:
+                $discoverer: '@Mcp\Capability\Discovery\Discoverer'
+                $cache: '@app.mcp.discovery_cache'
+                $logger: '@logger'
+
+        Maggie\Core\Mcp\Discovery\McpDiscoveryCacheWarmer:
+            arguments:
+                $discoverer: '@Mcp\Capability\Discovery\CachedDiscoverer'
+                $cache: '@app.mcp.discovery_cache'
+                $projectDir: '%kernel.project_dir%'
+                $scanDirs: '%mcp.discovery.scan_dirs%'
+                $excludeDirs: '%mcp.discovery.exclude_dirs%'
+            tags: ['kernel.cache_warmer']
 
         # Makes <e2eDate("+2 days 09:00")> usable in the fixture files. Without
         # the tag Faker never sees the provider and every such call throws.
