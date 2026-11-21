@@ -81,9 +81,17 @@ private val ISO_WITH_OFFSET = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss
 fun intakeTime(eatenAt: String, zone: ZoneId): String =
     runCatching { OffsetDateTime.parse(eatenAt).atZoneSameInstant(zone).format(CLOCK_TIME) }.getOrDefault("")
 
+/** `12 h 30` in [zone], as the fast writes its clock; empty when the API sent no parsable time. */
+fun journalTime(eatenAt: String, zone: ZoneId): String =
+    runCatching { fastingClock(OffsetDateTime.parse(eatenAt).atZoneSameInstant(zone).toLocalTime()) }.getOrDefault("")
+
 /** `2026-11-07T12:30:00+01:00`, what `eatenAt` takes. */
 fun isoWithOffset(dateTime: OffsetDateTime): String = dateTime.format(ISO_WITH_OFFSET)
 
 /** The weekday's initial under a bar of the week: « L », « M »… */
 fun weekdayInitial(date: String): String =
     runCatching { LocalDate.parse(date).dayOfWeek.value }.map { "LMMJVSD"[it - 1].toString() }.getOrDefault("")
+
+/** The weekday under a bar of the bilan's week: « sam. », « ven. »…, « auj. » for [today]. */
+fun weekdayShort(date: String, today: String): String =
+    if (date == today) "auj." else runCatching { LocalDate.parse(date).format(DateTimeFormatter.ofPattern("EEE", Locale.FRANCE)) }.getOrDefault("")
