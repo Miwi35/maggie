@@ -18,6 +18,12 @@ export interface VoiceAttachment {
   transcript: string
 }
 
+/** The text a message shows beside its voice bubble: none when it is the bubble's own transcript. */
+export function textBesideVoice(content: string, audio: VoiceAttachment): string | null {
+  const text = stripDeliveryTags(content).trim()
+  return text !== stripDeliveryTags(audio.transcript).trim() ? text : null
+}
+
 const SPEEDS = [1, 1.5, 2] as const
 const nextSpeed = (speed: number): number => SPEEDS[(SPEEDS.indexOf(speed as (typeof SPEEDS)[number]) + 1) % SPEEDS.length]
 const speedLabel = (speed: number): string => `×${String(speed).replace('.', ',')}`

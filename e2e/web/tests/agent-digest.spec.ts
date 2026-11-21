@@ -1,5 +1,7 @@
 import { test, expect, e2eNow, parisDay, parisTime } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
+import { HomePage } from '../pages/HomePage.js'
 
 /**
  * The morning digest end to end — MAG-709, rewritten by MAG-807 and MAG-843 (extends MAG-99).
@@ -40,6 +42,7 @@ interface JournalRun {
 
 test('the digest instruction said once brings one message, read and heard, and a notification that opens the digest', async ({
   api,
+  page,
 }) => {
   // The executor claims what is due once a minute.
   test.setTimeout(240_000)
@@ -102,6 +105,14 @@ test('the digest instruction said once brings one message, read and heard, and a
   // The first answer also said a meal was empty (MAG-861): the second does not.
   expect(block.text).not.toContain('Aucun')
   expect(block.text.indexOf('degrés')).toBeLessThan(block.text.indexOf('Kiné à 14 h 30'))
+
+  // The chat shows the announcement and the voice bubble in the same message (MAG-925).
+  await new HomePage(page).open()
+  const chat = new ChatPanel(page)
+  await chat.open()
+  const bubbleMessage = chat.panel.locator('#msg-' + message.id)
+  await expect(bubbleMessage).toContainText('Votre digest du matin est disponible.')
+  await expect(bubbleMessage.getByTestId('voice-bubble').getByTestId('voice-duration')).toBeVisible()
 
   // The notification of the message opens the digest, not the thread.
   const notification = await waitForIndexed<{ type: string; relatedEntityIri: string | null }>(
