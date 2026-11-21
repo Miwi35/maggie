@@ -98,7 +98,7 @@ fun DayTimelineView(
                 }
             },
     ) {
-        PeriodChips(periodsOfTheDay(periods, currentDate, now, zone), agendas, onPeriodClick)
+        PeriodChips(periodsOfTheDay(periods, currentDate, now, zone), agendas, currentDate, onPeriodClick)
 
         AllDayRow(
             events = allDayEvents,
