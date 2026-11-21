@@ -403,6 +403,15 @@ describe('TaskBoard', () => {
       expect(screen.getByRole('heading', { name: "Aujourd'hui · 4" })).toBeInTheDocument()
     })
 
+    test('a repeating task of the day shows Répétée on its row (MAG-888)', async () => {
+      state = { slots: [BANK, CANTEEN, WATER], reserve: [{ ...BOOK, rrule: 'FREQ=DAILY' }] }
+      render(<TaskBoard />)
+
+      const list = await screen.findByRole('list', { name: "Aujourd'hui" })
+      expect(within(list).getAllByTestId('task-repeat')).toHaveLength(1)
+      expect(within(list).getByTestId('task-repeat')).toHaveAccessibleName('Répétée')
+    })
+
     test('ticking « Maintenant » sends the merge-patch, then the next task takes its place', async () => {
       const user = setup()
       render(<TaskBoard />)
