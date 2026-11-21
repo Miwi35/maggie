@@ -78,7 +78,7 @@ fun PeriodChips(
                     .testTag(UiTags.periodChip(period.id))
                     .clickable { onClick(period) },
             ) {
-                HatchedBar(color, Modifier.matchParentSize(), spacing = 6.dp)
+                HatchedChipBackground(color, Modifier.matchParentSize())
                 Row(
                     Modifier.heightIn(min = 36.dp).padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
