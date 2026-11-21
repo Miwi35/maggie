@@ -419,7 +419,7 @@ test('the evening review arrives as a message notification, never as a proaction
   const scheduled = await callMcpTool(api, 'schedule_proaction', {
     prompt: "Fais le bilan de la journée avec l'utilisateur (compétence bilan-soir, ouverture par le rendez-vous du soir).",
     summary: 'Bilan de la journée',
-    scheduled_at: new Date(e2eNow().getTime() + 3_600_000).toISOString().slice(0, 19),
+    scheduled_at: new Date(e2eNow().getTime() + 3_600_000).toISOString(),
   })
   const id = (scheduled.proaction as { id?: string } | undefined)?.id
   expect(id, JSON.stringify(scheduled)).toBeDefined()
