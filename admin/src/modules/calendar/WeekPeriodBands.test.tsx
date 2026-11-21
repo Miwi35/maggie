@@ -42,4 +42,28 @@ describe('WeekPeriodBands (MAG-816)', () => {
 
     expect(onOpen).toHaveBeenCalledWith(GARDE)
   })
+
+  test('the bands row starts with the hour column', () => {
+    render(<WeekPeriodBands periods={[GARDE]} weekStart={WEEK} agendas={[]} onOpen={() => {}} axisWidth={60} />)
+
+    expect(screen.getByTestId('week-period-bands')).toHaveStyle({ gridTemplateColumns: '60px repeat(7, minmax(0, 1fr))' })
+  })
+
+  test('a Friday-to-Sunday period starts in the Friday column', () => {
+    const weekend: Period = { ...GARDE, startDate: '2026-10-23', endDate: '2026-10-26' }
+    render(<WeekPeriodBands periods={[weekend]} weekStart={WEEK} agendas={[]} onOpen={() => {}} />)
+
+    const band = screen.getByTestId('period-band')
+    expect(band).toHaveAttribute('data-column', '5')
+    expect(band).toHaveAttribute('data-span', '3')
+    expect(band).toHaveStyle({ gridColumnStart: '6', gridColumnEnd: 'span 3' })
+  })
+
+  test('a band wears its agenda colour hatched', () => {
+    render(<WeekPeriodBands periods={[GARDE]} weekStart={WEEK} agendas={[{ id: '/api/agendas/a', color: '#e91e63' }]} onOpen={() => {}} />)
+
+    const style = getComputedStyle(screen.getByTestId('period-band'))
+    expect(style.backgroundImage).toContain('repeating-linear-gradient(135deg')
+    expect(style.boxShadow).toContain('inset 0 0 0 1px')
+  })
 })

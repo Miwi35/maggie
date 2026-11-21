@@ -47,6 +47,12 @@ test('a period shows as a band over the week, and a new one is created from the 
   await expect(band).toBeVisible()
   await expect(band).toHaveAttribute('data-span', '5')
 
+  // The band sits over the columns of its days: Monday's header to Friday's.
+  const headers = page.locator('.fc-col-header-cell')
+  const [bandBox, firstBox, fifthBox] = await Promise.all([band.boundingBox(), headers.nth(0).boundingBox(), headers.nth(4).boundingBox()])
+  expect(Math.abs(bandBox!.x - firstBox!.x)).toBeLessThan(8)
+  expect(Math.abs(bandBox!.x + bandBox!.width - (fifthBox!.x + fifthBox!.width))).toBeLessThan(8)
+
   const periods = new PeriodsPage(page)
   await calendar.content.getByRole('link', { name: 'Périodes' }).click()
   await expect(periods.heading).toBeVisible()
