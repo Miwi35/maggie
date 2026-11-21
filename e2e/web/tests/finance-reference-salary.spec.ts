@@ -11,7 +11,7 @@ import { FinanceOverviewPage } from '../pages/FinanceOverviewPage.js'
  *
  *   Étant donné une opération récurrente « Salaire » attendue à 4 950 € par mois
  *   Quand je demande à Maggie « sur quel salaire tu juges mon mois ? »
- *   Alors elle lit `get_reference_salary`
+ *   Alors elle lit `get_finance_summary`
  *     et le repère est 4 950 €, source « attendu » (`expected`)
  *
  *   Étant donné la même opération « Salaire » et aucun salaire net déclaré sur le matelas (MAG-274)
@@ -125,9 +125,9 @@ test('« sur quel salaire tu juges mon mois ? » reads the expected salary', asy
   const events = await new ChatPanel(page).send('Sur quel salaire tu juges mon mois ?')
 
   // Then she read the reference salary, and it went through.
-  expect(calledTools(events)).toContain('get_reference_salary')
+  expect(calledTools(events)).toContain('get_finance_summary')
   expect(toolResults(events)).toEqual(
-    expect.arrayContaining([expect.objectContaining({ toolName: 'get_reference_salary', status: 'success' })]),
+    expect.arrayContaining([expect.objectContaining({ toolName: 'get_finance_summary', status: 'success' })]),
   )
 
   // And the mark is 4 950 €, expected.

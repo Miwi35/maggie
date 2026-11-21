@@ -226,7 +226,7 @@ class TestShippedSkills:
         digest = await index.get("digest") or ""
         for tool in ("get_weather", "get_events", "get_tasks", "manage_meals", "get_grocery_list"):
             assert tool in digest
-        for forbidden in ("list_trips", "get_finance_scores", "get_activity_status", "Tes consignes d'hier soir"):
+        for forbidden in ("list_trips", "get_finance_summary", "get_activity_status", "Tes consignes d'hier soir"):
             assert forbidden not in digest
         assert "N'appelle jamais `send_voice_message`" in digest
         assert "Aucune question" in digest
@@ -275,7 +275,7 @@ class TestShippedSkills:
         bilan = await index.get("bilan-soir") or ""
         steps = ["`journee`", "`finance`", "`sante`", "`consignes`", "`demain`"]
         assert [bilan.index(step) for step in steps] == sorted(bilan.index(step) for step in steps)
-        for tool in ("get_activity_status", "save_bilan_step", "get_finance_scores", "get_tasks"):
+        for tool in ("get_activity_status", "save_bilan_step", "get_finance_summary", "get_tasks"):
             assert tool in bilan
         assert "sans verdict" in bilan
         assert "moment:bilan-soir" in bilan

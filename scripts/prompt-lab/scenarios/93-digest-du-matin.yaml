@@ -20,7 +20,7 @@ steps:
   - user_message: >
       [Proaction due maintenant] Fais le digest du matin (compétence digest).
     expected_tools: [get_skill, get_weather, get_events, get_tasks, manage_meals]
-    forbidden_tools: [send_voice_message, list_trips, get_finance_scores, ask_owner]
+    forbidden_tools: [send_voice_message, list_trips, get_finance_summary, ask_owner]
     expected_absent: ["?", "**", "Aucun", "Rien n'", "demain", "départ"]
     expected_behavior: >
       Un seul texte, sans Markdown, fait pour être lu ou écouté. Il suit l'ordre : la météo en une phrase
