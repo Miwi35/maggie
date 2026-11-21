@@ -6,11 +6,13 @@ import Typography from '@mui/material/Typography'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import StarIcon from '@mui/icons-material/Star'
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
+import SyncIcon from '@mui/icons-material/Sync'
 import UpdateIcon from '@mui/icons-material/Update'
 import { parseDay } from '../../dates'
 import { STAR_COLOR } from './Constellation'
 import { UrgencyBadge } from './UrgencyBadge'
 import { postponedLabel } from './taskViews'
+import { repeats } from './taskRepeat'
 
 /** What a row draws of a task: the day's tasks and the views' tasks both fit. */
 export interface ListedTask {
@@ -25,6 +27,8 @@ export interface ListedTask {
   /** The IRI of the parent task: a subtask is indented under it when the parent is listed too. */
   parent?: string | null
   overdueDays?: number | null
+  /** RFC 5545 rule of a repeating task (MAG-870). */
+  rrule?: string | null
 }
 
 export interface TaskGroup {
@@ -150,6 +154,14 @@ const Row = ({ task, today, indented, highlighted, selected, onToggle, onOpen, o
             <UpdateIcon aria-hidden fontSize="inherit" />
             {postponed}
           </Typography>
+        )}
+        {repeats(task) && (
+          <SyncIcon
+            data-testid="task-repeat"
+            titleAccess="Répétée"
+            fontSize="inherit"
+            sx={{ color: 'text.secondary' }}
+          />
         )}
         {task.estimatedMinutes != null && <Minutes value={task.estimatedMinutes} />}
       </Box>

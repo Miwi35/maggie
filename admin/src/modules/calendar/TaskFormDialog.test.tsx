@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TaskFormDialog, type TaskData } from './TaskFormDialog'
 
@@ -239,6 +239,168 @@ describe('TaskFormDialog (MAG-723)', () => {
 
       expect(onClose).toHaveBeenCalled()
       expect(mockUpdate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('« Répéter » and « Jusqu’au » (MAG-888)', () => {
+    const TUESDAY = '2026-11-24'
+    const REPEATING: TaskData = { ...TASK, dueDate: null, scheduledDate: TUESDAY, rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }
+
+    const field = () => screen.getByRole('combobox', { name: 'Répéter' })
+    const choose = async (name: string) => {
+      await userEvent.click(field())
+      await userEvent.click(await screen.findByRole('option', { name }))
+    }
+    const untilButton = () => screen.queryByRole('button', { name: /^Jusqu’au/ })
+
+    test('Répéter sits under the Programmée block at Jamais, without Jusqu’au', () => {
+      renderForm({ ...TASK, scheduledDate: TUESDAY })
+
+      expect(field()).toHaveTextContent('Jamais')
+      expect(untilButton()).toBeNull()
+      const order = [screen.getByLabelText('Programmée'), field(), screen.getByRole('group', { name: 'Criticité' })]
+      expect(order[0].compareDocumentPosition(order[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(order[1].compareDocumentPosition(order[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    test('the Répéter menu lists the six choices in order, the current one checked', async () => {
+      renderForm(REPEATING)
+
+      await userEvent.click(field())
+      const options = await screen.findAllByRole('option')
+
+      expect(options.map((o) => o.textContent)).toEqual([
+        'Jamais',
+        'Chaque jour',
+        'Chaque semaine',
+        'Toutes les deux semaines',
+        'Chaque mois',
+        'Personnalisé…',
+      ])
+      expect(options.filter((o) => o.getAttribute('aria-selected') === 'true').map((o) => o.textContent)).toEqual([
+        'Toutes les deux semaines',
+      ])
+    })
+
+    test('Toutes les deux semaines on a Tuesday reads Un mardi sur deux and shows Jusqu’au at Aucune fin', async () => {
+      renderForm({ ...TASK, scheduledDate: TUESDAY })
+
+      await choose('Toutes les deux semaines')
+
+      expect(field()).toHaveTextContent('Un mardi sur deux')
+      expect(untilButton()).toHaveAccessibleName('Jusqu’au : Aucune fin')
+    })
+
+    test('Personnalisé builds the rule from the interval, the unit and the days; Annuler restores the previous one', async () => {
+      renderForm({ ...TASK, scheduledDate: TUESDAY, dueDate: null })
+
+      await choose('Personnalisé…')
+      const popover = await screen.findByRole('dialog', { name: 'Répétition personnalisée' })
+      await userEvent.click(within(popover).getByRole('button', { name: 'semaines' }))
+      const interval = within(popover).getByLabelText('Intervalle')
+      fireEvent.change(interval, { target: { value: '3' } })
+      await userEvent.click(within(popover).getByRole('button', { name: 'jeudi' }))
+      expect(within(popover).getByText('Le mardi et jeudi, toutes les 3 semaines')).toBeInTheDocument()
+      await userEvent.click(within(popover).getByRole('button', { name: 'OK' }))
+
+      await waitFor(() => expect(field()).toHaveTextContent('Le mardi et jeudi, toutes les 3 semaines'))
+
+      await choose('Personnalisé…')
+      const again = await screen.findByRole('dialog', { name: 'Répétition personnalisée' })
+      await userEvent.click(within(again).getByRole('button', { name: 'jours' }))
+      await userEvent.click(within(again).getByRole('button', { name: 'Annuler' }))
+
+      await waitFor(() => expect(field()).toHaveTextContent('Le mardi et jeudi, toutes les 3 semaines'))
+    })
+
+    test('creating sends the rule', async () => {
+      renderForm(null)
+
+      await userEvent.type(screen.getByLabelText(/Titre/), 'Sortir la poubelle')
+      await userEvent.type(screen.getByLabelText('Programmée'), TUESDAY)
+      await choose('Toutes les deux semaines')
+      await userEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+      await waitFor(() =>
+        expect(mockCreate).toHaveBeenCalledWith('tasks', {
+          data: expect.objectContaining({ rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }),
+        }),
+      )
+    })
+
+    test('editing only the day sends the stored rule unchanged', async () => {
+      renderForm(REPEATING)
+
+      fireEvent.change(screen.getByLabelText('Programmée'), { target: { value: '2026-11-25' } })
+      await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith('tasks', {
+          id: TASK.id,
+          data: expect.objectContaining({ scheduledDate: '2026-11-25', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }),
+          previousData: REPEATING,
+        }),
+      )
+    })
+
+    test('Jamais on a repeating task sends rrule null and hides Jusqu’au', async () => {
+      renderForm(REPEATING)
+
+      await choose('Jamais')
+      expect(untilButton()).toBeNull()
+      await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith('tasks', expect.objectContaining({ data: expect.objectContaining({ rrule: null }) })),
+      )
+    })
+
+    test('an end day adds UNTIL to the rule sent; Aucune fin removes it', async () => {
+      renderForm(REPEATING)
+
+      await userEvent.click(untilButton()!)
+      const popover = await screen.findByRole('dialog', { name: 'Choisir la fin de la répétition' })
+      await userEvent.click(within(popover).getByRole('button', { name: 'Mois suivant' }))
+      await userEvent.click(within(popover).getByRole('button', { name: 'jeudi 31 décembre 2026' }))
+
+      await waitFor(() => expect(untilButton()).toHaveAccessibleName('Jusqu’au : Jeu. 31 déc.'))
+      await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenLastCalledWith(
+          'tasks',
+          expect.objectContaining({ data: expect.objectContaining({ rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;UNTIL=20261231' }) }),
+        ),
+      )
+
+      await userEvent.click(untilButton()!)
+      await userEvent.click(await screen.findByRole('button', { name: 'Aucune fin' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenLastCalledWith(
+          'tasks',
+          expect.objectContaining({ data: expect.objectContaining({ rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }) }),
+        ),
+      )
+    })
+
+    test('Répéter is disabled without a day and absent for a subtask', () => {
+      const { unmount } = render(
+        <TaskFormDialog open task={{ ...TASK, dueDate: null }} onClose={vi.fn()} onSaved={vi.fn()} />,
+      )
+      expect(field()).toHaveAttribute('aria-disabled', 'true')
+      unmount()
+
+      renderForm({ ...TASK, parent: '/api/tasks/01OTHER' })
+      expect(screen.queryByRole('combobox', { name: 'Répéter' })).toBeNull()
+    })
+
+    test('an API refusal shows its message', async () => {
+      mockUpdate.mockRejectedValue(new Error('rrule refusée'))
+      renderForm(REPEATING)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+      await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Erreur: rrule refusée', { type: 'error' }))
     })
   })
 })

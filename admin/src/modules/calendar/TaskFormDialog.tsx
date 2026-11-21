@@ -1,20 +1,43 @@
 import { useEffect, useState } from 'react'
 import { useDataProvider, useNotify } from 'react-admin'
 import Button from '@mui/material/Button'
+import ButtonBase from '@mui/material/ButtonBase'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import InputAdornment from '@mui/material/InputAdornment'
+import MenuItem from '@mui/material/MenuItem'
+import Popover from '@mui/material/Popover'
 import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
+import SyncIcon from '@mui/icons-material/Sync'
+import { CalendarGrid } from '../../components/form/CalendarGrid'
 import { MarkdownEditor } from '../../components/markdown/MarkdownEditor'
 import { ReminderPicker, remindersFromMinutes, remindersToMinutes } from './ReminderPicker'
+import {
+  REPEAT_CHOICES,
+  WEEKDAYS,
+  buildRule,
+  checkedChoice,
+  defaultRule,
+  parseRule,
+  pickChoice,
+  plainRule,
+  repeatOf,
+  ruleText,
+  untilLabel,
+  withCustom,
+  withEnd,
+  type RepeatRule,
+  type RepeatState,
+  type Weekday,
+} from './taskRepeat'
 
 /** A link Google Tasks attached to the task (an email, mostly). Read only (MAG-404). */
 export interface TaskLink {
@@ -55,6 +78,8 @@ export interface TaskData {
   firstStep?: string | null
   /** `YYYY-MM-DD`: computed by the API, the day the task has been put off since. */
   postponedSince?: string | null
+  /** RFC 5545 without `RRULE:`, carried by the open occurrence; null: it does not repeat (MAG-870). */
+  rrule?: string | null
 }
 
 /** The bounds of « Durée estimée », the API's own. */
@@ -93,6 +118,8 @@ const LEVELS = [
   { value: 'medium', label: 'Moyenne' },
   { value: 'high', label: 'Haute' },
 ]
+
+const DAY_BUTTONS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
 const CRITICALITIES = [...LEVELS, { value: 'critical', label: 'Critique' }]
 
@@ -195,6 +222,27 @@ export const TaskFormDialog = ({ open, task, defaultDueDate, onClose, onSaved }:
   const [titleError, setTitleError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [repeat, setRepeat] = useState<RepeatState>(repeatOf(null, null))
+  const [customDraft, setCustomDraft] = useState<RepeatRule | null>(null)
+  const [customBefore, setCustomBefore] = useState<RepeatState | null>(null)
+  const [customOpen, setCustomOpen] = useState(false)
+  const [untilAnchor, setUntilAnchor] = useState<HTMLElement | null>(null)
+
+  const anchor = scheduledDate || dueDate || null
+  const [repeatField, setRepeatField] = useState<HTMLDivElement | null>(null)
+
+  const openCustom = () => {
+    if (!anchor) return
+    setCustomBefore(repeat)
+    setCustomDraft(parseRule(buildRule(repeat, anchor)) ?? defaultRule(anchor))
+    setCustomOpen(true)
+  }
+
+  const closeCustom = (confirmed: boolean) => {
+    if (confirmed && customDraft) setRepeat(withCustom(repeat, customDraft))
+    else if (customBefore) setRepeat(customBefore)
+    setCustomOpen(false)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -213,6 +261,10 @@ export const TaskFormDialog = ({ open, task, defaultDueDate, onClose, onSaved }:
     setIsDone(task?.completedAt != null)
     setTitleError(false)
     setConfirmDelete(false)
+    const day = task ? task.scheduledDate?.slice(0, 10) || task.dueDate?.slice(0, 10) || null : (defaultDueDate ?? null)
+    setRepeat(repeatOf(task?.rrule, day))
+    setCustomOpen(false)
+    setUntilAnchor(null)
   }, [open, task, defaultDueDate])
 
   const fail = (error: Error) => notify(`Erreur: ${error.message}`, { type: 'error' })
@@ -226,6 +278,8 @@ export const TaskFormDialog = ({ open, task, defaultDueDate, onClose, onSaved }:
     if (Number.isNaN(estimatedMinutes)) return
     const precise = !!scheduledDate && mode === 'time'
     if (precise && !time) return
+
+    const rule = buildRule(repeat, anchor)
 
     const schedule = {
       scheduledDate: scheduledDate || null,
@@ -248,6 +302,7 @@ export const TaskFormDialog = ({ open, task, defaultDueDate, onClose, onSaved }:
             estimatedMinutes,
             firstStep: firstStep.trim() || null,
             completedAt: isDone ? (task.completedAt ?? new Date().toISOString()) : null,
+            rrule: rule,
             ...schedule,
           },
           previousData: task,
@@ -263,6 +318,7 @@ export const TaskFormDialog = ({ open, task, defaultDueDate, onClose, onSaved }:
             ...(estimatedMinutes != null ? { estimatedMinutes } : {}),
             ...(firstStep.trim() ? { firstStep: firstStep.trim() } : {}),
             ...(scheduledDate ? schedule : {}),
+            ...(rule ? { rrule: rule } : {}),
           },
         })
 
@@ -357,6 +413,54 @@ export const TaskFormDialog = ({ open, task, defaultDueDate, onClose, onSaved }:
               )}
             </>
           )}
+          {!task?.parent && (
+            <TextField
+              label="Répéter"
+              select
+              ref={setRepeatField}
+              value={checkedChoice(repeat, anchor)}
+              disabled={!anchor}
+              onChange={(e) => {
+                const choice = e.target.value as (typeof REPEAT_CHOICES)[number]['key']
+                if (choice === 'custom') return
+                setRepeat(pickChoice(repeat, choice))
+              }}
+              slotProps={{
+                select: {
+                  renderValue: () => ruleText(buildRule(repeat, anchor), anchor),
+                },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SyncIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            >
+              {REPEAT_CHOICES.map((choice) => (
+                <MenuItem
+                  key={choice.key}
+                  value={choice.key}
+                  onClick={choice.key === 'custom' ? openCustom : undefined}
+                >
+                  {choice.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+          {!task?.parent && anchor && buildRule(repeat, anchor) && (
+            <ButtonBase
+              aria-label={`Jusqu’au : ${untilLabel(repeat.until)}`}
+              onClick={(e) => setUntilAnchor(e.currentTarget)}
+              sx={{ justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 1, px: 1.75, py: 1.5 }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Jusqu’au
+              </Typography>
+              <Typography variant="body1">{untilLabel(repeat.until)}</Typography>
+            </ButtonBase>
+          )}
           <Segmented label="Criticité" value={criticality} options={CRITICALITIES} onChange={setCriticality} />
           <Segmented label="Priorité" value={priority} options={LEVELS} onChange={setPriority} />
           <MarkdownEditor label="Notes" value={description} onChange={setDescription} />
@@ -369,6 +473,100 @@ export const TaskFormDialog = ({ open, task, defaultDueDate, onClose, onSaved }:
           )}
         </Stack>
       </DialogContent>
+      <Popover
+        open={customOpen}
+        anchorEl={repeatField}
+        onClose={() => closeCustom(false)}
+        slotProps={{ paper: { 'aria-label': 'Répétition personnalisée', role: 'dialog' } as object }}
+      >
+        {customDraft && (
+          <Stack spacing={2} sx={{ p: 2, width: 320 }}>
+            <Typography variant="subtitle2">Répétition personnalisée</Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="body2">{customDraft.unit === 'week' ? 'Toutes les' : 'Tous les'}</Typography>
+              <TextField
+                type="number"
+                size="small"
+                value={customDraft.interval}
+                onChange={(e) =>
+                  setCustomDraft({ ...customDraft, interval: Math.max(1, Math.floor(Number(e.target.value)) || 1) })
+                }
+                slotProps={{ htmlInput: { min: 1, 'aria-label': 'Intervalle' } }}
+                sx={{ width: 80 }}
+              />
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                aria-label="Unité"
+                value={customDraft.unit}
+                onChange={(_, unit: RepeatRule['unit'] | null) =>
+                  unit &&
+                  setCustomDraft({
+                    ...customDraft,
+                    unit,
+                    days: unit === 'week' ? (customDraft.days.length ? customDraft.days : defaultRule(anchor ?? '').days) : [],
+                    monthDay: null,
+                  })
+                }
+              >
+                <ToggleButton value="day">jours</ToggleButton>
+                <ToggleButton value="week">semaines</ToggleButton>
+                <ToggleButton value="month">mois</ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+            {customDraft.unit === 'week' && (
+              <ToggleButtonGroup
+                size="small"
+                aria-label="Jours"
+                value={customDraft.days}
+                onChange={(_, days: Weekday[]) => days.length > 0 && setCustomDraft({ ...customDraft, days })}
+              >
+                {WEEKDAYS.map((day, i) => (
+                  <ToggleButton key={day.code} value={day.code} aria-label={day.name}>
+                    {DAY_BUTTONS[i]}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              {plainRule(customDraft, anchor)}
+            </Typography>
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button onClick={() => closeCustom(false)}>Annuler</Button>
+              <Button variant="contained" onClick={() => closeCustom(true)}>
+                OK
+              </Button>
+            </Stack>
+          </Stack>
+        )}
+      </Popover>
+      <Popover
+        open={untilAnchor !== null}
+        anchorEl={untilAnchor}
+        onClose={() => setUntilAnchor(null)}
+        slotProps={{ paper: { 'aria-label': 'Choisir la fin de la répétition', role: 'dialog' } as object }}
+      >
+        <Stack spacing={1} sx={{ p: 2, width: 280 }}>
+          <Typography variant="subtitle2">Choisir la fin de la répétition</Typography>
+          <Button
+            variant={repeat.until ? 'outlined' : 'contained'}
+            onClick={() => {
+              setRepeat(withEnd(repeat, null))
+              setUntilAnchor(null)
+            }}
+          >
+            Aucune fin
+          </Button>
+          <CalendarGrid
+            value={repeat.until}
+            fallbackMonth={anchor ?? undefined}
+            onChange={(day) => {
+              setRepeat(withEnd(repeat, day))
+              setUntilAnchor(null)
+            }}
+          />
+        </Stack>
+      </Popover>
       <DialogActions sx={{ justifyContent: 'space-between' }}>
         {editing ? (
           <Button color="error" onClick={handleDelete} disabled={submitting}>

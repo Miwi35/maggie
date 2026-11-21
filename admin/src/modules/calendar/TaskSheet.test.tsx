@@ -79,6 +79,20 @@ describe('TaskSheet (MAG-723)', () => {
     expect(within(panel).queryByRole('spinbutton')).toBeNull()
   })
 
+  test('a repeating task reads Répéter Un mardi sur deux with its end', () => {
+    renderSheet({ ...TASK, scheduledDate: '2026-11-24', rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;UNTIL=20261231' })
+
+    expect(screen.getByText('Répéter')).toBeInTheDocument()
+    expect(screen.getByText('Un mardi sur deux, jusqu’au jeu. 31 déc.')).toBeInTheDocument()
+  })
+
+  test('a task that does not repeat reads Répéter Jamais', () => {
+    renderSheet()
+
+    expect(screen.getByText('Répéter')).toBeInTheDocument()
+    expect(screen.getByText('Jamais')).toBeInTheDocument()
+  })
+
   test('a moment reads as its word, and no reminder row without a precise time', () => {
     renderSheet({ ...TASK, scheduledMoment: 'evening', scheduledTime: null, reminders: [] })
 

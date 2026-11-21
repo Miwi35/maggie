@@ -286,6 +286,26 @@ describe('TaskBoard', () => {
       expect(viewCalls()).toEqual(['http://localhost/api/tasks/view/done?page=1&itemsPerPage=30'])
     })
 
+    test('a repeating open row shows Répétée, a done or plain one does not (MAG-888)', async () => {
+      const upcoming = VIEWS.upcoming
+      VIEWS.upcoming = [
+        task('01BIN', 'Sortir la poubelle', { rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }),
+        task('01OLD', 'Payer le loyer', { rrule: 'FREQ=MONTHLY', completedAt: '2026-10-14T10:00:00+00:00' }),
+        task('01PLAIN', 'Appeler le garage'),
+      ]
+      try {
+        boardUrl = '/tasks/upcoming'
+        render(<TaskBoard />)
+
+        const rowOf = async (title: string) => (await screen.findByText(title)).closest('li') as HTMLElement
+        expect(within(await rowOf('Sortir la poubelle')).getByTestId('task-repeat')).toHaveAccessibleName('Répétée')
+        expect(within(await rowOf('Payer le loyer')).queryByTestId('task-repeat')).toBeNull()
+        expect(within(await rowOf('Appeler le garage')).queryByTestId('task-repeat')).toBeNull()
+      } finally {
+        VIEWS.upcoming = upcoming
+      }
+    })
+
     test('a path the page does not know is the day', async () => {
       boardUrl = '/tasks/unknown'
       render(<TaskBoard />)
