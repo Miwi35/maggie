@@ -40,11 +40,12 @@ def _gateway(turns, call_tool):
     )
     gateway._build_system_prompt = AsyncMock(return_value=build_system("S", "V"))
     gateway._resolve_context = AsyncMock(return_value=None)
+    gateway._thread_free_parts = AsyncMock(return_value=None)
     return gateway, seen
 
 
 async def _drain(gateway, **kwargs):
-    with patch("app.llm.streaming.message_repo") as repo, patch("app.llm.streaming.record_llm_usage"):
+    with patch("app.llm.streaming.message_repo") as repo, patch("app.llm.streaming.record_llm_usage"), patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])):
         repo.find_recent = AsyncMock(return_value=[])
         repo.create = AsyncMock()
         repo.checkpoint_turn = AsyncMock()
@@ -61,7 +62,7 @@ async def test_the_calls_are_kept_before_they_run():
         return '{"id": "evt-1"}'
 
     gateway, _ = _gateway([_tool_turn(), _text_turn("C'est fait.")], AsyncMock(side_effect=call_tool))
-    with patch("app.llm.streaming.message_repo") as repo, patch("app.llm.streaming.record_llm_usage"):
+    with patch("app.llm.streaming.message_repo") as repo, patch("app.llm.streaming.record_llm_usage"), patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])):
         repo.find_recent = AsyncMock(return_value=[])
         repo.create = AsyncMock()
         repo.checkpoint_turn = AsyncMock()
@@ -81,7 +82,7 @@ async def test_a_shutdown_mid_call_leaves_the_call_without_its_result():
         await asyncio.sleep(60)
 
     gateway, _ = _gateway([_tool_turn()], AsyncMock(side_effect=call_tool))
-    with patch("app.llm.streaming.message_repo") as repo, patch("app.llm.streaming.record_llm_usage"):
+    with patch("app.llm.streaming.message_repo") as repo, patch("app.llm.streaming.record_llm_usage"), patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])):
         repo.find_recent = AsyncMock(return_value=[])
         repo.create = AsyncMock()
         repo.checkpoint_turn = AsyncMock()
@@ -91,7 +92,7 @@ async def test_a_shutdown_mid_call_leaves_the_call_without_its_result():
                 pass
 
         task = asyncio.create_task(run())
-        await started.wait()
+        await asyncio.wait_for(started.wait(), timeout=5)
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
 

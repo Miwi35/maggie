@@ -132,7 +132,11 @@ class TestChatStream:
             seen.append(kwargs)
             return FakeStream(turns[len(seen) - 1])
 
-        with patch("app.llm.streaming.message_repo") as message_repo, patch("app.llm.tool_failures.capture_signal"):
+        with (
+            patch("app.llm.streaming.message_repo") as message_repo,
+            patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])),
+            patch("app.llm.tool_failures.capture_signal"),
+        ):
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
             gateway = StreamingGateway()
@@ -144,6 +148,7 @@ class TestChatStream:
             )
             gateway._build_system_prompt = AsyncMock(return_value=build_system("S", "V"))
             gateway._resolve_context = AsyncMock(return_value=None)
+            gateway._thread_free_parts = AsyncMock(return_value=None)
             with patch("app.llm.streaming.record_llm_usage"):
                 async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
                     pass
