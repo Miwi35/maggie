@@ -162,6 +162,10 @@ test('A dictated « oui mais à 15 h » decides nothing', async ({ approvalsUser
 
   expect(await eventStatus(api, id), 'a conditional yes ran the deletion').toBe(200)
   await expect(card).toHaveAttribute('data-status', 'pending')
+
+  // A card left pending reopens as a modal on the account's next page load and makes the next test's Accueil inert.
+  await card.getByRole('button', { name: 'Refuser' }).click()
+  await expect(card).toHaveAttribute('data-status', 'denied')
 })
 
 test('A dictated « oui, vas-y » runs the held deletion', async ({ approvalsUser }) => {

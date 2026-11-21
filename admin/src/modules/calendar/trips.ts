@@ -16,6 +16,8 @@ export interface Trip {
   mode: string
   steps: TripStep[]
   durationMinutes: number
+  /** The occurrence of a series this trip serves (MAG-862). */
+  occurrenceStartAt?: string
   departAt: string
   navigationUrl: string
   originLabel: string
