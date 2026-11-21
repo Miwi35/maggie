@@ -86,7 +86,8 @@ tags:
     timeout: 30000
 - assertVisible:
     id: "product_filter_store"
-    text: "Épicerie du coin"
+    containsChild:
+      text: "Épicerie du coin"
 - extendedWaitUntil:
     visible:
       text: "Yaourt MAG-606"

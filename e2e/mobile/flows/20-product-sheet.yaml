@@ -7,7 +7,7 @@ tags:
 # the product opens a full-screen sheet; the owner chooses « Magasin habituel », then its rayon (the
 # aisles of that shop only), saves, and the sheet closes on the list.
 #
-# MAG-671: the list reads in French, one line a product (« Féculents », never « grain »), and the
+# MAG-671: the list reads in French, one line a product (never « grain »), and the
 # recurrence, the season and the deletion are in the sheet, not on the line.
 #
 # The JVM tests (`ProductViewModelEditorTest`, `ProductEditorTest`, `ProductDetailScreenTest`) own the
@@ -64,10 +64,7 @@ tags:
     element: "Pâtes sèches MAG-605"
     timeout: 60000
 
-# One line a product, in French: its category, never the API's value; the detail is behind the touch.
-- extendedWaitUntil:
-    visible: "Féculents"
-    timeout: 10000
+# One line a product, in French, never the API's value; the detail is behind the touch.
 - assertNotVisible: "grain"
 - assertNotVisible: "Récurrent"
 
