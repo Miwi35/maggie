@@ -199,7 +199,7 @@ test('dragging the last aisle first is saved in order and shows no error — MAG
     await shell.goto(ROUTES.stores)
     await shell.content.getByTestId('store-row').filter({ hasText: storeName }).click()
     const aisles = shell.content.getByTestId('store-aisles').getByTestId('store-aisle')
-    await expect(aisles).toHaveText(names)
+    await expect(shell.content.getByTestId('store-aisle-name')).toHaveText(names)
 
     // --- When: the last one is dragged to the head -------------------------
     const moved = page.waitForResponse(
@@ -230,7 +230,7 @@ test('dragging the last aisle first is saved in order and shows no error — MAG
     const expected = ['Rayon 8', ...names.slice(0, 7)]
     expect((await echo).status()).toBe(200)
     expect(patches).toHaveLength(1)
-    await expect(aisles).toHaveText(expected)
+    await expect(shell.content.getByTestId('store-aisle-name')).toHaveText(expected)
     await expect(page.getByText(/^Erreur : /)).toHaveCount(0)
     const stored = await getCollection<{ name: string; position: number }>(api, `/api/aisles?store=${store.id}`)
     expect(stored.sort((a, b) => a.position - b.position).map((a) => a.name)).toEqual(expected)
