@@ -891,29 +891,6 @@
         },
         "description": "Reads one day's intermittent fast, date YYYY-MM-DD, derived from the food journal. Returns {date, protocol (14:10, 16:8, 18:6, 20:4; null if none), windowStart, windowEnd (HH:MM), openedAt (first intake), lastIntakeAt, state (fasting: nothing eaten yet; open: until windowEnd; closed), nightFastMinutes (previous day's last intake to this day's first)}. A future day gives its window only."
     },
-    "get_finance_dashboard": {
-        "name": "get_finance_dashboard",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "year": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "month": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Reads the financial picture of a month in one call. year and month: the month to read (default: current). Amounts are integer cents. Returns scores (week and month rhythm); tiles {accounts (total, safety cushion, available), budget (root envelopes consumed vs budgeted, expected salary), planning (independence counter, net saving capacity)}; nextProject (first planned project with gatheredCents and purchaseMonth YYYY-MM, following[], delay; null without project within 36 months); todo {toSortCount, rejectionsToSettleCount, reviewReady, advanceToRepayCents, owedToMeCents, iOweCents}; plus account balances, rolling twelve months, envelope gauges and biggest spending posts."
-    },
     "get_finance_projection": {
         "name": "get_finance_projection",
         "inputSchema": {
@@ -929,22 +906,6 @@
             }
         },
         "description": "Projects what comes, from entered data only (nothing is extrapolated). months: 1 to 12 (default: to the end of the month after the expected salary). Integer cents. salary {isConfigured, expectedOn, referenceCents, isLate, delayDays, shortfallCents}, balanceCents (checking today), projection[] day by day, overdraft {isForecast, onDate, worstBalanceCents, limitCents}, outstandingAdvancesCents; nextWeek and nextMonth: the week and month after this one with incomeCents, expenseCents, netCents and their lines. Moves no money."
-    },
-    "get_finance_scores": {
-        "name": "get_finance_scores",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Reads the budget scores for a date (date: YYYY-MM-DD, default today): week, month and global (the worse of month and year). Each is green (\"Dans le vert\"), neutral (\"Dans les clous\"), orange (\"Attention\") or red (\"Dépassement\"), with reasons (codes, amounts in cents, e.g. mandatory_category_exceeded, no_budget). Colour comes from envelopes only; the week is always neutral. Each week and month has spentCents (every real debit to date), expectedSpentCents (planned to date), plannedCents (whole period), the daily curve, planned debits and unclassifiedCount / unclassifiedCents (debits without category, included in spentCents)."
     },
     "get_finance_summary": {
         "name": "get_finance_summary",
@@ -997,30 +958,6 @@
             "properties": []
         },
         "description": "Reads the health profile. Returns {id (null if never written), sex, birthYear, age, heightCm, weightKg (latest weighing not set aside), activityLevel (sedentary x1.2 to very_active x1.9), mode (computed, entered), bmrKcal, needKcal, factor (need / bmr), stepGoal, suggestionWindowStart, suggestionWindowEnd, sessionMinutes, stepSource}. bmrKcal, needKcal null while sex, age, height or weight is missing."
-    },
-    "get_independence_counter": {
-        "name": "get_independence_counter",
-        "inputSchema": {
-            "type": "object",
-            "properties": []
-        },
-        "description": "Reads how far the rentes cover the lifestyle, measured over the last three complete months. Amounts are integer cents. Returns passiveIncomeCents (monthly average of credits in categories flagged passiveIncome), lifestyleCents (monthly cost), coveragePercent (not capped), gapCents, byCategory, milestones (25/50/75/100 %), isMeasurable (false: no month measured), coverageWithDebtPercent, projectedCoveragePercent (adds rentes expected by confirmed recurring series). projection (a simulation, see get_project_planning): nDate (YYYY-MM when rentes cover the lifestyle, null beyond 20 years), curve [{month, coverage 0..1}], milestones, renteSources."
-    },
-    "get_month_balance": {
-        "name": "get_month_balance",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "month": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Reads a month's balance (month: YYYY-MM, 2000-2100, default current): spending (every debit, classified or not, planned recurring amounts, daily curve of both), envelopes (each root envelope: consumed vs budgeted, status held, close or over), satisfaction (worth keeping vs avoidable, kept share in percent, null while nothing is judged), savings (put aside vs planned capacity, null without known income), cushion, toQualify (count and weight of unqualified lines, in no envelope). Integer cents."
     },
     "get_my_location": {
         "name": "get_my_location",
@@ -1094,22 +1031,6 @@
             "properties": []
         },
         "description": "Reads recurring operations (subscriptions, rent, salary), no arguments. totals: monthlyCostCents, yearlyCostCents (expenses, negative), monthlyIncomeCents, activeCount; signed integer cents; an ended series (endsOn past) is listed but not totalled. operations[]: id, label, category, account, period, dayRule, referenceAmountCents, monthlyCostCents, yearlyCostCents, currency, nextOccurrenceOn (null once ended), lastAttachedOn, attachmentCount, lastOccurrence (dateGapDays, deviations late, early, amount_up, amount_down), missedOccurrence (occurrenceOn, daysOverdue; set when the latest due date is past tolerance with no transaction), priceChange (previousCents, currentCents, percent, since). proposals[]: attachments awaiting confirmation with reason (late, early, amount_up, amount_down, ambiguous); confirmed with manage_operations attach."
-    },
-    "get_reference_salary": {
-        "name": "get_reference_salary",
-        "inputSchema": {
-            "type": "object",
-            "properties": []
-        },
-        "description": "Reads the reference salary: the stable monthly salary the month is judged on, bonuses excluded. No arguments. monthlyCents: positive integer cents, null when unknown. source: declared (net salary declared on the safety cushion, wins), expected (expected amount of recurring incomes in the \"Salaire\" category), measured (average of their last 12 attached payments), unknown. operations[]: salary recurring operations (id, label, categoryName, period, referenceAmountCents, monthlyCents, source, paymentCount); several employers are added. Changed via manage_safety_cushion or manage_operations."
-    },
-    "get_savings_advances": {
-        "name": "get_savings_advances",
-        "inputSchema": {
-            "type": "object",
-            "properties": []
-        },
-        "description": "Reads savings advances: money taken from a savings or investment account to checking while the salary was late, and what remains to give back per source. No arguments. advances[], oldest first: id, sourceAccountId, sourceAccountName, amountCents, openedOn, repaidCents, outstandingCents, isClosed (settled ones stay, closed, outside totals). bySource[], largest first, sources with something left: sourceAccountId, sourceAccountName, advancedCents, repaidCents, outstandingCents, openCount; totalOutstandingCents. Unsynced savings account: single-legged lines tied by advanceSourceAccountId (manage_transactions update) count; outstanding = advanced minus repaid, repayments covering the oldest first. salaryDelay as in manage_treasury_settings. Positive integer cents. Moves no money."
     },
     "get_seasonal_produce": {
         "name": "get_seasonal_produce",
@@ -1210,38 +1131,6 @@
             ]
         },
         "description": "Reads the strength program status, date YYYY-MM-DD. Returns {date, programWeek (from the first done calibration session), phase (calibration weeks 1-2, ramp_up 3-4, normal), deload {due, reason (scheduled, stagnation, hard_sessions, null), weeksSinceLast}, stagnating (slugs without gain for over 14 days), week {planned, done}, hardSetsByPattern}. Invalid date: {error}."
-    },
-    "get_treasury_outlook": {
-        "name": "get_treasury_outlook",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "months": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Projects the checking balance day by day until the salary, from entered data only (checking balances, planned and committed movements, recurring occurrences). months: 1 to 12 (default: to the end of the month after the expected salary). Amounts are integer cents. Returns salary {isConfigured (false: nothing projected), expectedOn, referenceCents, isLate, delayDays, shortfallCents}; balanceCents (today); projection[] {date, balanceCents, movements[] {id, label, amountCents, status planned|committed|expected, source transaction|recurring}}; overdraft {isForecast, onDate, worstBalanceCents, limitCents}; advice (null without forecast overdraft); outstandingAdvancesCents. Moves no money."
-    },
-    "get_upcoming_projection": {
-        "name": "get_upcoming_projection",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Projects the week after this one (Monday to Sunday) and the month after this one from entered data only: unattached occurrences of confirmed recurring series, and planned and committed movements on open checking accounts; transfers excluded. date: YYYY-MM-DD, default today. Amounts are integer cents. week and month each return from, until (excluded), incomeCents, expenseCents, netCents, incomes[] and expenses[] {date, label, amountCents signed, source recurring|planned|committed}, days[]. month adds envelopes[] (top-level monthly envelopes: amountCents, committedCents, projectedCents, isOvercommitted), projectedExpenseCents, remainingCents (expected income minus that spending)."
     },
     "get_user_timezone": {
         "name": "get_user_timezone",
@@ -4525,14 +4414,6 @@
             }
         },
         "description": "Computes the planning twice, without and with a new project, and changes nothing. scenarioId: a stored scenario id, or auto-rapid, auto-balanced, auto-quality. Same fields as manage_projects create: name and amountCents (integer cents, > 0) required; currency (default EUR); wellbeing essential|high|medium (default)|comfort; dateMode none (default)|fixed|deadline with targetOn (YYYY-MM-DD); dependsOn (project ids). Returns scenario {id, name, editable} or null; dates[] {projectId, name, before, after} (purchase month YYYY-MM, null beyond 36 months); nDate {before, after} (independence month, null beyond 20 years). A refusal returns error plus current."
-    },
-    "propose_advance_repayments": {
-        "name": "propose_advance_repayments",
-        "inputSchema": {
-            "type": "object",
-            "properties": []
-        },
-        "description": "Proposes transfers to give savings advances back. No arguments. One counter-transfer per open advance, of what is left, from the checking account the money landed on to its savings source: proposals[] (fromAccountId, toAccountId, amountCents, advanceId, currency, label), totalCents. Capped at the checking balance: an advance it cannot cover is reduced to the balance (isPartial true) and listed in unproposed[] (advanceId, sourceAccountName, amountCents, reason insufficient_balance or no_checking_account), unproposedCents. No open advance: proposals empty. Positive integer cents. Moves no money. A matching transfer settles the advance at the next detection; a regular savings top-up is never a return (mark it funding with manage_transactions)."
     },
     "read_bank_statement": {
         "name": "read_bank_statement",

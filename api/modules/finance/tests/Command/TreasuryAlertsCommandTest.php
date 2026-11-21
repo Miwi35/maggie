@@ -76,7 +76,7 @@ final class TreasuryAlertsCommandTest extends KernelTestCase
         self::assertStringContainsString('6 jour(s) de retard', $prompt, 'the delay');
         self::assertStringContainsString('Le compte courant passerait à découvert le 2026-11-06', $prompt, 'the overdraft date');
         self::assertStringContainsString('Avance conseillée : 100,00 €, depuis le compte « Livret late »', $prompt, 'the advice and its source');
-        self::assertStringContainsString('source : get_treasury_outlook', $prompt);
+        self::assertStringContainsString('source : get_finance_projection', $prompt);
 
         $this->assertMercureUpdatePublished('/proactions/');
         $this->assertElasticsearchIndexDispatched(Proaction::class);
