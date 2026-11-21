@@ -11,7 +11,8 @@ import java.time.Instant
 /**
  * Where a push goes once it reaches the app (MAG-314): with the app open, Maggie interrupts
  * inside it and the system shows nothing; otherwise it is the system notification. Never both,
- * so a message is never said twice. In the car (MAG-683) every message is the conversation notification the car reads,
+ * so a message is never said twice. A message of Maggie is the conversation notification, open or not, unless
+ * the conversation is on screen. In the car (MAG-683) every message is the conversation notification the car reads,
  * the app open or not.
  */
 class PushDelivery(
@@ -30,6 +31,12 @@ class PushDelivery(
         // its « Y aller » (a link to Waze or Maps) are not something the in-app toaster can say.
         if (payload.isDeparture) {
             if (!car.say(payload)) notifier().show(payload)
+            return
+        }
+        if (payload.isMessage) {
+            if (car.say(payload)) return
+            if (isForeground() && center.isHeld(PushPayload.MESSAGE_TYPE)) return
+            notifier().show(payload)
             return
         }
         // Open, the center is where the car is told too: the Mercure feeds reach it without passing here.

@@ -528,7 +528,7 @@ class MaggieApp : Application() {
             viewModel { params -> FullCalendarViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), params.getOrNull<String>()) }
             viewModel {
                 val car = get<SharedCarConnection>()
-                ChatViewModel(get(), get(), get(), get(), get(), get(), inCar = car::isConnected, tasks = get())
+                ChatViewModel(get(), get(), get(), get(), get(), get(), inCar = car::isConnected, tasks = get(), clearMessagesTray = { PushNotifier(androidContext()).closeConversation() })
             }
             viewModel { ContextViewModel(get(), get(), get()) }
             viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
