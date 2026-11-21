@@ -6,12 +6,13 @@ import { ROUTES } from './routes.js'
 /**
  * Santé › Journal (MAG-750): on the left the « Jours » of the period, a row
  * `journal-row-<YYYY-MM-DD>` per day the journal holds; on the right the
- * « Entrée du jour » — `journal-day` (« Aujourd’hui samedi 7 nov. »), the
- * radiogroups « Moral » and « Fatigue » (radios « 1 » to « 10 »),
- * `journal-noted-by` (« avec Maggie · 21:42 »), the textbox « Note » and
+ * « Entrée du jour » — `journal-day` (« Aujourd’hui · samedi 7 nov. »), the
+ * radiogroups « Moral » and « Fatigue » (radios « 1 » to « 10 », their value « 7 / 10 »
+ * in `journal-mood-value` / `journal-fatigue-value`),
+ * `journal-noted-by` in the header (« avec Maggie · 21:42 »), the textbox « Note » and
  * « Enregistrer », then the day's figures, each a link to its section:
  * `journal-weight` (`journal-weight-value` « 71,6 kg », `journal-weight-detail`
- * « pesé à 07:12 »), `journal-steps`, `journal-balance`, `journal-sport`.
+ * « première pesée · 07:12 »), `journal-steps`, `journal-balance`, `journal-sport`.
  */
 export class HealthJournalPage extends AdminShell {
   readonly days: Locator
@@ -22,6 +23,9 @@ export class HealthJournalPage extends AdminShell {
   readonly note: Locator
   readonly save: Locator
   readonly weight: Locator
+  readonly weightDetail: Locator
+  readonly moodValue: Locator
+  readonly fatigueValue: Locator
 
   constructor(page: Page) {
     super(page)
@@ -33,6 +37,9 @@ export class HealthJournalPage extends AdminShell {
     this.note = this.entry.getByRole('textbox', { name: 'Note' })
     this.save = this.entry.getByRole('button', { name: 'Enregistrer', exact: true })
     this.weight = this.entry.getByTestId('journal-weight-value')
+    this.weightDetail = this.entry.getByTestId('journal-weight-detail')
+    this.moodValue = this.entry.getByTestId('journal-mood-value')
+    this.fatigueValue = this.entry.getByTestId('journal-fatigue-value')
   }
 
   async open(): Promise<void> {
