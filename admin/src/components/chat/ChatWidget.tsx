@@ -35,7 +35,7 @@ import { mercureUrl } from '../../hooks/mercureUrl'
 import { saidInMessage } from '../../screenContext'
 import { stripDeliveryTags } from './deliveryTags'
 import { Linkified } from './Linkified'
-import { VoiceBubble } from './VoiceBubble'
+import { VoiceBubble, textBesideVoice } from './VoiceBubble'
 import type { VoiceAttachment } from './VoiceBubble'
 import { useAgUiStream } from '../../hooks/useAgUiStream'
 import { newMessageKey } from '../../hooks/messageKey'
@@ -1462,7 +1462,15 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                               </Typography>
                             )}
                             {msg.audio ? (
-                              <VoiceBubble audio={msg.audio} authHeaders={getAuthHeaders} />
+                              <>
+                                {(() => {
+                                  const beside = textBesideVoice(saidInMessage(msg.content), msg.audio)
+                                  return beside ? <Linkified text={beside} /> : null
+                                })()}
+                                <Box sx={{ mt: 1 }}>
+                                  <VoiceBubble audio={msg.audio} authHeaders={getAuthHeaders} />
+                                </Box>
+                              </>
                             ) : (
                               <Linkified text={msg.role === 'assistant' ? stripDeliveryTags(saidInMessage(msg.content)) : saidInMessage(msg.content)} />
                             )}
