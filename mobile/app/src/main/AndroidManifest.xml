@@ -63,6 +63,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Share sheet (MAG-895): a shared text becomes a chat draft. Images will add their mimeType here. -->
+        <activity
+            android:name=".share.ShareActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".voice.AssistantActivity"
             android:exported="true"
