@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithTheme } from '../../test/renderWithTheme'
-import { VoiceBubble } from './VoiceBubble'
+import { VoiceBubble, textBesideVoice } from './VoiceBubble'
 
 /** Maggie's voice message in the thread (MAG-686): play, pause, end, error, speed, transcript. */
 
@@ -143,5 +143,15 @@ describe('VoiceBubble', () => {
     })
 
     expect(screen.getByRole('alert')).toHaveTextContent('Audio introuvable')
+  })
+})
+
+describe('textBesideVoice', () => {
+  test('keeps a text that is not the transcript, without voice tags', () => {
+    expect(textBesideVoice('[warmly] Votre digest du matin est disponible. ', AUDIO)).toBe('Votre digest du matin est disponible.')
+  })
+
+  test('is null when the text is the transcript', () => {
+    expect(textBesideVoice(AUDIO.transcript + ' ', AUDIO)).toBeNull()
   })
 })
