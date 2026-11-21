@@ -25,7 +25,7 @@ import type { APIRequestContext, Page } from '@playwright/test'
  * card, by the unique title its summary quotes; the announcement, by the id) and never at a count of the account (MAG-394).
  */
 
-test.describe.configure({ retries: 0 })
+test.describe.configure({ mode: 'default', retries: 0 })
 
 const AGENDA = 'e2e_approvals_agenda'
 
@@ -34,6 +34,26 @@ const announcement = (id: string): string => `L'événement Test validation est 
 
 /** The card shows the agent's sentence, which quotes the title and never the id: a title of its own tells the runs apart. */
 const uniqueTitle = (label: string): string => `${label} ${randomUUID().slice(0, 8)}`
+
+/** Ids of the events this test created, so its afterEach settles only its own cards. */
+const held: string[] = []
+
+test.beforeEach(() => {
+  held.length = 0
+})
+
+test.afterEach(async ({ approvalsUser }) => {
+  const { api } = approvalsUser
+  const pending = await api.get('/agent/approvals?status=pending')
+  if (!pending.ok()) return
+  const actions = (await pending.json()) as { id: string; toolName: string; arguments?: { id?: string } }[]
+  for (const action of actions) {
+    if (action.toolName !== 'delete_event' || !held.includes(action.arguments?.id ?? '')) continue
+    // a card left pending reopens as a modal on the account's next page load
+    const denied = await api.post(`/agent/approvals/${action.id}/deny?channel=chat`)
+    expect([200, 409]).toContain(denied.status())
+  }
+})
 
 async function createEvent(api: APIRequestContext, summary: string): Promise<string> {
   const created = await api.post('/api/events', {
@@ -47,7 +67,9 @@ async function createEvent(api: APIRequestContext, summary: string): Promise<str
   })
   expect(created.status()).toBe(201)
 
-  return ((await created.json()) as { id: string }).id
+  const id = ((await created.json()) as { id: string }).id
+  held.push(id)
+  return id
 }
 
 async function eventStatus(api: APIRequestContext, id: string): Promise<number> {
