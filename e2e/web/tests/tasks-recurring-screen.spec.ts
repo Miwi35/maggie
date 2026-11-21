@@ -98,7 +98,7 @@ test('a task made to repeat every other Tuesday shows ↻ and its rule, and chec
   })
   expect(next.scheduledDate?.slice(0, 10)).toBe(daysFrom(tuesday, 14))
   expect(next.rrule).toBe(RULE)
-  await expect.poll(async () => (await stored(api, id)).rrule).toBeNull()
+  await expect.poll(async () => (await stored(api, id)).rrule ?? null).toBeNull()
   expect((await stored(api, id)).completedAt).not.toBeNull()
   await expect(tasks.repeatMark(tasks.row(title))).toBeVisible()
 })
