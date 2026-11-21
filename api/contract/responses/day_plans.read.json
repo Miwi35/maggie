@@ -15,7 +15,8 @@
                 "dueDate": null,
                 "postponedSince": null,
                 "urgency": "low",
-                "criticality": "low"
+                "criticality": "low",
+                "rrule": null
             }
         },
         {
@@ -30,7 +31,8 @@
                 "dueDate": "2026-03-20",
                 "postponedSince": "2026-03-19",
                 "urgency": "critical",
-                "criticality": "high"
+                "criticality": "high",
+                "rrule": null
             }
         }
     ],
@@ -46,7 +48,8 @@
             "dueDate": "2026-03-20",
             "postponedSince": "2026-03-19",
             "urgency": "critical",
-            "criticality": "high"
+            "criticality": "high",
+            "rrule": null
         }
     },
     "reserve": [
@@ -59,7 +62,8 @@
             "dueDate": null,
             "postponedSince": null,
             "urgency": "low",
-            "criticality": "low"
+            "criticality": "low",
+            "rrule": null
         }
     ],
     "done": 1,
