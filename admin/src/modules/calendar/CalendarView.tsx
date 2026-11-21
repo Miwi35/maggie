@@ -1306,6 +1306,23 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     [dataProvider],
   )
 
+  // The bands row leaves the room between the box's left edge and Monday's header.
+  const measureAxis = useCallback(() => {
+    const box = calendarBoxRef.current
+    const header = box?.querySelector('.fc-col-header-cell')
+    if (!box || !header) return
+    const width = Math.round(header.getBoundingClientRect().left - box.getBoundingClientRect().left)
+    if (width > 0) setAxisWidth(width)
+  }, [])
+
+  useEffect(() => {
+    const box = calendarBoxRef.current
+    if (!box || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measureAxis)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [measureAxis])
+
   // --- FullCalendar callbacks ---
   const handleDatesSet = useCallback(
     (arg: DatesSetArg) => {
@@ -1316,12 +1333,11 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       setMiniCalDate(arg.view.currentStart)
       setCurrentView(arg.view.type as CalendarView)
       setActiveRange({ start: arg.view.currentStart, end: arg.view.currentEnd })
-      const axis = calendarBoxRef.current?.querySelector('.fc-timegrid-axis')
-      if (axis && axis.getBoundingClientRect().width > 0) setAxisWidth(Math.round(axis.getBoundingClientRect().width))
+      requestAnimationFrame(measureAxis)
       fetchEvents(start, end)
       void loadPeriods(start, end)
     },
-    [fetchEvents, loadPeriods],
+    [fetchEvents, loadPeriods, measureAxis],
   )
 
   const handleSelectAllow = useCallback((info: { start: Date; end: Date }) => {
