@@ -17,6 +17,7 @@ use Symfony\Component\Cache\Psr16Cache;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\Yaml\Yaml;
 
 class McpDiscoveryCacheTest extends TestCase
 {
@@ -95,6 +96,20 @@ class McpDiscoveryCacheTest extends TestCase
         (new CachedMcpDiscoveryPass())->process($container);
 
         self::assertSame([], $container->getDefinition('mcp.server.builder')->getMethodCalls());
+    }
+
+    public function testTheE2eEnvironmentDeclaresTheCachedCatalogueLikeProd(): void
+    {
+        $services = Yaml::parseFile(__DIR__.'/../../../config/services.yaml', Yaml::PARSE_CUSTOM_TAGS);
+        $cache = Yaml::parseFile(self::PROJECT_DIR.'config/packages/cache.yaml');
+
+        foreach (['when@prod', 'when@e2e'] as $env) {
+            $declared = $services[$env]['services'];
+            self::assertArrayHasKey(CachedDiscoverer::class, $declared, $env);
+            self::assertArrayHasKey(McpDiscoveryCacheWarmer::class, $declared, $env);
+            self::assertSame(['kernel.cache_warmer'], $declared[McpDiscoveryCacheWarmer::class]['tags'], $env);
+            self::assertArrayHasKey('mcp_discovery.cache', $cache[$env]['framework']['cache']['pools'], $env);
+        }
     }
 
     private function warmer(DiscovererInterface $cached): McpDiscoveryCacheWarmer
