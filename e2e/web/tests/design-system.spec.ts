@@ -116,6 +116,7 @@ test('no text on the dashboard asks for a weight the page does not load', async 
 test('Cuisine wears the apricot and Courses keeps its own blue, read from the tokens', async ({ page }) => {
   const shell = new AdminShell(page)
   await shell.goto(ROUTES.recipes)
+  await shell.expectLoaded()
   await shell.openMenu()
 
   const menu = shell.menuItem('Cuisine')
