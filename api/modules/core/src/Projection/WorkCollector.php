@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Core\Projection;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
+use Doctrine\ORM\EntityNotFoundException;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Doctrine\ORM\Events;
@@ -46,11 +47,18 @@ class WorkCollector implements ResetInterface
 
     private ?Work $pending = null;
 
+    /** @var list<object> rows the database emptied (SET NULL, join rows): their memory is stale once the flush is over */
+    private array $emptiedByDatabase = [];
+
+    /** @var list<object> rows the database deleted by cascade, without the ORM knowing */
+    private array $deletedByDatabase = [];
+
     /** @var array<class-string, string|null> */
     private array $rootRelations = [];
 
     public function __construct(
         private readonly IndexMetadataReader $metadataReader,
+        private readonly CascadeResolver $cascades,
     ) {
     }
 
@@ -126,6 +134,8 @@ class WorkCollector implements ResetInterface
     public function onFlush(OnFlushEventArgs $args): void
     {
         $this->pending = null;
+        $this->emptiedByDatabase = [];
+        $this->deletedByDatabase = [];
         if ([] === $this->stack) {
             return;
         }
@@ -142,6 +152,14 @@ class WorkCollector implements ResetInterface
         }
         foreach ($uow->getScheduledEntityDeletions() as $entity) {
             $this->collect($em, $pending, $entity, ChangeKind::Deleted, []);
+            foreach ($this->cascades->cascadesOf($em, $entity) as [$row, $kind, $properties]) {
+                $this->collect($em, $pending, $row, $kind, $properties);
+                if (ChangeKind::Deleted === $kind) {
+                    $this->deletedByDatabase[] = $row;
+                } else {
+                    $this->emptiedByDatabase[] = $row;
+                }
+            }
         }
         // ManyToMany collections (Meal.recipes): the owner has no changeset of its own.
         foreach ([...$uow->getScheduledCollectionUpdates(), ...$uow->getScheduledCollectionDeletions()] as $collection) {
@@ -158,6 +176,7 @@ class WorkCollector implements ResetInterface
     {
         $pending = $this->pending;
         $this->pending = null;
+        $this->settleCascades($args->getObjectManager());
 
         $work = end($this->stack);
         if (null !== $pending && false !== $work) {
@@ -169,6 +188,32 @@ class WorkCollector implements ResetInterface
     {
         $this->stack = [];
         $this->pending = null;
+        $this->emptiedByDatabase = [];
+        $this->deletedByDatabase = [];
+    }
+
+    /** What the database did behind the ORM's back is what the payloads must say, not the objects in memory. */
+    private function settleCascades(ObjectManager $em): void
+    {
+        foreach ($this->deletedByDatabase as $row) {
+            if ($em->contains($row)) {
+                $em->detach($row);
+            }
+        }
+
+        foreach ($this->emptiedByDatabase as $row) {
+            if (!$em->contains($row)) {
+                continue;
+            }
+            try {
+                $em->refresh($row);
+            } catch (EntityNotFoundException) {
+                $em->detach($row);
+            }
+        }
+
+        $this->emptiedByDatabase = [];
+        $this->deletedByDatabase = [];
     }
 
     /** @param list<string> $properties */

@@ -32,7 +32,6 @@ class ProjectionArchitectureTest extends TestCase
         'modules/calendar/src/Service/GoogleTaskListSelection.php',
         'modules/calendar/src/Service/GoogleTasksSyncService.php',
         'modules/cookbook/src/Command/FileMealsInModuleAgendaCommand.php',
-        'modules/cookbook/src/MessageHandler/DeleteRecipeHandler.php',
         'modules/core/src/Command/AbstractUserRoleCommand.php',
         'modules/core/src/Service/TechnicalAccountTokenIssuer.php',
         'modules/finance/src/Command/BackfillCounterpartyCommand.php',

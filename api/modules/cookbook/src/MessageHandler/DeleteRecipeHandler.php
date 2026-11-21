@@ -12,7 +12,6 @@ use Maggie\Cookbook\Message\UpdateMealCommand;
 use Maggie\Cookbook\Repository\MealRepository;
 use Maggie\Cookbook\Repository\RecipeRepository;
 use Maggie\Cookbook\UseCase\DeleteRecipe;
-use Maggie\Core\Elasticsearch\Message\IndexDocumentCommand;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -51,25 +50,16 @@ class DeleteRecipeHandler
             ));
         }
 
-        // Past meals that keep other recipes are shopping already done: the
-        // join rows cascade with the recipe, the list is left alone, and only
-        // the search document needs to forget the recipe.
-        $past = [];
+        // A past meal that keeps other recipes is shopping already done: the list
+        // is left alone, and the join row that cascades with the recipe is announced
+        // by the projection (the meal is published and reindexed without it).
         foreach ($this->mealRepository->findPastByRecipe($recipe) as $meal) {
             if (1 === $meal->getRecipes()->count()) {
                 $this->bus->dispatch(new DeleteMealCommand(mealId: (string) $meal->getId()));
-
-                continue;
             }
-
-            $past[] = $meal;
         }
 
         $this->deleteRecipe->execute($recipe);
-
-        foreach ($past as $meal) {
-            $this->bus->dispatch(new IndexDocumentCommand(Meal::class, (string) $meal->getId()));
-        }
     }
 
     /** @return string[] */

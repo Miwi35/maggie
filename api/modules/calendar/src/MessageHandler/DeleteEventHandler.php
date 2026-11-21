@@ -43,20 +43,10 @@ class DeleteEventHandler
         // command, named after Event, does not reach.
         $ownIndices = array_diff($this->metadataReader->indicesOf($event::class), $this->metadataReader->indicesOf(Event::class));
 
-        // The database cascade removes the exception instances without any command of their own.
-        $exceptionIds = array_map(
-            fn ($exception) => (string) $exception->getId(),
-            $this->eventRepository->findBy(['recurringEvent' => $event]),
-        );
-
         $this->deleteEvent->execute($event);
 
         foreach ($ownIndices as $indexName) {
             $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: $indexName, documentId: CanonicalId::of($command->eventId)));
-        }
-
-        foreach ($exceptionIds as $exceptionId) {
-            $this->messageBus->dispatch(new DeleteDocumentCommand(indexName: 'events', documentId: $exceptionId));
         }
 
         if ($wasGoogleSynced && null !== $googleEventId) {
