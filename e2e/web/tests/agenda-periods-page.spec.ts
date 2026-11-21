@@ -59,3 +59,35 @@ test('a period shows as a band over the week, and a new one is created from the 
     .poll(async () => (await getCollection<{ name: string }>(api, '/api/periods')).map((period) => period.name))
     .toContain('Vacances')
 })
+
+test('the dialog of an existing period reads its own agenda and saves it unchanged (MAG-913)', async ({ api, page }) => {
+  const { monday, saturday } = thisWeek()
+
+  const first = await api.post('/api/agendas', { headers: JSON_LD, data: { name: 'Famille' } })
+  expect(first.status(), await first.text()).toBe(201)
+  const second = await api.post('/api/agendas', { headers: JSON_LD, data: { name: 'Travail' } })
+  expect(second.status(), await second.text()).toBe(201)
+  const secondIri = (await second.json())['@id'] as string
+
+  const created = await api.post('/api/periods', {
+    headers: JSON_LD,
+    data: { name: 'Déplacement', agenda: secondIri, allDay: true, startDate: monday, endDate: saturday },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const periodIri = (await created.json())['@id'] as string
+
+  const periods = new PeriodsPage(page)
+  await periods.open()
+  await periods.row('Déplacement').click()
+  await expect(periods.dialog).toBeVisible()
+  await expect(periods.dialog.getByRole('combobox', { name: /Agenda/ })).toHaveText('Travail')
+
+  await Promise.all([
+    page.waitForResponse((response) => response.url().includes('/api/periods') && ['PUT', 'PATCH'].includes(response.request().method())),
+    periods.dialog.getByRole('button', { name: 'Enregistrer' }).click(),
+  ])
+  await expect(periods.dialog).toBeHidden()
+
+  const saved = await api.get(periodIri, { headers: JSON_LD })
+  expect((await saved.json()).agenda).toBe(secondIri)
+})
