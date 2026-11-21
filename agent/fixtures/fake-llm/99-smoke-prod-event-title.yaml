@@ -8,7 +8,7 @@ description: Call get_events without a query, answer with the smoke event's titl
 match:
   user_contains: "get_events sans query"
 
-results_matches: 'summary\W+(Rendez-vous smoke \d+)\W+description\W+code \d+'
+results_matches: 'summary\W+(Rendez-vous smoke \d+)\W+description\W+marqueur \d+'
 
 turns:
   - tools:

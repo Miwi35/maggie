@@ -13,7 +13,7 @@ from app import user_timezone
 
 SMOKE_QUESTION = (
     "Appelle l'outil get_events sans query, puis réponds en une phrase : "
-    "quel est le titre exact de l'événement dont la description est « code 4242 » ?"
+    "quel est le titre exact de l'événement dont la description est « marqueur 4242 » ?"
 )
 
 
@@ -125,7 +125,7 @@ class TestTheSmokeQuestion:
         monkeypatch.setattr("app.llm.client.settings.fake_llm_fixtures_dir", "")
         monkeypatch.setattr("app.llm.fake.settings.fake_llm_fixtures_dir", "")
         client_module._technical_client = None
-        events = {"events": [{"id": "1", "summary": "Rendez-vous smoke 1234", "description": "code 4242"}], "count": 1}
+        events = {"events": [{"id": "1", "summary": "Rendez-vous smoke 1234", "description": "marqueur 4242"}], "count": 1}
         router = MagicMock(call_tool=AsyncMock(return_value=json.dumps(events)))
         real = _anthropic()
 
