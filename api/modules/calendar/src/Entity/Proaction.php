@@ -12,6 +12,8 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Calendar\Enum\ProactionDelivery;
+use Maggie\Calendar\Enum\ProactionKind;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Calendar\Repository\ProactionRepository;
 use Maggie\Core\Contract\MercurePublishable;
@@ -40,6 +42,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 // Comments and not a docblock: see Meal.
 #[ORM\Entity(repositoryClass: ProactionRepository::class)]
 #[ORM\Index(columns: ['execution_status'], name: 'idx_proaction_execution_status')]
+#[ORM\Index(columns: ['topic_key', 'completed_at'], name: 'idx_proaction_topic_key_completed_at')]
 #[ApiFilter(SearchFilter::class, properties: ['executionStatus' => 'exact'])]
 #[Indexed(index: 'proactions', module: 'calendar')]
 #[ApiResource(operations: [
@@ -70,10 +73,51 @@ class Proaction extends Event implements MercurePublishable
     #[ApiProperty(writable: false)]
     private ProactionStatus $executionStatus = ProactionStatus::Pending;
 
+    // A reminder the owner asked for always interrupts; a check speaks only when
+    // what it found is worth it (MAG-886).
+    #[ORM\Column(length: 10, enumType: ProactionKind::class, options: ['default' => 'reminder'])]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(writable: false)]
+    private ProactionKind $kind = ProactionKind::Reminder;
+
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[IndexedField(type: 'text')]
     #[ApiProperty(writable: false)]
     private ?string $response = null;
+
+    // How the completed run reached the owner, the topic it was about and
+    // Maggie's verdict on it: what the next check reads back (MAG-886).
+    #[ORM\Column(length: 10, nullable: true, enumType: ProactionDelivery::class)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(writable: false)]
+    private ?ProactionDelivery $delivery = null;
+
+    #[ORM\Column(length: ProactionOutcome::TOPIC_LENGTH, nullable: true)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(writable: false)]
+    private ?string $topicKey = null;
+
+    /** @var array{impact?: string, evidence?: string, deadline?: string, changed?: string}|null */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[IndexedField(type: 'object', properties: [
+        'impact' => ['type' => 'keyword'],
+        'evidence' => ['type' => 'keyword'],
+        'deadline' => ['type' => 'date'],
+        'changed' => ['type' => 'text'],
+    ])]
+    #[ApiProperty(writable: false)]
+    private ?array $verdict = null;
+
+    // The sentence of the interruption, and the message it opens.
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[IndexedField(type: 'text')]
+    #[ApiProperty(writable: false)]
+    private ?string $notice = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    #[IndexedField(type: 'keyword')]
+    #[ApiProperty(writable: false)]
+    private ?string $messageLink = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[IndexedField(type: 'text')]
@@ -166,10 +210,27 @@ class Proaction extends Event implements MercurePublishable
         return $this;
     }
 
-    public function markCompleted(?string $response, \DateTimeImmutable $at): static
+    public function getKind(): ProactionKind
+    {
+        return $this->kind;
+    }
+
+    public function setKind(ProactionKind $kind): static
+    {
+        $this->kind = $kind;
+
+        return $this;
+    }
+
+    public function markCompleted(ProactionOutcome $outcome, \DateTimeImmutable $at): static
     {
         $this->executionStatus = ProactionStatus::Completed;
-        $this->response = $response;
+        $this->response = $outcome->response;
+        $this->delivery = $outcome->delivery;
+        $this->topicKey = $outcome->topicKey;
+        $this->verdict = $outcome->verdict;
+        $this->notice = $outcome->notice;
+        $this->messageLink = $outcome->messageLink;
         $this->error = null;
         $this->completedAt = $at;
 
@@ -191,6 +252,32 @@ class Proaction extends Event implements MercurePublishable
         return $this->response;
     }
 
+    public function getDelivery(): ?ProactionDelivery
+    {
+        return $this->delivery;
+    }
+
+    public function getTopicKey(): ?string
+    {
+        return $this->topicKey;
+    }
+
+    /** @return array{impact?: string, evidence?: string, deadline?: string, changed?: string}|null */
+    public function getVerdict(): ?array
+    {
+        return $this->verdict;
+    }
+
+    public function getNotice(): ?string
+    {
+        return $this->notice;
+    }
+
+    public function getMessageLink(): ?string
+    {
+        return $this->messageLink;
+    }
+
     public function getError(): ?string
     {
         return $this->error;
@@ -207,7 +294,13 @@ class Proaction extends Event implements MercurePublishable
         $doc = parent::toSearchDocument();
         $doc['prompt'] = $this->prompt;
         $doc['executionStatus'] = $this->executionStatus->value;
+        $doc['kind'] = $this->kind->value;
         $doc['response'] = $this->response;
+        $doc['delivery'] = $this->delivery?->value;
+        $doc['topicKey'] = $this->topicKey;
+        $doc['verdict'] = $this->verdict;
+        $doc['notice'] = $this->notice;
+        $doc['messageLink'] = $this->messageLink;
         $doc['error'] = $this->error;
         $doc['completedAt'] = $this->completedAt?->format('c');
 
@@ -221,6 +314,8 @@ class Proaction extends Event implements MercurePublishable
             'startAt' => $this->getStartAt()?->format('c'),
             'endAt' => $this->getEndAt()?->format('c'),
             'executionStatus' => $this->executionStatus->value,
+            'kind' => $this->kind->value,
+            'delivery' => $this->delivery?->value,
             'completedAt' => $this->completedAt?->format('c'),
         ], $changedProperties);
     }

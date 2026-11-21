@@ -45,6 +45,10 @@ class Proaction:
     response: str | None = None
     error: str | None = None
     completed_at: str | None = None
+    # A reminder always interrupts; a check is triaged (MAG-886), knowing the topics it already told.
+    kind: str = "reminder"
+    delivery: str | None = None
+    signaled_topics: tuple[dict, ...] = ()
 
     @classmethod
     def from_api(cls, data: dict, user_id: str | None = None) -> "Proaction":
@@ -58,14 +62,20 @@ class Proaction:
             response=data.get("response"),
             error=data.get("error"),
             completed_at=data.get("completedAt"),
+            kind=str(data.get("kind") or "reminder"),
+            delivery=data.get("delivery"),
+            signaled_topics=tuple(t for t in data.get("signaledTopics") or () if isinstance(t, dict)),
         )
 
     def to_dict(self) -> dict:
         """What `GET /agent/proactions` and the `proactions` Mercure topic carry: their former shape, but
         `createdAt`, which the API does not describe (the screens move to the agenda in MAG-328).
 
-        `silent` (MAG-680) tells the screens the run is a log, not a message: a trip check or replan."""
-        return {
+        `silent` (MAG-680) tells the screens the run is a log, not a message: a trip check or replan —
+        or a run whose message waits in the thread, or that said nothing (MAG-886): no bubble, no push.
+
+        `kind` and `signaledTopics` travel with the claimed proaction through the queue to its run."""
+        data = {
             "id": self.id,
             "userId": self.user_id,
             "prompt": self.prompt,
@@ -75,8 +85,13 @@ class Proaction:
             "response": self.response,
             "error": self.error,
             "completedAt": self.completed_at,
-            "silent": is_silent_trip_run(self.summary),
+            "kind": self.kind,
+            "delivery": self.delivery,
+            "silent": is_silent_trip_run(self.summary) or (self.delivery is not None and self.delivery != "interrupt"),
         }
+        if self.signaled_topics:
+            data["signaledTopics"] = list(self.signaled_topics)
+        return data
 
 
 async def _call(tool: str, arguments: dict, user_id: str | None) -> dict:
@@ -109,14 +124,33 @@ async def claim_due(proaction_id: str | None = None, user_id: str | None = None)
 
 
 async def record(
-    proaction: Proaction, status: str, *, response: str | None = None, error: str | None = None
+    proaction: Proaction,
+    status: str,
+    *,
+    response: str | None = None,
+    error: str | None = None,
+    delivery: str | None = None,
+    topic_key: str | None = None,
+    verdict: dict | None = None,
+    notice: str | None = None,
+    message_link: str | None = None,
 ) -> Proaction:
-    """Record how a claimed run went: `completed` with Maggie's message, or `failed` with the error."""
+    """Record how a claimed run went: `completed` with Maggie's message, or `failed` with the error.
+
+    A completed run also keeps how it reached the owner, its topic and verdict (MAG-886); an
+    interruption with its `notice` and `message_link` is what makes the API notify the owner.
+    """
     arguments: dict = {"id": proaction.id, "status": status}
-    if response is not None:
-        arguments["response"] = response
-    if error is not None:
-        arguments["error"] = error
+    optional = {
+        "response": response,
+        "error": error,
+        "delivery": delivery,
+        "topic_key": topic_key,
+        "notice": notice,
+        "message_link": message_link,
+        **(verdict or {}),
+    }
+    arguments.update({key: value for key, value in optional.items() if value is not None})
     data = await _call(RECORD_TOOL, arguments, proaction.user_id or None)
     return Proaction.from_api(data.get("proaction") or {"id": proaction.id}, proaction.user_id)
 

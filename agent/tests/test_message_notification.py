@@ -65,9 +65,12 @@ async def test_a_failing_notification_is_logged_not_raised():
 
 
 class TestConsumer:
+    """Since MAG-886 the API notifies, on the run recorded as an interruption: the agent hands it the
+    sentence (`notice`) and the link to the message (`message_link`), and calls no notification itself."""
+
     @classmethod
     async def _run(cls, result, **kwargs):
-        outcome, mcp, _ = await cls._run_keeping(result, **kwargs)
+        outcome, mcp, _, _ = await cls._run_keeping(result, **kwargs)
         return outcome, mcp
 
     @staticmethod
@@ -91,16 +94,17 @@ class TestConsumer:
             summarizer.maybe_summarize = AsyncMock()
             mcp.call_tool = AsyncMock(side_effect=notify_error)
             outcome = await execute_proaction(gateway, PROACTION, dry_run=dry_run)
-        return outcome, mcp, messages
+        return outcome, mcp, messages, proactions.record.await_args
 
-    async def test_the_message_is_notified_with_a_stripped_preview(self):
-        _, mcp = await self._run({"response": "[warmly] Pense au plombier.", "tool_calls": [], "context_id": "c1"})
+    async def test_the_interruption_carries_a_stripped_preview_and_the_link(self):
+        _, mcp, _, recorded = await self._run_keeping(
+            {"response": "[warmly] Pense au plombier.", "tool_calls": [], "context_id": "c1"}
+        )
 
-        args = mcp.call_tool.await_args
-        assert args.args[0] == "manage_notifications"
-        assert args.args[1]["body"] == "Pense au plombier."
-        assert args.args[1]["relatedEntityIri"] == "/chat?message=msg-9"
-        assert args.kwargs["user_id"] == "user-1"
+        assert recorded.kwargs["delivery"] == "interrupt"
+        assert recorded.kwargs["notice"] == "Pense au plombier."
+        assert recorded.kwargs["message_link"] == "/chat?message=msg-9"
+        mcp.call_tool.assert_not_awaited()
 
     async def test_a_digest_run_stores_its_message_on_the_digest_and_the_notification_opens_it(self):
         vocal = {
@@ -108,12 +112,12 @@ class TestConsumer:
             "input": {"text": "Bonjour", "screen": "digest"},
             "result": '{"sent": true, "messageId": "voc-1", "durationMs": 900, "screen": "digest"}',
         }
-        _, mcp, messages = await self._run_keeping(
+        _, _, messages, recorded = await self._run_keeping(
             {"response": "Votre journée…", "tool_calls": [vocal], "context_id": "c1"}
         )
 
         assert messages.create.await_args.kwargs["screen"] == "digest"
-        assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/digest?message=msg-9"
+        assert recorded.kwargs["message_link"] == "/digest?message=msg-9"
 
     async def test_a_vocal_that_failed_still_leaves_the_written_digest_on_the_digest(self):
         vocal = {
@@ -121,22 +125,24 @@ class TestConsumer:
             "input": {"text": "Bonjour", "screen": "digest"},
             "result": '{"error": "Le vocal n\'a pas pu être enregistré"}',
         }
-        _, mcp, messages = await self._run_keeping({"response": "Votre journée…", "tool_calls": [vocal]})
+        _, _, messages, recorded = await self._run_keeping({"response": "Votre journée…", "tool_calls": [vocal]})
 
         assert messages.create.await_args.kwargs["screen"] == "digest"
-        assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/digest?message=msg-9"
+        assert recorded.kwargs["message_link"] == "/digest?message=msg-9"
 
     async def test_a_vocal_without_a_screen_leaves_the_message_in_the_thread(self):
         vocal = {"name": "send_voice_message", "input": {"text": "Bonjour"}, "result": '{"sent": true}'}
-        _, mcp, messages = await self._run_keeping({"response": "Voilà.", "tool_calls": [vocal]})
+        _, _, messages, recorded = await self._run_keeping({"response": "Voilà.", "tool_calls": [vocal]})
 
         assert messages.create.await_args.kwargs["screen"] is None
-        assert mcp.call_tool.await_args.args[1]["relatedEntityIri"] == "/chat?message=msg-9"
+        assert recorded.kwargs["message_link"] == "/chat?message=msg-9"
 
     async def test_a_voice_message_without_text_reads_message_vocal(self):
-        _, mcp = await self._run({"response": "[whispers]", "tool_calls": []}, audio={"type": "audio/mpeg"})
+        _, _, _, recorded = await self._run_keeping(
+            {"response": "[whispers]", "tool_calls": []}, audio={"type": "audio/mpeg"}
+        )
 
-        assert mcp.call_tool.await_args.args[1]["body"] == "Message vocal"
+        assert recorded.kwargs["notice"] == "Message vocal"
 
     async def test_a_dry_run_notifies_nothing(self):
         _, mcp = await self._run({"response": "Salut", "tool_calls": []}, dry_run=True)

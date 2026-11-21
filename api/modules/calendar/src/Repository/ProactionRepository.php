@@ -10,6 +10,7 @@ use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Proaction;
+use Maggie\Calendar\Enum\ProactionDelivery;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Core\Entity\User;
 use Symfony\Component\Uid\Ulid;
@@ -81,6 +82,38 @@ class ProactionRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * The topics the user was last told about since `$since`, newest first: one
+     * proaction per topic, the latest delivered as an interruption or in the
+     * thread — a run that said nothing told nothing (MAG-886).
+     *
+     * @return Proaction[]
+     */
+    public function findSignaledTopics(User $user, \DateTimeImmutable $since, int $limit = 20): array
+    {
+        /** @var Proaction[] $delivered */
+        $delivered = $this->createQueryBuilder('p')
+            ->join('p.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('p.topicKey IS NOT NULL')
+            ->andWhere('p.delivery IN (:signaled)')
+            ->andWhere('p.completedAt >= :since')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('signaled', [ProactionDelivery::Interrupt->value, ProactionDelivery::Thread->value])
+            ->setParameter('since', $since, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('p.completedAt', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        $latest = [];
+        foreach ($delivered as $proaction) {
+            $latest[$proaction->getTopicKey()] ??= $proaction;
+        }
+
+        return array_slice(array_values($latest), 0, $limit);
     }
 
     /** The proaction, if it is the user's — or anyone's when no user is named: another user's is not found. */

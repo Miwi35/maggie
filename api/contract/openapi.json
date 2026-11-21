@@ -25415,7 +25415,60 @@
                             "failed"
                         ]
                     },
+                    "kind": {
+                        "readOnly": true,
+                        "default": "reminder",
+                        "type": "string",
+                        "enum": [
+                            "reminder",
+                            "check"
+                        ]
+                    },
                     "response": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "delivery": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "interrupt",
+                            "thread",
+                            "none",
+                            null
+                        ]
+                    },
+                    "topicKey": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "verdict": {
+                        "readOnly": true,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "notice": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "messageLink": {
                         "readOnly": true,
                         "type": [
                             "string",
@@ -25610,7 +25663,60 @@
                             "failed"
                         ]
                     },
+                    "kind": {
+                        "readOnly": true,
+                        "default": "reminder",
+                        "type": "string",
+                        "enum": [
+                            "reminder",
+                            "check"
+                        ]
+                    },
                     "response": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "delivery": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "interrupt",
+                            "thread",
+                            "none",
+                            null
+                        ]
+                    },
+                    "topicKey": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "verdict": {
+                        "readOnly": true,
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "notice": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "messageLink": {
                         "readOnly": true,
                         "type": [
                             "string",
@@ -25810,7 +25916,60 @@
                                     "failed"
                                 ]
                             },
+                            "kind": {
+                                "readOnly": true,
+                                "default": "reminder",
+                                "type": "string",
+                                "enum": [
+                                    "reminder",
+                                    "check"
+                                ]
+                            },
                             "response": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "delivery": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "interrupt",
+                                    "thread",
+                                    "none",
+                                    null
+                                ]
+                            },
+                            "topicKey": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "verdict": {
+                                "readOnly": true,
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "notice": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "messageLink": {
                                 "readOnly": true,
                                 "type": [
                                     "string",

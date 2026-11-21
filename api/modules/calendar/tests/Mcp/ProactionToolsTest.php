@@ -10,6 +10,7 @@ use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Proaction;
+use Maggie\Calendar\Enum\ProactionKind;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Calendar\Mcp\Tool\CancelProactionTool;
 use Maggie\Calendar\Mcp\Tool\CheckConflictsTool;
@@ -53,6 +54,7 @@ class ProactionToolsTest extends KernelTestCase
 
         foreach ([
             [ScheduleProactionTool::class, ['Rappelle le pain', $this->tomorrowAt('08:30')]],
+            [ScheduleProactionTool::class, ['Vérifie les comptes', $this->tomorrowAt('08:30'), null, 'check']],
             [ListProactionsTool::class, []],
             [CancelProactionTool::class, [$id]],
         ] as [$tool, $args]) {
@@ -102,6 +104,43 @@ class ProactionToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/proactions/');
         $this->assertMercureUpdatePublished('/events/');
         $this->assertElasticsearchIndexDispatched(Proaction::class);
+    }
+
+    public function testAProactionWithoutKindIsAReminder(): void
+    {
+        // A reminder the owner asked for always interrupts (MAG-886): it is the default.
+        $this->loginFixtureUser();
+
+        $data = $this->call(ScheduleProactionTool::class, 'Rappelle-moi d\'appeler le garage', $this->tomorrowAt('08:45'));
+
+        self::assertSame('reminder', $data['proaction']['kind']);
+        self::assertSame(ProactionKind::Reminder, $this->stored($data['proaction']['id'])->getKind());
+        $this->assertMercureUpdatePublished('/proactions/');
+        $this->assertElasticsearchIndexDispatched(Proaction::class);
+    }
+
+    public function testAProactionThatVerifiesIsACheck(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->call(ScheduleProactionTool::class, 'Vérifie l\'enveloppe Loisirs', $this->tomorrowAt('09:00'), null, ' Check ');
+
+        self::assertTrue($data['success'], json_encode($data, JSON_THROW_ON_ERROR));
+        self::assertSame('check', $data['proaction']['kind']);
+        self::assertSame(ProactionKind::Check, $this->stored($data['proaction']['id'])->getKind());
+        $this->assertMercureUpdatePublished('/proactions/');
+        $this->assertElasticsearchIndexDispatched(Proaction::class);
+    }
+
+    public function testScheduleRefusesAnUnknownKind(): void
+    {
+        $this->loginFixtureUser();
+
+        $data = $this->call(ScheduleProactionTool::class, 'Vérifie les comptes', $this->tomorrowAt('09:00'), null, 'watch');
+
+        self::assertStringContainsString('Invalid kind', $data['error'] ?? '');
+        self::assertCount(2, $this->proactions());
+        $this->assertMercureUpdateCount(0);
     }
 
     public function testASecondProactionGoesInTheSameAgenda(): void
@@ -279,6 +318,14 @@ class ProactionToolsTest extends KernelTestCase
         $data = $this->call(CheckConflictsTool::class, $day, '08:30', 30);
 
         self::assertFalse($data['hasConflicts']);
+    }
+
+    private function stored(string $id): Proaction
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+
+        return $em->find(Proaction::class, $id);
     }
 
     /** @return Proaction[] */

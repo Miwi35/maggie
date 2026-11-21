@@ -184,7 +184,7 @@ Maggie\Calendar\Entity\Proaction:
     endAt: '<(new \DateTimeImmutable("2026-03-17 08:35"))>'
     agenda: '@recorded_maggie_agenda'
     __calls:
-      - markCompleted: ['Recorded answer', '<(new \DateTimeImmutable("2026-03-17 08:31"))>']
+      - markCompleted: ['<(\Maggie\Calendar\Entity\ProactionOutcome::fromInput("Recorded answer", "interrupt", "recorded-topic", "medium", "solid", null, null, "Recorded answer", "/chat?message=01JRECORDED"))>', '<(new \DateTimeImmutable("2026-03-17 08:31"))>']
 
   # The failed one carries `error`, which the completed one leaves out.
   recorded_failed_proaction:

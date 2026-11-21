@@ -1,0 +1,20 @@
+# A check come due (MAG-886): « Vérifie l'enveloppe Loisirs (tri e2e) », scheduled by the
+# journey with `kind: check`. Maggie gives her verdict first — low impact, on the topic
+# `enveloppe-loisirs` — then says where the envelope stands. The code triages it: the first
+# run leaves the message in the thread without a notification, a second identical run on
+# the topic already told, with nothing changed, says nothing at all.
+name: proaction-check-envelope-due
+description: A check on the Loisirs envelope, with a low verdict, for the triage journey.
+
+match:
+  user_contains: ["[Proaction due maintenant]", "Vérifie l'enveloppe Loisirs (tri e2e)"]
+
+turns:
+  - tools:
+      - name: proaction_verdict
+        input:
+          impact: low
+          evidence: solid
+          topic: enveloppe-loisirs
+          headline: "Votre enveloppe Loisirs est à 72 %, monsieur."
+  - text: "Votre enveloppe Loisirs est à 72 %, monsieur."

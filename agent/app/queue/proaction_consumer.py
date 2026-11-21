@@ -17,8 +17,10 @@ from app.mercure import topics
 from app.mercure.publisher import MercurePublisher
 from app.proactions import api as proactions_api
 from app.proactions.api import Proaction
+from app.proactions.triage import KIND_CHECK, Delivery, decide
+from app.proactions.verdict import read_verdict
 from app.queue.connection import PROACTION_QUEUE, get_channel
-from app.queue.message_notification import notify_message
+from app.queue.message_notification import message_link, message_preview, notify_message
 from app.trips import is_retired_trip_check, is_silent_trip_run
 from app.tts.voice_message import message_screen
 from app.user_timezone import resolve_user_timezone
@@ -28,14 +30,20 @@ logger = logging.getLogger(__name__)
 publisher = MercurePublisher()
 
 
-async def _record(proaction: Proaction, status: str, *, response: str | None = None, error: str | None = None) -> None:
-    """Record the outcome on the API, then tell the user's screens (the admin interrupts on a completed one).
+async def _record(
+    proaction: Proaction, status: str, *, response: str | None = None, error: str | None = None, **trace
+) -> None:
+    """Record the outcome on the API, then tell the user's screens (the admin interrupts on a completed one
+    the run delivered as an interruption).
+
+    `trace` is how the run reached the owner (MAG-886): `delivery`, `topic_key`, `verdict`, `notice`,
+    `message_link`. A completed run recorded as an interruption is what makes the API notify the owner.
 
     A record that fails is logged, never raised: the message is already in the chat, and running the
     proaction again would say it twice. It stays `running` on the API, where it shows.
     """
     try:
-        recorded = await proactions_api.record(proaction, status, response=response, error=error)
+        recorded = await proactions_api.record(proaction, status, response=response, error=error, **trace)
     except Exception as e:
         logger.error(f"Could not record proaction {proaction.id} as {status}: {e}")
         return
@@ -99,7 +107,14 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     proaction_id = proaction.id
 
     if dry_run:
-        result = await gateway.proaction(proaction.prompt, proaction.user_id, dry_run=True, summary=proaction.summary)
+        result = await gateway.proaction(
+            proaction.prompt,
+            proaction.user_id,
+            dry_run=True,
+            summary=proaction.summary,
+            kind=proaction.kind,
+            signaled_topics=proaction.signaled_topics,
+        )
         return {
             "status": proaction.status,
             "message": result["response"],
@@ -115,6 +130,8 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
     started_at = datetime.now(UTC)
     clock = time.monotonic()
     result: dict | None = None
+    trace: dict = {}
+    verdict = None
     try:
         if is_retired_relance(proaction.summary):
             # Laid down before MAG-826 removed the nudge: nothing left to say.
@@ -134,14 +151,37 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             result_is_digest = True
         else:
             result_is_digest = False
-            result = await gateway.proaction(proaction.prompt, proaction.user_id, summary=proaction.summary)
+            result = await gateway.proaction(
+                proaction.prompt,
+                proaction.user_id,
+                summary=proaction.summary,
+                kind=proaction.kind,
+                signaled_topics=proaction.signaled_topics,
+            )
         # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
-        if result["response"].strip() and not result_is_digest and not is_silent_trip_run(proaction.summary):
+        # The digest has its own path and its own notification.
+        delivers = not result_is_digest and not is_silent_trip_run(proaction.summary)
+        delivery = Delivery.NONE
+        if delivers:
+            # A reminder always interrupts; a check is triaged on Maggie's verdict (MAG-886).
+            verdict = read_verdict(result.get("tool_calls") or []) if proaction.kind == KIND_CHECK else None
+            delivery = decide(
+                proaction.kind, result["response"], verdict, list(proaction.signaled_topics), datetime.now(UTC)
+            )
+            trace = {
+                "delivery": delivery.value,
+                "topic_key": verdict.topic if verdict else None,
+                "verdict": verdict.to_record() if verdict else None,
+            }
+        if delivery is not Delivery.NONE:
             # Stored in the thread the gateway routed it to. Without a thread the
             # message is an orphan: the reply it invites is routed against a
             # conversation that never mentions it, and the summary of the thread
             # it belonged to never learns Maggie spoke (MAG-14).
             context_id = result.get("context_id")
+            if proaction.kind == KIND_CHECK:
+                context_id = await gateway.proaction_context(result["response"], proaction.user_id)
+                result["context_id"] = context_id
             screen = voice_screen(result.get("tool_calls") or [])
             ui_blocks = result.get("ui_blocks")
             if is_bilan(proaction.summary):
@@ -159,13 +199,12 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 ui_blocks=ui_blocks,
                 screen=screen,
             )
-            # Out of any conversation: the user is told, never failing a proaction already delivered.
-            await notify_message(
-                proaction.user_id,
-                stored.id,
-                result["response"],
-                has_audio=bool(getattr(stored, "audio", None)),
-                screen=screen,
+            # Out of any conversation, the user is told by the API once the run is recorded as an
+            # interruption: one sentence and the link to this message. A message left in the thread
+            # tells nobody (MAG-886).
+            trace["message_link"] = message_link(stored.id, screen)
+            trace["notice"] = (verdict.headline if verdict else None) or message_preview(
+                result["response"], has_audio=bool(getattr(stored, "audio", None))
             )
     except Exception as e:
         error_msg = str(e)
@@ -177,7 +216,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
         return {"status": "failed", "message": None, "error": error_msg, "toolCalls": []}
 
     await _journal(proaction, started_at, clock, result=result)
-    await _record(proaction, "completed", response=result["response"])
+    await _record(proaction, "completed", response=result["response"], **trace)
 
     # Awaited, unlike on the streamed path: nobody is holding a stream open here, and the
     # reply to a reminder is the next thing to be routed against this thread's summary.
