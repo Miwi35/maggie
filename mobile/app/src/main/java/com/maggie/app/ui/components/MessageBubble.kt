@@ -198,16 +198,19 @@ fun MessageBubble(
                         }
                         val audio = message.audio
                         val playback = rememberVoicePlayback()
-                        if (audio != null && !isUser && message.digest == null) {
-                            VoiceBubble(message.id, audio, playback)
-                        } else {
-                            val linkColor = MaterialTheme.colorScheme.primary
+                        val linkColor = MaterialTheme.colorScheme.primary
+                        val shownText = if (audio != null && !isUser) message.textBesideVoice else message.content
+                        if (shownText != null && shownText.isNotEmpty()) {
                             Text(
-                                text = remember(message.content, linkColor) {
-                                    linkified(if (isUser) message.content else stripDeliveryTags(message.content), linkColor)
+                                text = remember(shownText, linkColor) {
+                                    linkified(if (isUser) shownText else stripDeliveryTags(shownText), linkColor)
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                             )
+                        }
+                        if (audio != null && !isUser) {
+                            if (shownText != null) Spacer(modifier = Modifier.height(8.dp))
+                            VoiceBubble(message.id, audio, playback)
                         }
                     }
                 }

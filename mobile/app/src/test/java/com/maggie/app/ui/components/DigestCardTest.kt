@@ -50,7 +50,7 @@ class DigestCardTest {
     }
 
     @Test
-    fun `the digest message shows its announcement and no voice bubble`() {
+    fun `the digest message shows its announcement and its voice bubble`() {
         val message = ChatMessage(
             id = "m-1",
             role = "assistant",
@@ -61,6 +61,6 @@ class DigestCardTest {
         compose.setContent { MessageBubble(message) }
 
         compose.onNodeWithText("Votre digest du matin est disponible.").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.VOICE_PLAY).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.VOICE_PLAY).assertIsDisplayed()
     }
 }

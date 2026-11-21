@@ -1,5 +1,6 @@
 package com.maggie.app.data.model
 
+import com.maggie.app.util.stripDeliveryTags
 import kotlinx.serialization.Serializable
 
 /**
@@ -36,6 +37,14 @@ data class ChatMessage(
 
     /** The digest this message announces (MAG-808), `null` for any other message. */
     val digest: DigestBlock? get() = blocks.filterIsInstance<DigestBlock>().firstOrNull()
+
+    /** The text shown beside the voice bubble (MAG-926): `null` without audio or when the text is only its transcript. */
+    val textBesideVoice: String?
+        get() {
+            val voice = audio ?: return null
+            val text = stripDeliveryTags(content)
+            return text.takeIf { it != stripDeliveryTags(voice.transcript) }
+        }
 }
 
 /**
