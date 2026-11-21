@@ -62,7 +62,7 @@ class PeriodPresentationTest {
 
         val groups = periodGroups(listOf(december, past, november, ongoing), PeriodTab.UPCOMING, now, zone)
 
-        assertEquals(listOf("En cours", "Décembre 2026", "Décembre 2026"), groups.map { it.title })
+        assertEquals(listOf("En cours", "Novembre 2026", "Décembre 2026"), groups.map { it.title })
         assertEquals(listOf("now"), groups[0].periods.map { it.id })
         assertEquals(listOf("nov"), groups[1].periods.map { it.id })
     }
