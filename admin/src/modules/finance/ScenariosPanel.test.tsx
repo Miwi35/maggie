@@ -539,7 +539,7 @@ describe('ScenariosPanel', () => {
 
     const item = await within(card('Mon plan')).findByTestId('scenario-repayment-item')
     expect(item).toHaveTextContent('Remboursement anticipé')
-    expect(item).toHaveTextContent('Prêt auto')
+    await waitFor(() => expect(item).toHaveTextContent('Prêt auto'))
     expect(item).toHaveTextContent('Total')
     const figures = await within(item).findByTestId('scenario-repayment-figures')
     expect(figures).toHaveTextContent(/Capital immobilisé 98\s000,00\s€/)
