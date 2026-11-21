@@ -85,11 +85,18 @@ tags:
 - assertVisible: "À venir"
 - assertVisible: "Passées"
 
-# The Agenda's frame: Maggie's bar stays at the bottom, the add button above it (MAG-863).
+# The Agenda's frame (MAG-863): Maggie's bar stays at the bottom (phone, foldable); a tablet folds her
+# to her portrait, which has no mic (MAG-624).
 - assertVisible:
     id: "chat_open"
-- assertVisible:
-    id: "chat_mic"
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "detail_pane"
+    commands:
+      - assertVisible:
+          id: "chat_mic"
 
 # A creation: a name, the default agenda, the day of today.
 - tapOn:
