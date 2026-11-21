@@ -50,13 +50,13 @@ class NotifyOnProactionInterruptedTest extends KernelTestCase
         return $em->getRepository(Notification::class)->findAll();
     }
 
-    public function testAnInterruptionLeavesOneMessageNotificationWithTheSentenceAndTheLink(): void
+    public function testAnInterruptionLeavesOneProactionNotificationWithTheSentenceAndTheLink(): void
     {
         $this->record('interrupt');
 
         $notifications = $this->notifications();
         self::assertCount(1, $notifications);
-        self::assertSame(NotificationType::Message, $notifications[0]->getType());
+        self::assertSame(NotificationType::Proaction, $notifications[0]->getType());
         self::assertSame('Maggie', $notifications[0]->getTitle());
         self::assertSame('Votre enveloppe Loisirs est à 72 %, monsieur.', $notifications[0]->getBody());
         self::assertSame('/chat?message=01JABCDEF', $notifications[0]->getRelatedEntityIri());

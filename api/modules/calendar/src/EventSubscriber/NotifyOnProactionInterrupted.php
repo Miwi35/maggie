@@ -11,7 +11,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-/** An interruption is one sentence and a link to the message Maggie left in the thread (MAG-886). */
+/**
+ * An interruption is one sentence and a link to the message Maggie left in the thread (MAG-886):
+ * a `proaction` notification, whereas a plain message is `message` and never interrupts.
+ */
 #[AsMessageHandler(bus: 'event.bus')]
 final class NotifyOnProactionInterrupted
 {
@@ -30,7 +33,7 @@ final class NotifyOnProactionInterrupted
         }
 
         $this->commandBus->dispatch(new CreateNotificationCommand(
-            type: 'message',
+            type: 'proaction',
             title: 'Maggie',
             body: $proaction->getNotice(),
             relatedEntityIri: $proaction->getMessageLink(),
