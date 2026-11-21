@@ -7,6 +7,7 @@ namespace Maggie\Calendar\UseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Entity\Trip;
+use Maggie\Calendar\Enum\TripCarAt;
 use Maggie\Calendar\Enum\TripDecider;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
@@ -40,12 +41,12 @@ class SetTrip
      * @throws InvalidTripException
      * @throws RoutingException
      */
-    public function execute(Event $event, Event $occurrence, TripMode $mode, string $origin, TripDecider $decidedBy, ?\DateTimeImmutable $arriveAt = null, TripLeg $leg = TripLeg::Outbound, ?\DateTimeImmutable $departAt = null): Trip
+    public function execute(Event $event, Event $occurrence, TripMode $mode, string $origin, TripDecider $decidedBy, ?\DateTimeImmutable $arriveAt = null, TripLeg $leg = TripLeg::Outbound, ?\DateTimeImmutable $departAt = null, ?TripCarAt $carAt = null): Trip
     {
         return $this->keep(
             TripOccurrence::owner($event, $occurrence),
             TripOccurrence::startOf($occurrence),
-            $this->planner->estimate($occurrence, $mode, $origin, $arriveAt, $leg, $departAt),
+            $this->planner->estimate($occurrence, $mode, $origin, $arriveAt, $leg, $departAt, $carAt),
             $decidedBy,
         );
     }

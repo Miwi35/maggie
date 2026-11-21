@@ -673,6 +673,17 @@
                         "string"
                     ],
                     "default": null
+                },
+                "carAt": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "parked",
+                        "origin"
+                    ]
                 }
             },
             "required": [
@@ -680,7 +691,7 @@
                 "modes"
             ]
         },
-        "description": "Estimate the trip to an event, several modes at once. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. modes: drive, transit, walk, bicycle. origin: position (phone's last position, default), home (the user's home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable."
+        "description": "Estimate the trip to an event, several modes at once. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. modes: drive, transit, walk, bicycle. origin: position (phone's last position, default), home (the user's home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip's origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable."
     },
     "generate_grocery_list": {
         "name": "generate_grocery_list",
@@ -5157,6 +5168,17 @@
                         "string"
                     ],
                     "default": null
+                },
+                "carAt": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null,
+                    "enum": [
+                        "parked",
+                        "origin"
+                    ]
                 }
             },
             "required": [
@@ -5164,7 +5186,7 @@
                 "mode"
             ]
         },
-        "description": "Set the trip to an event: recomputed now, replaces the trip for that leg and occurrence. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. mode: drive, transit, walk, bicycle. origin: position (phone position), place:<id> or event:<id>. arriveAt: ISO 8601 Paris time, whole-day event only, refused otherwise. decidedBy: user (origin kept) or maggie (default). leg: outbound (default) or return (event place to home: no origin/arriveAt; departAt ISO 8601 Paris time is never moved; alert stops 30 min after). Returns {success, trip: {id, eventId, event: {summary, startAt, location}, leg, occurrenceStartAt, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?}}, Refused: nothing changes, {error, field}; Google down: {error}."
+        "description": "Set the trip to an event: recomputed now, replaces the trip for that leg and occurrence. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. mode: drive, transit, walk, bicycle. origin: position (phone position), place:<id> or event:<id>. arriveAt: ISO 8601 Paris time, whole-day event only, refused otherwise. decidedBy: user (origin kept) or maggie (default). leg: outbound (default) or return (event place to home: no origin/arriveAt; departAt ISO 8601 Paris time is never moved; alert stops 30 min after). carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip's origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, leg, occurrenceStartAt, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?, carAt?}}, Refused: nothing changes, {error, field}; Google down: {error}."
     },
     "suggest_recurring_operations": {
         "name": "suggest_recurring_operations",

@@ -111,7 +111,8 @@ function keepTheDriveFromHome(eventId) {
   if (!home) {
     fail('the account has no home place — did the seed run?')
   }
-  tool('set_trip', { eventId: eventId, mode: 'drive', origin: 'place:' + home.id })
+  // From home the car is taken at home unless told otherwise (MAG-929): it is said parked, 300 m away.
+  tool('set_trip', { eventId: eventId, mode: 'drive', origin: 'place:' + home.id, carAt: 'parked' })
 }
 
 if (ACTION === 'create') {
