@@ -37,6 +37,7 @@ tags:
       LABEL: Yaourt MAG-606
       STORE: Épicerie du coin
       AISLE: Frais MAG-606
+      USUAL: "yes"
 - runScript:
     file: ../scripts/grocery-api.js
     env:
@@ -81,18 +82,24 @@ tags:
     containsChild:
       text: "Épicerie du coin"
 - extendedWaitUntil:
-    visible: "Frais MAG-606"
+    visible: "FRAIS MAG-606"
     timeout: 30000
+- assertVisible:
+    id: "product_filter_store"
+    text: "Épicerie du coin"
 - extendedWaitUntil:
     visible:
       text: "Yaourt MAG-606"
-      below: "Frais MAG-606"
+      below: "FRAIS MAG-606"
     timeout: 10000
 - extendedWaitUntil:
     visible:
       text: "Biscottes MAG-606"
-      below: "Épicerie MAG-606"
+      below: "ÉPICERIE MAG-606"
     timeout: 10000
+# The line says where to buy it and its stock, as the mockup words it.
+- assertVisible: "Épicerie du coin · Frais MAG-606"
+- assertVisible: "en stock"
 
 # The rayon: only its product stays, under its header.
 - tapOn:
@@ -104,7 +111,7 @@ tags:
 - extendedWaitUntil:
     visible:
       text: "Yaourt MAG-606"
-      below: "Frais MAG-606"
+      below: "FRAIS MAG-606"
     timeout: 30000
 - extendedWaitUntil:
     notVisible: "Biscottes MAG-606"
