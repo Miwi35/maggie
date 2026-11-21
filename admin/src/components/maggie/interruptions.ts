@@ -40,6 +40,8 @@ export type FeedEvent =
   | { kind: 'interrupt'; interruption: Interruption }
   /** Answered, read or deleted elsewhere, or expired: it must not be said any more. */
   | { kind: 'withdraw'; id: string }
+  /** A message of Maggie (MAG-923): it rings, it never interrupts. */
+  | { kind: 'message'; id: string; createdAt: number | null }
 
 const FINANCE_PATHS: Record<string, string> = {
   '': '/finance/dashboard',
@@ -136,6 +138,7 @@ const isText = (value: unknown): value is string => typeof value === 'string' &&
  * - a notification just created and still unread (`/users/{userId}/api/notifications/{id}`):
  *   a reminder, a proaction, a task due, anything Maggie or the API raises on its own.
  *   The `approval` type is left to the approval itself, which can be answered;
+ *   a `message` notification is a message (MAG-923), never an interruption;
  * - an action held until the user answers (`/approvals/{userId}`).
  */
 export function readFeedMessage(raw: string): FeedEvent | null {
@@ -156,6 +159,10 @@ export function readFeedMessage(raw: string): FeedEvent | null {
     // hub that replays what was missed hands over hours-old creations: neither is worth saying.
     const expiresAt = typeof data.expiresAt === 'string' ? Date.parse(data.expiresAt) : NaN
     if (expiresAt <= Date.now()) return { kind: 'withdraw', id: `notification:${notificationRef}` }
+    if (data.type === 'message') {
+      const createdAt = typeof data.createdAt === 'string' ? Date.parse(data.createdAt) : NaN
+      return { kind: 'message', id: `notification:${notificationRef}`, createdAt: Number.isFinite(createdAt) ? createdAt : null }
+    }
     if (data.type === 'approval' || !isText(data.title)) return null
     const type = typeof data.type === 'string' ? data.type : ''
     const iri = typeof data.relatedEntityIri === 'string' ? data.relatedEntityIri : null

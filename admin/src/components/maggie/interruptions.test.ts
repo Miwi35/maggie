@@ -51,6 +51,28 @@ describe('readFeedMessage', () => {
 
     expect(event).toEqual({ kind: 'withdraw', id: 'notification:/api/notifications/n1' })
   })
+
+  const message = { '@id': '/api/notifications/n2', type: 'message', title: 'Maggie', body: 'Votre digest du matin est disponible.' }
+
+  test('a message notification is a message, never an interruption', () => {
+    const event = readFeedMessage(JSON.stringify({ ...message, createdAt: '2026-10-07T10:00:00+00:00' }))
+
+    expect(event).toEqual({ kind: 'message', id: 'notification:/api/notifications/n2', createdAt: Date.parse('2026-10-07T10:00:00+00:00') })
+  })
+
+  test('a message notification read elsewhere is still a withdrawal', () => {
+    const event = readFeedMessage(JSON.stringify({ ...message, readAt: '2026-10-07T10:01:00+00:00' }))
+
+    expect(event).toEqual({ kind: 'withdraw', id: 'notification:/api/notifications/n2' })
+  })
+
+  test('a proaction notification is still an interruption', () => {
+    expect(readFeedMessage(JSON.stringify({ ...message, type: 'proaction' }))).toMatchObject({ kind: 'interrupt' })
+  })
+
+  test('a message with an unreadable createdAt carries null', () => {
+    expect(readFeedMessage(JSON.stringify({ ...message, createdAt: 'hier' }))).toMatchObject({ kind: 'message', createdAt: null })
+  })
 })
 
 describe('a finished proaction (MAG-680)', () => {
