@@ -41,6 +41,19 @@ class DayRowsTest {
     }
 
     @Test
+    fun `a trip on a series sits before the occurrence of the day`() {
+        val occurrence = ExpandedEvent(
+            id = "series_2026-06-15", summary = "series", startAt = "2026-06-15T12:00:00Z",
+            endAt = "2026-06-15T13:00:00Z", masterEventId = "series",
+        )
+
+        val rows = dayRows(listOf(occurrence), listOf(trip("series", "2026-06-15T13:00:00+02:00")), now)
+
+        assertEquals(listOf("trip-series", "series_2026-06-15"), ids(rows))
+        assertEquals(occurrence, (rows[0] as DayRow.Trip).event)
+    }
+
+    @Test
     fun `only the first trip still to leave is next`() {
         val a = event("a", "2026-06-15T12:00:00Z", "2026-06-15T13:00:00Z")
         val b = event("b", "2026-06-15T15:00:00Z", "2026-06-15T16:00:00Z")

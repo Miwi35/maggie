@@ -25,12 +25,14 @@ sealed interface DayRow {
  */
 fun dayRows(events: List<ExpandedEvent>, trips: List<Trip>, now: Instant): List<DayRow> {
     val byId = events.associateBy { it.id }
+    val bySeries = events.filter { it.masterEventId != null }.groupBy { it.masterEventId }.mapValues { it.value.first() }
+    fun eventOf(trip: Trip): ExpandedEvent? = byId[trip.eventId] ?: bySeries[trip.eventId]
     val eventRows = events.filter { it.startAt != null }.map { event ->
         val end = (event.endAt ?: event.startAt)?.let(Instant::parse)
         DayRow.Event(event, past = end?.isAfter(now) == false, highlighted = false)
     }
-    val tripRows = trips.filter { it.eventId in byId && it.departInstant != null }
-        .map { DayRow.Trip(it, byId[it.eventId], past = it.departInstant?.isAfter(now) == false, next = false) }
+    val tripRows = trips.filter { eventOf(it) != null && it.departInstant != null }
+        .map { DayRow.Trip(it, eventOf(it), past = it.departInstant?.isAfter(now) == false, next = false) }
 
     val sorted = (eventRows + tripRows).sortedWith(
         compareBy<DayRow> { it.at }.thenBy { if (it is DayRow.Trip) 0 else 1 },
