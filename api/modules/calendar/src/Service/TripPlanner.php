@@ -23,11 +23,12 @@ use Psr\Clock\ClockInterface;
  * Door to door to an event (« Partir à l'heure », MAG-653).
  *
  * - **Car**: a walk to the car when it stands more than {@see self::CAR_WALK_METERS}
- *   away (where the phone saw it parked, home when that is unknown; chained from an
- *   event reached by car, at that event, MAG-854), the drive
+ *   away, the drive
  *   to the parking of the known place the event is at ({@see PlaceMatcher}),
  *   then the walk from the parking. Without a known parking, the drive goes to
  *   the event and {@see self::PARKING_MINUTES} are added to find a spot.
+ *   The car is where the phone saw it parked (home when unknown) for a trip from `position`,
+ *   at the origin for one from home or a place, at an event reached by car (MAG-854), MAG-929.
  * - **Transit**: Google's steps, walks included.
  * - **Walk**, **bicycle**: one step.
  *
@@ -238,7 +239,12 @@ class TripPlanner
     private function drive(User $user, TripOrigin $origin, float $latitude, float $longitude, \DateTimeImmutable $start): array
     {
         $this->locatePlaces($user);
-        $knownCar = $this->carAtOrigin($user, $origin, $start) ?? $this->car($user);
+        $knownCar = match ($origin->kind) {
+            TripOrigin::POSITION => $this->car($user),
+            TripOrigin::EVENT => $this->carAtOrigin($user, $origin, $start) ?? $this->car($user),
+            // A chosen place describes a departure to come: where the car stands now says nothing of it.
+            default => $this->atOrigin($user, $origin),
+        };
         // A car nobody knows the place of is taken where the trip starts.
         $car = $knownCar ?? [$origin->latitude, $origin->longitude];
         $steps = [];
@@ -332,9 +338,34 @@ class TripPlanner
             return null;
         }
 
+        return $this->atOrigin($user, $origin);
+    }
+
+    /**
+     * A car at the origin: at the parking of its known place, else at the origin itself.
+     *
+     * @return array{float, float}
+     */
+    private function atOrigin(User $user, TripOrigin $origin): array
+    {
         $place = $this->placeMatcher->match($user, $origin->latitude, $origin->longitude);
 
         return (null === $place ? null : $this->locations->ofParking($place)) ?? [$origin->latitude, $origin->longitude];
+    }
+
+    /**
+     * Where the phone saw the car parked, null when it never did.
+     *
+     * @return array{float, float}|null
+     */
+    private function parkedCar(User $user): ?array
+    {
+        $location = $this->userLocations->findOneByUser($user);
+        if (null !== $location?->getCarLatitude() && null !== $location->getCarLongitude()) {
+            return [$location->getCarLatitude(), $location->getCarLongitude()];
+        }
+
+        return null;
     }
 
     /**
@@ -344,9 +375,9 @@ class TripPlanner
      */
     private function car(User $user): ?array
     {
-        $location = $this->userLocations->findOneByUser($user);
-        if (null !== $location?->getCarLatitude() && null !== $location->getCarLongitude()) {
-            return [$location->getCarLatitude(), $location->getCarLongitude()];
+        $parked = $this->parkedCar($user);
+        if (null !== $parked) {
+            return $parked;
         }
 
         $home = $this->places->findHomes($user)[0] ?? null;
