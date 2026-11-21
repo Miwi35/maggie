@@ -29,7 +29,8 @@ name: Pull request
 # (`scripts/e2e/impacted.sh`, often none or one lot). Cyrus's train picks a
 # draft, rebases it on main, marks it ready and merges on that run. A push on a
 # ready PR whose head is behind main runs nothing either (`fresh`, « … · en
-# retard »): the train rebases it when it is next to merge.
+# retard »): the train rebases it when it is next to merge — unless the lag is
+# compatible (no file, no journey in common, MAG-922), then the CI runs.
 # Order of delivery: the dispatcher that promotes drafts without a draft CI first.
 run-name: >-
   ${{ github.event_name == 'pull_request'
@@ -104,40 +105,50 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # « Inutile de lancer la CI sur une PR en retard » (owner, 16 Oct.): a push on a
-  # ready PR (`synchronize`, a repair) whose head is behind main runs nothing —
-  # main moved, so what it would test is not what merges. Cyrus's train rebases
-  # it when it is next to merge, and that push runs the CI. Only `synchronize`:
-  # `ready_for_review` (the train rebases first) and `opened` always run. An API
-  # that does not answer means « up to date »: doubt runs the CI. A stale head
-  # gets no required check but skipped ones — `PR checks passed` and the two e2e
-  # aggregators skip too, so GitHub keeps them « Expected », never mergeable.
+  # « Inutile de lancer la CI sur une PR en retard » (owner, 16 Oct.), refined on
+  # 21 Nov. (MAG-922): a push on a ready PR (`synchronize`, a repair) whose head
+  # is behind main runs nothing when the lag must be replayed — Cyrus's train
+  # rebases it when it is next to merge, and that push runs the CI. A lag that is
+  # compatible (no file, no journey in common: infra/scripts/behind-compat.sh)
+  # runs the CI as usual: it tests the merge commit with the main of the moment.
+  # Only `synchronize`: `ready_for_review` (the train rebases first) and `opened`
+  # always run. Doubt (an API that does not answer, a step that fails) runs the
+  # CI. On `replay` the head gets no required check but skipped ones — `PR checks
+  # passed` and the two e2e aggregators skip too, so GitHub keeps them
+  # « Expected », never mergeable. `behind` is `true` only for `replay`.
   fresh:
     name: Up to date with main
     if: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       behind: ${{ steps.compare.outputs.behind }}
+      verdict: ${{ steps.compare.outputs.verdict }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: |
+            infra/scripts
+            scripts/e2e
+            e2e
       - name: Compare the head with main
         id: compare
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           BASE: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          by="$(gh api "repos/$GH_REPO/compare/$BASE...$HEAD_SHA" --jq .behind_by)" || by=""
-          if [ -n "$by" ] && [ "$by" -gt 0 ]; then
-            echo "::notice::$by commit(s) behind $BASE: no CI on this head; Cyrus's train rebases it when it is next to merge"
-            echo "behind=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "up to date with $BASE (behind by ${by:-unknown}): the CI runs"
-          fi
+          git fetch --no-tags -q --filter=blob:none origin "$BASE"
+          MAIN_REF="origin/$BASE" infra/scripts/behind-compat.sh --github-output | jq .
 
   changes:
     name: Detect changes
