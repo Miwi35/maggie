@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.BANK_COUNTRIES
 import com.maggie.app.data.model.Bank
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.maggieCardContainer
+import com.maggie.app.ui.theme.isMaggieDark
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -122,8 +124,8 @@ internal fun BankPickerContent(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedContainerColor = maggieCardContainer(isMaggieDark(), true),
+                    unfocusedContainerColor = maggieCardContainer(isMaggieDark(), true),
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                 ),
@@ -157,7 +159,7 @@ internal fun BankPickerContent(
                         ) {
                             Box(
                                 modifier = Modifier.size(36.dp).clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    .background(maggieCardContainer(isMaggieDark(), true)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
@@ -193,7 +195,7 @@ private fun CountryPill(country: String, onCountry: (String) -> Unit) {
     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(
             modifier = Modifier.clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .background(maggieCardContainer(isMaggieDark(), true))
                 .clickable { open = true }
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
