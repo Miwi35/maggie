@@ -461,4 +461,67 @@ class PushNotifierTest {
 
         assertEquals(listOf("30 min, plus doux", "20 min, même intensité", "Demain"), buttons().take(3))
     }
+
+    // --- A message of Maggie arrives like a messaging app's (MAG-927)
+
+    private fun maggie(id: String, body: String, link: String? = null, messageId: String? = "01JE2EMESSAGE0000000000000") = PushPayload.from(
+        data = buildMap {
+            put("notificationId", id)
+            put("type", "message")
+            put("title", "Maggie")
+            put("body", body)
+            link?.let { put("link", it) }
+            messageId?.let { put("messageId", it) }
+        },
+    )!!
+
+    @Test
+    fun `the conversation carries the number of Maggie's messages for the launcher badge`() {
+        notifier.show(maggie("n-1", "Un", "${DeepLinks.SCHEME}://chat?message=01JE2EMESSAGE0000000000000"))
+        notifier.show(maggie("n-2", "Deux", "${DeepLinks.SCHEME}://chat?message=01JE2EMESSAGE0000000000000"))
+        notifier.show(maggie("n-3", "Trois", "${DeepLinks.SCHEME}://chat?message=01JE2EMESSAGE0000000000000"))
+
+        assertEquals(1, shadowOf(manager).allNotifications.size)
+        assertEquals(3, shadowOf(manager).getNotification("n-3", PushNotifier.NOTIFICATION_ID).number)
+    }
+
+    @Test
+    fun `a message hidden on the lock screen says Maggie vous a envoyé un message`() {
+        notifier.show(maggie("n-1", "Votre bilan du soir vous attend."))
+
+        val notification = shadowOf(manager).getNotification("n-1", PushNotifier.NOTIFICATION_ID)
+        assertEquals(NotificationCompat.VISIBILITY_PRIVATE, notification.visibility)
+        val public = notification.publicVersion!!
+        assertEquals("Maggie vous a envoyé un message", public.extras.getString("android.text"))
+        assertEquals(PushNotifier.PUBLIC_TEXT, "Maggie vous a envoyé un message")
+    }
+
+    @Test
+    fun `a tap on the digest opens the chat on its message`() {
+        val digest = maggie("n-1", "Bonjour", "${DeepLinks.SCHEME}://digest?message=01JE2EMESSAGE0000000000000")
+        notifier.show(digest)
+
+        val tap = shadowOf(shadowOf(manager).getNotification("n-1", PushNotifier.NOTIFICATION_ID).contentIntent).savedIntent
+        assertEquals("${DeepLinks.SCHEME}://chat?message=01JE2EMESSAGE0000000000000", tap.data.toString())
+    }
+
+    @Test
+    fun `a tap on a message opens the chat on it`() {
+        val link = "${DeepLinks.SCHEME}://chat?message=01JE2EMESSAGE0000000000000"
+        notifier.show(maggie("n-1", "Salut", link))
+
+        val tap = shadowOf(shadowOf(manager).getNotification("n-1", PushNotifier.NOTIFICATION_ID).contentIntent).savedIntent
+        assertEquals(link, tap.data.toString())
+    }
+
+    @Test
+    fun `closing the conversation takes Maggie's messages down and leaves a reminder`() {
+        notifier.show(payload("reminder"))
+        notifier.show(maggie("n-2", "Salut"))
+
+        notifier.closeConversation()
+
+        assertNull(shadowOf(manager).getNotification("n-2", PushNotifier.NOTIFICATION_ID))
+        assertNotNull("the reminder stays", shown())
+    }
 }

@@ -96,8 +96,8 @@ class ChatViewModelTest {
         coEvery { unreadRepository.markRead(any()) } returns Result.success(ChatUnread(lastReadMessageId = "msg-2"))
     }
 
-    private fun createViewModel(inCar: () -> Boolean = { false }): ChatViewModel {
-        return ChatViewModel(repository, mercureService, unreadRepository, authRepository, approvalRepository, center, inCar)
+    private fun createViewModel(inCar: () -> Boolean = { false }, clearMessagesTray: () -> Unit = {}): ChatViewModel {
+        return ChatViewModel(repository, mercureService, unreadRepository, authRepository, approvalRepository, center, inCar, clearMessagesTray = clearMessagesTray)
     }
 
     @After
@@ -499,6 +499,19 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `displaying the conversation clears Maggie's messages from the tray`() = runTest {
+        var cleared = 0
+        viewModel = createViewModel(clearMessagesTray = { cleared++ })
+        advanceUntilIdle()
+        assertEquals(0, cleared)
+
+        viewModel.onChatDisplayed(true)
+        advanceUntilIdle()
+
+        assertEquals(1, cleared)
+    }
+
+    @Test
     fun `the same message is not marked read twice`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
@@ -582,19 +595,15 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun `the interruption center keeps quiet about messages for as long as the chat is shown`() = runTest {
+    fun `the interruption center knows the conversation is on screen for as long as the chat is shown`() = runTest {
         viewModel = createViewModel()
         advanceUntilIdle()
-        val message = com.maggie.app.data.fcm.PushPayload.from(
-            mapOf("notificationId" to "n1", "type" to "message", "body" to "Salut"),
-        )!!
 
         viewModel.onChatDisplayed(true)
-        assertFalse(center.offer(message))
+        assertTrue(center.isHeld("message"))
 
         viewModel.onChatDisplayed(false)
-        val another = message.copy(notificationId = "n2")
-        assertTrue(center.offer(another))
+        assertFalse(center.isHeld("message"))
     }
 
     @Test

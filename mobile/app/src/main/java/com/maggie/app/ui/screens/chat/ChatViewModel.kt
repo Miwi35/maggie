@@ -137,6 +137,8 @@ class ChatViewModel(
     // Whether the phone is projecting to Android Auto right now (MAG-684): read when a message is sent.
     private val inCar: () -> Boolean = { false },
     private val tasks: TaskRepository? = null,
+    // Maggie's messages leave the tray of this phone once the conversation is shown (MAG-927).
+    private val clearMessagesTray: () -> Unit = {},
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatUiState())
     private val askedApprovals = mutableSetOf<String>()
@@ -922,6 +924,7 @@ class ChatViewModel(
         if (displayed) {
             if (displayers++ == 0) interruptions.hold(MESSAGE_TYPE)
             markRead()
+            clearMessagesTray()
         } else if (displayers > 0 && --displayers == 0) {
             interruptions.release(MESSAGE_TYPE)
         }

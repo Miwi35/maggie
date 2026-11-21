@@ -70,10 +70,14 @@ class PushNotifier(private val context: Context) {
         val conversation = (payload.isConversation || inCar) && note == null && withActions
         val folded = if (conversation) {
             val history = history(manager, payload)
+            val style = conversationStyle(payload, history.flatMap { it.second }, nudge)
             builder
-                .setStyle(conversationStyle(payload, history.flatMap { it.second }, nudge))
+                .setStyle(style)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setGroup(GROUP_CONVERSATION)
+            // The launcher's badge counts what the conversation holds (MAG-927).
+            builder.setNumber(style.messages.size)
+            if (payload.isMessage) builder.setPublicVersion(publicVersion(payload)).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             history.map { it.first }
         } else {
             emptyList()
@@ -97,6 +101,14 @@ class PushNotifier(private val context: Context) {
         return true
     }
 
+    // What the lock screen shows when the content is hidden: that Maggie wrote, not what.
+    private fun publicVersion(payload: PushPayload): android.app.Notification =
+        NotificationCompat.Builder(context, PushChannels.forDelivery(payload.channel, payload.silent))
+            .setSmallIcon(R.drawable.maggie_logo)
+            .setContentTitle(SENDER)
+            .setContentText(PUBLIC_TEXT)
+            .build()
+
     /**
      * The conversation's earlier messages still in the tray, with the tag each sits under, oldest first.
      * One that carries more than « Répondre » (a reminder or a validation answered in the car, MAG-683) keeps
@@ -104,12 +116,16 @@ class PushNotifier(private val context: Context) {
      */
     private fun history(manager: NotificationManager, payload: PushPayload): List<Pair<String, List<NotificationCompat.MessagingStyle.Message>>> =
         manager.activeNotifications
-            .filter { (it.notification.channelId == PushChannels.CHAT || it.notification.channelId == PushChannels.CHAT_QUIET) && it.id == NOTIFICATION_ID && it.tag != null && it.tag != payload.systemTag && it.notification.actions.orEmpty().size <= 1 }
+            .filter { isConversationEntry(it) && it.tag != null && it.tag != payload.systemTag }
             .mapNotNull { sbn ->
                 NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(sbn.notification)
                     ?.let { sbn.tag to it.messages }
             }
             .sortedBy { (_, messages) -> messages.lastOrNull()?.timestamp ?: 0L }
+
+    private fun isConversationEntry(sbn: android.service.notification.StatusBarNotification): Boolean =
+        (sbn.notification.channelId == PushChannels.CHAT || sbn.notification.channelId == PushChannels.CHAT_QUIET) &&
+            sbn.id == NOTIFICATION_ID && sbn.notification.actions.orEmpty().size <= 1
 
     // A message that had no « Répondre » (a reminder, a validation) gets one in the car, ahead of the others:
     // Android shows three buttons at most, and the owner answers by voice there.
@@ -148,6 +164,14 @@ class PushNotifier(private val context: Context) {
     /** [tag]: the payload's [PushPayload.systemTag] — its notification id, or `cooking-timer-{id}`. */
     fun close(tag: String) {
         context.getSystemService(NotificationManager::class.java).cancel(tag, NOTIFICATION_ID)
+    }
+
+    /** The conversation is on screen (MAG-927): Maggie's messages leave the tray, and the badge with them. A reminder or a validation stays. */
+    fun closeConversation() {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.activeNotifications
+            .filter { isConversationEntry(it) && it.tag != null }
+            .forEach { manager.cancel(it.tag, NOTIFICATION_ID) }
     }
 
     /** « Plus tard »: the notification comes back, as it was, after [delayMs]. */
@@ -275,6 +299,7 @@ class PushNotifier(private val context: Context) {
         private const val SENDER_KEY = "maggie"
         const val GROUP_CONVERSATION = "maggie-conversation"
         private const val MAX_HISTORY = 6
+        const val PUBLIC_TEXT = "Maggie vous a envoyé un message"
         private const val NUDGE_PREFIX = "Je te relance. "
         private const val SETTLED_TIMEOUT_MS = 8_000L
     }
@@ -364,10 +389,12 @@ object PushIntents {
     /**
      * The tap on a notification opens the app on what Maggie said: the interruption, with its
      * action. Only « Y aller » ([toLink]) goes straight to the link, the app's home when the push has none.
-     * A message of Maggie (MAG-687) is the exception: its tap opens the conversation on that message.
+     * A message of Maggie (MAG-687) is the exception: its tap opens the conversation on that message, the
+     * digest's too (MAG-927) — its card opens the digest screen from there.
      */
     fun open(context: Context, payload: PushPayload, toLink: Boolean = false): Intent {
-        val link = if (toLink || payload.isMessage || payload.approvalId != null) linkOf(payload.link) else null
+        val chatOnMessage = if (payload.isDigest && !toLink && DeepLinks.isValidId(payload.messageId)) Uri.parse("${DeepLinks.SCHEME}://chat?message=${payload.messageId}") else null
+        val link = chatOnMessage ?: if (toLink || payload.isMessage || payload.approvalId != null) linkOf(payload.link) else null
         return Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (link != null) {
