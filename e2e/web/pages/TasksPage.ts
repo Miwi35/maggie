@@ -34,7 +34,7 @@ export class TasksPage extends AdminShell {
   readonly newTask: Locator
   /** The form of a task, « Nouvelle tâche » or « Modifier la tâche » (MAG-723). */
   readonly form: Locator
-  /** « Répéter » of the form: its menu is a combobox, « Toutes les deux semaines » an option of it (MAG-888). */
+  /** « Répéter » of the form: its menu is a combobox (its name is « Répéter » then its value), « Toutes les deux semaines » an option of it (MAG-888). */
   readonly repeatField: Locator
   /** « Jusqu’au » of the form, shown once the task repeats (MAG-888). */
   readonly untilField: Locator
@@ -79,7 +79,7 @@ export class TasksPage extends AdminShell {
     this.title = this.content.getByText(/^Tâches · /)
     this.newTask = this.content.getByRole('button', { name: '+ Nouvelle tâche', exact: true })
     this.form = page.getByRole('dialog', { name: /^(Nouvelle tâche|Modifier la tâche)$/ })
-    this.repeatField = this.form.getByRole('combobox', { name: 'Répéter', exact: true })
+    this.repeatField = this.form.getByRole('combobox', { name: /^Répéter/ })
     this.untilField = this.form.getByRole('button', { name: /^Jusqu’au/ })
     this.routinesLink = this.content.getByRole('link', { name: 'Routines', exact: true })
     this.sheet = page.getByRole('complementary', { name: 'Fiche de la tâche' })
