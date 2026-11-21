@@ -57,6 +57,16 @@ class InterruptionFeedTest {
     }
 
     @Test
+    fun `a message notification from Mercure raises nothing`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        start()
+
+        notifications.emit(MercureEvent(data = """{"@id":"/api/notifications/m-1","id":"m-1","type":"message","title":"Maggie","body":"Votre bilan du soir vous attend."}"""))
+
+        assertNull(center.current.value)
+    }
+
+    @Test
     fun `the same notification twice is shown once`() = runTest {
         coEvery { approvals.getPending() } returns Result.success(emptyList())
         start()

@@ -125,6 +125,9 @@ class InterruptionCenter(
         if (left > 0) quiet[type] = left else quiet.remove(type)
     }
 
+    /** A screen says this [type] itself right now (see [hold]). */
+    fun isHeld(type: String): Boolean = synchronized(lock) { type in quiet }
+
     private fun isQuieted(payload: PushPayload): Boolean = payload.type != null && payload.type in quiet
 
     /** True once per interruption, whichever screen shows it: switching to the overlay must not ring again. */
