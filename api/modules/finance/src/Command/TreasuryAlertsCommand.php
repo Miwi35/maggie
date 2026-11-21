@@ -110,13 +110,13 @@ class TreasuryAlertsCommand extends Command
             ),
             null !== $advice['sourceAccountName']
                 ? sprintf(
-                    'Avance conseillée : %s, depuis le compte « %s » (source : get_treasury_outlook, solde du compte %s)%s.',
+                    'Avance conseillée : %s, depuis le compte « %s » (source : get_finance_projection, solde du compte %s)%s.',
                     self::euros($advice['amountCents'] - $advice['uncoveredCents']),
                     $advice['sourceAccountName'],
                     self::euros($advice['sourceBalanceCents']),
                     $advice['isCushion'] ? ' — c\'est le matelas de sécurité, à ne toucher qu\'en dernier recours' : '',
                 )
-                : 'Aucun compte d\'épargne ne peut couvrir une avance (source : get_treasury_outlook).',
+                : 'Aucun compte d\'épargne ne peut couvrir une avance (source : get_finance_projection).',
         ];
         if ($advice['uncoveredCents'] > 0 && null !== $advice['sourceAccountName']) {
             $lines[] = sprintf('Il manquerait encore %s une fois cette source vidée.', self::euros($advice['uncoveredCents']));
