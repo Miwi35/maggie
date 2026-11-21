@@ -1,6 +1,8 @@
 import { test, expect } from '../fixtures/index.js'
 import type { Locator } from '@playwright/test'
+import { AdminShell } from '../pages/AdminShell.js'
 import { HomePage } from '../pages/HomePage.js'
+import { ROUTES } from '../pages/routes.js'
 import { TOKENS } from '../helpers/tokens.js'
 
 /**
@@ -112,12 +114,14 @@ test('no text on the dashboard asks for a weight the page does not load', async 
 })
 
 test('Cuisine wears the apricot and Courses keeps its own blue, read from the tokens', async ({ page }) => {
-  await page.goto('/recipes')
+  const shell = new AdminShell(page)
+  await shell.goto(ROUTES.recipes)
+  await shell.openMenu()
 
-  const menu = page.getByRole('menuitem', { name: 'Cuisine' }).first()
+  const menu = shell.menuItem('Cuisine')
   await expect(menu).toBeVisible()
   const color = await menu.evaluate((element) => getComputedStyle(element).color)
 
   expect(asColor(color).hex).toBe(TOKENS.module.cuisine.light.toUpperCase())
-  await expect(page.locator('[data-module="courses"]').first()).toBeVisible()
+  await expect(shell.menuItem('Courses').locator('[data-module="courses"]')).toBeVisible()
 })
