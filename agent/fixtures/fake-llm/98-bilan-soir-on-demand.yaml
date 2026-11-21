@@ -21,5 +21,5 @@ turns:
       - name: get_events
         input: {from: '${today}', to: '${today}'}
       - name: get_tasks
-        input: {view: today}
+        input: {day: "${today}"}
   - text: "Très bien, on fait le point. Première étape, la journée : voilà ce qui était prévu aujourd'hui et les tâches qui restent. Pour chacune, dites-moi si c'est fait, pour demain, ou pour plus tard."

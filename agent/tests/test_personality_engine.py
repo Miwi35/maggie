@@ -333,10 +333,10 @@ class TestPersonalityEngine:
             mock_repo.get = AsyncMock(return_value=None)
             prompt = await engine.get_system_prompt("user-1")
 
-        assert "get_tasks et view today" in prompt
+        assert "get_tasks et day (la date du jour)" in prompt
         assert "cite d'abord celles en retard" in prompt
         assert "overdueDays" in prompt and "orderScore" in prompt
-        assert "view someday" in prompt
+        assert "dated false" in prompt
         assert "UNE seule tâche" in prompt
         assert "aucune tâche high ou critical" in prompt
         # Writing waits for the user's yes.

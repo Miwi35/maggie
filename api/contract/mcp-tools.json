@@ -1104,23 +1104,65 @@
                     "type": "string",
                     "default": "pending"
                 },
-                "days": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "view": {
+                "day": {
                     "type": [
                         "null",
                         "string"
                     ],
                     "default": null
+                },
+                "dueFrom": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dueTo": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "scheduledFrom": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "scheduledTo": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "dated": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "parentId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
+                },
+                "limit": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
                 }
             }
         },
-        "description": "Gets tasks. status: pending, done, overdue, all; days limits the upcoming scope. Highest orderScore first. view overrides status: today (not done, planned or due today, or late; each followed by its subtasks; plus reminders [{taskId, title, reason: to_schedule|not_done, days, urgency}]), upcoming (not done, due or planned after today), someday (not done, no due or planned day), done (50 most recent; total = count). counts: size of the four views. Task urgency: low, normal, high or critical; overdueDays null if not late."
+        "description": "Gets tasks, filters combined with AND. status: pending (default), done, all. day (YYYY-MM-DD): planned that day, or due that day or before and not done. dueFrom/dueTo, scheduledFrom/scheduledTo: inclusive bounds. dated: false = no due nor planned day, true = one of them. parentId: the subtasks of a task. limit: 50, at most 200. Highest orderScore first; done: most recently done first. Returns {tasks, count, total}; a task has urgency (low, normal, high, critical), orderScore and overdueDays (null if not late)."
     },
     "get_training_status": {
         "name": "get_training_status",
@@ -4386,22 +4428,6 @@
             }
         },
         "description": "Reads the yearly planning session: what the year behind cost, with a suggested budget for the year ahead. year: 2000 to 2100 (default: next year in November and December, else the current one). thresholdCents: integer cents, default 10000, selects debits listed individually. period (2027, 2027-Q2 or 2027-S1): plans a quarter or semester instead (reads the period just before); not with year (error). Lists every category that cost something, biggest first: budgeted and consumed, big expenses, plannedCents, committedCents, decidedCents, the annual envelope set, and the suggested amount (suggestedMonthlyCents for a period). Writes go through manage_period_plan."
-    },
-    "prepare_day": {
-        "name": "prepare_day",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Proposes the day, writing nothing: up to 5 tasks, as many as fit the agenda's free time (estimatedMinutes, 15 if unknown), at least one. date is YYYY-MM-DD, today by default. Returns slots [{position, type, reason, minutes, task}], reserveRanked [{reason, minutes, task}], totalMinutes, freeMinutes. reason: scheduled, postponed, dueToday, urgent, dueTomorrow, quick or whenever. Stored by set_day_plan."
     },
     "preview_project": {
         "name": "preview_project",

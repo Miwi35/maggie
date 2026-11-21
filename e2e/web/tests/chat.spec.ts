@@ -1288,7 +1288,7 @@ test('an event created last turn is deleted by its real id, with no search first
  * MAG-409: Maggie reads the day's tasks late first, offers ONE undated task when the day is
  * light, and writes nothing until the owner says yes.
  *
- * 74-tasks-today.yaml scripts the model's side (agenda, `get_tasks` today, `get_tasks` someday,
+ * 74-tasks-today.yaml scripts the model's side (agenda, `get_tasks` with `day`, `get_tasks` with `dated: false`,
  * then the offer) and 74-tasks-schedule-someday.yaml answers « Oui, demain » with `update_task`
  * on the id its own `get_tasks` result gave — taken from the replayed history, so the titles
  * below are fixed and a run that left them behind is cleaned first: two ids would be one too

@@ -23,7 +23,7 @@ turns:
       - name: get_events
         input: {from: '${today}', to: '${today}'}
       - name: get_tasks
-        input: {view: today}
+        input: {day: "${today}"}
       - name: manage_meals
         input: {action: list, fromDate: '${today}', toDate: '${today}'}
       - name: get_grocery_list

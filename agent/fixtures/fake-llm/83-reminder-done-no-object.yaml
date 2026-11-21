@@ -9,5 +9,5 @@ match:
 turns:
   - tools:
       - name: get_tasks
-        input: {view: today}
+        input: {day: "${today}"}
   - text: "De quoi s'agit-il ? Je regarde vos tâches du jour : dites-moi laquelle est faite."

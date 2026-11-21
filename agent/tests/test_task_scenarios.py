@@ -37,13 +37,13 @@ class FakeTaskApi:
 
     async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
         self.calls.append((name, dict(arguments)))
-        if name == "get_tasks" and arguments.get("view") == "today":
+        if name == "get_tasks" and arguments.get("day"):
             tasks = [{"id": OTHER_ID, "title": "Renouveler le passeport", "dueDate": "2030-11-11", "overdueDays": 2}]
         elif name == "get_tasks":
             tasks = [{"id": TASK_ID, "title": "Ranger le garage", "dueDate": None, "overdueDays": None}]
         else:
             return json.dumps({"success": True})
-        return json.dumps({"view": arguments.get("view"), "tasks": tasks, "count": len(tasks)})
+        return json.dumps({"tasks": tasks, "count": len(tasks)})
 
 
 @pytest.fixture()
@@ -76,7 +76,7 @@ class TestTheDay:
         result = await ask([{"role": "user", "content": "Qu'est-ce que j'ai aujourd'hui ?"}])
 
         assert called(result) == ["get_events", "get_tasks", "get_tasks"]
-        assert [args for name, args in api.calls if name == "get_tasks"] == [{"view": "today"}, {"view": "someday"}]
+        assert [args for name, args in api.calls if name == "get_tasks"] == [{"day": expand_days("${today}")}, {"dated": False}]
         assert "update_task" not in called(result)
 
     async def test_the_late_task_is_named_before_the_one_offered(self, api):

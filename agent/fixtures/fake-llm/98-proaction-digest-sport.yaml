@@ -20,5 +20,5 @@ turns:
       - name: get_events
         input: {from: '${today}', to: '${today}'}
       - name: get_tasks
-        input: {view: today}
+        input: {day: "${today}"}
   - text: "Bonjour monsieur. Il fera 12 degrés. Ce soir, séance A à 18 h 30, 30 min. (digest MAG-777)"

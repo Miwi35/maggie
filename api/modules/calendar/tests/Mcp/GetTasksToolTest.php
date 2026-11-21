@@ -31,7 +31,6 @@ class GetTasksToolTest extends KernelTestCase
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame('pending', $data['status']);
         $titles = array_map(fn ($t) => $t['title'], $data['tasks']);
         self::assertContains('Pending task', $titles);
         self::assertNotContains('Done task', $titles);
@@ -42,11 +41,10 @@ class GetTasksToolTest extends KernelTestCase
         $this->loadFixtures('GetTasksToolTest.yaml');
         $this->loginFixtureUser();
 
-        $result = $this->getTool()('overdue');
+        $result = $this->getTool()(dueTo: (new \DateTimeImmutable('yesterday'))->format('Y-m-d'));
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame('overdue', $data['status']);
         self::assertSame(1, $data['count']);
         self::assertSame('Overdue task', $data['tasks'][0]['title']);
     }
@@ -60,7 +58,6 @@ class GetTasksToolTest extends KernelTestCase
 
         $data = json_decode($result, true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame('done', $data['status']);
         self::assertSame(1, $data['count']);
         self::assertSame('Done task', $data['tasks'][0]['title']);
     }

@@ -64,7 +64,6 @@ class UserIsolationToolsTest extends KernelTestCase
     public static function taskStatusProvider(): iterable
     {
         yield 'pending' => ['pending', 'Own pending task', 'Other pending task'];
-        yield 'overdue' => ['overdue', 'Own overdue task', 'Other overdue task'];
         yield 'done' => ['done', 'Own done task', 'Other done task'];
     }
 
@@ -93,14 +92,14 @@ class UserIsolationToolsTest extends KernelTestCase
         );
     }
 
-    public function testGetTasksUpcomingOnlyReturnsTheCallersTasks(): void
+    public function testGetTasksOverdueRangeOnlyReturnsTheCallersTasks(): void
     {
         $this->loadFixtures('UserIsolationToolsTest.yaml');
         $this->loginFixtureUser();
 
-        $data = $this->decode((self::getContainer()->get(GetTasksTool::class))('pending', 7));
+        $data = $this->decode((self::getContainer()->get(GetTasksTool::class))(dueTo: (new \DateTimeImmutable('yesterday'))->format('Y-m-d')));
 
-        self::assertSame(['Own pending task'], $this->titles($data));
+        self::assertSame(['Own overdue task'], $this->titles($data));
     }
 
     public function testGetTasksWithoutUserIsRefused(): void
