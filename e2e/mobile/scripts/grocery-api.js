@@ -316,10 +316,6 @@ if (ACTION === 'add') {
     return entry.store !== store
   })
   aisles.push({ store: store, aisle: aisle.id })
-  const patch = { aisles: aisles }
-  if (typeof USUAL !== 'undefined' && USUAL === 'yes') {
-    patch.preferredStore = '/api/stores/' + store
-  }
   const response = http.request(base + '/api/products/' + productId, {
     method: 'PATCH',
     headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
@@ -434,6 +430,10 @@ if (ACTION === 'add') {
     return idOf(entry.store) !== store
   })
   aisles.push({ store: store, aisle: aisle.id })
+  const patch = { aisles: aisles }
+  if (typeof USUAL !== 'undefined' && USUAL === 'yes') {
+    patch.preferredStore = '/api/stores/' + store
+  }
   const response = http.request(base + '/api/products/' + product.id, {
     method: 'PATCH',
     headers: authorized({ 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json' }),
