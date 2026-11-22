@@ -430,6 +430,8 @@ web:
     areas: [chat, interruptions, calendar, realtime]
   e2e/web/tests/maggie-interruption.spec.ts:
     areas: [chat, interruptions, notification, realtime, dashboard, calendar]
+  e2e/web/tests/proaction-checker.spec.ts:
+    areas: [chat, interruptions, notification, grocery]
   e2e/web/tests/maggie-portrait.spec.ts:
     areas: [chat, dashboard, design]
   e2e/web/tests/responsive.spec.ts:

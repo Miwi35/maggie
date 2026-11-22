@@ -17,6 +17,7 @@ NIGHT = "night"
 PROACTION = "proaction"
 UTILITY = "utility"
 APPROVAL_REPLY = "approval_reply"
+CHECKER = "checker"
 
 MODEL_BY_RUN: dict[str, str] = {
     CHAT: "sonnet",  # conversation, interruption, overlay, validated action
@@ -27,6 +28,7 @@ MODEL_BY_RUN: dict[str, str] = {
     PROACTION: "haiku",
     UTILITY: "haiku",  # context summary, transcription, style, encoder
     APPROVAL_REPLY: "sonnet",  # owner's answer to a held action (blocking, irreversible)
+    CHECKER: "sonnet",  # blocking check of an autonomous write
 }
 
 
@@ -40,6 +42,7 @@ EFFORT_BY_RUN: dict[str, str] = {
     PROACTION: "low",
     UTILITY: "low",
     APPROVAL_REPLY: "low",
+    CHECKER: "low",
 }
 
 # Prefixes of the models that refuse `effort`.
@@ -60,9 +63,14 @@ def effort_kwargs(run: str) -> dict:
     return {"output_config": {"effort": effort}} if effort else {}
 
 
+# The daily planning's prompt opens with it (`daily_planning_prompt`): fired by hand through
+# `POST /agent/proaction` it is still the planning, whose writes are not an ordinary proaction's.
+PLANNING_PROMPT_START = "C'est le début de la journée du "
+
+
 def proaction_run(*, silent: bool, summary: str | None, prompt: str) -> str:
     """The kind of run a proaction is: the morning planning, a trip run, a digest or review, or any other."""
-    if silent:
+    if silent or prompt.startswith(PLANNING_PROMPT_START):
         return PLANNING
     if is_silent_trip_run(summary):
         return TRIP

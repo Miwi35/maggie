@@ -38,6 +38,7 @@ def test_the_two_models_differ():
         (models.PROACTION, HAIKU),
         (models.UTILITY, HAIKU),
         (models.APPROVAL_REPLY, SONNET),
+        (models.CHECKER, SONNET),
     ],
 )
 def test_each_kind_of_run_has_its_model(run, expected):
@@ -46,7 +47,7 @@ def test_each_kind_of_run_has_its_model(run, expected):
 
 def test_every_kind_of_run_is_in_the_table():
     kinds = {models.CHAT, models.PLANNING, models.DIGEST, models.TRIP, models.NIGHT, models.PROACTION,
-        models.UTILITY, models.APPROVAL_REPLY}
+        models.UTILITY, models.APPROVAL_REPLY, models.CHECKER}
     assert kinds == set(MODEL_BY_RUN)
 
 
@@ -138,6 +139,10 @@ class TestProactionRuns:
 
     async def test_the_morning_planning_thinks_at_high_effort(self):
         kwargs, _ = await _proaction_call("Planifie la journée", silent=True)
+        assert kwargs["effort"] == "high"
+
+    async def test_the_planning_prompt_fired_by_hand_is_still_the_planning(self):
+        kwargs, _ = await _proaction_call("C'est le début de la journée du 2026-11-22. Planifie les trajets.")
         assert kwargs["effort"] == "high"
 
     async def test_an_ordinary_proaction_on_haiku_4_5_passes_no_effort(self):
