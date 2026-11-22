@@ -9,7 +9,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.width
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.fcm.PushInteraction
@@ -109,7 +108,7 @@ class HeaderActionsScreenTest {
 
         val panel = compose.onNodeWithTag(UiTags.INTERRUPTIONS_PANEL, useUnmergedTree = true).getUnclippedBoundsInRoot()
         val bell = compose.onNodeWithTag(UiTags.HEADER_BELL).getUnclippedBoundsInRoot()
-        val root = compose.onRoot().getUnclippedBoundsInRoot()
+        val root = compose.onNodeWithTag(UiTags.INTERRUPTIONS_SCRIM).getUnclippedBoundsInRoot()
 
         assertEquals(12.dp.value, panel.left.value, 0.5f)
         assertEquals((root.width - 12.dp).value, panel.right.value, 0.5f)
@@ -122,11 +121,11 @@ class HeaderActionsScreenTest {
         compose.onNodeWithTag(UiTags.HEADER_BELL).tap()
 
         val tops = listOf(
-            compose.onNodeWithText("En attente de votre réponse"),
+            compose.onNodeWithTag(UiTags.INTERRUPTIONS_PENDING, useUnmergedTree = true),
             compose.onNodeWithTag(UiTags.interruptionsTrip("n1")),
             compose.onNodeWithTag(UiTags.INTERRUPTIONS_QUESTIONS),
             compose.onNodeWithTag(UiTags.INTERRUPTIONS_CONFIRMATION),
-            compose.onNodeWithText("Réglées"),
+            compose.onNodeWithTag(UiTags.INTERRUPTIONS_SETTLED, useUnmergedTree = true),
             compose.onNodeWithTag(UiTags.interruptionsSettled("n0")),
         ).map { it.getUnclippedBoundsInRoot().top.value }
 
