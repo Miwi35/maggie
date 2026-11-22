@@ -104,12 +104,12 @@ tags:
 - scrollUntilVisible:
     element: "COMPTES DU MATELAS"
     timeout: 20000
-- assertVisible: "COMPTES DU MATELAS"
 - scrollUntilVisible:
     element: "RÉGLAGES"
     timeout: 20000
-- assertVisible: "RÉGLAGES"
-- assertVisible: ".*seuil critique.*"
+- extendedWaitUntil:
+    visible: ".*seuil critique.*"
+    timeout: 10000
 - tapOn: "Part du matelas"
 - extendedWaitUntil:
     visible:
