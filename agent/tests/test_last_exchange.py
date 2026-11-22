@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from zoneinfo import ZoneInfo
 
+from app.container import Container
 from app.db.context_model import ConversationContext
 from app.db.message_repository import message_repo
 from app.db.models import Message
@@ -266,14 +267,14 @@ class TestLastExchangeSection:
 
 
 def _streaming_gateway() -> StreamingGateway:
-    gateway = StreamingGateway()
+    gateway = Container().streaming_gateway
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
     gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
     return gateway
 
 
 def _llm_gateway() -> LLMGateway:
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
     gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
     return gateway

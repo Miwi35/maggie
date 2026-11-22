@@ -19,13 +19,14 @@ import logging
 import time
 
 from app.config import settings
+from app.container import container
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.message_repository import message_repo
 from app.db.style_proposal_model import StyleProposal, StyleProposalStatus
 from app.db.style_proposal_repository import style_proposal_repo
 from app.db.user_setting_repository import user_setting_repo
-from app.llm.client import client_for, create_llm_client, llm_configured
+from app.llm.client import client_for
 from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
@@ -82,7 +83,7 @@ class StyleSynthesizer:
     """Turns a user's new thumbs into pending style proposals, with the cheap model."""
 
     def __init__(self):
-        self.client = create_llm_client() if llm_configured() else None
+        self.client = container.llm_client
         # One pass per user at a time: « Analyser mes retours » during the daily pass would
         # read the same thumbs twice and store every proposal twice.
         self._locks: dict[str, asyncio.Lock] = {}

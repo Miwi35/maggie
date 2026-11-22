@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import Container, container
 from app.api import routes
 from app.llm.gateway import LLMGateway
 from app.llm.streaming import StreamingGateway, answer_message_id
@@ -18,7 +19,8 @@ DRIVING_MARKER = "EN VOITURE"
 
 
 def _gateway(cls):
-    gateway = cls()
+    c = Container()
+    gateway = c.streaming_gateway if cls is StreamingGateway else c.llm_gateway
     gateway.personality = PersonalityEngine()
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()
@@ -86,7 +88,7 @@ class TestTheSpokenInstruction:
 class TestWhoAsksForIt:
     @pytest.mark.parametrize("spoken", [True, False])
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_the_chat_route_hands_the_flag_to_the_gateway(self, mock_gateway, mock_msg_repo, spoken, authed_client):
         seen = {}
 
@@ -103,7 +105,7 @@ class TestWhoAsksForIt:
         assert seen["spoken"] is spoken
 
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_written_message_is_not_spoken_by_default(self, mock_gateway, mock_msg_repo, authed_client):
         seen = {}
 
@@ -130,7 +132,7 @@ class TestWhoAsksForIt:
                 )
                 yield {"type": "RUN_FINISHED", "runId": "run-1"}
 
-        with patch.object(routes, "streaming_gateway", Gateway()), patch.object(routes, "turn_runner", TurnRunner()):
+        with container.override(streaming_gateway=Gateway()), patch.object(routes, "turn_runner", TurnRunner()):
             response = await routes.chat_stream(routes.ChatRequest(message="Bonjour", spoken=spoken), user_id="user-1")
             [chunk async for chunk in response.body_iterator]
             await asyncio.sleep(0)
@@ -170,7 +172,7 @@ class TestTheDrivingInstruction:
 
     @pytest.mark.parametrize("in_car", [True, False])
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_the_chat_route_hands_the_context_to_the_gateway(self, mock_gateway, mock_msg_repo, in_car, authed_client):
         seen = {}
 
@@ -197,7 +199,7 @@ class TestTheDrivingInstruction:
                 )
                 yield {"type": "RUN_FINISHED", "runId": "run-1"}
 
-        with patch.object(routes, "streaming_gateway", Gateway()), patch.object(routes, "turn_runner", TurnRunner()):
+        with container.override(streaming_gateway=Gateway()), patch.object(routes, "turn_runner", TurnRunner()):
             response = await routes.chat_stream(routes.ChatRequest(message="Bonjour", in_car=in_car), user_id="user-1")
             [chunk async for chunk in response.body_iterator]
             await asyncio.sleep(0)

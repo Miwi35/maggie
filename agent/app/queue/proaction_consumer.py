@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import aio_pika
 
 from app.bilan import bilan_block, is_bilan, is_retired_relance
+from app.container import container
 from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.db.models import SCREEN_DIGEST
@@ -259,7 +260,7 @@ async def start_consumer() -> None:
     """Start consuming proaction messages from the queue; each message carries one claimed proaction."""
     channel = get_channel()
     queue = await channel.declare_queue(PROACTION_QUEUE, durable=True)
-    gateway = LLMGateway()
+    gateway = container.llm_gateway
 
     async def on_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
         async with message.process():

@@ -16,6 +16,7 @@ import anthropic
 import httpx
 import pytest
 
+from app.container import Container, container
 from app.db.models import Message
 from app.llm.gateway import API_ERROR_MESSAGE, LLMGateway
 from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
@@ -42,7 +43,7 @@ def _credit_error() -> anthropic.BadRequestError:
 
 def _gateway_with_failing_client(error: Exception) -> LLMGateway:
     """The real gateway and tool loop, on an Anthropic client that raises `error`."""
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.client = MagicMock()
     gateway.client.messages.create = AsyncMock(side_effect=error)
     gateway.personality = MagicMock()
@@ -86,7 +87,7 @@ def collaborators():
 class TestChatSaysTheProviderIsDown:
     def test_an_exhausted_credit_is_reported_as_provider_unavailable(self, collaborators, authed_client):
         """The reproduction of the 13-14 Oct. incident: the 400 Anthropic answers on an empty credit."""
-        with patch("app.api.routes.llm_gateway", _gateway_with_failing_client(_credit_error())):
+        with patch.object(container, "llm_gateway", _gateway_with_failing_client(_credit_error())):
             response = authed_client.post("/chat", json={"message": "Bonjour"})
 
         assert response.status_code == 200
@@ -100,7 +101,7 @@ class TestChatSaysTheProviderIsDown:
     def test_an_error_of_ours_keeps_the_plain_error(self, collaborators, authed_client):
         """A 400 about our own request is our bug: the smoke test must keep failing on it."""
         error = _status_error(400, "messages: roles must alternate")
-        with patch("app.api.routes.llm_gateway", _gateway_with_failing_client(error)):
+        with patch.object(container, "llm_gateway", _gateway_with_failing_client(error)):
             body = authed_client.post("/chat", json={"message": "Bonjour"}).json()
 
         assert body["error"] is True
@@ -112,9 +113,8 @@ class TestChatSaysTheProviderIsDown:
         with (
             patch("app.api.routes.message_repo", MagicMock(create=AsyncMock(return_value=stored))),
             patch("app.api.routes.find_settled_answer", AsyncMock(return_value=None)),
-            patch(
-                "app.api.routes.llm_gateway",
-                MagicMock(chat=AsyncMock(return_value={"response": "Bonjour !", "tool_calls": []})),
+            container.override(
+                llm_gateway=MagicMock(chat=AsyncMock(return_value={"response": "Bonjour !", "tool_calls": []})),
             ),
         ):
             body = authed_client.post("/chat", json={"message": "Salut"}).json()

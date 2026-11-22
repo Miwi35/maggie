@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from app.container import Container
 from app.db.context_repository import context_repo
 from app.llm import contexts as contexts_module
 from app.llm import history as history_module
@@ -23,7 +24,7 @@ ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "act
 
 
 def _gateway(calls: list[str]) -> StreamingGateway:
-    gw = StreamingGateway()
+    gw = Container().streaming_gateway
     gw.client = MagicMock()
     gw.client.messages.stream = lambda **_kwargs: FakeStream(
         FakeMessage(

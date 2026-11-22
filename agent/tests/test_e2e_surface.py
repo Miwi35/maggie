@@ -11,6 +11,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.container import container
 from app.e2e import setup_e2e
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.transcription import WhisperTranscript, reset_cleanup_requests
@@ -133,7 +134,7 @@ class TestOnTheE2eStack:
                     ),
                 ),
             ),
-            patch("app.llm.transcription.create_llm_client", return_value=_client_saying("Bonjour.")),
+            container.override(llm_client=_client_saying("Bonjour.")),
         ):
             with TestClient(app_for(monkeypatch, "fake")) as client:
                 assert client.get(CLEANUPS_URL, headers=headers).json() == {"count": 0}

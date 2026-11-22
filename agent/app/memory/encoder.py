@@ -28,11 +28,12 @@ from datetime import UTC, date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from app.container import container
 from app.db.context_model import ConversationContext
 from app.db.context_repository import context_repo
 from app.db.memory_index_repository import IndexedFile
 from app.db.message_repository import message_repo
-from app.llm.client import client_for, create_llm_client, llm_configured
+from app.llm.client import client_for
 from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.memory import carte as carte_mod
 from app.memory import conversations, fiches, paths
@@ -242,7 +243,7 @@ class PassageEncoder:
     """Writes the carte and the obvious fiches of a thread that went quiet, with the fast model."""
 
     def __init__(self, service: MemoryService | None = None):
-        self.client = create_llm_client() if llm_configured() else None
+        self.client = container.llm_client
         self._service = service
         self._locks: dict[str, asyncio.Lock] = {}
         self._failures: dict[str, tuple[datetime, int]] = {}

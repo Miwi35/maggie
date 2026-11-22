@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy import select
 
+from app.container import container
 from app.db.models import Message
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.questions import asked_question, blocks_of, handle_ask_owner
@@ -151,7 +152,7 @@ def _messages(chat_db) -> list[Message]:
 
 @pytest.fixture()
 def gateway():
-    with patch("app.api.routes.llm_gateway") as mock:
+    with patch.object(container, "llm_gateway") as mock:
         mock.chat = AsyncMock(return_value={"response": "C'est fait.", "tool_calls": []})
         yield mock
 

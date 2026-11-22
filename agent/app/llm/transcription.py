@@ -18,7 +18,7 @@ from typing import Any
 import openai
 
 from app.config import settings
-from app.llm.client import create_llm_client
+from app.container import container
 from app.llm.held_secret import has_owner_secret
 from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage
@@ -282,7 +282,7 @@ async def _cleanup_with_llm(raw_text: str) -> str:
     """Clean up raw transcript with the fast model — nobody reads a transcript twice."""
     global _cleanup_requests
     _cleanup_requests += 1
-    client = create_llm_client()
+    client = container.llm_client
     model = model_for(UTILITY)
     t0 = time.monotonic()
     try:

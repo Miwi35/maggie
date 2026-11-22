@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import Container
 from app.bilan import BILAN_SUMMARY
 from app.config import settings
 from app.db.journal_repository import journal_repo
@@ -103,7 +104,7 @@ def test_no_call_reads_a_model_setting_directly():
 
 
 def _gateway() -> LLMGateway:
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.client = MagicMock()
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
     gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))

@@ -8,6 +8,7 @@ the chat. The index alone was in the prompt, and the content only when the model
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.container import Container
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
 from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H
@@ -48,7 +49,7 @@ def _index(*skills: Skill) -> SkillIndex:
 
 
 def _gateway() -> LLMGateway:
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.client = MagicMock()
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
     gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))

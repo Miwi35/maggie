@@ -20,6 +20,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from app.container import Container
 from app.config import Settings
 from app.db.context_model import ContextStatus, ConversationContext
 from app.llm import fake as fake_module
@@ -1099,7 +1100,7 @@ class TestTheRealStreamingGateway:
             created.id = "ctx-1"
             context_repo.create = AsyncMock(return_value=created)
 
-            gateway = StreamingGateway()
+            gateway = Container().streaming_gateway
             gateway.client = client
             gateway.personality = MagicMock()
             gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")

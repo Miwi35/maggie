@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy import select
 
+from app.container import container
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID, Message
 from app.llm import replace
@@ -157,7 +158,7 @@ def _stream(client, **body):
         yield {"type": "RUN_FINISHED", "runId": "run-1"}
 
     gateway_run.calls = []
-    with patch("app.api.routes.streaming_gateway") as gateway:
+    with patch.object(container, "streaming_gateway") as gateway:
         gateway.chat_stream = gateway_run
         response = client.post("/chat/stream", json=body)
     return response, gateway_run.calls

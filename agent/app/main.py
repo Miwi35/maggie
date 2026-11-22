@@ -8,7 +8,8 @@ from starlette.responses import Response
 
 from app.a2a import setup_a2a
 from app.agents.registry import subagent_registry
-from app.api.routes import router, streaming_gateway
+from app.api.routes import router
+from app.container import container
 from app.db.agent_engine import ensure_agent_tables
 from app.db.chat_read_state_model import ChatReadState  # noqa: F401 — register model with AgentBase before create_all
 from app.db.context_model import ConversationContext  # noqa: F401 — register model with AgentBase before create_all
@@ -133,7 +134,7 @@ async def lifespan(app: FastAPI):
 
     # A turn lost with the previous process is answered (or given up on) now, and again
     # every half-minute for the ones a process shutting down hands over later.
-    turn_runner.start_sweeper(streaming_gateway)
+    turn_runner.start_sweeper(container.streaming_gateway)
 
     # The memory folder: the first pass rehydrates the local copy from the bucket (the pod has no
     # disk to keep), then it keeps both in step. A bucket that is down is not a reason not to start.

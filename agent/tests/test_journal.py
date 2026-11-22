@@ -9,6 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.container import container
 from app.api.routes import router
 from app.auth import get_current_user_id
 from app.db.journal_model import JournalRun
@@ -193,7 +194,7 @@ class TestProactionRunIsKept:
 class TestJournalRoutes:
     async def test_relaunching_the_planning_returns_its_entry_and_the_journal_lists_it(self, journal_db):
         """« Relancer la planification maintenant », then the journal: the run, what it read and scheduled."""
-        with patch("app.api.routes.llm_gateway", _gateway(PLANNING_RESULT)):
+        with patch.object(container, "llm_gateway", _gateway(PLANNING_RESULT)):
             relaunched = _client().post("/journal/planning")
 
         assert relaunched.status_code == 200
@@ -216,7 +217,7 @@ class TestJournalRoutes:
         assert other["origin"] is None
 
     async def test_a_planning_that_fails_answers_502_and_is_in_the_journal(self, journal_db):
-        with patch("app.api.routes.llm_gateway", _gateway(RuntimeError("MCP down"))):
+        with patch.object(container, "llm_gateway", _gateway(RuntimeError("MCP down"))):
             relaunched = _client().post("/journal/planning")
 
         assert relaunched.status_code == 502

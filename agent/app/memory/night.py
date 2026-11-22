@@ -40,10 +40,10 @@ from zoneinfo import ZoneInfo
 
 from app.auth import TECHNICAL_ACCOUNT_EMAILS
 from app.config import settings
+from app.container import container
 from app.db.context_repository import context_repo
 from app.db.memory_index_repository import IndexedFile, memory_index_repo
 from app.db.memory_night_repository import DONE, NightRun, memory_night_repo
-from app.llm.client import create_llm_client, llm_configured
 from app.llm.models import NIGHT, effort_kwargs, model_for
 from app.llm.provider_status import note_provider_failure, note_provider_success
 from app.mcp.client import mcp_client
@@ -343,7 +343,7 @@ class NightKeeper:
     """Runs the night for one owner at a time."""
 
     def __init__(self, service: MemoryService | None = None, encoder: Any = None, mcp: Any = None):
-        self.client = create_llm_client() if llm_configured() else None
+        self.client = container.llm_client
         self._service = service
         self._encoder = encoder
         self.mcp = mcp or mcp_client

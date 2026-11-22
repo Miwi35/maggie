@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import container
 from app.db.models import Message
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 
@@ -27,7 +28,7 @@ class TestRoutes:
         assert response.status_code in (401, 403)
 
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_chat_endpoint_without_api_key(self, mock_gateway, mock_msg_repo, authed_client):
         """POST /chat without ANTHROPIC_API_KEY returns a not-configured message."""
         mock_gateway.client = None
@@ -54,7 +55,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_chat_stores_the_answer_in_the_routed_thread(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -78,7 +79,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_chat_without_a_thread_summarizes_nothing(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -96,7 +97,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_turn_the_model_never_answered_is_not_summarized(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -139,7 +140,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_the_screen_context_is_not_stored_in_the_question(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -169,7 +170,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_code_alone_never_reaches_the_model_nor_the_stored_message(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client, caplog
     ):
@@ -192,7 +193,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_reply_reaches_the_model_with_its_message_and_is_stored_as_said(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -221,7 +222,7 @@ class TestRoutes:
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
     @patch("app.llm.message_reply.classify_approval_reply", new_callable=AsyncMock, return_value="approve")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_reply_to_a_validation_lets_the_model_decide_that_one_validation(
         self, mock_gateway, _classify, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -244,7 +245,7 @@ class TestRoutes:
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
     @patch("app.llm.message_reply.classify_approval_reply", new_callable=AsyncMock, return_value="other")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_reply_with_a_condition_grants_no_decision(
         self, mock_gateway, _classify, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -270,7 +271,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_client_glueing_the_block_to_the_message_still_stores_the_question(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -291,7 +292,7 @@ class TestRoutes:
         assert mock_gateway.chat.await_args.kwargs["screen_context"] == block
 
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.streaming_gateway")
+    @patch.object(container, "streaming_gateway")
     def test_the_streamed_route_stores_the_question_alone_too(
         self, mock_streaming, mock_msg_repo, authed_client
     ):
@@ -321,7 +322,7 @@ class TestRoutes:
 
     @pytest.mark.parametrize("spoken", [False, True])
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.streaming_gateway")
+    @patch.object(container, "streaming_gateway")
     def test_the_streamed_route_holds_a_labelled_code_spoken_or_written(
         self, mock_streaming, mock_msg_repo, spoken, authed_client
     ):
@@ -347,7 +348,7 @@ class TestRoutes:
 
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     def test_a_screenshot_reaches_the_model_and_is_not_stored(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
     ):
@@ -368,7 +369,7 @@ class TestRoutes:
         assert response.json()["messages"][0]["hasImage"] is True
 
     @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.streaming_gateway")
+    @patch.object(container, "streaming_gateway")
     def test_the_streamed_route_takes_the_screenshot_too(self, mock_streaming, mock_msg_repo, authed_client):
         async def no_events(*_args, **_kwargs):
             if False:
@@ -590,7 +591,7 @@ class TestApprovals:
     def test_list_refuses_a_status_it_does_not_serve(self, authed_client):
         assert authed_client.get("/approvals", params={"status": "approved"}).status_code == 422
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_another_users_action_is_a_404(self, mock_repo, mock_gateway, authed_client):
         mock_repo.get_for_user = AsyncMock(return_value=None)
@@ -610,7 +611,7 @@ class TestApprovals:
         assert authed_client.post("/approvals/act-1/deny").status_code == 404
         mock_repo.decide.assert_not_awaited()
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_an_already_decided_action_is_a_409(self, mock_repo, mock_gateway, authed_client):
         mock_repo.get_for_user = AsyncMock(return_value=held_action(status=PendingActionStatus.DENIED))
@@ -627,7 +628,7 @@ class TestApprovals:
 
         assert authed_client.post("/approvals/act-1/deny").status_code == 409
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_an_action_claimed_meanwhile_is_a_409_and_runs_nothing(self, mock_repo, mock_gateway, authed_client):
         """Two tabs clicking Autoriser: the one that loses the claim must not run the call."""
@@ -638,7 +639,7 @@ class TestApprovals:
         assert authed_client.post("/approvals/act-1/approve").status_code == 409
         mock_gateway.tool_router.call_tool.assert_not_awaited()
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_an_expired_action_is_a_410(self, mock_repo, mock_gateway, authed_client):
         overdue = held_action(expires_at=datetime.now(UTC) - timedelta(minutes=1))
@@ -652,7 +653,7 @@ class TestApprovals:
         mock_repo.decide.assert_not_awaited()
         mock_gateway.tool_router.call_tool.assert_not_awaited()
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_an_action_the_scheduler_expired_is_a_410(self, mock_repo, mock_gateway, authed_client):
         mock_repo.get_for_user = AsyncMock(return_value=held_action(status=PendingActionStatus.EXPIRED))
@@ -671,7 +672,7 @@ class TestApprovals:
     @patch("app.api.routes.context_summarizer")
     @patch("app.api.routes.message_repo")
     @patch("app.api.routes.run_tool_loop")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_runs_the_frozen_arguments_records_the_outcome_and_announces_it(
         self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, mock_summarizer, authed_client
@@ -718,7 +719,7 @@ class TestApprovals:
 
     @patch("app.api.routes.message_repo")
     @patch("app.api.routes.run_tool_loop")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_marks_the_action_failed_when_the_tool_returns_an_error(
         self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
@@ -744,7 +745,7 @@ class TestApprovals:
 
     @patch("app.api.routes.message_repo")
     @patch("app.api.routes.run_tool_loop")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_marks_the_action_failed_when_the_call_raises(
         self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
@@ -765,7 +766,7 @@ class TestApprovals:
 
     @patch("app.api.routes.message_repo")
     @patch("app.api.routes.run_tool_loop")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_a_failing_announcement_does_not_fail_the_approval(
         self, mock_repo, mock_gateway, mock_loop, mock_msg_repo, authed_client
@@ -784,7 +785,7 @@ class TestApprovals:
         mock_msg_repo.create.assert_not_awaited()
 
     @patch("app.api.routes.run_tool_loop")
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_deny_records_the_refusal_without_running_anything(
         self, mock_repo, mock_gateway, mock_loop, authed_client
@@ -803,7 +804,7 @@ class TestApprovals:
         mock_gateway.tool_router.call_tool.assert_not_awaited()
         mock_loop.assert_not_awaited()
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_approve_leaves_the_answer_in_the_thread_once_the_claim_is_won(
         self, mock_repo, mock_gateway, recorded, authed_client
@@ -820,7 +821,7 @@ class TestApprovals:
 
         recorded.assert_awaited_once_with(approved, "chat")
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_the_channel_the_user_answered_on_is_kept(self, mock_repo, mock_gateway, recorded, authed_client):
         pending = held_action()
@@ -835,7 +836,7 @@ class TestApprovals:
 
         recorded.assert_awaited_once_with(approved, "voice")
 
-    @patch("app.api.routes.llm_gateway")
+    @patch.object(container, "llm_gateway")
     @patch("app.api.routes.pending_action_repo")
     def test_a_lost_claim_leaves_no_line(self, mock_repo, mock_gateway, recorded, authed_client):
         mock_repo.get_for_user = AsyncMock(return_value=held_action())

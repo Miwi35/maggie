@@ -24,10 +24,11 @@ import logging
 import time
 
 from app.config import settings
+from app.container import container
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
-from app.llm.client import client_for, create_llm_client, llm_configured
+from app.llm.client import client_for
 from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage, usage_kwargs
 
@@ -77,7 +78,7 @@ class ContextSummarizer:
     """Keeps `conversation_context.summary` up to date, with the cheap model."""
 
     def __init__(self):
-        self.client = create_llm_client() if llm_configured() else None
+        self.client = container.llm_client
 
     async def maybe_summarize(self, context_id: str) -> str | None:
         """Summarize the thread only if it has grown by the threshold since its last summary."""

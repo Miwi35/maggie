@@ -5,6 +5,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.container import Container, container
 from app.a2a import setup_a2a
 from app.config import settings
 from app.llm.gateway import LLMGateway
@@ -47,11 +48,11 @@ class A2AClient:
 def a2a_client(root_path):
     """The real A2A routes on a FastAPI app, served the way Traefik serves the agent."""
     app = FastAPI(root_path=root_path)
-    with patch("app.a2a.executor.LLMGateway") as gateway_cls:
-        gateway_cls.return_value.chat = AsyncMock(return_value={"response": "Rien de prévu.", "tool_calls": []})
+    with patch.object(container, "llm_gateway") as gateway:
+        gateway.chat = AsyncMock(return_value={"response": "Rien de prévu.", "tool_calls": []})
         setup_a2a(app)
         with patch.object(settings, "a2a_token", A2A_TOKEN), TestClient(app) as client:
-            yield A2AClient(client, gateway_cls.return_value.chat)
+            yield A2AClient(client, gateway.chat)
 
 
 class TestA2AEndpointAuth:
@@ -163,10 +164,7 @@ class TestA2AToolRestriction:
         assert {"create_event", "memory_write_fiche", "schedule_proaction"} <= names
 
     async def test_gateway_chat_asks_for_a2a_tools_only_when_called_from_a2a(self):
-        with patch.object(LLMGateway, "__init__", lambda _self: None):
-            gateway = LLMGateway()
-        gateway.client = object()
-        gateway.tool_router = ToolRouter()
+        gateway = LLMGateway(client=object(), tool_router=ToolRouter())
         gateway._build_system_prompt = AsyncMock(return_value=[])
 
         with (

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import Container
 from app.llm.gateway import LLMGateway
 from app.memory.agent_memory import MemoryBlocks
 from app.queue.scheduler import daily_planning_prompt
@@ -186,7 +187,7 @@ class TestTheTripRuns:
 
 
 def _gateway() -> LLMGateway:
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.client = MagicMock()
     gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
     gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))

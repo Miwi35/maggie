@@ -3,7 +3,12 @@
 Python FastAPI service. Separate from Symfony — consumes the API via MCP like any external client.
 
 ## Layout
-`agent/app/`: `main.py` (FastAPI entry, `root_path="/agent"`), `config.py` (pydantic-settings), `api/` (routes), `llm/` (gateway, tool loop, history, prompt cache), `mcp/` (MCP client), `memory/`, `mercure/` (publisher, topics), `personality/` (YAML), `policy/`, `skills/`, `agents/` (sub-agents), `a2a/`, `queue/` (proactions), `db/` (models and repositories), `tts/`.
+`agent/app/`: `main.py` (FastAPI entry, `root_path="/agent"`), `container.py` (shared instances), `config.py` (pydantic-settings), `api/` (routes), `llm/` (gateway, tool loop, history, prompt cache), `mcp/` (MCP client), `memory/`, `mercure/` (publisher, topics), `personality/` (YAML), `policy/`, `skills/`, `agents/` (sub-agents), `a2a/`, `queue/` (proactions), `db/` (models and repositories), `tts/`.
+
+## Assembly
+- `app/container.py` is the only place of the shared instances: the Anthropic client, the `ToolRouter`, `LLMGateway` and `StreamingGateway` (`container.llm_client`, `.tool_router`, `.llm_gateway`, `.streaming_gateway`). Nothing else calls `create_llm_client()`, `LLMGateway(`, `StreamingGateway(` or `ToolRouter(` (`tests/test_container.py` checks it)
+- One client for everyone, timeout `LLM_TIMEOUT_SECONDS` (600 s, connection 5 s)
+- In a test: `with container.override(llm_client=…, tool_router=…, llm_gateway=…, streaming_gateway=…)`, or `Container().llm_gateway` for a fresh one; never `patch` a module attribute for a gateway or a client
 
 ## MCP Client
 - HTTP transport (not stdio) — connects to `http://nginx/_mcp`

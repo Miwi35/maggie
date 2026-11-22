@@ -7,6 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.container import container
 from app.api.routes import router
 from app.auth import get_current_user_id
 from app.db.context_model import ContextStatus, ConversationContext
@@ -369,7 +370,7 @@ class TestStreamRoute:
         response = client.post("/chat/stream", json={"message": "test"})
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.streaming_gateway")
+    @patch.object(container, "streaming_gateway")
     @patch("app.api.routes.message_repo")
     def test_stream_returns_sse(self, mock_msg_repo, mock_gateway, authed_client):
         fake_msg = MagicMock()
@@ -406,7 +407,7 @@ class TestStreamRoute:
         assert events[3]["type"] == "TEXT_MESSAGE_END"
         assert events[4]["type"] == "RUN_FINISHED"
 
-    @patch("app.api.routes.streaming_gateway")
+    @patch.object(container, "streaming_gateway")
     @patch("app.api.routes.message_repo")
     def test_stream_creates_user_message(self, mock_msg_repo, mock_gateway, authed_client):
         fake_msg = MagicMock()

@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy import select
 
+from app.container import container
 from app.api import routes
 from app.db.message_repository import message_repo
 from app.db.models import TURN_EXPIRED, Message
@@ -52,7 +53,7 @@ class TestAClientThatLeaves:
         publish = AsyncMock()
 
         with (
-            patch.object(routes, "streaming_gateway", gateway),
+            container.override(streaming_gateway=gateway),
             patch.object(message_repo.publisher, "publish", publish),
         ):
             response = await routes.chat_stream(
@@ -86,7 +87,7 @@ class TestASilentTool:
     async def test_the_response_keeps_the_connection_alive_while_the_turn_is_silent(self, chat_db, monkeypatch):
         monkeypatch.setattr(turns, "KEEPALIVE_SECONDS", 0.03)
 
-        with patch.object(routes, "streaming_gateway", SilentToolGateway()):
+        with container.override(streaming_gateway=SilentToolGateway()):
             response = await routes.chat_stream(routes.ChatRequest(message="C'est quand Lubus ?"), user_id="user-1")
             chunks = [chunk async for chunk in response.body_iterator]
         await turns.turn_runner.idle()
@@ -285,7 +286,7 @@ class TestTheSameMessageSentTwice:
         gateway = RecordingGateway()
         request = routes.ChatRequest(message="rappelle-moi de me servir un café dans 1 min", idempotency_key="k-1")
 
-        with patch.object(routes, "streaming_gateway", gateway), patch.object(routes, "turn_runner", TurnRunner()):
+        with container.override(streaming_gateway=gateway), patch.object(routes, "turn_runner", TurnRunner()):
             first = await routes.chat_stream(request, user_id="user-1")
             body_one = [chunk async for chunk in first.body_iterator]
             # The connection dropped on the way back; the client sends the same message again.
@@ -304,7 +305,7 @@ class TestTheSameMessageSentTwice:
         gateway = RecordingGateway()
         runner = TurnRunner()
 
-        with patch.object(routes, "streaming_gateway", gateway), patch.object(routes, "turn_runner", runner):
+        with container.override(streaming_gateway=gateway), patch.object(routes, "turn_runner", runner):
             for user in ("user-1", "user-2"):
                 response = await routes.chat_stream(routes.ChatRequest(message="salut", idempotency_key="k"), user)
                 [chunk async for chunk in response.body_iterator]

@@ -4,6 +4,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.container import Container
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
 from app.llm.prompt_cache import build_system
 from app.llm.streaming import StreamingGateway
@@ -31,7 +32,7 @@ def _gateway(turns, call_tool):
         seen.append({**kwargs, "messages": list(kwargs["messages"])})
         return FakeStream(turns[len(seen) - 1])
 
-    gateway = StreamingGateway()
+    gateway = Container().streaming_gateway
     gateway.client = MagicMock()
     gateway.client.messages.stream = stream
     gateway.tool_router = MagicMock(

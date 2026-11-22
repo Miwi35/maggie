@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.container import Container, container
 from app.api.routes import router
 from app.auth import PROACTION_TRIGGER_ROLE
 from app.config import settings
@@ -169,7 +170,7 @@ def model_script():
 @pytest.fixture()
 def api(recette_db, proaction_api, model_script):
     """The agent's routes, with a real gateway whose model is scripted and whose tools write to SQLite."""
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.client = object()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     gateway._build_system_prompt = AsyncMock(return_value="system")
@@ -185,7 +186,7 @@ def api(recette_db, proaction_api, model_script):
     app = FastAPI()
     app.include_router(router)
     with (
-        patch("app.api.routes.llm_gateway", gateway),
+        patch.object(container, "llm_gateway", gateway),
         patch("app.llm.gateway.run_tool_loop", scripted_loop),
         patch("app.auth._get_public_key", return_value=_PUBLIC_PEM),
         TestClient(app) as client,

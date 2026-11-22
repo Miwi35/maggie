@@ -7,7 +7,7 @@ import anthropic
 from app.day_context import resolve_day_context
 from app.llm.blocked_tools import BlockedToolsRouter
 from app.llm.capabilities import generate_capability_summary
-from app.llm.client import client_for, create_llm_client, llm_configured
+from app.llm.client import client_for
 from app.llm.contexts import active_contexts_section, resolve_context, route_message
 from app.llm.directives import behavior_directives_section
 from app.llm.dry_run import DryRunToolRouter
@@ -94,10 +94,10 @@ def signaled_topics_section(signaled_topics: list[dict] | tuple[dict, ...]) -> s
 class LLMGateway:
     """Claude API gateway with tool use support."""
 
-    def __init__(self):
-        self.client = create_llm_client() if llm_configured() else None
+    def __init__(self, *, client, tool_router: ToolRouter):
+        self.client = client
         self.personality = PersonalityEngine()
-        self.tool_router = ToolRouter()
+        self.tool_router = tool_router
         self.agent_memory = AgentMemory()
 
     async def _build_system_prompt(
