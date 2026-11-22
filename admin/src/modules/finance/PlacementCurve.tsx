@@ -21,13 +21,15 @@ export const PlacementCurve = ({
   name,
   curve,
   years,
+  figures,
   withdrawal,
 }: {
   name: string
   curve: SimulationPoint[]
   years: number
   /** The capital with and without what the projects take out (MAG-556): drawn as two lines instead of the areas. */
-  withdrawal?: { curveWithout: SimulationPoint[]; curveWith: SimulationPoint[] }
+  withdrawal?: { curveWithout: SimulationPoint[]; curveWith: SimulationPoint[]; finalWithout: number; finalWith: number; gapAtEnd: number }
+  figures: { paid: number; interest: number }
 }) => {
   const theme = useTheme()
   const mode = theme.palette.mode === 'dark' ? 'dark' : 'light'
@@ -111,15 +113,15 @@ export const PlacementCurve = ({
           </text>
         ))}
       </svg>
-      <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
+      <Stack direction="row" spacing={2.25} sx={{ mt: 0.5, flexWrap: 'wrap', fontVariantNumeric: 'tabular-nums' }}>
         {(withdrawal
           ? [
-              { label: 'capital sans retrait', colour: withoutColour, dashed: true },
-              { label: 'capital avec retrait', colour: withColour, dashed: false },
+              { label: `sans retrait ${formatCentsRounded(withdrawal.finalWithout)}`, colour: withoutColour, dashed: true },
+              { label: `avec retrait ${formatCentsRounded(withdrawal.finalWith)}`, colour: withColour, dashed: false },
             ]
           : [
-              { label: 'versements cumulés', colour: paidColour, dashed: false },
-              { label: 'intérêts composés', colour: interestColour, dashed: false },
+              { label: `versements ${formatCentsRounded(figures.paid)}`, colour: paidColour, dashed: false },
+              { label: `intérêts ${formatCentsRounded(figures.interest)}`, colour: interestColour, dashed: false },
             ]
         ).map((entry) => (
           <Stack key={entry.label} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
@@ -133,6 +135,11 @@ export const PlacementCurve = ({
             </Typography>
           </Stack>
         ))}
+        {withdrawal && (
+          <Typography variant="caption" color="text.secondary" data-testid="placement-gap">
+            {`écart à ${yearsLabel(years)} ${formatCentsRounded(Math.max(0, withdrawal.gapAtEnd))}`}
+          </Typography>
+        )}
       </Stack>
     </Box>
   )

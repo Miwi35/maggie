@@ -54,7 +54,7 @@ test('a placement of 100 € a month at 5 % over 10 years would reach 15 436 €
     await expect(screen.row('PEA')).toContainText('150 € / mois · 2 000 € initial')
     await expect(screen.row('Assurance-vie')).toContainText('1 200 € / an')
     await expect(screen.row('Livret jeune de Léo')).toContainText('500 € une fois')
-    await expect(screen.card).toContainText('250 € / mois de versements')
+    await expect(screen.card).toContainText('250 € / mois pris sur la capacité')
 
     // --- When: a placement of 100 € a month at 5 % over 10 years ------------
     const saved = page.waitForResponse((response) => response.url().endsWith(PATH) && response.request().method() === 'POST')
@@ -69,8 +69,8 @@ test('a placement of 100 € a month at 5 % over 10 years would reach 15 436 €
     await expect(screen.finalCapital(NAME)).toHaveText('15 436 €')
     await expect(row).toHaveAttribute('aria-selected', 'true')
     await expect(screen.simulation().getByRole('img', { name: new RegExp(`^Courbe de ${NAME} sur 10 ans`) })).toBeVisible()
-    await expect(screen.simulation()).toContainText('Retiré à 4 % par an, ce capital donnerait environ')
-    await expect(screen.card).toContainText('350 € / mois de versements')
+    await expect(screen.simulation()).toContainText('versements 12 000 €')
+    await expect(screen.card).toContainText('350 € / mois pris sur la capacité')
 
     // --- And: the database holds it, in cents and basis points -------------
     const stored = await waitForIndexed<StoredPlacement>(api, `${PATH}?pagination=false`, (placement) => placement.name === NAME, {
@@ -137,8 +137,8 @@ test('a trip paid in part by the PEA is drawn with and without the 1 500 € it 
   await expect(screen.curveWithout()).toBeVisible()
   await expect(screen.curveWithout()).toHaveAttribute('stroke-dasharray', /\d/)
   await expect(screen.curveWith()).toBeVisible()
-  await expect(simulation.getByText('capital sans retrait')).toBeVisible()
-  await expect(simulation.getByText('capital avec retrait')).toBeVisible()
+  await expect(simulation.getByText(/^sans retrait /)).toBeVisible()
+  await expect(simulation.getByText(/^avec retrait /)).toBeVisible()
   await expect(simulation.getByRole('img', { name: /^Courbe de PEA sur 20 ans.* sans retrait, .* avec retrait$/ })).toBeVisible()
 
   // --- And: the trip, the month it is bought and the amount it takes ---------
@@ -159,9 +159,9 @@ test('a trip paid in part by the PEA is drawn with and without the 1 500 € it 
   expect(answer.withdrawn).toBe(150000)
   expect(answer.gapAtEnd).toBeGreaterThan(150000)
 
-  await expect(screen.gap()).toHaveText(`Écart à 20 ans : −${wholeEuros(answer.gapAtEnd)}`)
-  await expect(simulation.getByText('Capital après retrait').locator('xpath=following-sibling::*[1]')).toHaveText(wholeEuros(answer.finalWith))
-  await expect(simulation).toContainText('Après ces retraits, retiré à 4 % par an')
+  await expect(screen.gap()).toContainText('écart à 20 ans')
+  await expect(screen.gap()).toContainText(wholeEuros(answer.gapAtEnd))
+  await expect(simulation).toContainText(`avec retrait ${wholeEuros(answer.finalWith)}`)
 })
 
 /**
