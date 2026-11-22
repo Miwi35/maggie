@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.prompt_helpers import stub_system_prompt
 from app.container import Container
 from app.db.pending_action_model import PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
@@ -28,13 +29,12 @@ SVC = "app.domain.approvals.service"
 def gateway():
     fake = MagicMock()
     fake.tool_router.call_tool = AsyncMock(return_value='{"deleted": true}')
-    fake._build_system_prompt = AsyncMock(return_value=[])
     return fake
 
 
 @pytest.fixture()
 def service(gateway):
-    return ApprovalService(gateway=gateway)
+    return ApprovalService(gateway=gateway, system_prompt=stub_system_prompt([]))
 
 
 @pytest.fixture()

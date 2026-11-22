@@ -8,6 +8,8 @@ the chat. The index alone was in the prompt, and the content only when the model
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from tests.prompt_helpers import system_prompt_with
+from app.skills.index import MOMENT_CHAT
 from app.container import Container
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
@@ -51,8 +53,10 @@ def _index(*skills: Skill) -> SkillIndex:
 def _gateway() -> LLMGateway:
     gateway = Container().llm_gateway
     gateway.client = MagicMock()
-    gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
+    gateway.system_prompt = system_prompt_with(
+        personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+        agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())),
+    )
     gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
     gateway._resolve_proaction_context = AsyncMock(return_value=None)
     return gateway
@@ -62,10 +66,10 @@ async def _proaction_system(index: SkillIndex, *, silent: bool) -> list[dict]:
     """The system blocks a proaction run sends to the model."""
     loop = AsyncMock(return_value={"response": "", "tool_calls": []})
     with (
-        patch("app.llm.gateway.skill_index", index),
+        patch("app.prompt_sources.skill_index", index),
         patch("app.llm.gateway.run_tool_loop", loop),
         patch("app.llm.contexts.context_repo") as contexts,
-        patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
     ):
         contexts.find_active = AsyncMock(return_value=[])
         await _gateway().proaction("Rappel à délivrer : Appeler votre mère", "user-1", silent=silent)
@@ -136,11 +140,11 @@ class TestChat:
         index = _index(DELIVER, SCHEDULE)
         loop = AsyncMock(return_value={"response": "C'est programmé.", "tool_calls": []})
         with (
-            patch("app.llm.gateway.skill_index", index),
+            patch("app.prompt_sources.skill_index", index),
             patch("app.llm.gateway.run_tool_loop", loop),
             patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "x"}])),
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             await _gateway().chat("Rappelle-moi d'appeler ma mère à 20h", "user-1")
@@ -154,15 +158,17 @@ class TestChat:
 
         index = _index(DELIVER, SCHEDULE)
         with (
-            patch("app.llm.streaming.skill_index", index),
+            patch("app.prompt_sources.skill_index", index),
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             gateway = StreamingGateway.__new__(StreamingGateway)
-            gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-            gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
-            blocks = await gateway._build_system_prompt("user-1")
+            gateway.system_prompt = system_prompt_with(
+                personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+                agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())),
+            )
+            blocks = await gateway.system_prompt.build("user-1", moment=MOMENT_CHAT)
 
         text = _text(blocks)
         assert SCHEDULE.content in text
@@ -232,9 +238,9 @@ class TestFakeLlmScenario:
         gateway = _gateway()
         gateway.client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
         with (
-            patch("app.llm.gateway.skill_index", _index(skill)),
+            patch("app.prompt_sources.skill_index", _index(skill)),
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             result = await gateway.proaction("Rappel e2e à délivrer : appeler votre mère", "user-1")
@@ -271,9 +277,9 @@ class TestFileCorrectedScenario:
         gateway = _gateway()
         gateway.client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
         with (
-            patch("app.llm.gateway.skill_index", _index(skill)),
+            patch("app.prompt_sources.skill_index", _index(skill)),
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             result = await gateway.proaction("Rappel e2e de fichier à délivrer : appeler le garage", "user-1")

@@ -20,6 +20,7 @@ from app.container import Container
 from app.db.context_model import ContextStatus
 from app.llm.gateway import API_ERROR_MESSAGE, UNREACHABLE_MESSAGE, LLMGateway
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import stub_system_prompt, system_prompt_with
 
 PARIS = ZoneInfo("Europe/Paris")
 ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "active", "summary": None}
@@ -28,11 +29,12 @@ ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "act
 def _gateway() -> LLMGateway:
     gateway = Container().llm_gateway
     gateway.client = MagicMock()
-    gateway.personality = MagicMock()
-    gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gateway.agent_memory = MagicMock()
-    gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    personality = MagicMock()
+    personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+    agent_memory = MagicMock()
+    agent_memory.get_memory_context = AsyncMock(return_value="")
+    agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    gateway.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
     gateway.tool_router = MagicMock()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     return gateway
@@ -58,8 +60,8 @@ def _stubs(run, history, *, resolution=ROUTED, threads=()):
             patch("app.llm.gateway.run_tool_loop", run),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=resolution)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=list(threads)))),
         ):
             stack.enter_context(patcher)
@@ -124,8 +126,8 @@ class TestTheHistoryFollowsTheThread:
             patch("app.llm.gateway.run_tool_loop", run),
             patch("app.llm.gateway.route_message", route),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):
             result = await _gateway().chat("Quel est mon agenda ?", "a2a", source="a2a")
@@ -186,8 +188,8 @@ class TestTheHistoryFollowsTheThread:
             patch("app.llm.gateway.run_tool_loop", run),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=ROUTED)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[thread]))),
         ):
             await _gateway().chat("Il me faut de la farine", "user-1", exclude_message_id="msg-1")
@@ -212,8 +214,8 @@ class TestWhenTheModelRefuses:
             patch("app.llm.gateway.run_tool_loop", AsyncMock(side_effect=self._api_error())),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=ROUTED)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):
             result = await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
@@ -238,8 +240,8 @@ class TestWhenTheModelRefuses:
             ),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=ROUTED)),
             patch("app.llm.gateway.build_history", history),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):
             result = await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
@@ -269,6 +271,7 @@ class TestTheTimezoneIsReadOnceForATurn:
         call_tool = AsyncMock(return_value=json.dumps({"timezone": "America/New_York"}))
         monkeypatch.setattr(user_timezone.mcp_client, "call_tool", call_tool)
         monkeypatch.setattr("app.llm.gateway.resolve_user_timezone", user_timezone.resolve_user_timezone)
+        monkeypatch.setattr("app.prompt_sources.resolve_user_timezone", user_timezone.resolve_user_timezone)
 
         async def history(_user_id, **_rest):
             return [{"role": "user", "content": "Quelle heure est-il ?"}]
@@ -298,8 +301,8 @@ class TestTheWorkingHoursLine:
         with (
             _stubs(_Run(), history),
             patch("app.llm.gateway.run_tool_loop", run),
-            patch("app.llm.gateway.resolve_work_hours", AsyncMock(return_value=work_hours)),
-            patch("app.llm.gateway.datetime", clock),
+            patch("app.prompt_sources.resolve_work_hours", AsyncMock(return_value=work_hours)),
+            patch("app.runtime.system_prompt.datetime", clock),
         ):
             await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
         return systems[0]
@@ -341,7 +344,7 @@ class TestTheDayContextLine:
         with (
             _stubs(_Run(), history),
             patch("app.llm.gateway.run_tool_loop", run),
-            patch("app.llm.gateway.resolve_day_context", AsyncMock(return_value=line)),
+            patch("app.prompt_sources.resolve_day_context", AsyncMock(return_value=line)),
         ):
             await _gateway().chat("Bonjour", "user-1", exclude_message_id="msg-1")
         return systems[0]

@@ -17,6 +17,7 @@ from app.policy.decision import CHANNELS, record_decision
 
 if TYPE_CHECKING:
     from app.llm.gateway import LLMGateway
+    from app.runtime.system_prompt import SystemPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +68,9 @@ async def _answerable(user_id: str, approval_id: str) -> PendingAction:
 
 
 class ApprovalService:
-    def __init__(self, *, gateway: "LLMGateway"):
+    def __init__(self, *, gateway: "LLMGateway", system_prompt: "SystemPrompt"):
         self.gateway = gateway
+        self.system_prompt = system_prompt
 
     async def approve(self, approval_id: str, *, user_id: str, channel: str = "chat") -> Approved:
         """Run the held call with its frozen arguments and record the outcome. Does not announce.
@@ -124,7 +126,7 @@ class ApprovalService:
             f"Résultat : {result}. Annonce-le brièvement."
         )
         try:
-            system = await self.gateway._build_system_prompt(action.user_id, current_context_id=action.context_id)
+            system = await self.system_prompt.build(action.user_id, current_context_id=action.context_id)
             answer = await run_tool_loop(
                 system,
                 [{"role": "user", "content": prompt}],

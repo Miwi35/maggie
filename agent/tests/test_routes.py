@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.container import container
+from tests.prompt_helpers import stub_system_prompt
 from app.db.models import Message
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 
@@ -691,12 +692,12 @@ class TestApprovals:
         mock_repo.settle = AsyncMock(return_value=settled)
         mock_gateway.client = MagicMock()
         mock_gateway.tool_router.call_tool = AsyncMock(return_value='{"deleted": true}')
-        mock_gateway._build_system_prompt = AsyncMock(return_value=[{"type": "text", "text": "system"}])
         mock_loop.return_value = {"response": "J'ai supprimé l'événement.", "tool_calls": []}
         mock_msg_repo.create = AsyncMock()
         mock_summarizer.maybe_summarize = AsyncMock()
 
-        response = authed_client.post("/approvals/act-1/approve")
+        with patch.object(container, "system_prompt", stub_system_prompt([{"type": "text", "text": "system"}])):
+            response = authed_client.post("/approvals/act-1/approve")
 
         assert response.status_code == 200
         assert response.json()["status"] == "approved"
@@ -737,11 +738,11 @@ class TestApprovals:
         mock_repo.settle = AsyncMock(return_value=answered(pending, PendingActionStatus.FAILED, error))
         mock_gateway.client = MagicMock()
         mock_gateway.tool_router.call_tool = AsyncMock(return_value=error)
-        mock_gateway._build_system_prompt = AsyncMock(return_value=[])
         mock_loop.return_value = {"response": "Je n'ai pas pu le supprimer.", "tool_calls": []}
         mock_msg_repo.create = AsyncMock()
 
-        response = authed_client.post("/approvals/act-1/approve")
+        with patch.object(container, "system_prompt", stub_system_prompt([])):
+            response = authed_client.post("/approvals/act-1/approve")
 
         assert response.status_code == 200
         assert response.json()["status"] == "failed"
@@ -783,11 +784,12 @@ class TestApprovals:
         mock_repo.settle = AsyncMock(return_value=answered(pending, PendingActionStatus.APPROVED, "{}"))
         mock_gateway.client = MagicMock()
         mock_gateway.tool_router.call_tool = AsyncMock(return_value="{}")
-        mock_gateway._build_system_prompt = AsyncMock(return_value=[])
         mock_loop.side_effect = RuntimeError("API down")
         mock_msg_repo.create = AsyncMock()
 
-        assert authed_client.post("/approvals/act-1/approve").status_code == 200
+        with patch.object(container, "system_prompt", stub_system_prompt([])):
+            response = authed_client.post("/approvals/act-1/approve")
+        assert response.status_code == 200
         mock_msg_repo.create.assert_not_awaited()
 
     @patch("app.domain.approvals.service.run_tool_loop")

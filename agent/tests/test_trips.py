@@ -9,6 +9,7 @@ import pytest
 from app.container import Container
 from app.llm.gateway import LLMGateway
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 from app.queue.scheduler import daily_planning_prompt
 from app.trips import (
     REPLAN_SUMMARY,
@@ -189,8 +190,7 @@ class TestTheTripRuns:
 def _gateway() -> LLMGateway:
     gateway = Container().llm_gateway
     gateway.client = MagicMock()
-    gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
+    gateway.system_prompt = system_prompt_with(personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")), agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())))
     gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
     gateway._resolve_proaction_context = AsyncMock(return_value="ctx-1")
     return gateway
@@ -202,7 +202,7 @@ async def _run(summary: str | None) -> tuple[LLMGateway, dict, str]:
     with (
         patch("app.llm.gateway.run_tool_loop", loop),
         patch("app.llm.contexts.context_repo") as contexts,
-        patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
     ):
         contexts.find_active = AsyncMock(return_value=[])
         result = await gateway.proaction("Dentiste : recalcule le trajet.", "user-1", summary=summary)

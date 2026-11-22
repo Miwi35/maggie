@@ -17,6 +17,7 @@ from app.mcp.client import McpClient
 from app.proactions.api import Proaction, ProactionApiUnreachable
 from app.queue.proaction_consumer import execute_proaction
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with, stub_system_prompt
 
 API_PROACTION = {
     "id": "01JPROACTION0000000000000A",
@@ -130,11 +131,10 @@ def _gateway() -> LLMGateway:
     """An `LLMGateway` with everything but the piece under test stubbed out."""
     gateway = Container().llm_gateway
     gateway.client = MagicMock()
-    gateway.personality = MagicMock()
-    gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gateway.agent_memory = MagicMock()
-    gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    gateway.system_prompt = system_prompt_with(
+        personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+        agent_memory=MagicMock(get_memory_context=AsyncMock(return_value=""), blocks=AsyncMock(return_value=MemoryBlocks())),
+    )
     gateway.tool_router = MagicMock()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     return gateway
@@ -147,14 +147,14 @@ class TestProactionHistory:
     async def _volatile_block(contexts: list) -> str:
         with (
             patch("app.llm.contexts.context_repo") as repo,
-            patch("app.llm.gateway.skill_index") as skills,
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index") as skills,
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
         ):
             repo.find_active = AsyncMock(return_value=contexts)
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
+            blocks = await _gateway().system_prompt.build("user-1", preamble="\n\nTu es en mode proaction.")
         return blocks[1]["text"]
 
     @staticmethod
@@ -178,14 +178,14 @@ class TestProactionHistory:
         """A summary changes while the personality does not — caching it would waste the prefix."""
         with (
             patch("app.llm.contexts.context_repo") as repo,
-            patch("app.llm.gateway.skill_index") as skills,
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index") as skills,
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
         ):
             repo.find_active = AsyncMock(return_value=[self._context("Courses", "Deux kilos de farine.")])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _gateway()._build_system_prompt("user-1")
+            blocks = await _gateway().system_prompt.build("user-1")
 
         assert blocks[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
         assert "Deux kilos de farine." not in blocks[0]["text"]
@@ -209,7 +209,7 @@ class TestProactionContextAttachment:
 
     async def test_the_message_is_routed_to_a_thread(self):
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Plomberie"})
 
         with self._run(), patch("app.llm.gateway.resolve_context", resolve):
@@ -223,7 +223,7 @@ class TestProactionContextAttachment:
 
     async def test_a_new_thread_is_opened_when_none_matches(self):
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         resolve = AsyncMock(return_value={"action": "created", "id": "ctx-new", "label": "Plomberie"})
 
         with self._run(), patch("app.llm.gateway.resolve_context", resolve):
@@ -234,7 +234,7 @@ class TestProactionContextAttachment:
     async def test_a_planning_run_is_attached_to_nothing(self):
         """Its output is an internal log: a thread for it is one the user never sees."""
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         resolve = AsyncMock()
 
         with self._run("3 proactions planifiées."), patch("app.llm.gateway.resolve_context", resolve):
@@ -246,7 +246,7 @@ class TestProactionContextAttachment:
     async def test_an_empty_answer_is_attached_to_nothing(self):
         """Nothing is stored in the chat, so there is no message to place — and no model call to pay for."""
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         resolve = AsyncMock()
 
         with self._run("   "), patch("app.llm.gateway.resolve_context", resolve):
@@ -260,7 +260,7 @@ class TestProactionContextAttachment:
         from app.llm.runner import ITERATION_LIMIT_MESSAGE
 
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         resolve = AsyncMock()
 
         with self._run(ITERATION_LIMIT_MESSAGE), patch("app.llm.gateway.resolve_context", resolve):
@@ -272,7 +272,7 @@ class TestProactionContextAttachment:
     async def test_a_routing_failure_still_delivers_the_message(self):
         """The reminder matters more than the thread it belongs to."""
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
 
         with self._run(), patch("app.llm.gateway.resolve_context", AsyncMock(return_value=None)):
             result = await gateway.proaction("Rappelle-lui d'appeler le plombier", "user-1")
@@ -647,7 +647,7 @@ class TestADueReminderIsDelivered:
     @staticmethod
     async def _sent(prompt: str, *, silent: bool = False):
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         loop = AsyncMock(return_value={"response": "C'est l'heure.", "tool_calls": []})
         resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Rappels"})
         with patch("app.llm.gateway.run_tool_loop", loop), patch("app.llm.gateway.resolve_context", resolve):
@@ -664,7 +664,7 @@ class TestADueReminderIsDelivered:
     async def test_the_preamble_says_to_deliver_it_not_to_schedule_it(self):
         gateway, _ = await self._sent("Rappelle monsieur d'appeler sa mère.")
 
-        preamble = gateway._build_system_prompt.await_args.kwargs["preamble"]
+        preamble = gateway.system_prompt.build.await_args.kwargs["preamble"]
         assert "maintenant" in preamble
         assert "ne le reprogramme pas" in preamble
 
@@ -673,14 +673,14 @@ class TestADueReminderIsDelivered:
 
         gateway, _ = await self._sent("Vérifie l'agenda.")
 
-        assert gateway._build_system_prompt.await_args.kwargs["preamble"] == EXECUTION_PREAMBLE
+        assert gateway.system_prompt.build.await_args.kwargs["preamble"] == EXECUTION_PREAMBLE
 
     async def test_the_planning_does_not(self):
         from app.llm.gateway import EXECUTION_PREAMBLE
 
         gateway, _ = await self._sent("Planifie la journée", silent=True)
 
-        assert gateway._build_system_prompt.await_args.kwargs["preamble"] != EXECUTION_PREAMBLE
+        assert gateway.system_prompt.build.await_args.kwargs["preamble"] != EXECUTION_PREAMBLE
 
     async def test_a_planning_run_keeps_its_prompt(self):
         _, content = await self._sent("Planifie la journée", silent=True)
@@ -694,7 +694,7 @@ class TestACheckGetsTheVerdictTool:
     @staticmethod
     async def _run(kind: str, signaled_topics: list[dict] | None = None):
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         loop = AsyncMock(return_value={"response": "Loisirs à 72 %.", "tool_calls": []})
         resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Budget"})
         with patch("app.llm.gateway.run_tool_loop", loop), patch("app.llm.gateway.resolve_context", resolve):
@@ -702,7 +702,7 @@ class TestACheckGetsTheVerdictTool:
                 "Vérifie l'enveloppe Loisirs", "user-1", kind=kind, signaled_topics=signaled_topics or []
             )
         tools = loop.await_args.args[2]
-        return gateway, result, [t["name"] for t in tools], gateway._build_system_prompt.await_args.kwargs["preamble"]
+        return gateway, result, [t["name"] for t in tools], gateway.system_prompt.build.await_args.kwargs["preamble"]
 
     async def test_a_reminder_run_gets_no_verdict_tool_nor_rule(self):
         from app.llm.gateway import EXECUTION_PREAMBLE
@@ -751,12 +751,12 @@ class TestRecallSource:
     @staticmethod
     async def _blocks_call(**kwargs):
         gateway = _gateway()
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
         loop = AsyncMock(return_value={"response": "C'est l'heure.", "tool_calls": []})
         resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Rappels"})
         with patch("app.llm.gateway.run_tool_loop", loop), patch("app.llm.gateway.resolve_context", resolve):
             await gateway.proaction("Planifie la journée", "user-1", **kwargs)
-        return gateway._build_system_prompt.await_args.kwargs
+        return gateway.system_prompt.build.await_args.kwargs
 
     async def test_a_planning_run_recalls_on_the_events_of_the_day(self):
         kwargs = await self._blocks_call(silent=True, about="Fête des mères chez Françoise")
@@ -792,7 +792,7 @@ class TestTreasuryAlertProaction:
                 }
             ]
         )
-        gateway._build_system_prompt = AsyncMock(return_value=[{"type": "text", "text": "Tu es Maggie."}])
+        gateway.system_prompt = stub_system_prompt([{"type": "text", "text": "Tu es Maggie."}])
         return gateway
 
     @staticmethod

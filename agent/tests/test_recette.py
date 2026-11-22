@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from tests.prompt_helpers import stub_system_prompt
 from app.container import Container, container
 from app.api.routes import router
 from app.auth import PROACTION_TRIGGER_ROLE
@@ -173,7 +174,7 @@ def api(recette_db, proaction_api, model_script):
     gateway = Container().llm_gateway
     gateway.client = object()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
-    gateway._build_system_prompt = AsyncMock(return_value="system")
+    gateway.system_prompt = stub_system_prompt("system")
     gateway._resolve_proaction_context = AsyncMock(return_value="ctx-1")
     prompts: list[str] = []
 

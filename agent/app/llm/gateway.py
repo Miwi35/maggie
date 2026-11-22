@@ -1,35 +1,27 @@
 import logging
 from collections.abc import Callable
-from datetime import datetime
 
 import anthropic
 
-from app.day_context import resolve_day_context
 from app.llm.blocked_tools import BlockedToolsRouter
-from app.llm.capabilities import generate_capability_summary
 from app.llm.client import client_for
-from app.llm.contexts import active_contexts_section, resolve_context, route_message
-from app.llm.directives import behavior_directives_section
+from app.llm.contexts import resolve_context, route_message
 from app.llm.dry_run import DryRunToolRouter
 from app.llm.history import build_history, strip_thread_label
 from app.llm.image import ChatImage
-from app.llm.last_exchange import last_exchange_section
 from app.llm.models import CHAT, PROACTION, effort_for, model_for, proaction_run
-from app.llm.prompt_cache import build_system
 from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 from app.llm.tools import ToolRouter
 from app.llm.web_search import with_web_search
-from app.memory.agent_memory import AgentMemory
-from app.personality.engine import PersonalityEngine, current_datetime_line
 from app.policy.checker import CheckedToolRouter
 from app.policy.engine import A2A_SOURCE
 from app.proactions.triage import KIND_CHECK
 from app.proactions.verdict import VERDICT_TOOL_NAME, VerdictToolRouter
-from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION, skill_index
+from app.runtime.system_prompt import SystemPrompt
+from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION
 from app.trips import is_silent_trip_run, trip_run_rules
-from app.user_timezone import resolve_user_timezone, resolve_work_hours
-from app.work_hours import work_hours_line
+from app.user_timezone import resolve_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -95,69 +87,10 @@ def signaled_topics_section(signaled_topics: list[dict] | tuple[dict, ...]) -> s
 class LLMGateway:
     """Claude API gateway with tool use support."""
 
-    def __init__(self, *, client, tool_router: ToolRouter):
+    def __init__(self, *, client, tool_router: ToolRouter, system_prompt: SystemPrompt):
         self.client = client
-        self.personality = PersonalityEngine()
         self.tool_router = tool_router
-        self.agent_memory = AgentMemory()
-
-    async def _build_system_prompt(
-        self,
-        user_id: str,
-        tools: list[dict] | None = None,
-        preamble: str = "",
-        *,
-        exclude_message_id: str | None = None,
-        current_context_id: str | None = None,
-        moment: str | None = None,
-        about: str = "",
-        source: str = "chat",
-        spoken: bool = False,
-        in_car: bool = False,
-    ) -> list[dict]:
-        """Build the system blocks: cached prefix (personality + skills), the full skills of `moment`
-        (MAG-345), the memory (profile, then what `about` calls back: MAG-16), then directives, date, preamble.
-
-        `spoken`: the reply will be read aloud (live voice, voice message, car), so it is asked for as a
-        spoken text. In the volatile part, never in the cached prefix, which stays the same for the written chat.
-        `in_car`: the owner is driving (MAG-684): short answers for the ear, same place.
-        """
-        capabilities = generate_capability_summary(tools) if tools else ""
-        base = await self.personality.get_system_prompt(user_id, capabilities=capabilities)
-        await skill_index.refresh()
-        skill_context = skill_index.get_skills_index()
-        tz = await resolve_user_timezone(user_id)
-        memory = await self.agent_memory.blocks(
-            user_id, about, source=source, context_id=current_context_id, today=datetime.now(tz).date()
-        )
-        # A proaction is a message the user reads in the chat, so it owes the same
-        # preferences as a reply does — and in the volatile block, not the cached
-        # prefix, so « tutoie-moi » applies to the very next message (MAG-22).
-        directives = await behavior_directives_section(user_id)
-        # And what the open threads are about. A proaction used to run with none of it:
-        # the reminder arrived in a conversation it knew nothing of, so Maggie could
-        # neither refer to what was already decided nor speak in the thread's terms
-        # (MAG-14). On the chat path the current thread is marked too, since the history is
-        # made of its messages (MAG-13); a proaction has no thread yet and passes none.
-        context_section = await active_contexts_section(user_id, current_context_id)
-        # How long since the chat last moved, so a proaction or an answer can greet by the gap (MAG-10).
-        last_exchange = await last_exchange_section(user_id, exclude_message_id=exclude_message_id, tz=tz)
-        now = current_datetime_line(tz=tz)
-        # Whether the user is at work, next to the date: the tone follows it (MAG-790).
-        work_hours = work_hours_line(await resolve_work_hours(user_id), datetime.now(tz))
-        if spoken or in_car:
-            preamble = f"{preamble}\n\n{self.personality.get_spoken_prompt()}"
-        if in_car:
-            preamble = f"{preamble}\n\n{self.personality.get_driving_prompt()}"
-        # What today and tomorrow are — weekend, periods — on its own line (MAG-811); none when the API is silent.
-        day_context = await resolve_day_context(user_id, datetime.now(tz).date())
-        day_context_block = f"\n{day_context}" if day_context else ""
-        volatile = (
-            f"{memory.notice}{directives}{context_section}\n\n{now}\n{work_hours}"
-            f"{day_context_block}{last_exchange}{preamble}"
-        )
-        moment_skills = skill_index.skills_for_moment(moment) if moment else ""
-        return build_system(base + skill_context, volatile, moment_skills, memory.profile, memory.recalled)
+        self.system_prompt = system_prompt
 
     async def proaction(
         self,
@@ -221,7 +154,7 @@ class LLMGateway:
         if check:
             preamble = f"{preamble}{CHECK_VERDICT_RULES}{signaled_topics_section(signaled_topics)}"
 
-        system_prompt = await self._build_system_prompt(
+        system_prompt = await self.system_prompt.build(
             user_id,
             tools=tools,
             preamble=preamble,
@@ -369,7 +302,7 @@ class LLMGateway:
             tools = with_web_search(tools, await resolve_user_timezone(user_id))
 
         try:
-            system_prompt = await self._build_system_prompt(
+            system_prompt = await self.system_prompt.build(
                 user_id,
                 tools=tools,
                 exclude_message_id=exclude_message_id,

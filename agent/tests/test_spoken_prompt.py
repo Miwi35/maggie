@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.prompt_helpers import system_prompt_with, stub_system_prompt
+from app.skills.index import MOMENT_CHAT
 from app.container import Container, container
 from app.api import chat_routes as routes
 from app.llm.gateway import LLMGateway
@@ -21,23 +23,26 @@ DRIVING_MARKER = "EN VOITURE"
 def _gateway(cls):
     c = Container()
     gateway = c.streaming_gateway if cls is StreamingGateway else c.llm_gateway
-    gateway.personality = PersonalityEngine()
-    gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gateway.agent_memory = MagicMock()
-    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    personality = PersonalityEngine()
+    personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+    agent_memory = MagicMock()
+    agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    gateway.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
     return gateway
 
 
 async def _prompt(gateway, module: str, **kwargs) -> list[dict]:
     with (
         patch("app.llm.contexts.context_repo") as contexts,
-        patch(f"{module}.skill_index") as skills,
+        patch("app.prompt_sources.skill_index") as skills,
     ):
         contexts.find_active = AsyncMock(return_value=[])
         skills.get_skills_index.return_value = ""
         skills.skills_for_moment.return_value = ""
         skills.refresh = AsyncMock()
-        return await gateway._build_system_prompt("user-1", **kwargs)
+        if module == "app.llm.streaming":
+            kwargs.setdefault("moment", MOMENT_CHAT)
+        return await gateway.system_prompt.build("user-1", **kwargs)
 
 
 def _text(blocks: list[dict]) -> str:

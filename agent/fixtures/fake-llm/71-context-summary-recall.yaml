@@ -3,7 +3,7 @@
 # The pair of 12-context-summary.yaml, and the only assertion a journey can make
 # about the injection: `system_contains` is matched on the system prompt Maggie
 # is actually sent, so this scenario can only answer once
-# `_build_system_prompt` has put the stored summary there. A summary written to
+# `SystemPrompt.build` has put the stored summary there. A summary written to
 # the database but never injected leaves this file unmatched, and the journey
 # fails on the `[fake-llm] aucun scénario…` sentence instead of on a plausible
 # answer.

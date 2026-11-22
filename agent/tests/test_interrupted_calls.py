@@ -4,6 +4,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from tests.prompt_helpers import stub_system_prompt
 from app.container import Container
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
 from app.llm.prompt_cache import build_system
@@ -39,9 +40,9 @@ def _gateway(turns, call_tool):
         get_tool_definitions=AsyncMock(return_value=[{"name": "create_event"}, {"name": "schedule_proaction"}]),
         call_tool=call_tool,
     )
-    gateway._build_system_prompt = AsyncMock(return_value=build_system("S", "V"))
+    gateway.system_prompt = stub_system_prompt(build_system("S", "V"))
     gateway._resolve_context = AsyncMock(return_value=None)
-    gateway._thread_free_parts = AsyncMock(return_value=None)
+    gateway.system_prompt.thread_free = AsyncMock(return_value=None)
     return gateway, seen
 
 

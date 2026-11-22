@@ -4,6 +4,8 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from zoneinfo import ZoneInfo
 
+from tests.prompt_helpers import system_prompt_with, stub_system_prompt
+from app.skills.index import MOMENT_CHAT
 from app.container import Container
 from app.db.context_model import ConversationContext
 from app.db.message_repository import message_repo
@@ -268,15 +270,19 @@ class TestLastExchangeSection:
 
 def _streaming_gateway() -> StreamingGateway:
     gateway = Container().streaming_gateway
-    gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
+    gateway.system_prompt = system_prompt_with(
+        personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+        agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())),
+    )
     return gateway
 
 
 def _llm_gateway() -> LLMGateway:
     gateway = Container().llm_gateway
-    gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
+    gateway.system_prompt = system_prompt_with(
+        personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+        agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())),
+    )
     return gateway
 
 
@@ -288,15 +294,17 @@ class TestSystemPrompts:
         await _write(chat_db, "Salut", 0, message_id="current")
 
         with (
-            patch("app.llm.streaming.last_exchange_section", last_exchange_section),
+            patch("app.prompt_sources.last_exchange_section", last_exchange_section),
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _streaming_gateway()._build_system_prompt("user-1", exclude_message_id="current")
+            blocks = await _streaming_gateway().system_prompt.build(
+                "user-1", exclude_message_id="current", moment=MOMENT_CHAT
+            )
 
         assert "Dernière conversation : " in blocks[1]["text"]
         assert "(il y a 10h)" in blocks[1]["text"]
@@ -307,15 +315,15 @@ class TestSystemPrompts:
         await _write(chat_db, "Hier soir", 600, role="assistant")
 
         with (
-            patch("app.llm.gateway.last_exchange_section", last_exchange_section),
+            patch("app.prompt_sources.last_exchange_section", last_exchange_section),
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.gateway.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _llm_gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
+            blocks = await _llm_gateway().system_prompt.build("user-1", preamble="\n\nTu es en mode proaction.")
 
         assert "(il y a 10h)" in blocks[1]["text"]
         assert blocks[1]["text"].endswith("Tu es en mode proaction.")
@@ -325,22 +333,23 @@ class TestSystemPrompts:
         await _write(chat_db, "Rappel 2", 60, role="assistant")
 
         with (
-            patch("app.llm.gateway.last_exchange_section", last_exchange_section),
+            patch("app.prompt_sources.last_exchange_section", last_exchange_section),
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.gateway.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _llm_gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
+            blocks = await _llm_gateway().system_prompt.build("user-1", preamble="\n\nTu es en mode proaction.")
 
         assert "Il n'a pas répondu à tes 2 derniers messages" in blocks[1]["text"]
 
     async def test_the_streamed_run_excludes_the_message_it_is_answering(self):
         gateway = _streaming_gateway()
         gateway.client = MagicMock()
-        gateway._build_system_prompt = AsyncMock(side_effect=RuntimeError("stop here"))
+        gateway.system_prompt = stub_system_prompt([])
+        gateway.system_prompt.build = AsyncMock(side_effect=RuntimeError("stop here"))
         gateway._resolve_context = AsyncMock(return_value=None)
         gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
 
@@ -351,13 +360,13 @@ class TestSystemPrompts:
             except RuntimeError:
                 pass
 
-        assert gateway._build_system_prompt.await_args.kwargs["exclude_message_id"] == "msg-42"
+        assert gateway.system_prompt.build.await_args.kwargs["exclude_message_id"] == "msg-42"
 
     async def test_the_sync_chat_excludes_the_message_it_is_answering(self):
         gateway = _llm_gateway()
         gateway.client = MagicMock()
         gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway.system_prompt = stub_system_prompt([])
 
         with (
             patch("app.llm.gateway.run_tool_loop", AsyncMock(return_value={"response": "ok", "tool_calls": []})),
@@ -366,4 +375,4 @@ class TestSystemPrompts:
         ):
             await gateway.chat("Salut", "user-1", exclude_message_id="msg-42")
 
-        assert gateway._build_system_prompt.await_args.kwargs["exclude_message_id"] == "msg-42"
+        assert gateway.system_prompt.build.await_args.kwargs["exclude_message_id"] == "msg-42"

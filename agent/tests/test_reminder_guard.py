@@ -28,6 +28,7 @@ from app.llm.streaming import StreamingGateway
 from app.llm.tools import ToolRouter
 from app.native_tools import build_native_registry
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 
 WATER = "Rappelle-moi de boire de l'eau dans 1 minute"
 PLANTS = "Rappelle-moi d'arroser les plantes dans 1 minute"
@@ -369,7 +370,7 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
         patch("app.llm.contexts.context_repo") as context_repo,
         patch("app.llm.streaming.context_repo") as tool_log,
         patch("app.llm.streaming.record_llm_usage"),
-        patch("app.llm.streaming.skill_index") as prompt_skills,
+        patch("app.prompt_sources.skill_index") as prompt_skills,
     ):
         # The prompt's skill index, not the one `create_skill` writes to (`app.llm.tools`).
         prompt_skills.refresh = AsyncMock()
@@ -395,11 +396,10 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
 
         gateway = Container().streaming_gateway
         gateway.client = client
-        gateway.personality = MagicMock()
-        gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-        gateway.agent_memory = MagicMock()
-        gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-        gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        gateway.system_prompt = system_prompt_with(
+            personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+            agent_memory=MagicMock(get_memory_context=AsyncMock(return_value=""), blocks=AsyncMock(return_value=MemoryBlocks())),
+        )
         gateway.tool_router = MagicMock()
         gateway.tool_router.get_tool_definitions = AsyncMock(return_value=offered)
         gateway.tool_router.call_tool = AsyncMock(side_effect=router.call_tool)
