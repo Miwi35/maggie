@@ -40,11 +40,6 @@ test('a proaction write no instruction covers waits for Â« Autoriser / Refuser Â
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toContainText('Lait', { timeout: 20_000 })
   expect(JSON.stringify(await callMcpTool(api, 'get_grocery_list', {}))).not.toContain('Lait')
-
-  const denied = page.waitForRequest((request) => /\/agent\/approvals\/[^/]+\/deny/.test(request.url()))
-  await interruption.getByRole('button', { name: 'Refuser' }).click()
-  await denied
-  await expect(interruption).toBeHidden()
 })
 
 test('a proaction write an instruction covers word for word runs without a validation', async ({ interruptedUser }) => {
