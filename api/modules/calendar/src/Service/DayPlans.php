@@ -132,6 +132,7 @@ final class DayPlans
             'postponedSince' => $task->getPostponedSince()?->format('Y-m-d'),
             'urgency' => $task->getUrgency()?->value,
             'criticality' => $task->getCriticality()->value,
+            'rrule' => $task->getRrule(),
         ];
     }
 }

@@ -197,6 +197,7 @@ class DayPlanApiTest extends WebTestCase
             'postponedSince' => '2026-10-12',
             'urgency' => 'high',
             'criticality' => 'low',
+            'rrule' => null,
         ], $day['slots'][0]['task']);
         self::assertSame(1, $day['now']['position']);
         self::assertSame('Rappeler le garage', $day['now']['task']['title']);
@@ -321,6 +322,18 @@ class DayPlanApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $task = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('2026-10-12', $task['postponedSince']);
+    }
+
+    /** The day carries the rule of a repeating task (MAG-888): the admin draws ↻ from it. */
+    public function testARepeatingTaskCarriesItsRuleInTheDay(): void
+    {
+        $this->patchTask('t1', ['rrule' => 'FREQ=DAILY', 'dueDate' => self::TODAY]);
+        self::assertResponseIsSuccessful();
+
+        $byTitle = array_column($this->get()['reserve'], null, 'title');
+
+        self::assertSame('FREQ=DAILY', $byTitle['Rappeler le garage']['rrule']);
+        self::assertNull($byTitle['Trier le courrier']['rrule']);
     }
 
     /** What yesterday left undone is not carried over in silence: back in the reserve, « reportée ». */
