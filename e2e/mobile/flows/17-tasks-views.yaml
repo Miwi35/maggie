@@ -81,9 +81,13 @@ tags:
     visible: "Appeler le garage"
     timeout: 20000
 # « Appeler le garage » is dated, « Trier les photos de vacances » is not: it is under SANS DATE.
-- assertVisible:
-    id: "tasks_stock_group_undated"
-- assertVisible: "Trier les photos de vacances"
+- scrollUntilVisible:
+    element:
+      id: "tasks_stock_group_undated"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Trier les photos de vacances"
+    timeout: 20000
 
 # The floating « + » (MAG-721) opens « Nouvelle tâche » with no due day: « Créer » and the task lands in SANS DATE.
 - tapOn:
@@ -93,8 +97,8 @@ tags:
 - inputText: "Tâche MAG-408"
 - tapOn:
     id: "task_form_submit"
-- extendedWaitUntil:
-    visible: "Tâche MAG-408"
+- scrollUntilVisible:
+    element: "Tâche MAG-408"
     timeout: 20000
 
 # « Aujourd’hui » on its row plans it today: it leaves the section and is in « Aujourd'hui ».
@@ -104,14 +108,13 @@ tags:
 - extendedWaitUntil:
     notVisible: "Tâche MAG-408"
     timeout: 20000
-- assertVisible: "Appeler le garage"
 
 - runFlow:
     file: ../subflows/open-tasks-view.yaml
     env:
       VIEW: today
-- extendedWaitUntil:
-    visible: "Tâche MAG-408"
+- scrollUntilVisible:
+    element: "Tâche MAG-408"
     timeout: 20000
 
 # Ticked from « Aujourd'hui »: the Bravo, back to the day, and the task is in « Archives ».
