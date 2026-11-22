@@ -6,10 +6,10 @@ tags:
 # « Régularisé » on a rejected payment, from the phone (MAG-424, extends MAG-102).
 #
 # Étant donné un compte avec deux rejets
-# Quand je touche « Régularisé » sur le premier
-# Alors il quitte la pile et apparaît dans « Régularisés »
-# Quand je touche « Annuler »
-# Alors il revient
+# Quand j'ouvre l'onglet « Incidents (2) »
+# Alors « À RÉGULARISER » et « Débité le … » sont visibles
+# Quand je touche « Régularisé » sur le premier, puis « Annuler » ; puis « Régularisé » à nouveau
+# Alors « Incidents (1) », « RÉGULARISÉS » et une ligne régularisée sont visibles sans rien déplier
 #
 # The data is set by `scripts/rejections-api.js` on the seed's second user. The tablet shows
 # the same tab in the detail pane; the admin's side is `finance-internal-transfers.spec.ts`,
@@ -80,6 +80,8 @@ tags:
     visible:
       id: "incident_settle"
     timeout: 30000
+- assertVisible: "À RÉGULARISER"
+- assertVisible: ".*Débité le.*"
 
 - tapOn:
     id: "incident_settle"
@@ -92,7 +94,10 @@ tags:
 - extendedWaitUntil:
     visible: "Annuler"
     timeout: 10000
-- tapOn: "Annuler"
+# The snackbar's « Annuler » comes first: a settled line carries the same word, both put the rejection back.
+- tapOn:
+    text: "Annuler"
+    index: 0
 - extendedWaitUntil:
     visible: "Incidents \\(2\\)"
     timeout: 30000
@@ -105,11 +110,8 @@ tags:
     visible: "Incidents \\(1\\)"
     timeout: 30000
 - extendedWaitUntil:
-    visible:
-      id: "settled_incidents_header"
+    visible: "RÉGULARISÉS"
     timeout: 30000
-- tapOn:
-    id: "settled_incidents_header"
 - extendedWaitUntil:
     visible:
       id: "settled_incident_row"

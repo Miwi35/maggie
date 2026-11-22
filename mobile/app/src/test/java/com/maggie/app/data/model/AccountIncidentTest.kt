@@ -47,4 +47,10 @@ class AccountIncidentTest {
         assertEquals("Incidents (2)", incidentsTabTitle(2))
         assertEquals("Incidents", incidentsTabTitle(null))
     }
+
+    @Test
+    fun `the short kind names the payment without rejeté`() {
+        assertEquals("Virement", incidentKindShortLabel("transfer"))
+        assertEquals("Prélèvement", incidentKindShortLabel("direct_debit"))
+    }
 }
