@@ -32,7 +32,7 @@ import type { Theme } from '@mui/material/styles'
 /** Each module's glyph and, when the design tokens have one, its hue; without a hue the accent is worn. */
 const MODULE_LOOKS: Record<string, { icon: ReactElement; hue?: ModuleName }> = {
   [HOME_LABEL]: { icon: <HomeIcon /> },
-  Agenda: { icon: <CalendarMonthIcon /> },
+  Agenda: { icon: <CalendarMonthIcon />, hue: 'agenda' },
   Tâches: { icon: <TaskAltIcon />, hue: 'taches' },
   Courses: { icon: <ShoppingCartIcon />, hue: 'courses' },
   Cuisine: { icon: <RestaurantMenuIcon />, hue: 'cuisine' },

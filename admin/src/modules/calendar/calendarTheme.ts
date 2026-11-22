@@ -1,8 +1,9 @@
 import type { Theme } from '@mui/material/styles'
 import type { SxProps } from '@mui/system'
+import { TOKENS } from '../../design/tokens'
 
-/** The turquoise of the departure: « dans N min » of the next departure. */
-export const AGENDA_ACCENT = '#6CCFD6'
+/** The turquoise of the departure tile, which is always dark: the token's dark hue. */
+export const AGENDA_ACCENT = TOKENS.module.agenda.dark
 
 /** Black or white, whichever reads better on `background` (MUI's contrast threshold). */
 export const getEventTextColor = (theme: Theme, background: string | undefined): string =>
