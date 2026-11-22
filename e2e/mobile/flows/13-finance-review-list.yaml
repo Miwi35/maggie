@@ -7,7 +7,9 @@ tags:
 # it replaces the « À qualifier » and « Reconnues à contrôler » journeys).
 #
 # Étant donné 2 transactions non reconnues et 1 reconnue ce mois-ci (seed)
-# Quand j'ouvre Revue et que je filtre À qualifier
+# Quand j'ouvre Revue
+# Alors « NON RECONNUES » et « RECONNUES » sont visibles, ainsi qu'une ligne review_list_row
+# Quand je filtre À qualifier
 # Alors la liste compte 2 lignes
 # Quand je valide la première
 # Alors elle devient Reconnue, la fiche reste ouverte, et Suivant ouvre la seconde (2 / 2, À qualifier)
@@ -52,6 +54,8 @@ tags:
     visible:
       id: "review_list_row"
     timeout: 30000
+- assertVisible: "NON RECONNUES"
+- assertVisible: "RECONNUES"
 - assertVisible:
     id: "subview_all"
 - assertVisible: "Toutes · 3"

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,6 +62,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.CategoryTree
 import com.maggie.app.data.model.PeerKind
@@ -85,11 +88,13 @@ import com.maggie.app.ui.components.ModuleDetailBar
 import com.maggie.app.ui.components.SubviewBar
 import com.maggie.app.ui.components.SubviewItem
 import com.maggie.app.ui.components.formatBookedDay
-import com.maggie.app.ui.components.formatShortBookedDay
 import com.maggie.app.ui.layout.ListDetailPane
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.uiTagRoot
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * La Revue (MAG-539): one list of the lines to qualify and the recognised ones. The state pills and the period sit on
@@ -280,7 +285,6 @@ fun ReviewListScreen(
 private fun ListPane(state: ReviewListUiState, viewModel: ReviewListViewModel) {
     Column(modifier = Modifier.fillMaxSize().testTag(UiTags.REVIEW_LIST)) {
         FilterHeader(state, viewModel)
-        HorizontalDivider()
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 !state.loaded && state.isLoading -> Box(
@@ -355,7 +359,7 @@ private fun reviewSubviewKey(state: ReviewState): String = when (state) {
 
 // What the list draws: a heading, then the rows of its group.
 private sealed interface ListEntry {
-    data class Heading(val recognised: Boolean, val count: Int) : ListEntry
+    data class Heading(val recognised: Boolean) : ListEntry
 
     data class Line(val line: ReviewQueueItem) : ListEntry
 }
@@ -368,11 +372,11 @@ private fun Rows(state: ReviewListUiState, viewModel: ReviewListViewModel) {
             val waiting = state.unrecognisedRows
             val recognised = state.recognisedRows
             if (waiting.isNotEmpty()) {
-                add(ListEntry.Heading(recognised = false, count = waiting.size))
+                add(ListEntry.Heading(recognised = false))
                 waiting.forEach { add(ListEntry.Line(it)) }
             }
             if (recognised.isNotEmpty()) {
-                add(ListEntry.Heading(recognised = true, count = recognised.size))
+                add(ListEntry.Heading(recognised = true))
                 recognised.forEach { add(ListEntry.Line(it)) }
             }
         }
@@ -386,7 +390,12 @@ private fun Rows(state: ReviewListUiState, viewModel: ReviewListViewModel) {
         }
     }
 
-    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         items(
             entries,
             key = { entry ->
@@ -398,12 +407,12 @@ private fun Rows(state: ReviewListUiState, viewModel: ReviewListViewModel) {
         ) { entry ->
             when (entry) {
                 is ListEntry.Heading -> Text(
-                    "${if (entry.recognised) "Reconnues" else "Non reconnues"} · ${entry.count}",
-                    style = MaterialTheme.typography.titleSmall,
+                    (if (entry.recognised) "Reconnues" else "Non reconnues").uppercase(Locale.FRANCE),
+                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.14.em),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(start = 4.dp, top = 6.dp, bottom = 2.dp)
                         .testTag(if (entry.recognised) UiTags.REVIEW_LIST_SECTION_RECOGNISED else UiTags.REVIEW_LIST_SECTION_UNRECOGNISED),
                 )
 
@@ -413,7 +422,6 @@ private fun Rows(state: ReviewListUiState, viewModel: ReviewListViewModel) {
                         isCursor = entry.line.id == state.selectedId,
                         onClick = { viewModel.select(entry.line.id) },
                     )
-                    HorizontalDivider()
                 }
             }
         }
@@ -443,37 +451,43 @@ private fun StatePill(recognised: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 private fun LineRow(line: ReviewQueueItem, isCursor: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .testTag(UiTags.REVIEW_LIST_ROW)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    MaggieCard(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).testTag(UiTags.REVIEW_LIST_ROW),
+        onClick = onClick,
+        listRow = true,
     ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                line.counterpartyLabel.ifBlank { line.label },
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (isCursor) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                listOfNotNull(formatShortBookedDay(line.bookedAt), line.contact?.name).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            StatePill(line.recognised, Modifier.testTag(UiTags.REVIEW_LIST_ROW_STATE))
-            Text(formatCents(line.amountCents, line.currency), style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    line.counterpartyLabel.ifBlank { line.label },
+                    fontSize = 15.sp,
+                    color = if (isCursor) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        listOfNotNull(reviewRowDay(line.bookedAt), line.contact?.name).joinToString(" · "),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    StatePill(line.recognised, Modifier.testTag(UiTags.REVIEW_LIST_ROW_STATE))
+                }
+            }
+            Text(formatCents(line.amountCents, line.currency), fontSize = 15.sp)
         }
     }
 }
+
+internal fun reviewRowDay(bookedAt: String?): String? =
+    bookedAt?.let { runCatching { LocalDate.parse(it.take(10)).format(DateTimeFormatter.ofPattern("dd/MM")) }.getOrNull() }
 
 /** The fiche of the line the cursor is on: « Précédent » / « Suivant » over its gestures; a swipe does the same. */
 @Composable
