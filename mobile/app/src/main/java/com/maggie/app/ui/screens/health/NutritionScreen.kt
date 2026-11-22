@@ -2,7 +2,24 @@ package com.maggie.app.ui.screens.health
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,14 +29,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -88,13 +99,11 @@ fun NutritionScreen(
                     HealthSection.byKey(picked.key)?.takeIf { it != HealthSection.NUTRITION }?.let(onSelectSection)
                 },
                 onOpenDrawer = bar.onOpenDrawer,
-                actions = {
-                    IconButton(onClick = viewModel::openAdd, modifier = Modifier.testTag(UiTags.NUTRITION_ADD)) {
-                        Icon(Icons.Default.Add, contentDescription = "Ajouter un aliment")
-                    }
-                    bar.actions(this)
-                },
+                actions = { bar.actions(this) },
             )
+        },
+        floatingActionButton = {
+            ModuleFab(FabModule.SPORT, "Ajouter un aliment", onClick = viewModel::openAdd, tag = UiTags.NUTRITION_ADD)
         },
     ) { paddingValues ->
         NutritionContent(viewModel, expanded, onSelectSection, Modifier.padding(paddingValues))
@@ -164,25 +173,38 @@ private fun NutritionContent(
                     MacrosCard(balance)
                 }
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-                    JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::delete, viewModel::openEdit)
+                    JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::openEdit, framed = true)
                 }
             }
             else -> Column(
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                BalanceCard(balance, onCompleteProfile = { onSelectSection(HealthSection.CONFIGURATION) })
+                BalanceCard(
+                    balance,
+                    onCompleteProfile = { onSelectSection(HealthSection.CONFIGURATION) },
+                    footer = {
+                        BalanceWeekStrip(week, viewModel.today.toString())
+                        MacrosLine(balance)
+                    },
+                )
                 fasting?.let { FastingCard(it, onOpenSheet = viewModel::openFastingSheet) }
-                BalanceWeekChart(week)
-                MacrosCard(balance)
-                JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::delete, viewModel::openEdit)
+                JournalCard(uiState.intakes, balance.plannedMeals, uiState.eating, viewModel.zone, viewModel::eat, viewModel::openEdit, framed = false)
             }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 
     uiState.editing?.let { intake ->
-        EditFoodDialog(intake, viewModel.zone, uiState.isSaving, onSave = viewModel::update, onDismiss = viewModel::closeEdit)
+        EditFoodDialog(
+            intake, viewModel.zone, uiState.isSaving,
+            onSave = viewModel::update,
+            onDismiss = viewModel::closeEdit,
+            onDelete = {
+                viewModel.delete(intake.id)
+                viewModel.closeEdit()
+            },
+        )
     }
     if (uiState.addOpen) {
         AddFoodDialog(saving = uiState.isSaving, onSave = viewModel::add, onDismiss = viewModel::closeAdd)
@@ -218,6 +240,17 @@ private fun MacrosCard(balance: DailyBalance) {
     }
 }
 
+/** « Protéines 20,4 g  Glucides 68,5 g  Lipides 25,3 g », inside the bilan's card on a phone. */
+@Composable
+private fun MacrosLine(balance: DailyBalance) {
+    val surface = maggieSurface()
+    Row(modifier = Modifier.fillMaxWidth().testTag(UiTags.NUTRITION_MACROS), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        listOf("Protéines" to balance.proteinG, "Glucides" to balance.carbsG, "Lipides" to balance.fatG).forEach { (label, grams) ->
+            Text("$label ${formatGrams(grams)}", fontSize = 12.sp, color = surface.caption)
+        }
+    }
+}
+
 @Composable
 private fun Macro(label: String, grams: Double) {
     val surface = maggieSurface()
@@ -227,7 +260,10 @@ private fun Macro(label: String, grams: Double) {
     }
 }
 
-/** The journal: today's intakes, each with its time, origin, kcal and a delete; then « Prévu », each with « Mangé ». */
+/**
+ * The journal: today's intakes, then the planned meals set back at 55 % with their « Mangé ». [framed] (tablet) keeps
+ * the card and its title; on a phone the rows stand bare, each under a rule.
+ */
 @Composable
 private fun JournalCard(
     intakes: List<FoodIntake>,
@@ -235,64 +271,97 @@ private fun JournalCard(
     eating: Set<String>,
     zone: ZoneId,
     onEat: (String) -> Unit,
-    onDelete: (String) -> Unit,
     onEdit: (FoodIntake) -> Unit,
+    framed: Boolean,
 ) {
     val surface = maggieSurface()
-    MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Journal" }.testTag(UiTags.NUTRITION_JOURNAL)) {
-        Column(modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 14.dp, bottom = 8.dp)) {
-            Text("Journal", fontSize = 14.sp, color = surface.textMuted)
-            if (intakes.isEmpty()) {
-                Text(
-                    "Rien de noté aujourd’hui",
-                    fontSize = 13.sp,
-                    color = surface.caption,
-                    modifier = Modifier.padding(vertical = 12.dp).testTag(UiTags.NUTRITION_JOURNAL_EMPTY),
+    val rows: @Composable ColumnScope.() -> Unit = {
+        if (intakes.isEmpty()) {
+            Text(
+                "Rien de noté aujourd’hui",
+                fontSize = 13.sp,
+                color = surface.caption,
+                modifier = Modifier.padding(vertical = 12.dp).testTag(UiTags.NUTRITION_JOURNAL_EMPTY),
+            )
+        }
+        intakes.forEach { intake ->
+            JournalRow(
+                time = journalTime(intake.eatenAt, zone),
+                title = intake.label,
+                sub = intake.quantityGrams?.let(::formatGrams),
+                kcal = formatKcal(intake.kcal),
+                tag = foodIntakeSourceLabel(intake.source),
+                modifier = Modifier.clickable { onEdit(intake) }.testTag(UiTags.nutritionIntake(intake.id)),
+            )
+        }
+        planned.forEach { meal ->
+            Column(modifier = Modifier.testTag(UiTags.nutritionPlanned(meal.mealId))) {
+                JournalRow(
+                    time = "",
+                    title = slotLabel(meal.slot),
+                    sub = meal.label,
+                    kcal = formatKcal(meal.kcal),
+                    tag = "Prévu",
+                    modifier = Modifier.alpha(0.55f),
                 )
-            }
-            intakes.forEach { intake ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onEdit(intake) }.testTag(UiTags.nutritionIntake(intake.id)),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-                        Text(intake.label, fontSize = 15.sp, color = surface.text)
-                        Text(
-                            listOf(intakeTime(intake.eatenAt, zone), foodIntakeSourceLabel(intake.source)).filter { it.isNotEmpty() }.joinToString(" · "),
-                            fontSize = 12.sp,
-                            color = surface.caption,
-                        )
-                    }
-                    Text(formatKcal(intake.kcal), fontSize = 14.sp, color = surface.textMuted)
-                    IconButton(onClick = { onDelete(intake.id) }, modifier = Modifier.testTag(UiTags.nutritionIntakeDelete(intake.id))) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Supprimer ${intake.label}")
+                Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.CenterEnd) {
+                    Box(
+                        modifier = Modifier
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                            .clickable(enabled = meal.mealId !in eating, role = Role.Button) { onEat(meal.mealId) }
+                            .padding(horizontal = 14.dp)
+                            .testTag(UiTags.nutritionEat(meal.mealId)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Mangé", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
-            if (planned.isNotEmpty()) {
-                Text("Prévu", fontSize = 14.sp, color = surface.textMuted, modifier = Modifier.padding(top = 12.dp))
-                planned.forEach { meal ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(end = 12.dp).testTag(UiTags.nutritionPlanned(meal.mealId)),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-                            Text(meal.label, fontSize = 15.sp, color = surface.text)
-                            Text(
-                                slotLabel(meal.slot) + " · " + formatKcal(meal.kcal),
-                                fontSize = 12.sp,
-                                color = surface.caption,
-                            )
-                        }
-                        FilledTonalButton(
-                            onClick = { onEat(meal.mealId) },
-                            enabled = meal.mealId !in eating,
-                            modifier = Modifier.testTag(UiTags.nutritionEat(meal.mealId)),
-                        ) {
-                            Text("Mangé")
-                        }
-                    }
+        }
+    }
+    if (framed) {
+        MaggieCard(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Journal" }.testTag(UiTags.NUTRITION_JOURNAL)) {
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp)) {
+                Text("Journal", fontSize = 14.sp, color = surface.textMuted)
+                rows()
+            }
+        }
+    } else {
+        Column(modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Journal" }.testTag(UiTags.NUTRITION_JOURNAL)) { rows() }
+    }
+}
+
+/** A journal line: a rule, the time on the left, the name and its sub-line, the kcal and a source pill on the right. */
+@Composable
+private fun JournalRow(time: String, title: String, sub: String?, kcal: String, tag: String, modifier: Modifier = Modifier) {
+    val surface = maggieSurface()
+    Column(modifier = modifier.fillMaxWidth()) {
+        HorizontalDivider(color = surface.text.copy(alpha = if (isMaggieDark()) MaggieTokens.Divider.DARK else MaggieTokens.Divider.LIGHT))
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(time, fontSize = 13.sp, color = surface.textMuted, modifier = Modifier.width(52.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, fontSize = 15.sp, color = surface.text)
+                if (sub != null) {
+                    Text(sub, fontSize = 12.sp, color = surface.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(kcal, fontSize = 14.sp, color = surface.text)
+                Box(
+                    modifier = Modifier
+                        .height(22.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(MaggieTokens.Signal.labelFill)
+                        .padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(tag, fontSize = 11.sp, color = surface.textMuted)
                 }
             }
         }
@@ -372,6 +441,7 @@ private fun EditFoodDialog(
     saving: Boolean,
     onSave: (FoodIntake, String, Double?, Int, Double?, Double?, Double?, LocalTime) -> Unit,
     onDismiss: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -380,7 +450,7 @@ private fun EditFoodDialog(
             tonalElevation = AlertDialogDefaults.TonalElevation,
             modifier = Modifier.uiTagRoot(),
         ) {
-            EditFoodForm(intake, zone, saving, onSave, onDismiss)
+            EditFoodForm(intake, zone, saving, onSave, onDismiss, onDelete)
         }
     }
 }
@@ -393,6 +463,7 @@ internal fun EditFoodForm(
     saving: Boolean,
     onSave: (FoodIntake, String, Double?, Int, Double?, Double?, Double?, LocalTime) -> Unit,
     onDismiss: () -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
     var label by rememberSaveable(intake.id) { mutableStateOf(intake.label) }
     var quantity by rememberSaveable(intake.id) { mutableStateOf(intake.quantityGrams?.let(::gramsText).orEmpty()) }
@@ -436,6 +507,10 @@ internal fun EditFoodForm(
             NumberField(fat, { fat = it }, "Lipides g", UiTags.NUTRITION_EDIT_FAT, Modifier.weight(1f))
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            if (onDelete != null) {
+                TextButton(onClick = onDelete, modifier = Modifier.testTag(UiTags.nutritionIntakeDelete(intake.id))) { Text("Supprimer") }
+                Spacer(Modifier.weight(1f))
+            }
             TextButton(onClick = onDismiss) { Text("Annuler") }
             TextButton(
                 onClick = {

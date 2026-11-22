@@ -3,6 +3,7 @@ package com.maggie.app.ui.screens.health
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -61,6 +63,7 @@ fun BalanceCard(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     onOpen: (() -> Unit)? = null,
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val surface = maggieSurface()
     val label = balanceLabel(balance.balanceKcal)
@@ -97,6 +100,7 @@ fun BalanceCard(
                     Text("Complétez votre profil pour voir le bilan")
                 }
             }
+            footer?.invoke(this)
         }
     }
 }
@@ -165,6 +169,56 @@ fun BalanceWeekChart(week: List<DailyBalance>, modifier: Modifier = Modifier) {
                         textAlign = TextAlign.Center,
                     )
                 }
+            }
+        }
+    }
+}
+
+/** « 7 jours » inside the bilan's card: a bar per day around a dashed zero line, the last (today) at full strength. */
+@Composable
+fun BalanceWeekStrip(week: List<DailyBalance>, today: String, modifier: Modifier = Modifier) {
+    val surface = maggieSurface()
+    val colors = week.map { balanceColor(balanceZone(it.balanceKcal)) }
+    val scale = balanceWeekScale(week)
+    val zeroLine = surface.text.copy(alpha = 0.18f)
+    Column(
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = "7 jours" }.testTag(UiTags.NUTRITION_WEEK),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("7 jours", fontSize = 12.sp, color = surface.caption)
+        Canvas(modifier = Modifier.fillMaxWidth().height(54.dp)) {
+            if (week.isEmpty()) return@Canvas
+            val mid = size.height / 2f
+            drawLine(
+                zeroLine,
+                Offset(0f, mid),
+                Offset(size.width, mid),
+                strokeWidth = 1f,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f)),
+            )
+            val slot = size.width / week.size
+            val bar = slot * 0.6f
+            week.forEachIndexed { i, day ->
+                val kcal = day.balanceKcal ?: return@forEachIndexed
+                val end = mid - kcal / scale.toFloat() * mid
+                val height = abs(end - mid).coerceAtLeast(2f)
+                drawRoundRect(
+                    colors[i].copy(alpha = if (i == week.lastIndex) 1f else 0.6f),
+                    Offset(i * slot + (slot - bar) / 2f, minOf(mid, end)),
+                    Size(bar, height),
+                    CornerRadius(3f),
+                )
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            week.forEach { day ->
+                Text(
+                    weekdayShort(day.date, today),
+                    fontSize = 11.sp,
+                    color = surface.caption,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     }
