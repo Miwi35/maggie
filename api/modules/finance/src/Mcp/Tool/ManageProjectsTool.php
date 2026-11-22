@@ -7,12 +7,15 @@ namespace Maggie\Finance\Mcp\Tool;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Finance\Entity\Project;
+use Maggie\Finance\Exception\ScenarioNotFound;
 use Maggie\Finance\Message\CreateProjectCommand;
 use Maggie\Finance\Message\DeleteProjectCommand;
 use Maggie\Finance\Message\ReorderProjectsCommand;
 use Maggie\Finance\Message\UpdateProjectCommand;
 use Maggie\Finance\Repository\ProjectRepository;
 use Maggie\Finance\Service\ProjectView;
+use Maggie\Finance\UseCase\GetProjectPlanning;
+use Maggie\Finance\UseCase\PreviewProject;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -23,13 +26,15 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * `current`, what was given or what the project is, so the next call can be
  * whole.
  */
-#[McpTool(name: 'manage_projects', description: 'Actions: list, create, update, delete, reorder. create needs name and amountCents (integer cents > 0). currency: 3-letter code, default EUR. Dates ISO. wellbeing: essential = 4, high = 3, medium = 2 (default), comfort = 1. dateMode: none, movable, fixed, deadline; fixed and deadline require targetOn, and targetOn requires one of them. dependsOn: ids of the projects this one waits for, replaces the whole list; no self-dependency or cycle.position: 0 = first priority, a new project goes last; reorder takes ids = EVERY project id in the new order (a partial list is refused). update changes only provided fields; clear empties note, dependsOn or targetOn. A refusal returns error plus current.')]
+#[McpTool(name: 'manage_projects', description: 'Actions: list (each project with purchaseMonth YYYY-MM, null beyond 36 months, and gatheredCents; top level startMonth, netCapacityCents, isIncomeKnown), preview, create, update, delete, reorder. preview: same fields as create plus scenarioId (a stored scenario id, or auto-rapid, auto-balanced, auto-quality); changes nothing, returns scenario {id, name, editable} or null, dates[] {projectId, name, before, after} (purchase month, null beyond 36 months), nDate {before, after}. create needs name and amountCents (integer cents > 0). currency: 3-letter code, default EUR. Dates ISO. wellbeing: essential = 4, high = 3, medium = 2 (default), comfort = 1. dateMode: none, movable, fixed, deadline; fixed and deadline require targetOn, and targetOn requires one of them. dependsOn: ids of the projects this one waits for, replaces the whole list; no self-dependency or cycle.position: 0 = first priority, a new project goes last; reorder takes ids = EVERY project id in the new order (a partial list is refused). update changes only provided fields; clear empties note, dependsOn or targetOn. A refusal returns error plus current.')]
 class ManageProjectsTool
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly ProjectRepository $projectRepository,
         private readonly McpUserContext $userContext,
+        private readonly GetProjectPlanning $getProjectPlanning,
+        private readonly PreviewProject $previewProject,
     ) {
     }
 
@@ -51,15 +56,17 @@ class ManageProjectsTool
         ?string $note = null,
         ?array $ids = null,
         ?array $clear = null,
+        ?string $scenarioId = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
+                'preview' => $this->preview($name, $amountCents, $currency, $wellbeing, $dateMode, $targetOn, $dependsOn, $note, $scenarioId),
                 'create' => $this->create($name, $amountCents, $currency, $wellbeing, $dateMode, $targetOn, $dependsOn, $note),
                 'update' => $this->update($projectId, $name, $amountCents, $currency, $wellbeing, $dateMode, $targetOn, $dependsOn, $note, $clear),
                 'delete' => $this->delete($projectId),
                 'reorder' => $this->reorder($ids),
-                default => self::json(['error' => "Unknown action: {$action}. Use list, create, update, delete, or reorder."]),
+                default => self::json(['error' => "Unknown action: {$action}. Use list, preview, create, update, delete, or reorder."]),
             };
         } catch (MissingMcpUserException $e) {
             return self::json(['error' => $e->getMessage()]);
@@ -72,7 +79,70 @@ class ManageProjectsTool
     {
         $user = $this->userContext->requireUser();
 
-        return self::json(['projects' => ProjectView::list($this->projectRepository->findByUser($user))]);
+        $planning = $this->getProjectPlanning->execute($user);
+        $planned = [];
+        foreach ($planning['projects'] as $row) {
+            $planned[(string) $row['projectId']] = $row;
+        }
+
+        $projects = array_map(
+            static fn (array $project): array => $project + [
+                'purchaseMonth' => $planned[$project['id']]['purchaseMonth'] ?? null,
+                'gatheredCents' => $planned[$project['id']]['gatheredCents'] ?? 0,
+            ],
+            ProjectView::list($this->projectRepository->findByUser($user)),
+        );
+
+        return self::json([
+            'startMonth' => $planning['startMonth'],
+            'netCapacityCents' => $planning['netCapacityCents'],
+            'isIncomeKnown' => $planning['isIncomeKnown'],
+            'projects' => $projects,
+        ]);
+    }
+
+    /** @param list<string>|null $dependsOn */
+    private function preview(?string $name, ?int $amountCents, ?string $currency, ?string $wellbeing, ?string $dateMode, ?string $targetOn, ?array $dependsOn, ?string $note, ?string $scenarioId): string
+    {
+        $user = $this->userContext->requireUser();
+
+        $given = array_filter([
+            'name' => $name,
+            'amountCents' => $amountCents,
+            'currency' => $currency,
+            'wellbeing' => $wellbeing,
+            'dateMode' => $dateMode,
+            'targetOn' => $targetOn,
+            'dependsOn' => $dependsOn,
+            'note' => $note,
+            'scenarioId' => $scenarioId,
+        ], static fn (mixed $value): bool => null !== $value);
+
+        if (null === $name || null === $amountCents) {
+            return self::json(['error' => 'name and amountCents are required for a preview: ask the user for what is missing.', 'current' => $given]);
+        }
+        if (\in_array($dateMode, ['fixed', 'deadline'], true) && null === $targetOn) {
+            return self::json(['error' => "dateMode {$dateMode} needs a targetOn (YYYY-MM-DD): ask the user for the date.", 'current' => $given]);
+        }
+        if (null !== $targetOn && !\in_array($dateMode, ['fixed', 'deadline'], true)) {
+            return self::json(['error' => 'A targetOn needs dateMode fixed (a locked date) or deadline (at the latest): ask the user which one.', 'current' => $given]);
+        }
+
+        try {
+            return self::json($this->previewProject->execute(
+                $user,
+                $name,
+                $amountCents,
+                $currency ?? 'EUR',
+                $wellbeing ?? 'medium',
+                $dateMode ?? 'none',
+                $targetOn,
+                $dependsOn ?? [],
+                $scenarioId,
+            ));
+        } catch (ScenarioNotFound|\DomainException $e) {
+            return self::json(['error' => $e->getMessage(), 'current' => $given]);
+        }
     }
 
     /** @param list<string>|null $dependsOn */

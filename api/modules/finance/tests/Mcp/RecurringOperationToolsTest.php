@@ -325,4 +325,48 @@ class RecurringOperationToolsTest extends KernelTestCase
         $this->assertMercureUpdatePublished('/recurring_operations/');
         $this->assertElasticsearchIndexDispatched(RecurringOperation::class);
     }
+
+    public function testListRecurringHasTotalsAndLastOccurrence(): void
+    {
+        $this->loadFixtures(__DIR__.'/../UseCase/fixtures/recurring_overview_live.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call('list', recurring: true);
+
+        self::assertSame(['Abonnement Flixo'], array_column($data['operations'], 'label'));
+        self::assertArrayHasKey('lastOccurrence', $data['operations'][0]);
+        self::assertSame(-1349, $data['operations'][0]['monthlyCostCents']);
+        self::assertSame(-1349, $data['totals']['monthlyCostCents']);
+        self::assertSame(1, $data['totals']['activeCount']);
+
+        $other = $this->call('list');
+        self::assertArrayNotHasKey('totals', $other);
+
+        $this->loginFixtureUser('other_user');
+        $theirs = $this->call('list', recurring: true);
+        self::assertSame(['Abonnement secret'], array_column($theirs['operations'], 'label'));
+        self::assertSame(-999, $theirs['totals']['monthlyCostCents']);
+    }
+
+    public function testSuggestWritesNothing(): void
+    {
+        $this->loadFixtures(__DIR__.'/../UseCase/fixtures/recurring_suggestions.yaml');
+        $this->loginFixtureUser();
+        $before = $this->rows();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $data = $this->call('suggest');
+        $suggestions = array_column($data['suggestions'], null, 'label');
+
+        self::assertSame('monthly', $suggestions['Flixo']['period']);
+        self::assertSame(-1349, $suggestions['Flixo']['referenceAmountCents']);
+        self::assertSame(3, $suggestions['Flixo']['occurrences'], 'another user\'s history is not counted');
+        self::assertSame('quarterly', $suggestions['ASSURANCE HABITATION']['period']);
+        self::assertSame($before, $this->rows());
+        $this->assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(RecurringOperation::class);
+
+        self::assertSame('minOccurrences must be at least 2.', $this->call('suggest', minOccurrences: 1)['error']);
+    }
 }

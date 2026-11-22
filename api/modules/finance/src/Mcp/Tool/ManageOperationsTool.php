@@ -22,14 +22,16 @@ use Maggie\Finance\Repository\TransactionRepository;
 use Maggie\Finance\Service\MatchCriteria;
 use Maggie\Finance\Service\RecurrenceSchedule;
 use Maggie\Finance\UseCase\ApplyCategorizationRules;
+use Maggie\Finance\UseCase\GetRecurringOperations;
 use Maggie\Finance\UseCase\PreviewCategorizationRule;
 use Maggie\Finance\UseCase\PreviewRecurringOperation;
+use Maggie\Finance\UseCase\SuggestRecurringOperations;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_operations', description: 'Manage operations: criteria plus a qualification copied onto matching transactions; with a recurrence it is a series, otherwise a categorization rule. Criteria: counterpartyName, labelPattern + matchType contains|starts_with|equals, direction debit|credit, minAmountCents/maxAmountCents (absolute cents); none is refused with current state. Recurrence (fixed at creation; all four or none, else refused with current values): period, anchorOn ISO, referenceAmountCents (signed, not 0), accountId; plus label. list: recurring filter; series return monthlyCostCents, yearlyCostCents, nextOccurrenceOn. update: provided fields only; clear removes label, counterpartyName, labelPattern, minAmountCents, maxAmountCents, endsOn. preview: same criteria (operationId when editing), returns total, changeCount. create/update: applyToExisting (default false). apply: operationId, or all. learn: transactionId, categoryId. attach: operationId, transactionId; refused if occurrence taken or account, currency, sign differ. detach: transactionId. delete: operationId.'.QualificationArguments::DESCRIPTION)]
+#[McpTool(name: 'manage_operations', description: 'Operations: criteria plus a qualification copied onto matching transactions; with a recurrence it is a series, else a categorization rule. Criteria: counterpartyName, labelPattern + matchType contains|starts_with|equals, direction debit|credit, minAmountCents/maxAmountCents (absolute). Recurrence (fixed at creation, all four or none): period, anchorOn ISO, referenceAmountCents (signed, not 0), accountId; plus label. list: recurring filter; series carry monthlyCostCents, yearlyCostCents, nextOccurrenceOn; recurring true adds lastOccurrence (dateGapDays, deviations) and totals (monthly and yearly cost, monthlyIncomeCents, activeCount). suggest: series detected in the bank history, writes nothing; minOccurrences (default 3, min 2); each ready to create, plus occurrences. update: provided fields only; clear empties label, a criterion or endsOn. preview: same criteria (operationId when editing), returns total, changeCount. create/update: applyToExisting (default false). apply: operationId, or all. learn: transactionId, categoryId. attach: operationId, transactionId; refused if occurrence taken or account, currency or sign differ. detach: transactionId. delete: operationId.'.QualificationArguments::DESCRIPTION)]
 class ManageOperationsTool
 {
     private const array RECURRENCE = ['period', 'anchorOn', 'referenceAmountCents', 'accountId'];
@@ -43,6 +45,8 @@ class ManageOperationsTool
         private readonly PreviewCategorizationRule $previewWithoutRecurrence,
         private readonly PreviewRecurringOperation $previewSeries,
         private readonly McpUserContext $userContext,
+        private readonly GetRecurringOperations $getRecurringOperations,
+        private readonly SuggestRecurringOperations $suggestRecurringOperations,
     ) {
     }
 
@@ -76,6 +80,7 @@ class ManageOperationsTool
         ?string $recurringOccurrenceOn = null,
         ?bool $mandatory = null,
         ?string $kind = null,
+        ?int $minOccurrences = null,
     ): string {
         $fields = [
             'categoryId' => $categoryId,
@@ -106,12 +111,13 @@ class ManageOperationsTool
                 'create' => $this->create($fields, $applyToExisting ?? false, $qualification),
                 'update' => $this->update($operationId, $fields, $clear, $applyToExisting ?? false, $qualification),
                 'delete' => $this->delete($operationId),
+                'suggest' => $this->suggest($minOccurrences),
                 'preview' => $this->preview($operationId, $fields),
                 'apply' => $this->apply($operationId),
                 'learn' => $this->learn($transactionId, $categoryId, $labelPattern, $matchType, $priority),
                 'attach' => $this->attach($operationId, $transactionId, $recurringOccurrenceOn),
                 'detach' => $this->detach($transactionId),
-                default => self::error("Unknown action: {$action}. Use list, create, update, delete, preview, apply, learn, attach, or detach."),
+                default => self::error("Unknown action: {$action}. Use list, create, update, delete, preview, suggest, apply, learn, attach, or detach."),
             };
         } catch (InvalidQualificationException $e) {
             return json_encode($e->toResponse(), JSON_THROW_ON_ERROR);
@@ -135,8 +141,36 @@ class ManageOperationsTool
             null => $this->operationRepository->findByUser($user),
         };
 
+        $serialized = array_map(fn (RecurringOperation $o) => $this->serialize($o), $operations);
+        if (true !== $recurring) {
+            return json_encode(['operations' => $serialized], JSON_THROW_ON_ERROR);
+        }
+
+        $read = $this->getRecurringOperations->execute($user);
+        $lastById = [];
+        foreach ($read['operations'] as $described) {
+            $lastById[$described['id']] = $described['lastOccurrence'];
+        }
+
         return json_encode([
-            'operations' => array_map(fn (RecurringOperation $o) => $this->serialize($o), $operations),
+            'operations' => array_map(static fn (array $o): array => $o + ['lastOccurrence' => $lastById[$o['id']] ?? null], $serialized),
+            'totals' => $read['totals'],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    private function suggest(?int $minOccurrences): string
+    {
+        $user = $this->userContext->requireUser();
+
+        if (null !== $minOccurrences && $minOccurrences < 2) {
+            return self::error('minOccurrences must be at least 2.');
+        }
+
+        return json_encode([
+            'suggestions' => $this->suggestRecurringOperations->suggest(
+                $user,
+                $minOccurrences ?? SuggestRecurringOperations::DEFAULT_MIN_OCCURRENCES,
+            ),
         ], JSON_THROW_ON_ERROR);
     }
 

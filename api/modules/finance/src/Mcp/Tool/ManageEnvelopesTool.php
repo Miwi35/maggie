@@ -6,6 +6,7 @@ namespace Maggie\Finance\Mcp\Tool;
 
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
+use Maggie\Finance\Entity\Category;
 use Maggie\Finance\Entity\Envelope;
 use Maggie\Finance\Enum\BudgetMode;
 use Maggie\Finance\Exception\EnvelopeSplitException;
@@ -25,9 +26,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'manage_envelopes', description: 'Budget envelopes: one category for one period, amountCents a positive integer in cents. mode monthly needs year + month (1-12), annual needs year, one_off is an event: name + amountCents, no category or period (spends join it via manage_transactions oneOffEnvelopeId). Actions: list; set (categoryId, amountCents; creates or updates that category\'s envelope); update (envelopeId + fields); delete; status (year, month, default current: per envelope spent, committed, planned, consumed, remaining, available; outsideMonthlyBudget lists annual and oneOff ones); rollover (fromYear/fromMonth to year/month; same amounts, or actual spending if useActualSpending; existing targets untouched); split (envelopeId of the mother, children [{envelopeId, amountCents}] among its direct sub-category envelopes; over-allocation is refused). seasonalAmounts (monthly, set/update): [{fromMonth, toMonth, amountCents}], months 1-12; amountCents covers the other months; replaces all seasons, [] removes them.')]
+#[McpTool(name: 'manage_envelopes', description: 'Budget envelopes: one category for one period, amountCents a positive integer in cents. mode monthly needs year + month (1-12), annual needs year, one_off is an event: name + amountCents, no category or period (spends join it via manage_transactions oneOffEnvelopeId). Actions: list; set (categoryId, amountCents; creates or updates that category\'s envelope; monthly with year + month and toYear + toMonth together sets every month of that range, all or nothing); update (envelopeId + fields); delete; status (year, month, default current: per envelope spent, committed, planned, consumed, remaining, available; outsideMonthlyBudget lists annual and oneOff ones); rollover (fromYear/fromMonth to year/month; same amounts, or actual spending if useActualSpending; existing targets untouched); split (envelopeId of the mother, children [{envelopeId, amountCents}] among its direct sub-category envelopes; over-allocation is refused). seasonalAmounts (monthly, set/update): [{fromMonth, toMonth, amountCents}], months 1-12; amountCents covers the other months; replaces all seasons, [] removes them.')]
 class ManageEnvelopesTool
 {
+    private const MAX_RANGE_MONTHS = 60;
+
     public function __construct(
         private readonly MessageBusInterface $bus,
         private readonly EnvelopeRepository $envelopeRepository,
@@ -58,11 +61,13 @@ class ManageEnvelopesTool
         ?string $name = null,
         ?array $seasonalAmounts = null,
         ?array $children = null,
+        ?int $toYear = null,
+        ?int $toMonth = null,
     ): string {
         try {
             return match ($action) {
                 'list' => $this->list(),
-                'set' => $this->set($categoryId, $amountCents, $mode, $year, $month, $currency, $name, $seasonalAmounts),
+                'set' => $this->set($categoryId, $amountCents, $mode, $year, $month, $currency, $name, $seasonalAmounts, $toYear, $toMonth),
                 'update' => $this->update($envelopeId, $categoryId, $amountCents, $mode, $year, $month, $currency, $name, $seasonalAmounts),
                 'status' => $this->status($year, $month),
                 'rollover' => $this->rollover($fromYear, $fromMonth, $year, $month, $useActualSpending),
@@ -93,7 +98,7 @@ class ManageEnvelopesTool
     }
 
     /** @param list<array{fromMonth: int, toMonth: int, amountCents: int}>|null $seasonalAmounts */
-    private function set(?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency, ?string $name, ?array $seasonalAmounts): string
+    private function set(?string $categoryId, ?int $amountCents, ?string $mode, ?int $year, ?int $month, ?string $currency, ?string $name, ?array $seasonalAmounts, ?int $toYear = null, ?int $toMonth = null): string
     {
         $budgetMode = BudgetMode::from($mode ?? BudgetMode::Monthly->value);
         $seasons = null === $seasonalAmounts ? null : SeasonalAmounts::normalize($seasonalAmounts);
@@ -119,6 +124,10 @@ class ManageEnvelopesTool
             $category = $this->references->category($categoryId, $user);
         } catch (\DomainException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
+        }
+
+        if (null !== $toYear || null !== $toMonth) {
+            return $this->setRange($category, $amountCents, $budgetMode, $year, $month, $toYear, $toMonth, $currency, $seasons);
         }
 
         $now = new \DateTimeImmutable();
@@ -149,6 +158,50 @@ class ManageEnvelopesTool
             'success' => true,
             'envelope' => $this->serialize($envelope),
         ], JSON_THROW_ON_ERROR);
+    }
+
+    /** @param list<array{fromMonth: int, toMonth: int, amountCents: int}>|null $seasons */
+    private function setRange(Category $category, int $amountCents, BudgetMode $mode, ?int $year, ?int $month, ?int $toYear, ?int $toMonth, ?string $currency, ?array $seasons): string
+    {
+        $refuse = fn (string $message): string => json_encode([
+            'error' => $message,
+            'envelopes' => array_map(
+                fn (Envelope $e) => $this->serialize($e),
+                array_values(array_filter(
+                    $this->envelopeRepository->findByUser($this->userContext->requireUser()),
+                    static fn (Envelope $e): bool => BudgetMode::Monthly === $e->getMode() && null !== $e->getCategory() && $e->getCategory()->getId()->equals($category->getId()),
+                )),
+            ),
+        ], JSON_THROW_ON_ERROR);
+
+        if (BudgetMode::Monthly !== $mode) {
+            return $refuse('Only a monthly envelope can be set over a range.');
+        }
+        if (null === $year || null === $month || null === $toYear || null === $toMonth) {
+            return $refuse('A range needs year, month, toYear and toMonth together.');
+        }
+        if ($month < 1 || $month > 12 || $toMonth < 1 || $toMonth > 12) {
+            return $refuse('month and toMonth are between 1 and 12.');
+        }
+        $first = $year * 12 + $month;
+        $last = $toYear * 12 + $toMonth;
+        if ($last < $first) {
+            return $refuse('The range ends before it starts.');
+        }
+        if ($last - $first >= self::MAX_RANGE_MONTHS) {
+            return $refuse(sprintf('A range is %d months at most.', self::MAX_RANGE_MONTHS));
+        }
+
+        $envelopes = [];
+        for ($index = $first; $index <= $last; ++$index) {
+            $result = json_decode($this->set((string) $category->getId(), $amountCents, $mode->value, intdiv($index - 1, 12), ($index - 1) % 12 + 1, $currency, null, $seasons), true, 512, JSON_THROW_ON_ERROR);
+            if (!isset($result['envelope'])) {
+                return json_encode($result, JSON_THROW_ON_ERROR);
+            }
+            $envelopes[] = $result['envelope'];
+        }
+
+        return json_encode(['success' => true, 'envelopes' => $envelopes], JSON_THROW_ON_ERROR);
     }
 
     private function createOneOff(?string $categoryId, ?int $amountCents, ?int $year, ?int $month, ?string $currency, ?string $name): string

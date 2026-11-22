@@ -6,7 +6,10 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Finance\Entity\Qualification;
 use Maggie\Finance\Entity\Transaction;
+use Maggie\Finance\Enum\ObligationFlag;
+use Maggie\Finance\Enum\RetrospectVerdict;
 use Maggie\Finance\Enum\TransactionStatus;
 use Maggie\Finance\Enum\TransferKind;
 use Maggie\Finance\Enum\TransferSource;
@@ -1026,5 +1029,64 @@ class TransactionToolsTest extends KernelTestCase
             self::assertArrayHasKey('error', $data, $categoryId);
             self::assertArrayNotHasKey('transactions', $data, $categoryId);
         }
+    }
+
+    /** @return array<string, Transaction> */
+    private function seedRetrospectLines(): array
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $lines = [];
+        foreach ([
+            ['Resto', -6000, RetrospectVerdict::Unrated, ObligationFlag::Optional],
+            ['Loyer', -90000, RetrospectVerdict::Unrated, ObligationFlag::Mandatory],
+            ['Cafe', -300, RetrospectVerdict::Unrated, ObligationFlag::Optional],
+            ['Sushi', -8000, RetrospectVerdict::Avoidable, ObligationFlag::Optional],
+        ] as [$label, $amount, $verdict, $flag]) {
+            $lines[$label] = (new Transaction())
+                ->setUser($this->getFixture('test_user'))
+                ->setAccount($this->getFixture('checking'))
+                ->setAmountCents($amount)
+                ->setCurrency('EUR')
+                ->setBookedAt(new \DateTimeImmutable('2026-06-20'))
+                ->setLabel($label)
+                ->setStatus(TransactionStatus::Spent)
+                ->setRetrospect($verdict)
+                ->setQualification(Qualification::fromObligation($flag));
+            $em->persist($lines[$label]);
+        }
+        $em->flush();
+
+        return $lines;
+    }
+
+    public function testListFiltersUnratedNonMandatoryExpenses(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $this->seedRetrospectLines();
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $data = $this->listed($tool, retrospect: 'unrated', mandatory: false, direction: 'expense', fromDate: '2026-06-01', toDate: '2026-06-30');
+
+        self::assertEqualsCanonicalizing(['Resto', 'Cafe'], array_column($data['transactions'], 'label'));
+        self::assertSame(2, $data['total']);
+
+        $avoidable = $this->listed($tool, retrospect: 'avoidable');
+        self::assertSame(['Sushi'], array_column($avoidable['transactions'], 'label'));
+
+        self::assertArrayHasKey('error', $this->listed($tool, retrospect: 'nonsense'));
+    }
+
+    public function testListMinAmountIsAbsolute(): void
+    {
+        $this->loadFixtures('transaction.yaml');
+        $this->loginFixtureUser();
+        $this->seedRetrospectLines();
+        $tool = self::getContainer()->get(ManageTransactionsTool::class);
+
+        $data = $this->listed($tool, minAmountCents: 7000, fromDate: '2026-06-01', toDate: '2026-06-30');
+
+        self::assertEqualsCanonicalizing(['Loyer', 'Sushi'], array_column($data['transactions'], 'label'));
+        self::assertArrayHasKey('error', $this->listed($tool, minAmountCents: -1));
     }
 }

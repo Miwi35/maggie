@@ -70,11 +70,12 @@ class TransactionRepository extends ServiceEntityRepository
      * the rejected payments are out unless `$transferKind` asks for them, as
      * the REST list does (MAG-375).
      *
-     * @param \DateTimeImmutable|null $from        first booking day included
-     * @param \DateTimeImmutable|null $to          last booking day included
-     * @param string|null             $text        matched against the label and the counterparty, wildcards taken literally
-     * @param string|null             $direction   `expense` (debits) or `income` (credits)
-     * @param list<Ulid>|null         $categoryIds keeps the lines of these categories (a category and its sub-categories)
+     * @param \DateTimeImmutable|null $from           first booking day included
+     * @param \DateTimeImmutable|null $to             last booking day included
+     * @param string|null             $text           matched against the label and the counterparty, wildcards taken literally
+     * @param string|null             $direction      `expense` (debits) or `income` (credits)
+     * @param list<Ulid>|null         $categoryIds    keeps the lines of these categories (a category and its sub-categories)
+     * @param int|null                $minAmountCents keeps the lines whose absolute amount is at least this
      *
      * @return array{transactions: Transaction[], total: int}
      */
@@ -88,10 +89,23 @@ class TransactionRepository extends ServiceEntityRepository
         ?string $direction = null,
         ?TransferKind $transferKind = null,
         ?array $categoryIds = null,
+        ?RetrospectVerdict $retrospect = null,
+        ?bool $mandatory = null,
+        ?int $minAmountCents = null,
     ): array {
         $qb = $this->createQueryBuilder('t')
             ->andWhere('t.user = :user')
             ->setParameter('user', $user->getId(), 'ulid');
+
+        if (null !== $retrospect) {
+            $qb->andWhere('t.retrospect = :retrospect')->setParameter('retrospect', $retrospect->value);
+        }
+        if (null !== $mandatory) {
+            $qb->andWhere('t.qualification.mandatory = :mandatory')->setParameter('mandatory', $mandatory);
+        }
+        if (null !== $minAmountCents) {
+            $qb->andWhere('ABS(t.amountCents) >= :minAmount')->setParameter('minAmount', $minAmountCents);
+        }
 
         if (null === $transferKind) {
             $qb->andWhere('t.transferKind != :rejected')->setParameter('rejected', TransferKind::Rejected->value);

@@ -26,7 +26,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'manage_transactions', description: 'Manage transactions. Amounts: signed integer cents (negative = expense); dates ISO. list: filters accountId, categoryId (with sub-categories), direction, fromDate/toDate inclusive, query, transferKind; newest first, limit 30 (max 100), returns total; rejected payments only with transferKind rejected. create: accountId, label, amountCents; bookedAt defaults today; status spent|committed|planned|to_arbitrate. update: transactionId, provided fields only; clear removes categoryId, transferKind, recurringOperation, note, oneOffEnvelope, advanceSource; retrospect keep|avoidable|unrated (refused on income or transfer); note max 2000. categorize: transactionId, categoryId. to_sort: uncategorised lines, limit 50, returns total, totalCents, suggestion. sort: transactionId + categoryId or transferKind internal; refused if already sorted. settle_rejection/unsettle_rejection: transactionId of a rejected payment leg, else refused. delete: transactionId.'.QualificationArguments::DESCRIPTION)]
+#[McpTool(name: 'manage_transactions', description: 'Manage transactions. Amounts: signed integer cents (negative = expense); dates ISO. list: filters accountId, categoryId (with sub-categories), direction, fromDate/toDate inclusive, query, transferKind, retrospect keep|avoidable|unrated, mandatory (bool), minAmountCents (absolute value); newest first, limit 30 (max 100), returns total; rejected payments only with transferKind rejected. create: accountId, label, amountCents; bookedAt defaults today; status spent|committed|planned|to_arbitrate. update: transactionId, provided fields only; clear removes categoryId, transferKind, recurringOperation, note, oneOffEnvelope, advanceSource; retrospect keep|avoidable|unrated (refused on income or transfer); note max 2000. categorize: transactionId, categoryId. to_sort: uncategorised lines, limit 50, returns total, totalCents, suggestion. sort: transactionId + categoryId or transferKind internal; refused if already sorted. settle_rejection/unsettle_rejection: transactionId of a rejected payment leg, else refused. delete: transactionId.'.QualificationArguments::DESCRIPTION)]
 class ManageTransactionsTool
 {
     private const DEFAULT_LIMIT = 30;
@@ -72,10 +72,11 @@ class ManageTransactionsTool
         ?bool $alwaysForMerchant = null,
         ?string $retrospect = null,
         ?string $advanceSourceAccountId = null,
+        ?int $minAmountCents = null,
     ): string {
         try {
             return match ($action) {
-                'list' => $this->list($accountId, $limit, $fromDate, $toDate, $query, $direction, $transferKind, $categoryId),
+                'list' => $this->list($accountId, $limit, $fromDate, $toDate, $query, $direction, $transferKind, $categoryId, $retrospect, $mandatory, $minAmountCents),
                 'create' => $this->create($accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $note, ['mandatory' => $mandatory, 'kind' => $kind]),
                 'update' => $this->update($transactionId, $accountId, $amountCents, $label, $bookedAt, $status, $currency, $isExceptional, $categoryId, $transferKind, $counterpartId, $recurringOperationId, $recurringOccurrenceOn, $clear, $repaysTransactionId, $note, $oneOffEnvelopeId, ['mandatory' => $mandatory, 'kind' => $kind], $retrospect, $advanceSourceAccountId),
                 'categorize' => $this->categorize($transactionId, $categoryId),
@@ -99,7 +100,7 @@ class ManageTransactionsTool
         }
     }
 
-    private function list(?string $accountId, ?int $limit, ?string $fromDate, ?string $toDate, ?string $query, ?string $direction, ?string $transferKind, ?string $categoryId): string
+    private function list(?string $accountId, ?int $limit, ?string $fromDate, ?string $toDate, ?string $query, ?string $direction, ?string $transferKind, ?string $categoryId, ?string $retrospect, ?bool $mandatory, ?int $minAmountCents): string
     {
         $user = $this->userContext->requireUser();
 
@@ -112,6 +113,13 @@ class ManageTransactionsTool
         $kind = null === $transferKind ? null : TransferKind::tryFrom($transferKind);
         if (null !== $transferKind && null === $kind) {
             return json_encode(['error' => 'transferKind is one of: '.implode(', ', array_column(TransferKind::cases(), 'value')).'.'], JSON_THROW_ON_ERROR);
+        }
+        $verdict = null === $retrospect ? null : RetrospectVerdict::tryFrom($retrospect);
+        if (null !== $retrospect && null === $verdict) {
+            return json_encode(['error' => 'retrospect is one of: '.implode(', ', array_column(RetrospectVerdict::cases(), 'value')).'.'], JSON_THROW_ON_ERROR);
+        }
+        if (null !== $minAmountCents && $minAmountCents < 0) {
+            return json_encode(['error' => 'minAmountCents is a positive integer (absolute value).'], JSON_THROW_ON_ERROR);
         }
         $from = $this->parseDay($fromDate);
         $to = $this->parseDay($toDate);
@@ -139,6 +147,9 @@ class ManageTransactionsTool
             $direction,
             $kind,
             $categoryIds,
+            $verdict,
+            $mandatory,
+            $minAmountCents,
         );
 
         return json_encode([
