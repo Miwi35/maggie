@@ -5,9 +5,9 @@ tags:
 ---
 # Les prêts détaillés, from the phone (MAG-523, extends MAG-102).
 #
-# Étant donné « Prêt immo » (98 000 € à 1,80 %, 625 €/mois) dont l'IRA est au plafond légal
+# Étant donné « Prêt immo » (Banque Postale, 98 000 € à 1,80 %, 625 €/mois) dont l'IRA est au plafond légal
 # Quand j'ouvre les prêts
-# Alors « PAR PRIORITÉ DE REMBOURSEMENT » est visible et la ligne donne son type, sa date de fin (« Fini en … ») et ses intérêts restants
+# Alors « PAR PRIORITÉ DE REMBOURSEMENT » est visible et la ligne donne son prêteur, sa date de fin (« Fini en … ») et ses intérêts restants
 # Quand j'ouvre le prêt
 # Alors la fiche donne le mode d'IRA, l'IRA simulée sur le capital restant et la courbe, avec « Fin en … »
 #
@@ -42,7 +42,7 @@ tags:
 - extendedWaitUntil:
     visible: ".*Prêt immo.*"
     timeout: 10000
-- assertVisible: ".*Amortissable taux fixe.*"
+- assertVisible: ".*Banque Postale.*"
 - assertVisible: "PAR PRIORITÉ DE REMBOURSEMENT"
 - assertVisible: ".*Fini en .*"
 - assertVisible: ".*d’intérêts restants.*"
