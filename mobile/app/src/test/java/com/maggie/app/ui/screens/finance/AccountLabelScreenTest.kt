@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.CushionAccount
 import com.maggie.app.data.model.CushionStatus
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.screentest.ScreenRule
 import io.mockk.every
 import io.mockk.mockk
@@ -41,16 +42,18 @@ class AccountLabelScreenTest {
     }
 
     @Test
-    fun `the cushion lists its accounts with their bank and currency`() {
+    fun `the cushion lists its accounts with their bank under the name`() {
         val status = CushionStatus(
             accounts = listOf(
                 CushionAccount(id = "a1", name = "Livret A", bank = "Boursorama", balanceCents = 500000),
                 CushionAccount(id = "a2", name = "Livret", bank = null, balanceCents = 1000),
             ),
         )
-        compose.setContent { CushionSummaryCard(status = status) }
+        compose.setContent { CushionAccounts(status) }
 
-        compose.onNodeWithText("Boursorama · EUR · Livret A — 5\u202F000,00\u00A0€").assertIsDisplayed()
-        compose.onNodeWithText("EUR · Livret — 10,00\u00A0€").assertIsDisplayed()
+        compose.onNodeWithText("Livret A").assertIsDisplayed()
+        compose.onNodeWithText("Boursorama").assertIsDisplayed()
+        compose.onNodeWithText(formatCentsRounded(500000)).assertIsDisplayed()
+        compose.onNodeWithText("Livret").assertIsDisplayed()
     }
 }
