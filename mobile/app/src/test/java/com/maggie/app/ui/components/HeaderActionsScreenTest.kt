@@ -1,8 +1,15 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.width
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.fcm.PushInteraction
@@ -16,6 +23,7 @@ import com.maggie.app.ui.interruption.SettledEntry
 import com.maggie.app.ui.interruption.SettledKind
 import com.maggie.app.ui.interruption.TripEntry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -91,6 +99,49 @@ class HeaderActionsScreenTest {
         compose.onNodeWithText("Réglées").assertIsDisplayed()
         compose.onNodeWithText("Itinéraire ouvert").assertIsDisplayed()
         compose.onNodeWithText("Autorisé").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HEADER_BELL).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the panel floats 12 dp from both edges, under the bell`() {
+        show(full)
+        compose.onNodeWithTag(UiTags.HEADER_BELL).tap()
+
+        val panel = compose.onNodeWithTag(UiTags.INTERRUPTIONS_PANEL, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val bell = compose.onNodeWithTag(UiTags.HEADER_BELL).getUnclippedBoundsInRoot()
+        val root = compose.onRoot().getUnclippedBoundsInRoot()
+
+        assertEquals(12.dp.value, panel.left.value, 0.5f)
+        assertEquals((root.width - 12.dp).value, panel.right.value, 0.5f)
+        assertTrue(panel.top >= bell.bottom - 4.dp)
+    }
+
+    @Test
+    fun `the panel reads its sections and rows from top to bottom`() {
+        show(full)
+        compose.onNodeWithTag(UiTags.HEADER_BELL).tap()
+
+        val tops = listOf(
+            compose.onNodeWithText("En attente de votre réponse"),
+            compose.onNodeWithTag(UiTags.interruptionsTrip("n1")),
+            compose.onNodeWithTag(UiTags.INTERRUPTIONS_QUESTIONS),
+            compose.onNodeWithTag(UiTags.INTERRUPTIONS_CONFIRMATION),
+            compose.onNodeWithText("Réglées"),
+            compose.onNodeWithTag(UiTags.interruptionsSettled("n0")),
+        ).map { it.getUnclippedBoundsInRoot().top.value }
+
+        assertEquals(tops.sorted(), tops)
+        assertEquals(tops.distinct(), tops)
+    }
+
+    @Test
+    fun `a tap above the panel, on the header's band, closes it too`() {
+        show(full)
+        compose.onNodeWithTag(UiTags.HEADER_BELL).tap()
+
+        compose.onNodeWithTag(UiTags.INTERRUPTIONS_SCRIM).performTouchInput { click(Offset(centerX, 1f)) }
+
+        compose.onNodeWithTag(UiTags.INTERRUPTIONS_PANEL, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -123,6 +174,10 @@ class HeaderActionsScreenTest {
         compose.onNodeWithTag(UiTags.interruptionsQuestion("q2")).assertDoesNotExist()
 
         compose.onNodeWithTag(UiTags.INTERRUPTIONS_QUESTIONS).tap()
+        val group = compose.onNodeWithTag(UiTags.INTERRUPTIONS_QUESTIONS).getUnclippedBoundsInRoot()
+        val q = compose.onNodeWithTag(UiTags.interruptionsQuestion("q1")).getUnclippedBoundsInRoot()
+        assertTrue(q.top >= group.bottom)
+        assertTrue(q.left >= group.left + 22.dp)
         compose.onNodeWithTag(UiTags.interruptionsQuestion("q2")).tap()
 
         assertEquals("q2", reopened?.notificationId)
