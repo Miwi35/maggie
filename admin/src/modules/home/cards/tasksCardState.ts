@@ -10,6 +10,11 @@ export interface HomeTask {
   overdueDays: number | null
   /** Set on a subtask: it is drawn indented. */
   parentId: string | null
+  urgency?: string | null
+  scheduledMoment?: string | null
+  /** `HH:MM`, with the moment `time`. */
+  scheduledTime?: string | null
+  postponedSince?: string | null
 }
 
 export interface HomeRoutine {
@@ -86,6 +91,10 @@ const row = (task: ViewTask, done: boolean): HomeTask => ({
   done,
   overdueDays: done ? null : (task.overdueDays ?? null),
   parentId: idOf(task.parent),
+  ...(task.urgency ? { urgency: task.urgency } : {}),
+  ...(task.scheduledMoment ? { scheduledMoment: task.scheduledMoment } : {}),
+  ...(task.scheduledTime ? { scheduledTime: task.scheduledTime } : {}),
+  ...(task.postponedSince ? { postponedSince: task.postponedSince } : {}),
 })
 
 const compare = <T extends string | number>(a: T, b: T): number => (a < b ? -1 : a > b ? 1 : 0)
