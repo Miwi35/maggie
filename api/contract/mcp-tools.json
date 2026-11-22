@@ -539,29 +539,6 @@
         },
         "description": "Deletes a task by its id. Returns a confirmation."
     },
-    "detect_internal_transfers": {
-        "name": "detect_internal_transfers",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "limitDays": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "dryRun": {
-                    "type": [
-                        "null",
-                        "boolean"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Pairs movements between two of the user's own accounts so both legs leave every figure. Lines pair when on different accounts, with exactly opposite amounts, same currency, at most four days apart, already spent or committed. limitDays: integer >= 0, restricts to the last days (default: whole history). dryRun: true reports the pairs without writing. A savings or investment to checking transfer booked while the salary was late is marked advance; the checking to source transfer settling an open advance is marked repayment. A line with no other leg naming the holder or his bank is marked internal without counterpart (loneLegs). Hand-marked lines are never requalified."
-    },
     "end_errand": {
         "name": "end_errand",
         "inputSchema": {
@@ -584,35 +561,6 @@
             }
         },
         "description": "Archives checked items as past errands, one per store (errands: id, storeName, itemCount), removes them from the list, puts their products In Stock (restockedProducts), returns the unchecked items. storeId ends that store only; paidAmountCents (whole cents, needs storeId) records what was paid."
-    },
-    "envelope_adjustments": {
-        "name": "envelope_adjustments",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "month": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "categoryIds": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "Adjusts monthly envelopes to actual spending. month: YYYY-MM read (default current); amounts proposed are for the next month. Action suggest (writes nothing) lists each monthly envelope with amountCents, actualCents, targetAmountCents (next month's budget) and, only if it does not fit, suggestion {proposedCents, direction raise or lower, reason (French), seasonal}. Raise: exceeded three months running, spending mostly judged worth keeping. Lower: under three quarters three months running. Seasonal {fromMonth, toMonth}: same month of past years far from next month's amount, applied to that month every year. Avoidable spending never raises. Action apply writes next month's amounts for categoryIds (comma-separated; all when omitted), returns applied. Integer cents."
     },
     "estimate_trip": {
         "name": "estimate_trip",
@@ -997,14 +945,6 @@
         },
         "description": "Returns the next prescription for one exercise from the coded progression rules. exercise: catalogue slug; variant: normal (default), soft (one set less, 3 reps in reserve), deload (half the sets, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription = an exercise line for manage_workouts (its exercise may differ from the one asked); reason = the rule applied; basedOn = ids of the sessions read. Unknown slug or variant: {error}."
     },
-    "get_project_planning": {
-        "name": "get_project_planning",
-        "inputSchema": {
-            "type": "object",
-            "properties": []
-        },
-        "description": "Computes the next 36 months of project purchases from the net saving capacity. No arguments. Months are YYYY-MM, amounts integer cents. The safety cushion is filled first, then projects take the rest in priority order; none is bought before its dependencies. Returns startMonth; netCapacityCents; isIncomeKnown (false: capacity is 0); cushion {state building|recharging|complete, completeMonth}; projects[] {projectId, name, position, amountCents, dateMode, targetOn, savingFromMonth, purchaseMonth (null beyond horizon), gatheredCents, isDeadlineMissed, delayMonths, unmetDependencies}; months[] {month, capacityCents, cushionCents, salaryCents, savingsCents, loanPaymentsCents, isOverCapacity}."
-    },
     "get_purchase_suggestions": {
         "name": "get_purchase_suggestions",
         "inputSchema": {
@@ -1034,14 +974,6 @@
             ]
         },
         "description": "Get a recipe by id with ingredients, utensils and steps (text, durationMinutes, background, ingredients, utensils, waitsFor = positions awaited). guests (1 or more) scales quantities (x guests / servings) without changing the recipe; the answer carries scaledFor and scaleFactor."
-    },
-    "get_recurring_operations": {
-        "name": "get_recurring_operations",
-        "inputSchema": {
-            "type": "object",
-            "properties": []
-        },
-        "description": "Reads recurring operations (subscriptions, rent, salary), no arguments. totals: monthlyCostCents, yearlyCostCents (expenses, negative), monthlyIncomeCents, activeCount; signed integer cents; an ended series (endsOn past) is listed but not totalled. operations[]: id, label, category, account, period, dayRule, referenceAmountCents, monthlyCostCents, yearlyCostCents, currency, nextOccurrenceOn (null once ended), lastAttachedOn, attachmentCount, lastOccurrence (dateGapDays, deviations late, early, amount_up, amount_down), missedOccurrence (occurrenceOn, daysOverdue; set when the latest due date is past tolerance with no transaction), priceChange (previousCents, currentCents, percent, since). proposals[]: attachments awaiting confirmation with reason (late, early, amount_up, amount_down, ambiguous); confirmed with manage_operations attach."
     },
     "get_seasonal_produce": {
         "name": "get_seasonal_produce",
@@ -1912,13 +1844,105 @@
                         "null"
                     ],
                     "default": null
+                },
+                "toYear": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "toMonth": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "Budget envelopes: one category for one period, amountCents a positive integer in cents. mode monthly needs year + month (1-12), annual needs year, one_off is an event: name + amountCents, no category or period (spends join it via manage_transactions oneOffEnvelopeId). Actions: list; set (categoryId, amountCents; creates or updates that category's envelope); update (envelopeId + fields); delete; status (year, month, default current: per envelope spent, committed, planned, consumed, remaining, available; outsideMonthlyBudget lists annual and oneOff ones); rollover (fromYear/fromMonth to year/month; same amounts, or actual spending if useActualSpending; existing targets untouched); split (envelopeId of the mother, children [{envelopeId, amountCents}] among its direct sub-category envelopes; over-allocation is refused). seasonalAmounts (monthly, set/update): [{fromMonth, toMonth, amountCents}], months 1-12; amountCents covers the other months; replaces all seasons, [] removes them."
+        "description": "Budget envelopes: one category for one period, amountCents a positive integer in cents. mode monthly needs year + month (1-12), annual needs year, one_off is an event: name + amountCents, no category or period (spends join it via manage_transactions oneOffEnvelopeId). Actions: list; set (categoryId, amountCents; creates or updates that category's envelope; monthly with year + month and toYear + toMonth together sets every month of that range, all or nothing); update (envelopeId + fields); delete; status (year, month, default current: per envelope spent, committed, planned, consumed, remaining, available; outsideMonthlyBudget lists annual and oneOff ones); rollover (fromYear/fromMonth to year/month; same amounts, or actual spending if useActualSpending; existing targets untouched); split (envelopeId of the mother, children [{envelopeId, amountCents}] among its direct sub-category envelopes; over-allocation is refused). seasonalAmounts (monthly, set/update): [{fromMonth, toMonth, amountCents}], months 1-12; amountCents covers the other months; replaces all seasons, [] removes them."
+    },
+    "manage_finance_settings": {
+        "name": "manage_finance_settings",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "salaryExpectedDay": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "clearSalaryExpectedDay": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ],
+                    "default": null
+                },
+                "overdraftLimitCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "targetMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "monthlyNetIncomeCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "criticalMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "cushionSharePercent": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "rechargeCapCents": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                },
+                "rechargeTargetMonths": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
+                }
+            },
+            "required": [
+                "action"
+            ]
+        },
+        "description": "Reads or changes the finance settings. Actions: get, update. Treasury: salaryExpectedDay (1-31, last day on shorter months; clearSalaryExpectedDay true forgets it), overdraftLimitCents (0 or more). Safety cushion: targetMonths (1 or more), monthlyNetIncomeCents (0 or more), criticalMonths (0-24, default 2: below it all saving goes to the cushion), cushionSharePercent (0-100, default 60: share of saving going to the cushion above it), rechargeCapCents (0 or more), rechargeTargetMonths (1 or more, indicative). update changes only the given fields, at least one required, all or nothing. Amounts are integer cents. get returns the stored settings only; the cushion state and a late salary are in get_finance_summary."
     },
     "manage_food_intakes": {
         "name": "manage_food_intakes",
@@ -2845,13 +2869,20 @@
                         "string"
                     ],
                     "default": null
+                },
+                "minOccurrences": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "Manage operations: criteria plus a qualification copied onto matching transactions; with a recurrence it is a series, otherwise a categorization rule. Criteria: counterpartyName, labelPattern + matchType contains|starts_with|equals, direction debit|credit, minAmountCents/maxAmountCents (absolute cents); none is refused with current state. Recurrence (fixed at creation; all four or none, else refused with current values): period, anchorOn ISO, referenceAmountCents (signed, not 0), accountId; plus label. list: recurring filter; series return monthlyCostCents, yearlyCostCents, nextOccurrenceOn. update: provided fields only; clear removes label, counterpartyName, labelPattern, minAmountCents, maxAmountCents, endsOn. preview: same criteria (operationId when editing), returns total, changeCount. create/update: applyToExisting (default false). apply: operationId, or all. learn: transactionId, categoryId. attach: operationId, transactionId; refused if occurrence taken or account, currency, sign differ. detach: transactionId. delete: operationId. mandatory (bool, cannot be cut) and kind (none, saving, investment, loan, repayment: debit = I pay back, credit = I am paid back) qualify with the category: all together or none, a partial set is refused with the current qualification. Alone, a new categoryId brings the category's qualification."
+        "description": "Operations: criteria plus a qualification copied onto matching transactions; with a recurrence it is a series, else a categorization rule. Criteria: counterpartyName, labelPattern + matchType contains|starts_with|equals, direction debit|credit, minAmountCents/maxAmountCents (absolute). Recurrence (fixed at creation, all four or none): period, anchorOn ISO, referenceAmountCents (signed, not 0), accountId; plus label. list: recurring filter; series carry monthlyCostCents, yearlyCostCents, nextOccurrenceOn; recurring true adds lastOccurrence (dateGapDays, deviations) and totals (monthly and yearly cost, monthlyIncomeCents, activeCount). suggest: series detected in the bank history, writes nothing; minOccurrences (default 3, min 2); each ready to create, plus occurrences. update: provided fields only; clear empties label, a criterion or endsOn. preview: same criteria (operationId when editing), returns total, changeCount. create/update: applyToExisting (default false). apply: operationId, or all. learn: transactionId, categoryId. attach: operationId, transactionId; refused if occurrence taken or account, currency or sign differ. detach: transactionId. delete: operationId. mandatory (bool, cannot be cut) and kind (none, saving, investment, loan, repayment: debit = I pay back, credit = I am paid back) qualify with the category: all together or none, a partial set is refused with the current qualification. Alone, a new categoryId brings the category's qualification."
     },
     "manage_peer_debts": {
         "name": "manage_peer_debts",
@@ -2981,104 +3012,6 @@
             ]
         },
         "description": "Créances (people owe the owner) and dettes (the owner owes them); bank loans: manage_loans. Integer cents. list: optional contactId, status, direction. summary: owedToMeCents, iOweCents per contact. set_my_share: transactionId of a spend, myShareCents (owner's part, 0 <= part < amount), shares [{contactId, amountCents}] for the others (omit amountCents to split equally, else sum = amount - part), optional object, notes; null myShareCents removes it. record_debt: transactionId of a received transfer, contactId (sender), amountCents to give back (0 < amount <= transfer), optional object, notes; null amountCents removes it; both refused once repaid. allocate: transactionId, kind; received: income, repayment, new_debt (contactId, amountCents); sent: repayment, new_claim (contactId), other. repayment needs shareId (from list) and amountCents <= its remainder, 0 detaches; one allocation per call; kind null undoes; internal transfers refused. Returns peerKind, allocations, unallocatedCents."
-    },
-    "manage_period_plan": {
-        "name": "manage_period_plan",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": [
-                        "set_annual_envelope",
-                        "set_monthly_envelope",
-                        "set_one_off_envelope",
-                        "set_event"
-                    ]
-                },
-                "period": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "categoryId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "amountCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "currency": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "name": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "label": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "month": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "accountId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "seasonFromMonth": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "seasonToMonth": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "seasonAmountCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "Writes one element of a period plan per call. period: year (2027), quarter (2027-Q2) or semester (2027-S1), as in plan_annual_budget. Actions: set_annual_envelope (categoryId, amountCents; period a year); set_monthly_envelope (categoryId, amountCents) same envelope on every month, seasonFromMonth + seasonToMonth + seasonAmountCents together (1-12) give those months another amount, one season per call, replacing the seasons; set_one_off_envelope (name, amountCents) for an event with no category; set_event (categoryId, label, amountCents, month YYYY-MM in the period, optional accountId) plans an expense on the 15th, on the first checking account unless accountId. amountCents positive; currency default EUR. Replaying updates, never duplicates; committed expenses are left alone. Calendar untouched."
     },
     "manage_periods": {
         "name": "manage_periods",
@@ -3477,13 +3410,20 @@
                         "null"
                     ],
                     "default": null
+                },
+                "scenarioId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete, reorder. create needs name and amountCents (integer cents > 0). currency: 3-letter code, default EUR. Dates ISO. wellbeing: essential = 4, high = 3, medium = 2 (default), comfort = 1. dateMode: none, movable, fixed, deadline; fixed and deadline require targetOn, and targetOn requires one of them. dependsOn: ids of the projects this one waits for, replaces the whole list; no self-dependency or cycle.position: 0 = first priority, a new project goes last; reorder takes ids = EVERY project id in the new order (a partial list is refused). update changes only provided fields; clear empties note, dependsOn or targetOn. A refusal returns error plus current."
+        "description": "Actions: list (each project with purchaseMonth YYYY-MM, null beyond 36 months, and gatheredCents; top level startMonth, netCapacityCents, isIncomeKnown), preview, create, update, delete, reorder. preview: same fields as create plus scenarioId (a stored scenario id, or auto-rapid, auto-balanced, auto-quality); changes nothing, returns scenario {id, name, editable} or null, dates[] {projectId, name, before, after} (purchase month, null beyond 36 months), nDate {before, after}. create needs name and amountCents (integer cents > 0). currency: 3-letter code, default EUR. Dates ISO. wellbeing: essential = 4, high = 3, medium = 2 (default), comfort = 1. dateMode: none, movable, fixed, deadline; fixed and deadline require targetOn, and targetOn requires one of them. dependsOn: ids of the projects this one waits for, replaces the whole list; no self-dependency or cycle.position: 0 = first priority, a new project goes last; reorder takes ids = EVERY project id in the new order (a partial list is refused). update changes only provided fields; clear empties note, dependsOn or targetOn. A refusal returns error plus current."
     },
     "manage_recurring_groceries": {
         "name": "manage_recurring_groceries",
@@ -3548,63 +3488,6 @@
             ]
         },
         "description": "Actions: list, create, update, delete recurring items, added to generated lists. frequency: weekly, biweekly, monthly. Needs a productId or a customLabel. clear lists fields to empty: productId, customLabel, quantity, unit; one of the two must remain."
-    },
-    "manage_safety_cushion": {
-        "name": "manage_safety_cushion",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "targetMonths": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "monthlyNetIncomeCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "rechargeCapCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "rechargeTargetMonths": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "criticalMonths": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "cushionSharePercent": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "Reads or configures the safety cushion (emergency fund filled before projects and investments). Action status: state (building, complete, recharging), target (targetMonths x monthly net income), holding (balance of cushion-flagged accounts less peerClaimsCents, what others owe the owner), deficit, monthly recharge plan; the amount is never set by hand. Planning: below criticalMonths of spending (criticalCents) all saving capacity goes to the cushion; above, cushionSharePercent % (capped at the deficit), the rest to projects and investments; once full, all to them. Action configure sets any of targetMonths, monthlyNetIncomeCents, criticalMonths (0-24, default 2), cushionSharePercent (0-100, default 60), rechargeCapCents, rechargeTargetMonths (indicative); only given fields change, at least one required. Amounts are integer cents."
     },
     "manage_scenarios": {
         "name": "manage_scenarios",
@@ -3923,37 +3806,8 @@
                         "string"
                     ],
                     "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "Manage transactions. Amounts: signed integer cents (negative = expense); dates ISO. list: filters accountId, categoryId (with sub-categories), direction, fromDate/toDate inclusive, query, transferKind; newest first, limit 30 (max 100), returns total; rejected payments only with transferKind rejected. create: accountId, label, amountCents; bookedAt defaults today; status spent|committed|planned|to_arbitrate. update: transactionId, provided fields only; clear removes categoryId, transferKind, recurringOperation, note, oneOffEnvelope, advanceSource; retrospect keep|avoidable|unrated (refused on income or transfer); note max 2000. categorize: transactionId, categoryId. to_sort: uncategorised lines, limit 50, returns total, totalCents, suggestion. sort: transactionId + categoryId or transferKind internal; refused if already sorted. settle_rejection/unsettle_rejection: transactionId of a rejected payment leg, else refused. delete: transactionId. mandatory (bool, cannot be cut) and kind (none, saving, investment, loan, repayment: debit = I pay back, credit = I am paid back) qualify with the category: all together or none, a partial set is refused with the current qualification. Alone, a new categoryId brings the category's qualification."
-    },
-    "manage_treasury_settings": {
-        "name": "manage_treasury_settings",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
                 },
-                "salaryExpectedDay": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "clearSalaryExpectedDay": {
-                    "type": [
-                        "null",
-                        "boolean"
-                    ],
-                    "default": null
-                },
-                "overdraftLimitCents": {
+                "minAmountCents": {
                     "type": [
                         "null",
                         "integer"
@@ -3965,7 +3819,7 @@
                 "action"
             ]
         },
-        "description": "Actions: get, update. Settings: salaryExpectedDay (1 to 31, last day on shorter months) and overdraftLimitCents (positive integer cents, default 0). get returns the settings and salaryDelay. update changes only the given fields; clearSalaryExpectedDay true forgets the day. salaryDelay covers the previous and current month: isConfigured (false without expected day or reference salary, then nothing is late), isLate, delayDays, shortfallCents, months[] {month, expectedOn, receivedCents, isReceived}. The salary is late from the day after the expected day until credits recognised as salary reach 90 % of the reference salary."
+        "description": "Manage transactions. Amounts: signed integer cents (negative = expense); dates ISO. list: filters accountId, categoryId (with sub-categories), direction, fromDate/toDate inclusive, query, transferKind, retrospect keep|avoidable|unrated, mandatory (bool), minAmountCents (absolute value); newest first, limit 30 (max 100), returns total; rejected payments only with transferKind rejected. create: accountId, label, amountCents; bookedAt defaults today; status spent|committed|planned|to_arbitrate. update: transactionId, provided fields only; clear removes categoryId, transferKind, recurringOperation, note, oneOffEnvelope, advanceSource; retrospect keep|avoidable|unrated (refused on income or transfer); note max 2000. categorize: transactionId, categoryId. to_sort: uncategorised lines, limit 50, returns total, totalCents, suggestion. sort: transactionId + categoryId or transferKind internal; refused if already sorted. settle_rejection/unsettle_rejection: transactionId of a rejected payment leg, else refused. delete: transactionId. mandatory (bool, cannot be cut) and kind (none, saving, investment, loan, repayment: debit = I pay back, credit = I am paid back) qualify with the category: all together or none, a partial set is refused with the current qualification. Alone, a new categoryId brings the category's qualification."
     },
     "manage_utensils": {
         "name": "manage_utensils",
@@ -4273,49 +4127,6 @@
         },
         "description": "Marks an unchecked item missing: it moves to the product's fallback store if any, else stays. missing=false moves it back to the store it was missing from."
     },
-    "monthly_review": {
-        "name": "monthly_review",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "year": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "month": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "transactionId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "verdict": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "Monthly look back (year, month; default the month just ended). Action review lists non-mandatory spends without a verdict, biggest first, with the amount kept, the amount judged avoidable, an optimisation score (share of judged amount worth keeping, null if none judged) and the comparison with the previous month, the average of the last three months and the same month last year. Action rate (transactionId, verdict: keep, avoidable, or unrated to undo) records one verdict. Only non-mandatory spends are offered."
-    },
     "move_to_fallback": {
         "name": "move_to_fallback",
         "inputSchema": {
@@ -4330,101 +4141,6 @@
             ]
         },
         "description": "Moves every unchecked item of a closed store to its product's fallback store."
-    },
-    "plan_annual_budget": {
-        "name": "plan_annual_budget",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "year": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "thresholdCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "period": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Reads the yearly planning session: what the year behind cost, with a suggested budget for the year ahead. year: 2000 to 2100 (default: next year in November and December, else the current one). thresholdCents: integer cents, default 10000, selects debits listed individually. period (2027, 2027-Q2 or 2027-S1): plans a quarter or semester instead (reads the period just before); not with year (error). Lists every category that cost something, biggest first: budgeted and consumed, big expenses, plannedCents, committedCents, decidedCents, the annual envelope set, and the suggested amount (suggestedMonthlyCents for a period). Writes go through manage_period_plan."
-    },
-    "preview_project": {
-        "name": "preview_project",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "amountCents": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "currency": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "wellbeing": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "dateMode": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "targetOn": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                },
-                "dependsOn": {
-                    "type": [
-                        "array",
-                        "null"
-                    ],
-                    "default": null
-                },
-                "scenarioId": {
-                    "type": [
-                        "null",
-                        "string"
-                    ],
-                    "default": null
-                }
-            }
-        },
-        "description": "Computes the planning twice, without and with a new project, and changes nothing. scenarioId: a stored scenario id, or auto-rapid, auto-balanced, auto-quality. Same fields as manage_projects create: name and amountCents (integer cents, > 0) required; currency (default EUR); wellbeing essential|high|medium (default)|comfort; dateMode none (default)|fixed|deadline with targetOn (YYYY-MM-DD); dependsOn (project ids). Returns scenario {id, name, editable} or null; dates[] {projectId, name, before, after} (purchase month YYYY-MM, null beyond 36 months); nDate {before, after} (independence month, null beyond 20 years). A refusal returns error plus current."
     },
     "read_bank_statement": {
         "name": "read_bank_statement",
@@ -5100,35 +4816,6 @@
             ]
         },
         "description": "Set the trip to an event: recomputed now, replaces the trip for that leg and occurrence. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. mode: drive, transit, walk, bicycle. origin: position (phone position), place:<id> or event:<id>. arriveAt: ISO 8601 Paris time, whole-day event only, refused otherwise. decidedBy: user (origin kept) or maggie (default). leg: outbound (default) or return (event place to home: no origin/arriveAt; departAt ISO 8601 Paris time is never moved; alert stops 30 min after). carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip's origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, leg, occurrenceStartAt, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?, carAt?}}, Refused: nothing changes, {error, field}; Google down: {error}."
-    },
-    "suggest_recurring_operations": {
-        "name": "suggest_recurring_operations",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string"
-                },
-                "minOccurrences": {
-                    "type": [
-                        "null",
-                        "integer"
-                    ],
-                    "default": null
-                },
-                "suggestions": {
-                    "type": [
-                        "array",
-                        "null"
-                    ],
-                    "default": null
-                }
-            },
-            "required": [
-                "action"
-            ]
-        },
-        "description": "Detects recurring operations in the bank history (same payee, steady amount, each week to year) and creates accepted ones. Action list writes nothing; minOccurrences (default 3, min 2). Each suggestion: label, counterpartyKey or labelPattern, accountId, period, anchorOn, dayRule, referenceAmountCents (signed cents, negative = expense), occurrences, categoryId. Action accept takes suggestions: list entries sent back unchanged; entries without a category, with a foreign category or account, or whose payee already has a series are ignored. Returns created, attached, proposed; error if none usable."
     },
     "update_event": {
         "name": "update_event",
