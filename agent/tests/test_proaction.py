@@ -12,6 +12,7 @@ from app.db.context_model import ContextStatus
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import LLMGateway
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.mcp.client import McpClient
 from app.proactions.api import Proaction, ProactionApiUnreachable
 from app.queue.proaction_consumer import execute_proaction
@@ -781,7 +782,7 @@ class TestTreasuryAlertProaction:
     def _gateway() -> LLMGateway:
         gateway = _gateway()
         gateway.client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
-        gateway.tool_router = ToolRouter()
+        gateway.tool_router = ToolRouter(natives=build_native_registry())
         gateway.tool_router.get_tool_definitions = AsyncMock(
             return_value=[
                 {

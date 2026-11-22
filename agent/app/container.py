@@ -24,8 +24,9 @@ class Container:
     @cached_property
     def tool_router(self):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
-        return ToolRouter()
+        return ToolRouter(natives=build_native_registry())
 
     @cached_property
     def llm_gateway(self):

@@ -1034,12 +1034,12 @@ class TestTheRealToolLoop:
         client = build_client(fixtures_dir)
 
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         messages = [{"role": "user", "content": "Je suis allergique aux noix"}]
         handler = AsyncMock(return_value='{"enregistre": true}')
 
         with (
-            patch.dict("app.llm.tools._NATIVE_HANDLERS", {"memory_write_fiche": handler}),
             patch("app.llm.runner.record_llm_usage"),
         ):
             result = await run_tool_loop(
@@ -1047,7 +1047,7 @@ class TestTheRealToolLoop:
                 messages,
                 [{"name": "memory_write_fiche", "input_schema": {}}],
                 client=client,
-                tool_router=ToolRouter(),
+                tool_router=ToolRouter(natives=build_native_registry().with_handler("memory_write_fiche", handler)),
                 user_id="user-1",
                 model="fake",
             )
@@ -1056,7 +1056,7 @@ class TestTheRealToolLoop:
         assert [call["name"] for call in result["tool_calls"]] == ["memory_write_fiche"]
         handler.assert_awaited_once()
         assert handler.await_args.args[0]["titre"] == "Il est allergique aux noix"
-        assert handler.await_args.args[1] == "user-1"
+        assert handler.await_args.args[1].user_id == "user-1"
         # The loop appended the assistant turn and the tool results, which means
         # the fake's blocks were consumable by the production code.
         assert [m["role"] for m in messages] == ["user", "assistant", "user"]

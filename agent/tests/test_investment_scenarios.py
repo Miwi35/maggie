@@ -15,6 +15,7 @@ from app.llm.dry_run import is_read_only
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.policy.summary import GENERIC_LABEL, action_label
 
 USER = "user-1"
@@ -65,7 +66,7 @@ async def ask(content: str) -> dict:
             [{"role": "user", "content": content}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="chat",

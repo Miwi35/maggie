@@ -11,6 +11,7 @@ from app.agents.registry import SubagentRegistry
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.policy.engine import Mode, policy_engine
 from tests.test_subagent_registry import MCP_TOOL_NAMES
 
@@ -105,7 +106,7 @@ async def test_the_advisor_run_simulates_then_files_one_draft_and_nothing_else()
             [{"role": "user", "content": "Et si je remboursais le prêt auto plus tôt ?"}],
             offered,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id="user-1",
             model="fake",
             max_iterations=definition.max_iterations,
@@ -130,21 +131,20 @@ async def test_the_advisor_run_simulates_then_files_one_draft_and_nothing_else()
 async def test_maggie_hands_a_trajectory_question_to_the_advisor():
     api = FakeFinanceApi()
 
-    async def delegate(arguments: dict, user_id: str) -> str:
+    async def delegate(arguments: dict, ctx) -> str:
         assert arguments["agent"] == "advisor"
         return json.dumps({"agent": "advisor", "result": "brouillon déposé"})
 
     with (
         patch("app.llm.tools.mcp_client", api),
         patch("app.llm.runner.record_llm_usage"),
-        patch.dict("app.llm.tools._NATIVE_HANDLERS", {"delegate": delegate}, clear=False),
     ):
         result = await run_tool_loop(
             "Tu es Maggie.",
             [{"role": "user", "content": "Et si je remboursais le prêt auto plus tôt ?"}],
             [{"name": "delegate", "input_schema": {}}],
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry().with_handler("delegate", delegate)),
             user_id="user-1",
             model="fake",
             source="chat",

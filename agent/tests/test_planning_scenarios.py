@@ -18,6 +18,7 @@ from app.llm.gateway import PROACTION_MAX_ITERATIONS
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.queue.scheduler import daily_planning_prompt
 from tests.fake_proaction_api import FakeProactionApi
 
@@ -52,7 +53,7 @@ def api():
     instruction = SimpleNamespace(to_dict=lambda: {"id": "i-1", "content": INSTRUCTION, "kind": "planning"})
     with (
         patch("app.llm.tools.mcp_client", fake),
-        patch("app.llm.tools.instruction_repo.find_by_user", AsyncMock(return_value=[instruction])),
+        patch("app.instruction_tools.instruction_repo.find_by_user", AsyncMock(return_value=[instruction])),
         patch("app.llm.time_tool.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
     ):
         yield fake
@@ -65,7 +66,7 @@ async def plan(day: date) -> dict:
             [{"role": "user", "content": daily_planning_prompt(day)}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="proaction",
@@ -136,7 +137,7 @@ async def replan(day: date) -> dict:
             [{"role": "user", "content": f"Replanifier les trajets du {day.isoformat()}. Raison : un événement a bougé."}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="proaction",
@@ -213,7 +214,7 @@ class TestAStayInWholeDay:
                 history,
                 OFFERED,
                 client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-                tool_router=ToolRouter(),
+                tool_router=ToolRouter(natives=build_native_registry()),
                 user_id=USER,
                 model="fake",
                 source="chat",
@@ -265,7 +266,7 @@ class TestTheReturnOfAStay:
                 history,
                 OFFERED,
                 client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-                tool_router=ToolRouter(),
+                tool_router=ToolRouter(natives=build_native_registry()),
                 user_id=USER,
                 model="fake",
                 source="chat",

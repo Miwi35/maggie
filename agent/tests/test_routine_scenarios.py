@@ -13,6 +13,7 @@ import pytest
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 USER = "user-1"
 WATER_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
@@ -66,7 +67,7 @@ async def ask(text: str) -> dict:
             [{"role": "user", "content": text}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="chat",

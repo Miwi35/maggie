@@ -15,6 +15,7 @@ from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tool_blocks import replay
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 USER = "user-1"
 MOVE_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
@@ -75,7 +76,7 @@ async def ask(messages: list[dict]) -> dict:
             messages,
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="chat",

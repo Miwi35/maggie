@@ -24,7 +24,9 @@ from app.llm.claim_guard import (
 )
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
-from app.llm.tools import SKILL_TOOLS, ToolRouter
+from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
+from app.skills.tools import SKILL_TOOLS
 from app.personality.engine import PersonalityEngine
 from app.skills.index import SkillIndex
 from tests.test_reminder_guard import stream_turn, the_bubble
@@ -59,7 +61,7 @@ def skills(agent_db):
     """The real skill index on the in-memory database: `create_skill` writes a row."""
     index = SkillIndex()
     index._publisher.publish = AsyncMock()
-    with patch("app.llm.tools.skill_index", index):
+    with patch("app.skills.tools.skill_index", index):
         yield agent_db
 
 
@@ -71,7 +73,7 @@ async def run_turn(client, question: str) -> tuple[dict, list]:
             messages,
             LEARNING_OFFERED,
             client=client,
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id="user-1",
             model="fake",
         )

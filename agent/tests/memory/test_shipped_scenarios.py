@@ -12,6 +12,7 @@ import pytest
 from app.llm.fake import FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.memory import conversations, tools
 from app.memory.tools import MEMORY_TOOLS
 from tests.memory.conftest import USER_A
@@ -43,7 +44,7 @@ async def turn(message: str, system: str = "Tu tiens ta mémoire."):
         [{"role": "user", "content": message}],
         MEMORY_TOOLS,
         client=FakeAnthropicClient(fixtures_dir=SHIPPED),
-        tool_router=ToolRouter(),
+        tool_router=ToolRouter(natives=build_native_registry()),
         user_id=USER_A,
         model="fake",
     )

@@ -14,6 +14,7 @@ from app.api.routes import router
 from app.auth import get_current_user_id
 from app.db.models import Message
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.memory.bucket import FakeBucket
 from app.policy.engine import PolicyEngine
 from app.tts.providers import SILENT_MP3_FRAME
@@ -69,7 +70,7 @@ def client_as(user_id: str | None) -> TestClient:
 
 async def send(text: str = DIGEST, context_id: str | None = "ctx-1", **extra: str) -> dict:
     return json.loads(
-        await ToolRouter().call_tool(
+        await ToolRouter(natives=build_native_registry()).call_tool(
             "send_voice_message", {"text": text, **extra}, user_id=OWNER, context_id=context_id
         )
     )
@@ -216,8 +217,8 @@ class TestTheTool:
     async def test_it_is_offered_to_the_model(self):
         with patch("app.llm.tools.mcp_client") as mcp:
             mcp.list_tools = AsyncMock(return_value=[])
-            names = [t["name"] for t in await ToolRouter().get_tool_definitions()]
-            a2a = [t["name"] for t in await ToolRouter().get_tool_definitions(source="a2a")]
+            names = [t["name"] for t in await ToolRouter(natives=build_native_registry()).get_tool_definitions()]
+            a2a = [t["name"] for t in await ToolRouter(natives=build_native_registry()).get_tool_definitions(source="a2a")]
 
         assert "send_voice_message" in names and "send_voice_message" not in a2a
 

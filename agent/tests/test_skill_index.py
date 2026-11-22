@@ -480,13 +480,14 @@ class TestSkillsCreatedByAnotherProcess:
 
     async def test_list_skills_tool_sees_a_skill_created_by_another_process(self, agent_db):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         one, other = _index(), _index()
         await other.rebuild()
         await one.create("gestion-des-dates", "Dates", [], "Corps", user_id="u")
 
-        with patch("app.llm.tools.skill_index", other):
-            listed = await ToolRouter().call_tool("list_skills", {}, user_id="u")
+        with patch("app.skills.tools.skill_index", other):
+            listed = await ToolRouter(natives=build_native_registry()).call_tool("list_skills", {}, user_id="u")
 
         assert [s["name"] for s in json.loads(listed)] == ["gestion-des-dates"]
 
@@ -512,10 +513,11 @@ class TestSkillToolsAfterRestart:
     async def test_get_skill_tool_finds_a_skill_created_before_the_restart(self, agent_db):
         """MAG-187 journey, at the tool level: create_skill, restart, get_skill finds it and the prompt lists it."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         before = _index()
-        with patch("app.llm.tools.skill_index", before):
-            created = await ToolRouter().call_tool(
+        with patch("app.skills.tools.skill_index", before):
+            created = await ToolRouter(natives=build_native_registry()).call_tool(
                 "create_skill",
                 {"name": "concert-link", "description": "Lier un concert", "tags": ["concert"], "content": "Étapes"},
                 user_id="u",
@@ -524,8 +526,8 @@ class TestSkillToolsAfterRestart:
 
         restarted = _index()
         await restarted.rebuild()
-        with patch("app.llm.tools.skill_index", restarted):
-            found = await ToolRouter().call_tool("get_skill", {"name": "concert-link"}, user_id="u")
+        with patch("app.skills.tools.skill_index", restarted):
+            found = await ToolRouter(natives=build_native_registry()).call_tool("get_skill", {"name": "concert-link"}, user_id="u")
 
         assert "Étapes" in json.loads(found)["content"]
         assert "- concert-link: Lier un concert" in restarted.get_skills_index()
@@ -539,12 +541,13 @@ class TestLockedSkillTools:
 
     async def test_update_skill_on_a_locked_skill_says_locked_and_changes_nothing(self, agent_db):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
         from app.skills.index import LOCKED_SKILL_DETAIL
 
         index = await self._locked_index()
         before = (index.store.load("verrouillee"), await index.get("verrouillee"))
-        with patch("app.llm.tools.skill_index", index):
-            result = await ToolRouter().call_tool(
+        with patch("app.skills.tools.skill_index", index):
+            result = await ToolRouter(natives=build_native_registry()).call_tool(
                 "update_skill", {"name": "verrouillee", "content": "Réécrit"}, user_id="u"
             )
 
@@ -553,10 +556,11 @@ class TestLockedSkillTools:
 
     async def test_create_skill_over_a_locked_skill_says_locked(self, agent_db):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         index = await self._locked_index()
-        with patch("app.llm.tools.skill_index", index):
-            result = await ToolRouter().call_tool(
+        with patch("app.skills.tools.skill_index", index):
+            result = await ToolRouter(natives=build_native_registry()).call_tool(
                 "create_skill", {"name": "verrouillee", "description": "X", "tags": [], "content": "Remplacé"}, user_id="u"
             )
 
@@ -648,10 +652,11 @@ class TestCreateSkillToolValidation:
     )
     async def test_bad_input_is_refused_without_storing(self, agent_db, arguments):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         index = _index()
-        with patch("app.llm.tools.skill_index", index):
-            result = await ToolRouter().call_tool("create_skill", arguments, user_id="u")
+        with patch("app.skills.tools.skill_index", index):
+            result = await ToolRouter(natives=build_native_registry()).call_tool("create_skill", arguments, user_id="u")
 
         assert "error" in json.loads(result)
         with agent_db() as session:
@@ -660,11 +665,12 @@ class TestCreateSkillToolValidation:
 
     async def test_update_refuses_non_list_tags(self, agent_db):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         index = _index()
         await index.create("s", "d", ["t"], "body", user_id="u")
-        with patch("app.llm.tools.skill_index", index):
-            result = await ToolRouter().call_tool("update_skill", {"name": "s", "tags": "oops"}, user_id="u")
+        with patch("app.skills.tools.skill_index", index):
+            result = await ToolRouter(natives=build_native_registry()).call_tool("update_skill", {"name": "s", "tags": "oops"}, user_id="u")
 
         assert "error" in json.loads(result)
         assert index.entries[0].tags == ["t"]

@@ -1,0 +1,2394 @@
+{
+  "no_subagents/None": [
+    {
+      "name": "memory_search",
+      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "requete": {
+            "type": "string",
+            "description": "Words to look for (a name, a subject, a phrase)"
+          },
+          "termes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+          },
+          "limite": {
+            "type": "integer",
+            "description": "How many results (default 8, max 20)"
+          }
+        },
+        "required": [
+          "requete"
+        ]
+      }
+    },
+    {
+      "name": "memory_open",
+      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "chemin": {
+            "type": "string",
+            "description": "Path from memory_search or memory_write_fiche, as given"
+          },
+          "debut": {
+            "type": "integer",
+            "description": "Optional: first line of the passage (1 = first line)"
+          },
+          "fin": {
+            "type": "integer",
+            "description": "Optional: last line of the passage"
+          }
+        },
+        "required": [
+          "chemin"
+        ]
+      }
+    },
+    {
+      "name": "memory_write_fiche",
+      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "titre": {
+            "type": "string",
+            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+          },
+          "dossiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Folders, outermost first, at most 3 (new fiche only)"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche to rewrite (from memory_search)"
+          },
+          "resume": {
+            "type": "string",
+            "description": "A few words on what the fiche is about"
+          },
+          "affirmations": {
+            "type": "array",
+            "description": "Everything the fiche says as true now",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "One short sentence"
+                },
+                "provenance": {
+                  "type": "string",
+                  "enum": [
+                    "dit",
+                    "observé",
+                    "déduit"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Conversation or fiche path it comes from, or `app : <la donnée>`"
+                },
+                "heure": {
+                  "type": "string",
+                  "description": "Conversation source: message minute `AAAA-MM-JJ HHhMM`, as in the file"
+                },
+                "citation": {
+                  "type": "string",
+                  "description": "`dit`: the owner's words, copied as written (not stored)"
+                },
+                "valide_jusqu_au": {
+                  "type": "string",
+                  "description": "Only when it has an end (« jusqu'au 20 », « cette semaine »): the last day it stays true, `AAAA-MM-JJ`. Left out on a rewrite, the day already written stays; empty removes it."
+                }
+              },
+              "required": [
+                "texte",
+                "provenance",
+                "source"
+              ]
+            }
+          },
+          "remplacees": {
+            "type": "array",
+            "description": "Claims of the existing fiche that are no longer true",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "As written in the fiche"
+                },
+                "motif": {
+                  "type": "string",
+                  "description": "What replaced it, or why it stopped"
+                }
+              },
+              "required": [
+                "texte"
+              ]
+            }
+          },
+          "personnes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "People involved"
+          },
+          "evoque": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Situations or themes in which this fiche should come back"
+          },
+          "alias": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other names for the subject"
+          }
+        },
+        "required": [
+          "titre",
+          "affirmations"
+        ]
+      }
+    },
+    {
+      "name": "memory_log_miss",
+      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "demande": {
+            "type": "string",
+            "description": "What the owner said when the fiche should have come back, as he said it"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche that should have come back (from memory_search), if it exists"
+          },
+          "souvenir": {
+            "type": "string",
+            "description": "What should have come back, in a few words (needed when there is no `chemin`)"
+          }
+        },
+        "required": [
+          "demande"
+        ]
+      }
+    },
+    {
+      "name": "add_instruction",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The directive, in the user's own words"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "'planning' for a scheduling/notification rule, 'behavior' for a preference about tone, style or length"
+          }
+        },
+        "required": [
+          "content",
+          "kind"
+        ]
+      }
+    },
+    {
+      "name": "list_instructions",
+      "description": "List the current user's standing directives, of one kind or of both.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "Only directives of this kind; omit for all of them"
+          }
+        }
+      }
+    },
+    {
+      "name": "delete_instruction",
+      "description": "Delete a standing directive by its ID.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "instruction_id": {
+            "type": "string",
+            "description": "The ID of the instruction to delete"
+          }
+        },
+        "required": [
+          "instruction_id"
+        ]
+      }
+    },
+    {
+      "name": "add_bilan_consigne",
+      "description": "Evening review, Consignes step: record ONE consigne the user dictated, in one call. kind 'reminder' = something to do or remember at a given time tomorrow (needs scheduled_at); 'task' = something to do tomorrow without a time (needs due_date), e.g. 'acheter du pain' (a task, never a grocery item); 'instruction' = a rule that lasts or comes back ('le mardi, je pars plus tôt', 'toujours…'). The tool creates the reminder, the task or the learned instruction with the provenance 'bilan-soir' and writes it into the review's status: call it once per consigne, do NOT call schedule_proaction, create_task, add_instruction or save_bilan_step for it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "Day of the review, YYYY-MM-DD (today)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reminder",
+              "task",
+              "instruction"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "The consigne in the user's words, short ('Appeler le garage', 'Acheter du pain')"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "reminder only: tomorrow, ISO 8601 with offset, e.g. 2030-11-15T09:00:00+01:00"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "task only: tomorrow, YYYY-MM-DD"
+          },
+          "instruction_kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "instruction only: 'planning' (default) for a date rule, 'behavior' for tone"
+          }
+        },
+        "required": [
+          "day",
+          "kind",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "create_skill",
+      "description": "Create a new skill file. Skills teach Maggie HOW to perform specific tasks (e.g. 'when adding a concert, search for the event webpage'). The owner's rule: 'when I ask you X, do Y' — a general request about how Maggie should act is a skill, even when it is about reminders or notifications (e.g. 'quand je demande un rappel, je veux une notification'). Tone and wording go to add_instruction kind='behavior', a fixed schedule to kind='planning', a one-off action later to schedule_proaction, knowledge about the user or the people around them to memory_write_fiche. Use update_skill when a skill already covers it. Skills are listed by name and description in the system prompt and loaded on demand with get_skill; the user sees and edits them in the admin, Réglages › Agent › Compétences. Tag the moment the skill applies, deduced from what the user said: 'moment:chat' (when they ask you something), 'moment:proaction' (when a reminder or a proaction comes due), 'moment:planification' (the daily planning). A skill tagged with a moment is put in full in the prompt at that moment; one without stays in the index only.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique skill name (kebab-case, e.g. 'concert-event-link')"
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description of what the skill does"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Keywords describing the skill, plus the moment it applies (e.g. ['rappel', 'notification', 'moment:proaction'])"
+          },
+          "content": {
+            "type": "string",
+            "description": "The full skill procedure in markdown"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "tags",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "list_skills",
+      "description": "List all available skills (name, description, tags).",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_skill",
+      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to load"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_skill",
+      "description": "Update an existing skill's content, description, or tags. Tags replace the old ones: keep them, and add or fix the moment the skill applies ('moment:chat', 'moment:proaction', 'moment:planification') when the user says when it should be applied.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to update"
+          },
+          "content": {
+            "type": "string",
+            "description": "New skill content (optional)"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description (optional)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "New tags, moment tags included (optional; they replace the old ones)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "delete_skill",
+      "description": "Delete a skill by name.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to delete"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "date_time",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "now",
+              "convert",
+              "add",
+              "diff",
+              "weekday"
+            ]
+          },
+          "datetime": {
+            "type": "string",
+            "description": "ISO 8601 date or datetime, e.g. 2026-03-28 or 2026-03-28T15:00. Default: now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Place of 'datetime' (source place for convert). Default: the user's timezone."
+          },
+          "to_timezone": {
+            "type": "string",
+            "description": "Target place (convert only)."
+          },
+          "end": {
+            "type": "string",
+            "description": "ISO 8601 end instant (diff only)."
+          },
+          "end_timezone": {
+            "type": "string",
+            "description": "Place of 'end'. Default: same as 'timezone'."
+          },
+          "years": {
+            "type": "integer"
+          },
+          "months": {
+            "type": "integer"
+          },
+          "weeks": {
+            "type": "integer"
+          },
+          "days": {
+            "type": "integer"
+          },
+          "hours": {
+            "type": "number"
+          },
+          "minutes": {
+            "type": "number"
+          },
+          "seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    },
+    {
+      "name": "get_coach_method",
+      "description": "Lit la méthode du coach sportif, une section à la fois. section : principes · semaine · echelles · progression · seance · degradees · calibrage · sources. Sans section : la table des sections.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": [
+              "principes",
+              "semaine",
+              "echelles",
+              "progression",
+              "seance",
+              "degradees",
+              "calibrage",
+              "sources"
+            ],
+            "description": "La section à lire (facultatif)"
+          }
+        }
+      }
+    },
+    {
+      "name": "answer_approval",
+      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "approval_id": {
+            "type": "string",
+            "description": "The approvalId of the message being answered"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "deny"
+            ]
+          }
+        },
+        "required": [
+          "approval_id",
+          "decision"
+        ]
+      }
+    },
+    {
+      "name": "ask_owner",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 6
+          },
+          "multiple": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "text",
+          "options"
+        ]
+      }
+    },
+    {
+      "name": "send_voice_message",
+      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "What Maggie says, written to be heard"
+          },
+          "screen": {
+            "type": "string",
+            "enum": [
+              "digest"
+            ],
+            "description": "The screen the vocal belongs on, when a skill says so (the digest skill: \"digest\"); its notification then opens that screen instead of the thread. Omit it otherwise."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "get_events",
+      "description": "Events",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "search_recipes",
+      "description": "Recipes",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "no_subagents/proaction": [
+    {
+      "name": "memory_search",
+      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "requete": {
+            "type": "string",
+            "description": "Words to look for (a name, a subject, a phrase)"
+          },
+          "termes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+          },
+          "limite": {
+            "type": "integer",
+            "description": "How many results (default 8, max 20)"
+          }
+        },
+        "required": [
+          "requete"
+        ]
+      }
+    },
+    {
+      "name": "memory_open",
+      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "chemin": {
+            "type": "string",
+            "description": "Path from memory_search or memory_write_fiche, as given"
+          },
+          "debut": {
+            "type": "integer",
+            "description": "Optional: first line of the passage (1 = first line)"
+          },
+          "fin": {
+            "type": "integer",
+            "description": "Optional: last line of the passage"
+          }
+        },
+        "required": [
+          "chemin"
+        ]
+      }
+    },
+    {
+      "name": "memory_write_fiche",
+      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "titre": {
+            "type": "string",
+            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+          },
+          "dossiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Folders, outermost first, at most 3 (new fiche only)"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche to rewrite (from memory_search)"
+          },
+          "resume": {
+            "type": "string",
+            "description": "A few words on what the fiche is about"
+          },
+          "affirmations": {
+            "type": "array",
+            "description": "Everything the fiche says as true now",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "One short sentence"
+                },
+                "provenance": {
+                  "type": "string",
+                  "enum": [
+                    "dit",
+                    "observé",
+                    "déduit"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Conversation or fiche path it comes from, or `app : <la donnée>`"
+                },
+                "heure": {
+                  "type": "string",
+                  "description": "Conversation source: message minute `AAAA-MM-JJ HHhMM`, as in the file"
+                },
+                "citation": {
+                  "type": "string",
+                  "description": "`dit`: the owner's words, copied as written (not stored)"
+                },
+                "valide_jusqu_au": {
+                  "type": "string",
+                  "description": "Only when it has an end (« jusqu'au 20 », « cette semaine »): the last day it stays true, `AAAA-MM-JJ`. Left out on a rewrite, the day already written stays; empty removes it."
+                }
+              },
+              "required": [
+                "texte",
+                "provenance",
+                "source"
+              ]
+            }
+          },
+          "remplacees": {
+            "type": "array",
+            "description": "Claims of the existing fiche that are no longer true",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "As written in the fiche"
+                },
+                "motif": {
+                  "type": "string",
+                  "description": "What replaced it, or why it stopped"
+                }
+              },
+              "required": [
+                "texte"
+              ]
+            }
+          },
+          "personnes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "People involved"
+          },
+          "evoque": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Situations or themes in which this fiche should come back"
+          },
+          "alias": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other names for the subject"
+          }
+        },
+        "required": [
+          "titre",
+          "affirmations"
+        ]
+      }
+    },
+    {
+      "name": "memory_log_miss",
+      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "demande": {
+            "type": "string",
+            "description": "What the owner said when the fiche should have come back, as he said it"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche that should have come back (from memory_search), if it exists"
+          },
+          "souvenir": {
+            "type": "string",
+            "description": "What should have come back, in a few words (needed when there is no `chemin`)"
+          }
+        },
+        "required": [
+          "demande"
+        ]
+      }
+    },
+    {
+      "name": "add_instruction",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The directive, in the user's own words"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "'planning' for a scheduling/notification rule, 'behavior' for a preference about tone, style or length"
+          }
+        },
+        "required": [
+          "content",
+          "kind"
+        ]
+      }
+    },
+    {
+      "name": "list_instructions",
+      "description": "List the current user's standing directives, of one kind or of both.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "Only directives of this kind; omit for all of them"
+          }
+        }
+      }
+    },
+    {
+      "name": "delete_instruction",
+      "description": "Delete a standing directive by its ID.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "instruction_id": {
+            "type": "string",
+            "description": "The ID of the instruction to delete"
+          }
+        },
+        "required": [
+          "instruction_id"
+        ]
+      }
+    },
+    {
+      "name": "add_bilan_consigne",
+      "description": "Evening review, Consignes step: record ONE consigne the user dictated, in one call. kind 'reminder' = something to do or remember at a given time tomorrow (needs scheduled_at); 'task' = something to do tomorrow without a time (needs due_date), e.g. 'acheter du pain' (a task, never a grocery item); 'instruction' = a rule that lasts or comes back ('le mardi, je pars plus tôt', 'toujours…'). The tool creates the reminder, the task or the learned instruction with the provenance 'bilan-soir' and writes it into the review's status: call it once per consigne, do NOT call schedule_proaction, create_task, add_instruction or save_bilan_step for it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "Day of the review, YYYY-MM-DD (today)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reminder",
+              "task",
+              "instruction"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "The consigne in the user's words, short ('Appeler le garage', 'Acheter du pain')"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "reminder only: tomorrow, ISO 8601 with offset, e.g. 2030-11-15T09:00:00+01:00"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "task only: tomorrow, YYYY-MM-DD"
+          },
+          "instruction_kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "instruction only: 'planning' (default) for a date rule, 'behavior' for tone"
+          }
+        },
+        "required": [
+          "day",
+          "kind",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "create_skill",
+      "description": "Create a new skill file. Skills teach Maggie HOW to perform specific tasks (e.g. 'when adding a concert, search for the event webpage'). The owner's rule: 'when I ask you X, do Y' — a general request about how Maggie should act is a skill, even when it is about reminders or notifications (e.g. 'quand je demande un rappel, je veux une notification'). Tone and wording go to add_instruction kind='behavior', a fixed schedule to kind='planning', a one-off action later to schedule_proaction, knowledge about the user or the people around them to memory_write_fiche. Use update_skill when a skill already covers it. Skills are listed by name and description in the system prompt and loaded on demand with get_skill; the user sees and edits them in the admin, Réglages › Agent › Compétences. Tag the moment the skill applies, deduced from what the user said: 'moment:chat' (when they ask you something), 'moment:proaction' (when a reminder or a proaction comes due), 'moment:planification' (the daily planning). A skill tagged with a moment is put in full in the prompt at that moment; one without stays in the index only.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique skill name (kebab-case, e.g. 'concert-event-link')"
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description of what the skill does"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Keywords describing the skill, plus the moment it applies (e.g. ['rappel', 'notification', 'moment:proaction'])"
+          },
+          "content": {
+            "type": "string",
+            "description": "The full skill procedure in markdown"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "tags",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "list_skills",
+      "description": "List all available skills (name, description, tags).",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_skill",
+      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to load"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_skill",
+      "description": "Update an existing skill's content, description, or tags. Tags replace the old ones: keep them, and add or fix the moment the skill applies ('moment:chat', 'moment:proaction', 'moment:planification') when the user says when it should be applied.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to update"
+          },
+          "content": {
+            "type": "string",
+            "description": "New skill content (optional)"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description (optional)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "New tags, moment tags included (optional; they replace the old ones)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "delete_skill",
+      "description": "Delete a skill by name.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to delete"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "date_time",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "now",
+              "convert",
+              "add",
+              "diff",
+              "weekday"
+            ]
+          },
+          "datetime": {
+            "type": "string",
+            "description": "ISO 8601 date or datetime, e.g. 2026-03-28 or 2026-03-28T15:00. Default: now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Place of 'datetime' (source place for convert). Default: the user's timezone."
+          },
+          "to_timezone": {
+            "type": "string",
+            "description": "Target place (convert only)."
+          },
+          "end": {
+            "type": "string",
+            "description": "ISO 8601 end instant (diff only)."
+          },
+          "end_timezone": {
+            "type": "string",
+            "description": "Place of 'end'. Default: same as 'timezone'."
+          },
+          "years": {
+            "type": "integer"
+          },
+          "months": {
+            "type": "integer"
+          },
+          "weeks": {
+            "type": "integer"
+          },
+          "days": {
+            "type": "integer"
+          },
+          "hours": {
+            "type": "number"
+          },
+          "minutes": {
+            "type": "number"
+          },
+          "seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    },
+    {
+      "name": "get_coach_method",
+      "description": "Lit la méthode du coach sportif, une section à la fois. section : principes · semaine · echelles · progression · seance · degradees · calibrage · sources. Sans section : la table des sections.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": [
+              "principes",
+              "semaine",
+              "echelles",
+              "progression",
+              "seance",
+              "degradees",
+              "calibrage",
+              "sources"
+            ],
+            "description": "La section à lire (facultatif)"
+          }
+        }
+      }
+    },
+    {
+      "name": "answer_approval",
+      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "approval_id": {
+            "type": "string",
+            "description": "The approvalId of the message being answered"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "deny"
+            ]
+          }
+        },
+        "required": [
+          "approval_id",
+          "decision"
+        ]
+      }
+    },
+    {
+      "name": "ask_owner",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 6
+          },
+          "multiple": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "text",
+          "options"
+        ]
+      }
+    },
+    {
+      "name": "send_voice_message",
+      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "What Maggie says, written to be heard"
+          },
+          "screen": {
+            "type": "string",
+            "enum": [
+              "digest"
+            ],
+            "description": "The screen the vocal belongs on, when a skill says so (the digest skill: \"digest\"); its notification then opens that screen instead of the thread. Omit it otherwise."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "get_events",
+      "description": "Events",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "search_recipes",
+      "description": "Recipes",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "no_subagents/a2a": [
+    {
+      "name": "get_events",
+      "description": "Events",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "search_recipes",
+      "description": "Recipes",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "subagents/None": [
+    {
+      "name": "memory_search",
+      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "requete": {
+            "type": "string",
+            "description": "Words to look for (a name, a subject, a phrase)"
+          },
+          "termes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+          },
+          "limite": {
+            "type": "integer",
+            "description": "How many results (default 8, max 20)"
+          }
+        },
+        "required": [
+          "requete"
+        ]
+      }
+    },
+    {
+      "name": "memory_open",
+      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "chemin": {
+            "type": "string",
+            "description": "Path from memory_search or memory_write_fiche, as given"
+          },
+          "debut": {
+            "type": "integer",
+            "description": "Optional: first line of the passage (1 = first line)"
+          },
+          "fin": {
+            "type": "integer",
+            "description": "Optional: last line of the passage"
+          }
+        },
+        "required": [
+          "chemin"
+        ]
+      }
+    },
+    {
+      "name": "memory_write_fiche",
+      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "titre": {
+            "type": "string",
+            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+          },
+          "dossiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Folders, outermost first, at most 3 (new fiche only)"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche to rewrite (from memory_search)"
+          },
+          "resume": {
+            "type": "string",
+            "description": "A few words on what the fiche is about"
+          },
+          "affirmations": {
+            "type": "array",
+            "description": "Everything the fiche says as true now",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "One short sentence"
+                },
+                "provenance": {
+                  "type": "string",
+                  "enum": [
+                    "dit",
+                    "observé",
+                    "déduit"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Conversation or fiche path it comes from, or `app : <la donnée>`"
+                },
+                "heure": {
+                  "type": "string",
+                  "description": "Conversation source: message minute `AAAA-MM-JJ HHhMM`, as in the file"
+                },
+                "citation": {
+                  "type": "string",
+                  "description": "`dit`: the owner's words, copied as written (not stored)"
+                },
+                "valide_jusqu_au": {
+                  "type": "string",
+                  "description": "Only when it has an end (« jusqu'au 20 », « cette semaine »): the last day it stays true, `AAAA-MM-JJ`. Left out on a rewrite, the day already written stays; empty removes it."
+                }
+              },
+              "required": [
+                "texte",
+                "provenance",
+                "source"
+              ]
+            }
+          },
+          "remplacees": {
+            "type": "array",
+            "description": "Claims of the existing fiche that are no longer true",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "As written in the fiche"
+                },
+                "motif": {
+                  "type": "string",
+                  "description": "What replaced it, or why it stopped"
+                }
+              },
+              "required": [
+                "texte"
+              ]
+            }
+          },
+          "personnes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "People involved"
+          },
+          "evoque": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Situations or themes in which this fiche should come back"
+          },
+          "alias": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other names for the subject"
+          }
+        },
+        "required": [
+          "titre",
+          "affirmations"
+        ]
+      }
+    },
+    {
+      "name": "memory_log_miss",
+      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "demande": {
+            "type": "string",
+            "description": "What the owner said when the fiche should have come back, as he said it"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche that should have come back (from memory_search), if it exists"
+          },
+          "souvenir": {
+            "type": "string",
+            "description": "What should have come back, in a few words (needed when there is no `chemin`)"
+          }
+        },
+        "required": [
+          "demande"
+        ]
+      }
+    },
+    {
+      "name": "add_instruction",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The directive, in the user's own words"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "'planning' for a scheduling/notification rule, 'behavior' for a preference about tone, style or length"
+          }
+        },
+        "required": [
+          "content",
+          "kind"
+        ]
+      }
+    },
+    {
+      "name": "list_instructions",
+      "description": "List the current user's standing directives, of one kind or of both.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "Only directives of this kind; omit for all of them"
+          }
+        }
+      }
+    },
+    {
+      "name": "delete_instruction",
+      "description": "Delete a standing directive by its ID.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "instruction_id": {
+            "type": "string",
+            "description": "The ID of the instruction to delete"
+          }
+        },
+        "required": [
+          "instruction_id"
+        ]
+      }
+    },
+    {
+      "name": "add_bilan_consigne",
+      "description": "Evening review, Consignes step: record ONE consigne the user dictated, in one call. kind 'reminder' = something to do or remember at a given time tomorrow (needs scheduled_at); 'task' = something to do tomorrow without a time (needs due_date), e.g. 'acheter du pain' (a task, never a grocery item); 'instruction' = a rule that lasts or comes back ('le mardi, je pars plus tôt', 'toujours…'). The tool creates the reminder, the task or the learned instruction with the provenance 'bilan-soir' and writes it into the review's status: call it once per consigne, do NOT call schedule_proaction, create_task, add_instruction or save_bilan_step for it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "Day of the review, YYYY-MM-DD (today)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reminder",
+              "task",
+              "instruction"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "The consigne in the user's words, short ('Appeler le garage', 'Acheter du pain')"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "reminder only: tomorrow, ISO 8601 with offset, e.g. 2030-11-15T09:00:00+01:00"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "task only: tomorrow, YYYY-MM-DD"
+          },
+          "instruction_kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "instruction only: 'planning' (default) for a date rule, 'behavior' for tone"
+          }
+        },
+        "required": [
+          "day",
+          "kind",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "create_skill",
+      "description": "Create a new skill file. Skills teach Maggie HOW to perform specific tasks (e.g. 'when adding a concert, search for the event webpage'). The owner's rule: 'when I ask you X, do Y' — a general request about how Maggie should act is a skill, even when it is about reminders or notifications (e.g. 'quand je demande un rappel, je veux une notification'). Tone and wording go to add_instruction kind='behavior', a fixed schedule to kind='planning', a one-off action later to schedule_proaction, knowledge about the user or the people around them to memory_write_fiche. Use update_skill when a skill already covers it. Skills are listed by name and description in the system prompt and loaded on demand with get_skill; the user sees and edits them in the admin, Réglages › Agent › Compétences. Tag the moment the skill applies, deduced from what the user said: 'moment:chat' (when they ask you something), 'moment:proaction' (when a reminder or a proaction comes due), 'moment:planification' (the daily planning). A skill tagged with a moment is put in full in the prompt at that moment; one without stays in the index only.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique skill name (kebab-case, e.g. 'concert-event-link')"
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description of what the skill does"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Keywords describing the skill, plus the moment it applies (e.g. ['rappel', 'notification', 'moment:proaction'])"
+          },
+          "content": {
+            "type": "string",
+            "description": "The full skill procedure in markdown"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "tags",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "list_skills",
+      "description": "List all available skills (name, description, tags).",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_skill",
+      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to load"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_skill",
+      "description": "Update an existing skill's content, description, or tags. Tags replace the old ones: keep them, and add or fix the moment the skill applies ('moment:chat', 'moment:proaction', 'moment:planification') when the user says when it should be applied.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to update"
+          },
+          "content": {
+            "type": "string",
+            "description": "New skill content (optional)"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description (optional)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "New tags, moment tags included (optional; they replace the old ones)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "delete_skill",
+      "description": "Delete a skill by name.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to delete"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "date_time",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "now",
+              "convert",
+              "add",
+              "diff",
+              "weekday"
+            ]
+          },
+          "datetime": {
+            "type": "string",
+            "description": "ISO 8601 date or datetime, e.g. 2026-03-28 or 2026-03-28T15:00. Default: now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Place of 'datetime' (source place for convert). Default: the user's timezone."
+          },
+          "to_timezone": {
+            "type": "string",
+            "description": "Target place (convert only)."
+          },
+          "end": {
+            "type": "string",
+            "description": "ISO 8601 end instant (diff only)."
+          },
+          "end_timezone": {
+            "type": "string",
+            "description": "Place of 'end'. Default: same as 'timezone'."
+          },
+          "years": {
+            "type": "integer"
+          },
+          "months": {
+            "type": "integer"
+          },
+          "weeks": {
+            "type": "integer"
+          },
+          "days": {
+            "type": "integer"
+          },
+          "hours": {
+            "type": "number"
+          },
+          "minutes": {
+            "type": "number"
+          },
+          "seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    },
+    {
+      "name": "get_coach_method",
+      "description": "Lit la méthode du coach sportif, une section à la fois. section : principes · semaine · echelles · progression · seance · degradees · calibrage · sources. Sans section : la table des sections.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": [
+              "principes",
+              "semaine",
+              "echelles",
+              "progression",
+              "seance",
+              "degradees",
+              "calibrage",
+              "sources"
+            ],
+            "description": "La section à lire (facultatif)"
+          }
+        }
+      }
+    },
+    {
+      "name": "answer_approval",
+      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "approval_id": {
+            "type": "string",
+            "description": "The approvalId of the message being answered"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "deny"
+            ]
+          }
+        },
+        "required": [
+          "approval_id",
+          "decision"
+        ]
+      }
+    },
+    {
+      "name": "ask_owner",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 6
+          },
+          "multiple": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "text",
+          "options"
+        ]
+      }
+    },
+    {
+      "name": "send_voice_message",
+      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "What Maggie says, written to be heard"
+          },
+          "screen": {
+            "type": "string",
+            "enum": [
+              "digest"
+            ],
+            "description": "The screen the vocal belongs on, when a skill says so (the digest skill: \"digest\"); its notification then opens that screen instead of the thread. Omit it otherwise."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "delegate",
+      "description": "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation.\nAgents disponibles :\n- researcher : Cherche",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "agent": {
+            "type": "string",
+            "enum": [
+              "researcher"
+            ],
+            "description": "Le sous-agent à qui confier la tâche"
+          },
+          "task": {
+            "type": "string",
+            "description": "La tâche à exécuter, complète et autonome (période, sujets, forme de la synthèse)"
+          }
+        },
+        "required": [
+          "agent",
+          "task"
+        ]
+      }
+    },
+    {
+      "name": "get_events",
+      "description": "Events",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "search_recipes",
+      "description": "Recipes",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "subagents/proaction": [
+    {
+      "name": "memory_search",
+      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "requete": {
+            "type": "string",
+            "description": "Words to look for (a name, a subject, a phrase)"
+          },
+          "termes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+          },
+          "limite": {
+            "type": "integer",
+            "description": "How many results (default 8, max 20)"
+          }
+        },
+        "required": [
+          "requete"
+        ]
+      }
+    },
+    {
+      "name": "memory_open",
+      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "chemin": {
+            "type": "string",
+            "description": "Path from memory_search or memory_write_fiche, as given"
+          },
+          "debut": {
+            "type": "integer",
+            "description": "Optional: first line of the passage (1 = first line)"
+          },
+          "fin": {
+            "type": "integer",
+            "description": "Optional: last line of the passage"
+          }
+        },
+        "required": [
+          "chemin"
+        ]
+      }
+    },
+    {
+      "name": "memory_write_fiche",
+      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "titre": {
+            "type": "string",
+            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+          },
+          "dossiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Folders, outermost first, at most 3 (new fiche only)"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche to rewrite (from memory_search)"
+          },
+          "resume": {
+            "type": "string",
+            "description": "A few words on what the fiche is about"
+          },
+          "affirmations": {
+            "type": "array",
+            "description": "Everything the fiche says as true now",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "One short sentence"
+                },
+                "provenance": {
+                  "type": "string",
+                  "enum": [
+                    "dit",
+                    "observé",
+                    "déduit"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Conversation or fiche path it comes from, or `app : <la donnée>`"
+                },
+                "heure": {
+                  "type": "string",
+                  "description": "Conversation source: message minute `AAAA-MM-JJ HHhMM`, as in the file"
+                },
+                "citation": {
+                  "type": "string",
+                  "description": "`dit`: the owner's words, copied as written (not stored)"
+                },
+                "valide_jusqu_au": {
+                  "type": "string",
+                  "description": "Only when it has an end (« jusqu'au 20 », « cette semaine »): the last day it stays true, `AAAA-MM-JJ`. Left out on a rewrite, the day already written stays; empty removes it."
+                }
+              },
+              "required": [
+                "texte",
+                "provenance",
+                "source"
+              ]
+            }
+          },
+          "remplacees": {
+            "type": "array",
+            "description": "Claims of the existing fiche that are no longer true",
+            "items": {
+              "type": "object",
+              "properties": {
+                "texte": {
+                  "type": "string",
+                  "description": "As written in the fiche"
+                },
+                "motif": {
+                  "type": "string",
+                  "description": "What replaced it, or why it stopped"
+                }
+              },
+              "required": [
+                "texte"
+              ]
+            }
+          },
+          "personnes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "People involved"
+          },
+          "evoque": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Situations or themes in which this fiche should come back"
+          },
+          "alias": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other names for the subject"
+          }
+        },
+        "required": [
+          "titre",
+          "affirmations"
+        ]
+      }
+    },
+    {
+      "name": "memory_log_miss",
+      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "demande": {
+            "type": "string",
+            "description": "What the owner said when the fiche should have come back, as he said it"
+          },
+          "chemin": {
+            "type": "string",
+            "description": "Path of the fiche that should have come back (from memory_search), if it exists"
+          },
+          "souvenir": {
+            "type": "string",
+            "description": "What should have come back, in a few words (needed when there is no `chemin`)"
+          }
+        },
+        "required": [
+          "demande"
+        ]
+      }
+    },
+    {
+      "name": "add_instruction",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The directive, in the user's own words"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "'planning' for a scheduling/notification rule, 'behavior' for a preference about tone, style or length"
+          }
+        },
+        "required": [
+          "content",
+          "kind"
+        ]
+      }
+    },
+    {
+      "name": "list_instructions",
+      "description": "List the current user's standing directives, of one kind or of both.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "Only directives of this kind; omit for all of them"
+          }
+        }
+      }
+    },
+    {
+      "name": "delete_instruction",
+      "description": "Delete a standing directive by its ID.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "instruction_id": {
+            "type": "string",
+            "description": "The ID of the instruction to delete"
+          }
+        },
+        "required": [
+          "instruction_id"
+        ]
+      }
+    },
+    {
+      "name": "add_bilan_consigne",
+      "description": "Evening review, Consignes step: record ONE consigne the user dictated, in one call. kind 'reminder' = something to do or remember at a given time tomorrow (needs scheduled_at); 'task' = something to do tomorrow without a time (needs due_date), e.g. 'acheter du pain' (a task, never a grocery item); 'instruction' = a rule that lasts or comes back ('le mardi, je pars plus tôt', 'toujours…'). The tool creates the reminder, the task or the learned instruction with the provenance 'bilan-soir' and writes it into the review's status: call it once per consigne, do NOT call schedule_proaction, create_task, add_instruction or save_bilan_step for it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "Day of the review, YYYY-MM-DD (today)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reminder",
+              "task",
+              "instruction"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "The consigne in the user's words, short ('Appeler le garage', 'Acheter du pain')"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "reminder only: tomorrow, ISO 8601 with offset, e.g. 2030-11-15T09:00:00+01:00"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "task only: tomorrow, YYYY-MM-DD"
+          },
+          "instruction_kind": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "behavior"
+            ],
+            "description": "instruction only: 'planning' (default) for a date rule, 'behavior' for tone"
+          }
+        },
+        "required": [
+          "day",
+          "kind",
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "create_skill",
+      "description": "Create a new skill file. Skills teach Maggie HOW to perform specific tasks (e.g. 'when adding a concert, search for the event webpage'). The owner's rule: 'when I ask you X, do Y' — a general request about how Maggie should act is a skill, even when it is about reminders or notifications (e.g. 'quand je demande un rappel, je veux une notification'). Tone and wording go to add_instruction kind='behavior', a fixed schedule to kind='planning', a one-off action later to schedule_proaction, knowledge about the user or the people around them to memory_write_fiche. Use update_skill when a skill already covers it. Skills are listed by name and description in the system prompt and loaded on demand with get_skill; the user sees and edits them in the admin, Réglages › Agent › Compétences. Tag the moment the skill applies, deduced from what the user said: 'moment:chat' (when they ask you something), 'moment:proaction' (when a reminder or a proaction comes due), 'moment:planification' (the daily planning). A skill tagged with a moment is put in full in the prompt at that moment; one without stays in the index only.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique skill name (kebab-case, e.g. 'concert-event-link')"
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description of what the skill does"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Keywords describing the skill, plus the moment it applies (e.g. ['rappel', 'notification', 'moment:proaction'])"
+          },
+          "content": {
+            "type": "string",
+            "description": "The full skill procedure in markdown"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "tags",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "list_skills",
+      "description": "List all available skills (name, description, tags).",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "get_skill",
+      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to load"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "update_skill",
+      "description": "Update an existing skill's content, description, or tags. Tags replace the old ones: keep them, and add or fix the moment the skill applies ('moment:chat', 'moment:proaction', 'moment:planification') when the user says when it should be applied.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to update"
+          },
+          "content": {
+            "type": "string",
+            "description": "New skill content (optional)"
+          },
+          "description": {
+            "type": "string",
+            "description": "New description (optional)"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "New tags, moment tags included (optional; they replace the old ones)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "delete_skill",
+      "description": "Delete a skill by name.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The skill name to delete"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "date_time",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "now",
+              "convert",
+              "add",
+              "diff",
+              "weekday"
+            ]
+          },
+          "datetime": {
+            "type": "string",
+            "description": "ISO 8601 date or datetime, e.g. 2026-03-28 or 2026-03-28T15:00. Default: now."
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Place of 'datetime' (source place for convert). Default: the user's timezone."
+          },
+          "to_timezone": {
+            "type": "string",
+            "description": "Target place (convert only)."
+          },
+          "end": {
+            "type": "string",
+            "description": "ISO 8601 end instant (diff only)."
+          },
+          "end_timezone": {
+            "type": "string",
+            "description": "Place of 'end'. Default: same as 'timezone'."
+          },
+          "years": {
+            "type": "integer"
+          },
+          "months": {
+            "type": "integer"
+          },
+          "weeks": {
+            "type": "integer"
+          },
+          "days": {
+            "type": "integer"
+          },
+          "hours": {
+            "type": "number"
+          },
+          "minutes": {
+            "type": "number"
+          },
+          "seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    },
+    {
+      "name": "get_coach_method",
+      "description": "Lit la méthode du coach sportif, une section à la fois. section : principes · semaine · echelles · progression · seance · degradees · calibrage · sources. Sans section : la table des sections.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": [
+              "principes",
+              "semaine",
+              "echelles",
+              "progression",
+              "seance",
+              "degradees",
+              "calibrage",
+              "sources"
+            ],
+            "description": "La section à lire (facultatif)"
+          }
+        }
+      }
+    },
+    {
+      "name": "answer_approval",
+      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "approval_id": {
+            "type": "string",
+            "description": "The approvalId of the message being answered"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "deny"
+            ]
+          }
+        },
+        "required": [
+          "approval_id",
+          "decision"
+        ]
+      }
+    },
+    {
+      "name": "ask_owner",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 6
+          },
+          "multiple": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "text",
+          "options"
+        ]
+      }
+    },
+    {
+      "name": "send_voice_message",
+      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "What Maggie says, written to be heard"
+          },
+          "screen": {
+            "type": "string",
+            "enum": [
+              "digest"
+            ],
+            "description": "The screen the vocal belongs on, when a skill says so (the digest skill: \"digest\"); its notification then opens that screen instead of the thread. Omit it otherwise."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "delegate",
+      "description": "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation.\nAgents disponibles :\n- researcher : Cherche",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "agent": {
+            "type": "string",
+            "enum": [
+              "researcher"
+            ],
+            "description": "Le sous-agent à qui confier la tâche"
+          },
+          "task": {
+            "type": "string",
+            "description": "La tâche à exécuter, complète et autonome (période, sujets, forme de la synthèse)"
+          }
+        },
+        "required": [
+          "agent",
+          "task"
+        ]
+      }
+    },
+    {
+      "name": "get_events",
+      "description": "Events",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "search_recipes",
+      "description": "Recipes",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "subagents/a2a": [
+    {
+      "name": "get_events",
+      "description": "Events",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "search_recipes",
+      "description": "Recipes",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
