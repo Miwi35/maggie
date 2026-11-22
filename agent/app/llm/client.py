@@ -8,7 +8,6 @@ caller takes an e2e-only branch.
 import logging
 
 import anthropic
-import httpx
 
 from app.config import settings
 from app.llm.fake import FakeAnthropicClient
@@ -35,7 +34,8 @@ def create_llm_client():
         return FakeAnthropicClient()
     return anthropic.AsyncAnthropic(
         api_key=settings.anthropic_api_key,
-        timeout=httpx.Timeout(settings.llm_timeout_seconds, connect=5.0),
+        # The SDK's own Timeout: from 0.84 it ships httpx2 and refuses an `httpx.Timeout`.
+        timeout=anthropic.Timeout(settings.llm_timeout_seconds, connect=5.0),
     )
 
 

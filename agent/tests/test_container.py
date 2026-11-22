@@ -2,6 +2,7 @@ import ast
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import anthropic
 import httpx
 import pytest
 
@@ -41,7 +42,21 @@ def test_the_anthropic_client_is_built_only_by_the_factory():
 
 def test_the_client_has_an_explicit_timeout():
     with patch.object(settings, "llm_provider", "anthropic"), patch.object(settings, "anthropic_api_key", "test"):
-        assert Container().llm_client.timeout == httpx.Timeout(600.0, connect=5.0)
+        assert Container().llm_client.timeout == anthropic.Timeout(600.0, connect=5.0)
+
+
+def test_the_timeout_is_the_sdk_own_type():
+    """The SDK may ship its own httpx (httpx2 from 0.84) and refuses a foreign `httpx.Timeout` (MAG-884 deploy)."""
+
+    class SdkTimeout(httpx.Timeout):
+        pass
+
+    with (
+        patch.object(settings, "llm_provider", "anthropic"),
+        patch.object(settings, "anthropic_api_key", "test"),
+        patch.object(anthropic, "Timeout", SdkTimeout),
+    ):
+        assert type(Container().llm_client.timeout) is SdkTimeout
 
 
 def test_the_timeout_is_the_setting():
