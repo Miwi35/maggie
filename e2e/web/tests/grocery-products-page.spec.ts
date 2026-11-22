@@ -6,8 +6,7 @@ import { ROUTES } from '../pages/routes.js'
 
 /**
  * The Produits page as the mockup « Admin-Produits » draws it (MAG-622): the
- * pastilles narrow the products, which stay grouped by rayon with its French
- * name, and a click on a product opens its fiche in a panel on the right.
+ * pastilles narrow the products, listed flat under « Tous », and a click on a product opens its fiche in a panel on the right.
  *
  * Written on the owner's data: everything is created here, under names no other
  * journey uses, and removed in `finally`.
@@ -50,19 +49,20 @@ test('« De saison » keeps the products in season, by rayon, and a click opens 
     // --- When: I open Produits and click « De saison » ----------------------
     const shell = new AdminShell(page)
     await shell.goto(ROUTES.products)
-    const pastille = (name: string) => shell.content.getByRole('button', { name, exact: true })
+    const pastille = (name: string) => shell.content.getByRole('button', { name, exact: true }).first()
     for (const name of ['Tous', 'De saison', 'Conditionnés', 'Stock bas']) await expect(pastille(name)).toBeVisible()
     await expect(shell.content.getByText(butter)).toBeVisible()
-    await expect(shell.content.getByRole('heading', { level: 3, name: /^Produits laitiers · \d+$/ })).toBeVisible()
+    await expect(shell.content.getByText('Magasin', { exact: true })).toBeVisible()
+    await expect(shell.content.getByRole('button', { name: 'Tous', exact: true })).toHaveCount(2)
+    await expect(shell.content.getByRole('heading', { level: 3 })).toHaveCount(0)
 
     await pastille('De saison').click()
 
-    // --- Then: only the products in season remain, under their rayon ---------
+    // --- Then: only the products in season remain,  ---------
     await expect(pastille('De saison')).toHaveAttribute('aria-pressed', 'true')
     await expect(shell.content.getByText(strawberries)).toBeVisible()
     await expect(shell.content.getByText(pumpkins)).toHaveCount(0)
     await expect(shell.content.getByText(butter)).toHaveCount(0)
-    await expect(shell.content.getByRole('heading', { level: 3, name: /^Fruits & Légumes · \d+$/ })).toBeVisible()
 
     // --- When: I click a product ---------------------------------------------
     await shell.content.getByText(strawberries).click()
@@ -70,6 +70,7 @@ test('« De saison » keeps the products in season, by rayon, and a click opens 
     // --- Then: its fiche opens in the panel on the right ---------------------
     const panel = page.getByRole('dialog', { name: strawberries })
     await expect(panel).toBeVisible()
+    await expect(shell.content.getByRole('row', { selected: true })).toContainText(strawberries)
     await expect(panel.getByLabel('Nom', { exact: false })).toHaveValue(strawberries)
     const box = await panel.boundingBox()
     const viewport = page.viewportSize()

@@ -33,3 +33,23 @@ export const useStoreAisles = (storeId: string | null) => {
   }
   return { aisles, ready, add }
 }
+
+/** The aisles of each given store, read once per distinct store; a store that fails reads as having none. */
+export const useAislesByStore = (storeIds: string[]): Map<string, Aisle[]> => {
+  const [loaded, setLoaded] = useState<Map<string, Aisle[]>>(new Map())
+  const key = [...new Set(storeIds)].sort().join(',')
+
+  useEffect(() => {
+    if (!key) return
+    let live = true
+    const ids = key.split(',')
+    Promise.all(ids.map((id) => fetchAisles(id).catch(() => [] as Aisle[]))).then((all) => {
+      if (live) setLoaded(new Map(ids.map((id, i) => [id, all[i]])))
+    })
+    return () => {
+      live = false
+    }
+  }, [key])
+
+  return loaded
+}

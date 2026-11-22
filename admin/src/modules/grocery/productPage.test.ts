@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { categoryName, groupsByAisle, groupsByCategory, matchesPastille, matchesSearch } from './productPage'
+import { groupsByAisle, matchesPastille, matchesSearch, sortCycle, stockLook, storesLabel, usualAisle } from './productPage'
 import type { ProductRow } from './productPage'
 
 const row = (name: string, extra: Partial<ProductRow> = {}): ProductRow => ({ id: name, name, category: 'other', ...extra })
@@ -27,20 +27,34 @@ describe('productPage', () => {
     expect(matchesSearch(row('Crème fraîche'), 'lait')).toBe(false)
   })
 
-  test('a category is named in French, an unknown one is « Autre »', () => {
-    expect(categoryName('dairy')).toBe('Produits laitiers')
-    expect(categoryName('mystery')).toBe('Autre')
-    expect(categoryName(null)).toBe('Autre')
+  test('the usual aisle is the product\'s aisle in its preferred store', () => {
+    const byStore = new Map([['s', [{ id: 'fresh', store: 's', name: 'Frais', position: 1 }]]])
+    const base = { aisles: [{ store: '/api/stores/s', aisle: 'fresh' }] }
+
+    expect(usualAisle(row('a', { ...base, preferredStore: '/api/stores/s' }), byStore)?.name).toBe('Frais')
+    expect(usualAisle(row('a', { ...base, preferredStore: '/api/stores/t' }), byStore)).toBeUndefined()
+    expect(usualAisle(row('a', base), byStore)).toBeUndefined()
   })
 
-  test('groups by category in the order of the choices, « Autre » last, empty groups dropped', () => {
-    const groups = groupsByCategory([row('a'), row('b', { category: 'grain' }), row('c', { category: 'produce' }), row('d', { category: 'mystery' })])
+  test('the stores read « Super U · Biocoop », the preferred alone, or nothing', () => {
+    const name = (iri?: string | null) => ({ u: 'Super U', b: 'Biocoop' })[String(iri)] ?? ''
 
-    expect(groups.map((g) => [g.title, g.rows.length])).toEqual([
-      ['Fruits & Légumes', 1],
-      ['Céréales', 1],
-      ['Autre', 2],
-    ])
+    expect(storesLabel(row('a', { preferredStore: 'u', fallbackStore: 'b' }), name)).toBe('Super U · Biocoop')
+    expect(storesLabel(row('a', { preferredStore: 'u' }), name)).toBe('Super U')
+    expect(storesLabel(row('a'), name)).toBe('')
+  })
+
+  test('stock reads en stock, bas, épuisé', () => {
+    expect(stockLook('in_stock').label).toBe('en stock')
+    expect(stockLook('low').label).toBe('bas')
+    expect(stockLook('out').label).toBe('épuisé')
+    expect(stockLook('mystery').label).toBe('en stock')
+    expect(stockLook(null).label).toBe('en stock')
+  })
+
+  test('the sort cycle skips rayon without a store', () => {
+    expect(sortCycle(false)).toEqual(['name', 'stockState'])
+    expect(sortCycle(true)).toEqual(['name', 'aisle', 'stockState'])
   })
 
   test('groups by aisle in the way through the store, « Sans rayon » last', () => {
