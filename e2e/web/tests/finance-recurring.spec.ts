@@ -47,7 +47,7 @@ import { FinanceRecurringPage } from '../pages/FinanceRecurringPage.js'
  *   Alors « Abonnement Flixo » coûte 13,49 € par mois, 161,88 € par an
  *     et sa prochaine échéance est le 12 du mois à venir
  *   Quand je demande à Maggie « combien me coûtent mes abonnements ? »
- *   Alors elle a lu les opérations récurrentes (`get_recurring_operations`)
+ *   Alors elle a lu les opérations récurrentes (`manage_operations` list, `recurring: true`)
  *
  * Fourth step, MAG-308: the same series on the screen, and a series made from
  * a transaction:
@@ -373,9 +373,9 @@ test('the overview reads a subscription\'s cost and next due date, and Maggie re
   const events = await new ChatPanel(page).send('Combien me coûtent mes abonnements ?')
 
   // Then she read the recurring operations, and it went through.
-  expect(calledTools(events)).toContain('get_recurring_operations')
+  expect(calledTools(events)).toContain('manage_operations')
   expect(toolResults(events)).toEqual(
-    expect.arrayContaining([expect.objectContaining({ toolName: 'get_recurring_operations', status: 'success' })]),
+    expect.arrayContaining([expect.objectContaining({ toolName: 'manage_operations', status: 'success' })]),
   )
 })
 

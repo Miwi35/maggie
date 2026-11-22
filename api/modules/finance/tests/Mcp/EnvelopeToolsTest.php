@@ -321,4 +321,69 @@ class EnvelopeToolsTest extends KernelTestCase
         self::assertArrayHasKey('error', $foreignMother);
         self::assertSame(9000, $this->amountOf('other_leisure_october'));
     }
+
+    /** @return list<Envelope> */
+    private function monthlyEnvelopesOf(string $categoryFixture): array
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $envelopes = $em->getRepository(Envelope::class)->findBy(['category' => $this->getFixture($categoryFixture)->getId(), 'mode' => \Maggie\Finance\Enum\BudgetMode::Monthly]);
+        usort($envelopes, static fn (Envelope $a, Envelope $b): int => [$a->getYear(), $a->getMonth()] <=> [$b->getYear(), $b->getMonth()]);
+
+        return $envelopes;
+    }
+
+    public function testSetMonthlyOverARangeWritesEachMonth(): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        $this->loginFixtureUser();
+        $existing = $this->getFixture('food_july');
+        $tool = self::getContainer()->get(ManageEnvelopesTool::class);
+
+        $data = json_decode($tool('set', categoryId: (string) $this->getFixture('food')->getId(), amountCents: 50000, mode: 'monthly', year: 2026, month: 7, toYear: 2027, toMonth: 2), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertTrue($data['success']);
+        self::assertCount(8, $data['envelopes']);
+        self::assertSame((string) $existing->getId(), $data['envelopes'][0]['id'], 'July is updated, not duplicated');
+        $stored = $this->monthlyEnvelopesOf('food');
+        self::assertCount(8, $stored);
+        self::assertSame([2026, 7], [$stored[0]->getYear(), $stored[0]->getMonth()]);
+        self::assertSame([2027, 2], [$stored[7]->getYear(), $stored[7]->getMonth()]);
+        foreach ($stored as $envelope) {
+            self::assertSame(50000, $envelope->getAmountCents());
+        }
+        $this->assertMercureUpdatePublished('/envelopes/');
+        $this->assertElasticsearchIndexDispatched(Envelope::class);
+    }
+
+    public function testSetRangeIncompleteIsRefusedWithCurrentState(): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        $this->loginFixtureUser();
+        $tool = self::getContainer()->get(ManageEnvelopesTool::class);
+
+        $data = json_decode($tool('set', categoryId: (string) $this->getFixture('food')->getId(), amountCents: 50000, mode: 'monthly', year: 2026, month: 7, toYear: 2026), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertArrayHasKey('error', $data);
+        self::assertArrayNotHasKey('success', $data);
+        self::assertSame([(string) $this->getFixture('food_july')->getId()], array_column($data['envelopes'], 'id'));
+        self::assertSame(40000, $data['envelopes'][0]['amountCents']);
+        self::assertSame(40000, $this->amountOf('food_july'));
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testSetRangeInvertedWritesNothing(): void
+    {
+        $this->loadFixtures('envelope.yaml');
+        $this->loginFixtureUser();
+        $tool = self::getContainer()->get(ManageEnvelopesTool::class);
+
+        $data = json_decode($tool('set', categoryId: (string) $this->getFixture('food')->getId(), amountCents: 50000, mode: 'monthly', year: 2026, month: 9, toYear: 2026, toMonth: 7), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertStringContainsString('ends before', $data['error']);
+        self::assertCount(1, $this->monthlyEnvelopesOf('food'));
+        self::assertSame(40000, $this->amountOf('food_july'));
+        $this->assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(Envelope::class);
+    }
 }

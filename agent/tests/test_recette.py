@@ -74,7 +74,7 @@ class TestDryRunToolRouter:
             ("read_web_page", {"url": "https://www.marmiton.org/recettes/x"}),
             ("manage_tasks", {"action": "list"}),
             ("manage_events", {"action": "get", "id": "1"}),
-            ("monthly_review", {"action": "review"}),
+            ("manage_operations", {"action": "suggest"}),
         ],
     )
     async def test_reading_tools_run_for_real(self, router, name, arguments):
@@ -95,7 +95,7 @@ class TestDryRunToolRouter:
             ("manage_tasks", {"action": "create", "title": "x"}),
             ("manage_tasks", {"action": ["list"]}),
             ("manage_tasks", {}),
-            ("monthly_review", {"action": "close"}),
+            ("manage_transactions", {"action": "update", "id": "1", "retrospect": True}),
             ("a_tool_nobody_classified", {}),
         ],
     )

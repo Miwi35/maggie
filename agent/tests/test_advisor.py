@@ -27,7 +27,7 @@ READS = {
     "manage_scenarios": ["list", "get", "compare", "timeline", "suggest"],
     "manage_loans": ["list", "timeline", "early_repayment"],
     "manage_placements": ["list", "simulate"],
-    "manage_projects": ["list"],
+    "manage_projects": ["list", "preview"],
     "manage_accounts": ["list"],
 }
 

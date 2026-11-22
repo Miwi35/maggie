@@ -1,20 +1,22 @@
 <?php
 
-namespace Maggie\Finance\Tests\Mcp;
+namespace Maggie\Finance\Tests\UseCase;
 
 use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FinanceDashboardRefreshTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
+use Maggie\Core\Entity\User;
 use Maggie\Finance\Entity\Account;
 use Maggie\Finance\Entity\PeerDebt;
 use Maggie\Finance\Entity\SafetyCushion;
 use Maggie\Finance\Mcp\Tool\ManagePeerDebtsTool;
-use Maggie\Finance\Mcp\Tool\ManageSafetyCushionTool;
+use Maggie\Finance\UseCase\GetCushionStatus;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-class SafetyCushionToolsTest extends KernelTestCase
+/** Cushion state computation : the use case behind get_finance_summary. */
+class CushionStatusComputationTest extends KernelTestCase
 {
     use ElasticsearchAssertionTrait;
     use FinanceDashboardRefreshTrait;
@@ -29,15 +31,14 @@ class SafetyCushionToolsTest extends KernelTestCase
         $this->resetAsyncTransport();
     }
 
-    private function tool(): ManageSafetyCushionTool
-    {
-        return self::getContainer()->get(ManageSafetyCushionTool::class);
-    }
-
     /** @return array<string, mixed> */
     private function cushionStatus(): array
     {
-        return json_decode($this->tool()('status'), true, 512, JSON_THROW_ON_ERROR);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $user = $em->find(User::class, $this->getFixture('test_user')->getId());
+
+        return self::getContainer()->get(GetCushionStatus::class)->execute($user);
     }
 
     private function setBalance(string $fixture, int $balanceCents): void
@@ -50,7 +51,7 @@ class SafetyCushionToolsTest extends KernelTestCase
 
     public function testCurrentAmountIsTheBalanceOfTheCushionAccounts(): void
     {
-        $this->loadFixtures('safety_cushion.yaml');
+        $this->loadFixtures(__DIR__.'/../Mcp/fixtures/safety_cushion.yaml');
         $this->loginFixtureUser();
 
         $status = $this->cushionStatus();
@@ -63,7 +64,7 @@ class SafetyCushionToolsTest extends KernelTestCase
 
     public function testAnIncompleteCushionIsStillBuildingAndBlocksAGreenScore(): void
     {
-        $this->loadFixtures('safety_cushion.yaml');
+        $this->loadFixtures(__DIR__.'/../Mcp/fixtures/safety_cushion.yaml');
         $this->loginFixtureUser();
 
         $status = $this->cushionStatus();
@@ -77,7 +78,7 @@ class SafetyCushionToolsTest extends KernelTestCase
 
     public function testTheRechargeCapStretchesTheDurationRatherThanTheEffort(): void
     {
-        $this->loadFixtures('safety_cushion.yaml');
+        $this->loadFixtures(__DIR__.'/../Mcp/fixtures/safety_cushion.yaml');
         $this->loginFixtureUser();
 
         $status = $this->cushionStatus();
@@ -91,10 +92,12 @@ class SafetyCushionToolsTest extends KernelTestCase
 
     public function testAComfortableCapKeepsTheWishedForHorizon(): void
     {
-        $this->loadFixtures('safety_cushion.yaml');
+        $this->loadFixtures(__DIR__.'/../Mcp/fixtures/safety_cushion.yaml');
         $this->loginFixtureUser();
 
-        $this->tool()('configure', rechargeCapCents: 100000);
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->find(SafetyCushion::class, $this->getFixture('cushion')->getId())->setRechargeCapCents(100000);
+        $em->flush();
         $status = $this->cushionStatus();
 
         // 3000 € over 6 months = 500 €/month, which fits under a 1000 € cap.
@@ -105,7 +108,7 @@ class SafetyCushionToolsTest extends KernelTestCase
 
     public function testReachingTheTargetCompletesTheCushion(): void
     {
-        $this->loadFixtures('safety_cushion.yaml');
+        $this->loadFixtures(__DIR__.'/../Mcp/fixtures/safety_cushion.yaml');
         $this->loginFixtureUser();
         $this->setBalance('livret', 600000);
         // Reading never records the completion: the rebuild the balance change queued does.
@@ -128,7 +131,7 @@ class SafetyCushionToolsTest extends KernelTestCase
 
     public function testDippingIntoACompletedCushionPutsItInRecharge(): void
     {
-        $this->loadFixtures('safety_cushion.yaml');
+        $this->loadFixtures(__DIR__.'/../Mcp/fixtures/safety_cushion.yaml');
         $this->loginFixtureUser();
 
         // Fill it up first, so it remembers having been complete...
@@ -145,28 +148,9 @@ class SafetyCushionToolsTest extends KernelTestCase
         self::assertTrue($status['blocksGreenScore']);
     }
 
-    public function testConfigureChangesTheTargetAndRecomputesIt(): void
-    {
-        $this->loadFixtures('safety_cushion.yaml');
-        $this->loginFixtureUser();
-
-        $data = json_decode(
-            $this->tool()('configure', targetMonths: 6, monthlyNetIncomeCents: 300000),
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
-        );
-
-        self::assertTrue($data['success']);
-        self::assertSame(1800000, $data['cushion']['targetCents']);
-        self::assertSame(6, $data['cushion']['targetMonths']);
-
-        $this->assertMercureUpdatePublished('/safety_cushions/');
-    }
-
     public function testAnUnconfiguredUserReadsTheDefaultThresholdAndShare(): void
     {
-        $this->loadFixtures('user.yaml');
+        $this->loadFixtures(__DIR__.'/../Mcp/fixtures/user.yaml');
         $this->loginFixtureUser();
 
         $status = $this->cushionStatus();
@@ -185,100 +169,6 @@ class SafetyCushionToolsTest extends KernelTestCase
         // A train de vie of 100 €/month and an empty cushion: 200 € to reach the threshold.
         self::assertSame(20000, $status['criticalCents']);
         self::assertSame(20000, $status['criticalDeficitCents']);
-    }
-
-    public function testConfigureSetsTheThresholdAndTheShareAndPublishes(): void
-    {
-        $this->loadFixtures('safety_cushion.yaml');
-        $this->loginFixtureUser();
-
-        $data = json_decode(
-            $this->tool()('configure', criticalMonths: 0, cushionSharePercent: 100),
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
-        );
-
-        self::assertTrue($data['success']);
-        self::assertSame(0, $data['cushion']['criticalMonths']);
-        self::assertSame(100, $data['cushion']['cushionSharePercent']);
-        // The fields not given stand.
-        self::assertSame(3, $data['cushion']['targetMonths']);
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->clear();
-        $stored = $em->find(SafetyCushion::class, $this->getFixture('cushion')->getId());
-        self::assertSame(0, $stored->getCriticalMonths());
-        self::assertSame(100, $stored->getCushionSharePercent());
-
-        $this->assertMercureUpdatePublished('/safety_cushions/'.$this->getFixture('cushion')->getId());
-    }
-
-    public function testConfigureRefusesAThresholdOrAShareOutOfBounds(): void
-    {
-        $this->loadFixtures('safety_cushion.yaml');
-        $this->loginFixtureUser();
-
-        self::assertArrayHasKey('error', json_decode($this->tool()('configure', criticalMonths: 25), true, 512, JSON_THROW_ON_ERROR));
-        self::assertArrayHasKey('error', json_decode($this->tool()('configure', criticalMonths: -1), true, 512, JSON_THROW_ON_ERROR));
-        self::assertArrayHasKey('error', json_decode($this->tool()('configure', cushionSharePercent: 101), true, 512, JSON_THROW_ON_ERROR));
-
-        $em = self::getContainer()->get('doctrine.orm.entity_manager');
-        $em->clear();
-        $stored = $em->find(SafetyCushion::class, $this->getFixture('cushion')->getId());
-        self::assertSame(2, $stored->getCriticalMonths());
-        self::assertSame(60, $stored->getCushionSharePercent());
-    }
-
-    public function testARaiseRecomputesTheTargetWithoutTouchingTheCushion(): void
-    {
-        $this->loadFixtures('safety_cushion.yaml');
-        $this->loginFixtureUser();
-
-        $this->tool()('configure', monthlyNetIncomeCents: 400000);
-        $status = $this->cushionStatus();
-
-        // The target follows the income; the balance did not move.
-        self::assertSame(1200000, $status['targetCents']);
-        self::assertSame(450000, $status['currentCents']);
-        self::assertSame('building', $status['state']);
-    }
-
-    public function testConfigureRejectsAnImpossibleTarget(): void
-    {
-        $this->loadFixtures('safety_cushion.yaml');
-        $this->loginFixtureUser();
-
-        $data = json_decode($this->tool()('configure', targetMonths: 0), true, 512, JSON_THROW_ON_ERROR);
-
-        self::assertArrayHasKey('error', $data);
-    }
-
-    public function testConfigureNeedsSomethingToChange(): void
-    {
-        $this->loadFixtures('safety_cushion.yaml');
-        $this->loginFixtureUser();
-
-        $data = json_decode($this->tool()('configure'), true, 512, JSON_THROW_ON_ERROR);
-
-        self::assertArrayHasKey('error', $data);
-    }
-
-    public function testUnknownActionIsReported(): void
-    {
-        $this->loadFixtures('safety_cushion.yaml');
-        $this->loginFixtureUser();
-
-        $data = json_decode($this->tool()('refill'), true, 512, JSON_THROW_ON_ERROR);
-
-        self::assertArrayHasKey('error', $data);
-    }
-
-    public function testStatusWithoutAUserIsRefused(): void
-    {
-        $this->loadFixtures(__DIR__.'/../Api/fixtures/cushion_peer_claims.yaml');
-
-        self::assertArrayHasKey('error', $this->cushionStatus());
     }
 
     public function testStatusLowersTheCushionByTheOpenCreances(): void

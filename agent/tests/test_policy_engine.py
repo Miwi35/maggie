@@ -180,3 +180,9 @@ class TestTheShippedPolicy:
         # The policy exists to hold back a handful of calls; a file that quietly turned
         # the whole agent into a confirmation prompt would be the worse failure.
         assert policy_engine.evaluate(tool, {}, "chat") is Mode.ALLOW
+
+    def test_advisor_may_preview_but_not_create_a_project(self):
+        source = "subagent:advisor"
+        assert policy_engine.evaluate("manage_projects", {"action": "preview"}, source) is Mode.ALLOW
+        assert policy_engine.evaluate("manage_projects", {"action": "list"}, source) is Mode.ALLOW
+        assert policy_engine.evaluate("manage_projects", {"action": "create"}, source) is Mode.DENY

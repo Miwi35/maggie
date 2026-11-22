@@ -8,9 +8,13 @@ use App\Tests\Support\MercureAssertionTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Finance\Entity\Project;
+use Maggie\Finance\Entity\Scenario;
 use Maggie\Finance\Enum\ProjectDateMode;
 use Maggie\Finance\Mcp\Tool\ManageProjectsTool;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 
 /** manage_projects (MAG-519): every action, and partial requests refused with `current`. */
 class ProjectToolsTest extends KernelTestCase
@@ -26,6 +30,12 @@ class ProjectToolsTest extends KernelTestCase
         $this->loadFixtures(__DIR__.'/../Api/fixtures/project.yaml');
         $this->resetMercure();
         $this->resetAsyncTransport();
+    }
+
+    protected function tearDown(): void
+    {
+        Clock::set(new NativeClock());
+        parent::tearDown();
     }
 
     /** @return array<string, mixed> */
@@ -337,5 +347,80 @@ class ProjectToolsTest extends KernelTestCase
 
         self::assertStringContainsString('ids', $data['error']);
         self::assertCount(3, $data['current']);
+    }
+
+    public function testListCarriesPurchaseMonthAndGatheredAmount(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+        $this->loadFixtures(__DIR__.'/../Api/fixtures/project_funding.yaml');
+        $this->loginFixtureUser();
+
+        $data = $this->call('list');
+
+        self::assertSame('2026-10', $data['startMonth']);
+        self::assertArrayHasKey('netCapacityCents', $data);
+        self::assertArrayHasKey('isIncomeKnown', $data);
+        self::assertSame(['Voiture'], array_column($data['projects'], 'name'));
+        self::assertSame('2028-02', $data['projects'][0]['purchaseMonth']);
+        self::assertArrayHasKey('gatheredCents', $data['projects'][0]);
+        self::assertArrayHasKey('dependsOn', $data['projects'][0]);
+    }
+
+    private function loadPreviewFixtures(): void
+    {
+        Clock::set(new MockClock('2026-10-21 12:00:00 UTC'));
+        $this->loadFixtures(__DIR__.'/../Api/fixtures/project_preview.yaml');
+        $theirs = $this->em()->find(Scenario::class, $this->id('theirs'));
+        \assert($theirs instanceof Scenario);
+        $theirs->setProjects([['projectId' => $this->id('secret'), 'position' => 0]]);
+        $this->em()->flush();
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+    }
+
+    public function testPreviewCreatesNothingAndReturnsBeforeAfter(): void
+    {
+        $this->loadPreviewFixtures();
+        $this->loginFixtureUser();
+        $projects = $this->rows();
+        $scenarios = $this->em()->getRepository(Scenario::class)->count([]);
+
+        $data = $this->call('preview', name: 'Box à louer', amountCents: 1800000, wellbeing: 'high', dependsOn: [$this->id('car')]);
+
+        self::assertArrayNotHasKey('error', $data);
+        self::assertSame(['Dentiste', 'Voiture', 'Cuisine', 'Voyage au Japon'], array_column($data['dates'], 'name'));
+        self::assertSame(['before', 'after'], array_keys($data['nDate']));
+        self::assertSame(1800000, $data['metrics']['realCost']);
+        self::assertSame($projects, $this->rows());
+        self::assertSame($scenarios, $this->em()->getRepository(Scenario::class)->count([]));
+        self::assertNull($this->em()->getRepository(Project::class)->findOneBy(['name' => 'Box à louer']));
+        $this->assertMercureUpdateCount(0);
+        $this->assertNoElasticsearchIndexDispatched(Project::class);
+
+        $mine = $this->call('preview', name: 'Box', amountCents: 1800000, scenarioId: $this->id('mine'));
+        self::assertSame(['id' => $this->id('mine'), 'name' => 'Mon plan', 'editable' => true], $mine['scenario']);
+        self::assertFalse($this->call('preview', name: 'Box', amountCents: 1800000, scenarioId: 'auto-balanced')['scenario']['editable']);
+    }
+
+    public function testPreviewUnknownScenarioIsRefused(): void
+    {
+        $this->loadPreviewFixtures();
+        $this->loginFixtureUser();
+
+        $foreign = $this->call('preview', name: 'Box', amountCents: 1800000, scenarioId: $this->id('theirs'));
+        self::assertArrayHasKey('error', $foreign);
+        self::assertStringNotContainsString('Plan de l\'autre', json_encode($foreign, JSON_THROW_ON_ERROR));
+        self::assertArrayHasKey('error', $this->call('preview', name: 'Box', amountCents: 1800000, scenarioId: '01ARZ3NDEKTSV4RRFFQ69G5FAV'));
+
+        $partial = $this->call('preview', name: 'Box à louer');
+        self::assertStringContainsString('name and amountCents are required', $partial['error']);
+        self::assertSame(['name' => 'Box à louer'], $partial['current']);
+
+        $dateless = $this->call('preview', name: 'Box', amountCents: 1000, dateMode: 'fixed');
+        self::assertStringContainsString('needs a targetOn', $dateless['error']);
+
+        $dependency = $this->call('preview', name: 'Box', amountCents: 1800000, dependsOn: [$this->id('secret')]);
+        self::assertArrayHasKey('error', $dependency);
+        self::assertStringNotContainsString('Projet secret', json_encode($dependency, JSON_THROW_ON_ERROR));
     }
 }
