@@ -34,7 +34,7 @@ def read_db():
 
 @pytest.fixture()
 def published():
-    with patch("app.api.routes.read_publisher.publish", new=AsyncMock()) as publish:
+    with patch("app.api.message_routes.read_publisher.publish", new=AsyncMock()) as publish:
         yield publish
 
 
@@ -115,7 +115,7 @@ def test_a_mercure_failure_does_not_fail_the_read(read_db):
     _add(read_db, "m1", "assistant", 5)
 
     with (
-        patch("app.api.routes.read_publisher.publish", new=AsyncMock(side_effect=RuntimeError("hub down"))),
+        patch("app.api.message_routes.read_publisher.publish", new=AsyncMock(side_effect=RuntimeError("hub down"))),
         TestClient(app) as c,
     ):
         assert c.put("/chat/read", json={"messageId": "m1"}).status_code == 200

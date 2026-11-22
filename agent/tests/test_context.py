@@ -311,8 +311,8 @@ class TestContextRouteAuth:
         response = client.get("/contexts")
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.context_repo")
+    @patch("app.api.chat_routes.message_repo")
+    @patch("app.api.chat_routes.context_repo")
     def test_contexts_returns_list(self, mock_repo, mock_messages, authed_client):
         ctx = MagicMock()
         ctx.id = "ctx-1"
@@ -337,8 +337,8 @@ class TestContextRouteAuth:
         assert data[0]["messageCount"] == 4
         mock_repo.find_active.assert_called_once_with("test-user")
 
-    @patch("app.api.routes.message_repo")
-    @patch("app.api.routes.context_repo")
+    @patch("app.api.chat_routes.message_repo")
+    @patch("app.api.chat_routes.context_repo")
     def test_contexts_empty(self, mock_repo, mock_messages, authed_client):
         mock_repo.find_active = AsyncMock(return_value=[])
         mock_messages.count_by_user_contexts = AsyncMock(return_value={})
@@ -371,7 +371,7 @@ class TestStreamRoute:
         assert response.status_code in (401, 403)
 
     @patch.object(container, "streaming_gateway")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.message_repo")
     def test_stream_returns_sse(self, mock_msg_repo, mock_gateway, authed_client):
         fake_msg = MagicMock()
         fake_msg.id = "msg-1"
@@ -408,7 +408,7 @@ class TestStreamRoute:
         assert events[4]["type"] == "RUN_FINISHED"
 
     @patch.object(container, "streaming_gateway")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.message_repo")
     def test_stream_creates_user_message(self, mock_msg_repo, mock_gateway, authed_client):
         fake_msg = MagicMock()
         fake_msg.id = "msg-1"

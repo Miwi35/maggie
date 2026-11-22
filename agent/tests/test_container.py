@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 import app
-import app.api.routes as routes
+import app.api.chat_routes as routes
 from app.config import settings
 from app.container import Container, container
 from app.llm.fake import FakeAnthropicClient

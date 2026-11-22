@@ -9,7 +9,7 @@ class TestTranscribeRoute:
         response = client.post("/transcribe", files={"audio": ("test.webm", b"fake-audio", "audio/webm")})
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.transcribe_audio", new_callable=AsyncMock)
+    @patch("app.api.voice_routes.transcribe_audio", new_callable=AsyncMock)
     def test_transcribe_returns_clean_text(self, mock_transcribe, authed_client):
         """POST /transcribe with valid audio returns raw + clean text."""
         mock_transcribe.return_value = {"raw": "euh bonjour", "clean": "Bonjour."}
@@ -25,7 +25,7 @@ class TestTranscribeRoute:
         assert data["clean"] == "Bonjour."
         assert mock_transcribe.call_args.kwargs["cleanup"] == "auto"
 
-    @patch("app.api.routes.transcribe_audio", new_callable=AsyncMock)
+    @patch("app.api.voice_routes.transcribe_audio", new_callable=AsyncMock)
     def test_cleanup_none_is_passed_through(self, mock_transcribe, authed_client):
         """What a conversation with Maggie asks for: transcribe, never clean (MAG-222)."""
         mock_transcribe.return_value = {"raw": "euh bonjour", "clean": "bonjour"}
@@ -39,7 +39,7 @@ class TestTranscribeRoute:
         assert response.status_code == 200
         assert mock_transcribe.call_args.kwargs["cleanup"] == "none"
 
-    @patch("app.api.routes.transcribe_audio", new_callable=AsyncMock)
+    @patch("app.api.voice_routes.transcribe_audio", new_callable=AsyncMock)
     def test_an_unknown_cleanup_mode_returns_400(self, mock_transcribe, authed_client):
         response = authed_client.post(
             "/transcribe",

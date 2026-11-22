@@ -37,7 +37,7 @@ DIGEST = "Bonjour ! Voici ta journée : un rendez-vous à dix heures."
 def bucket():
     fake = FakeBucket()
     with patch("app.tts.voice_message.memory_service", SimpleNamespace(bucket=fake)), patch(
-        "app.api.routes.memory_service", SimpleNamespace(bucket=fake)
+        "app.api.voice_routes.memory_service", SimpleNamespace(bucket=fake)
     ):
         yield fake
 
@@ -45,7 +45,7 @@ def bucket():
 @pytest.fixture()
 def no_bucket():
     with patch("app.tts.voice_message.memory_service", SimpleNamespace(bucket=None)), patch(
-        "app.api.routes.memory_service", SimpleNamespace(bucket=None)
+        "app.api.voice_routes.memory_service", SimpleNamespace(bucket=None)
     ):
         yield
 
@@ -290,7 +290,7 @@ class TestTheAudioRoute:
         assert anon.get(f"/fake-bucket/{key}?expires={expired}&signature={bucket._signature(key, expired)}").status_code == 403
 
     def test_the_fake_bucket_route_is_closed_on_a_real_bucket(self):
-        with patch("app.api.routes.memory_service", SimpleNamespace(bucket=object())):
+        with patch("app.api.voice_routes.memory_service", SimpleNamespace(bucket=object())):
             assert client_as(None).get("/fake-bucket/audio/x.mp3?expires=1&signature=s").status_code == 404
 
 

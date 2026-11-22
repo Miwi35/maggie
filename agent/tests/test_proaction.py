@@ -56,7 +56,7 @@ class TestProactionRouteAuth:
 
     def test_proactions_are_read_from_the_api_latest_first(self, authed_client):
         later = Proaction.from_api(API_PROACTION | {"id": "later", "scheduledAt": "2037-02-21T09:00:00+01:00"})
-        with patch("app.api.routes.proactions_api.list_for_user", AsyncMock(return_value=[Proaction.from_api(API_PROACTION), later])) as listed:
+        with patch("app.api.proaction_routes.proactions_api.list_for_user", AsyncMock(return_value=[Proaction.from_api(API_PROACTION), later])) as listed:
             response = authed_client.get("/proactions")
 
         assert response.status_code == 200
@@ -64,7 +64,7 @@ class TestProactionRouteAuth:
         listed.assert_awaited_once_with("test-user")
 
     def test_an_unreachable_api_is_a_502_not_an_empty_list(self, authed_client):
-        with patch("app.api.routes.proactions_api.list_for_user", AsyncMock(side_effect=ProactionApiUnreachable("down"))):
+        with patch("app.api.proaction_routes.proactions_api.list_for_user", AsyncMock(side_effect=ProactionApiUnreachable("down"))):
             response = authed_client.get("/proactions")
 
         assert response.status_code == 502
@@ -87,8 +87,8 @@ class TestProactionRoute:
         stored.to_dict.return_value = {"id": "msg-1", "role": "assistant", "contextId": result.get("context_id")}
         with (
             patch.object(container, "llm_gateway") as gateway,
-            patch("app.api.routes.message_repo") as messages,
-            patch("app.api.routes.context_summarizer") as summarizer,
+            patch("app.api.proaction_routes.message_repo") as messages,
+            patch("app.api.proaction_routes.context_summarizer") as summarizer,
         ):
             gateway.proaction = AsyncMock(return_value=result)
             messages.create = AsyncMock(return_value=stored)

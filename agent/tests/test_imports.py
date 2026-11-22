@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 import app
-import app.api.routes as routes
+import app.api.approval_routes as routes
 
 APP_DIR = Path(app.__file__).parent
 

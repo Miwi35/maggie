@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import update
 
 from app.container import container
-from app.api import routes
+from app.api import chat_routes as routes
 from app.db.message_repository import message_repo
 from app.db.models import Message
 from app.llm import turns
