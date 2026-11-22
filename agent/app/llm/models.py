@@ -63,9 +63,14 @@ def effort_kwargs(run: str) -> dict:
     return {"output_config": {"effort": effort}} if effort else {}
 
 
+# The daily planning's prompt opens with it (`daily_planning_prompt`): fired by hand through
+# `POST /agent/proaction` it is still the planning, whose writes are not an ordinary proaction's.
+PLANNING_PROMPT_START = "C'est le début de la journée du "
+
+
 def proaction_run(*, silent: bool, summary: str | None, prompt: str) -> str:
     """The kind of run a proaction is: the morning planning, a trip run, a digest or review, or any other."""
-    if silent:
+    if silent or prompt.startswith(PLANNING_PROMPT_START):
         return PLANNING
     if is_silent_trip_run(summary):
         return TRIP
