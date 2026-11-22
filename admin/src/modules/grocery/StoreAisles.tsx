@@ -26,21 +26,36 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { useMercure } from '../../hooks/useMercure'
-import { STORES_PAGE_TOPICS, AisleError, createAisle, deleteAisle, fetchAisles, updateAisle } from './aislesApi'
+import {
+  STORES_PAGE_TOPICS,
+  AisleError,
+  createAisle,
+  deleteAisle,
+  fetchAisleProductCount,
+  fetchAisles,
+  updateAisle,
+} from './aislesApi'
 import type { Aisle } from './aislesApi'
 import { bareId } from './recurring'
 
 // How long a burst of Mercure messages is waited out before the aisles are read again.
 const BURST_MS = 300
 
+// Products are counted from the search index, which the worker updates after the event left.
+const INDEX_DELAY_MS = 3000
+
 const errorText = (error: unknown, fallback: string) => (error instanceof AisleError ? error.message : fallback)
 
 function SortableAisle({
   aisle,
+  rank,
+  count,
   onRename,
   onDelete,
 }: {
   aisle: Aisle
+  rank: number
+  count?: number
   onRename: (aisle: Aisle, name: string) => void
   onDelete: (aisle: Aisle) => void
 }) {
@@ -70,7 +85,7 @@ function SortableAisle({
       data-testid="store-aisle"
       data-aisle={aisle.name}
       disablePadding
-      sx={{ gap: 0.5 }}
+      sx={{ gap: 0.5, minHeight: 52, borderRadius: '12px', bgcolor: 'action.hover', mb: 0.5, pr: 0.5 }}
     >
       <IconButton
         size="small"
@@ -81,8 +96,18 @@ function SortableAisle({
       >
         <DragIndicatorIcon fontSize="small" sx={{ color: 'action.disabled' }} />
       </IconButton>
+      <Typography
+        data-testid="store-aisle-rank"
+        sx={(theme) => ({ minWidth: 20, fontWeight: 600, color: theme.palette.module?.cuisine })}
+      >
+        {rank}
+      </Typography>
       {draft === null ? (
-        <ListItemText primary={aisle.name} onDoubleClick={() => setDraft(aisle.name)} />
+        <ListItemText
+          primary={aisle.name}
+          slotProps={{ primary: { 'data-testid': 'store-aisle-name' } as object }}
+          onDoubleClick={() => setDraft(aisle.name)}
+        />
       ) : (
         <TextField
           size="small"
@@ -94,6 +119,11 @@ function SortableAisle({
           onBlur={commit}
           slotProps={{ htmlInput: { 'aria-label': `Nom du rayon ${aisle.name}` } }}
         />
+      )}
+      {count !== undefined && (
+        <Typography data-testid="store-aisle-count" variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+          {`${count} produit${count > 1 ? 's' : ''}`}
+        </Typography>
       )}
       <IconButton size="small" aria-label={`Renommer ${aisle.name}`} onClick={() => setDraft(aisle.name)}>
         <EditOutlinedIcon fontSize="small" />
@@ -114,6 +144,7 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
   const [aisles, setAisles] = useState<Aisle[]>([])
   const [newName, setNewName] = useState('')
   const [toDelete, setToDelete] = useState<Aisle | null>(null)
+  const [counts, setCounts] = useState<Record<string, number>>({})
 
   // Only the last read answers: an older one still under way is cut, and neither its result nor its failure counts.
   const reading = useRef<AbortController | null>(null)
@@ -123,25 +154,48 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
     reading.current = null
   }, [])
 
+  // A count that cannot be read keeps its last value: the page does not depend on it.
+  const readCounts = useCallback(
+    async (list: Aisle[], signal: AbortSignal) => {
+      const answers = await Promise.allSettled(list.map((a) => fetchAisleProductCount(storeId, a.id, signal)))
+      if (signal.aborted) return
+      const read: Record<string, number> = {}
+      answers.forEach((answer, i) => {
+        if (answer.status === 'fulfilled') read[list[i].id] = answer.value
+      })
+      setCounts((previous) => ({ ...previous, ...read }))
+    },
+    [storeId],
+  )
+
   const reload = useCallback(async () => {
     cancelReading()
     const own = new AbortController()
     reading.current = own
     try {
       const read = await fetchAisles(storeId, own.signal)
-      if (!own.signal.aborted) setAisles(read)
+      if (own.signal.aborted) return
+      setAisles(read)
+      await readCounts(read, own.signal)
     } catch {
       if (!own.signal.aborted) notify("Erreur : les rayons n'ont pas été chargés", { type: 'error' })
     }
-  }, [storeId, notify, cancelReading])
+  }, [storeId, notify, cancelReading, readCounts])
 
   // A move renumbers the store's aisles and each publishes its update: one read once the burst is over.
   const burst = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // The index catches up after the event: the counts alone are read again then, the aisles are not.
+  const indexed = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const aislesRef = useRef<Aisle[]>([])
+  useEffect(() => {
+    aislesRef.current = aisles
+  }, [aisles])
 
   useEffect(() => {
     reload()
     return () => {
       clearTimeout(burst.current) // a burst of the store left must not read in the one shown now
+      clearTimeout(indexed.current)
       cancelReading()
     }
   }, [reload, cancelReading])
@@ -159,8 +213,14 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
         }
         clearTimeout(burst.current)
         burst.current = setTimeout(reload, BURST_MS)
+        clearTimeout(indexed.current)
+        indexed.current = setTimeout(() => {
+          const own = new AbortController()
+          reading.current = own
+          readCounts(aislesRef.current, own.signal)
+        }, INDEX_DELAY_MS)
       },
-      [reload, storeId],
+      [reload, storeId, readCounts],
     ),
   )
 
@@ -227,8 +287,15 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={aisles.map((a) => a.id)} strategy={verticalListSortingStrategy}>
           <List dense disablePadding>
-            {aisles.map((aisle) => (
-              <SortableAisle key={aisle.id} aisle={aisle} onRename={handleRename} onDelete={setToDelete} />
+            {aisles.map((aisle, index) => (
+              <SortableAisle
+                key={aisle.id}
+                aisle={aisle}
+                rank={index + 1}
+                count={counts[aisle.id]}
+                onRename={handleRename}
+                onDelete={setToDelete}
+              />
             ))}
           </List>
         </SortableContext>

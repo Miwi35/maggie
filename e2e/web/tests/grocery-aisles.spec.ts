@@ -140,7 +140,11 @@ test('the grocery list follows the aisles reordered on the stores page — MAG-4
     await expect(storeRow).toContainText('3 rayons · 3 produits')
     await storeRow.click()
     const aisles = shell.content.getByTestId('store-aisles').getByTestId('store-aisle')
-    await expect(aisles).toHaveText(['Fruits et légumes', 'Crèmerie', 'Boulangerie'])
+    const names = aisles.getByTestId('store-aisle-name')
+    const ranks = aisles.getByTestId('store-aisle-rank')
+    await expect(names).toHaveText(['Fruits et légumes', 'Crèmerie', 'Boulangerie'])
+    await expect(ranks).toHaveText(['1', '2', '3'])
+    await expect(aisles.getByTestId('store-aisle-count')).toHaveText(['1 produit', '1 produit', '1 produit'])
 
     const moved = page.waitForResponse(
       (response) => response.url().includes(`/api/aisles/${bakery.id}`) && response.request().method() === 'PATCH',
@@ -153,7 +157,8 @@ test('the grocery list follows the aisles reordered on the stores page — MAG-4
     const response = await moved
     expect(response.status(), `the API refused the move: ${await response.text()}`).toBe(200)
     expect(response.request().postDataJSON()).toEqual({ position: 1 })
-    await expect(aisles).toHaveText(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
+    await expect(names).toHaveText(['Boulangerie', 'Fruits et légumes', 'Crèmerie'])
+    await expect(ranks).toHaveText(['1', '2', '3'])
 
     // --- Then: the list reads bakery, fruit, dairy --------------------------
     await expect
@@ -194,7 +199,7 @@ test('dragging the last aisle first is saved in order and shows no error — MAG
     await shell.goto(ROUTES.stores)
     await shell.content.getByTestId('store-row').filter({ hasText: storeName }).click()
     const aisles = shell.content.getByTestId('store-aisles').getByTestId('store-aisle')
-    await expect(aisles).toHaveText(names)
+    await expect(shell.content.getByTestId('store-aisle-name')).toHaveText(names)
 
     // --- When: the last one is dragged to the head -------------------------
     const moved = page.waitForResponse(
@@ -225,7 +230,7 @@ test('dragging the last aisle first is saved in order and shows no error — MAG
     const expected = ['Rayon 8', ...names.slice(0, 7)]
     expect((await echo).status()).toBe(200)
     expect(patches).toHaveLength(1)
-    await expect(aisles).toHaveText(expected)
+    await expect(shell.content.getByTestId('store-aisle-name')).toHaveText(expected)
     await expect(page.getByText(/^Erreur : /)).toHaveCount(0)
     const stored = await getCollection<{ name: string; position: number }>(api, `/api/aisles?store=${store.id}`)
     expect(stored.sort((a, b) => a.position - b.position).map((a) => a.name)).toEqual(expected)
