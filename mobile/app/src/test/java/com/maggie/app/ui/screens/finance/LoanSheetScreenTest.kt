@@ -19,6 +19,7 @@ import com.maggie.app.data.model.LoanCurvePoint
 import com.maggie.app.data.model.LoanLabels
 import com.maggie.app.data.model.LoanSchedule
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.repository.LoanRepository
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -208,12 +209,11 @@ class LoanSheetScreenTest {
         compose.setContent { LoanListScreen(LoanViewModel(repository), onOpenLoan = { opened += it }, onBack = {}) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.LOAN_ROW).fetchSemanticsNodes().size == 2 }
-        compose.onNodeWithText("Amortissable taux fixe").assertIsDisplayed()
-        compose.onNodeWithText("In fine").assertIsDisplayed()
-        compose.onNodeWithText("Libéré en Mars 2034").assertIsDisplayed()
-        compose.onNodeWithText("Intérêts restants : ${formatCents(620000)}").assertIsDisplayed()
+        compose.onNodeWithText("Amortissable taux fixe", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("In fine", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Fini en mars 2034 · ${formatCentsRounded(620000)} d’intérêts restants").assertIsDisplayed()
         compose.onNodeWithText("Projeté").assertIsDisplayed()
-        assertEquals(1, compose.onAllNodes(hasText("Libéré en", substring = true)).fetchSemanticsNodes().size)
+        assertEquals(1, compose.onAllNodes(hasText("Fini en", substring = true)).fetchSemanticsNodes().size)
 
         compose.onNodeWithText("Travaux").performClick()
         assertEquals(listOf("l2"), opened)

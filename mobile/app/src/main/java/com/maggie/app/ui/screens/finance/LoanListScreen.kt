@@ -21,7 +21,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -39,12 +38,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.api.LoanCreateRequest
 import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.Loan
 import com.maggie.app.data.model.LoanLabels
-import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.LoanSchedule
+import com.maggie.app.data.model.SavingCapacity
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.formatLoanMonth
 import com.maggie.app.data.model.formatRate
 import com.maggie.app.ui.components.ConfirmDeleteDialog
@@ -57,6 +64,9 @@ import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.theme.MaggieTokens
+import java.time.YearMonth
+import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,10 +119,22 @@ fun LoanListScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     uiState.timeline?.let { timeline ->
-                        item { DebtTimelineCard(timeline) }
+                        item { LoansHeader(timeline) }
+                        if (timeline.reliefByMonth.isNotEmpty()) {
+                            item { ReliefCard(timeline) }
+                        }
+                    }
+
+                    item {
+                        Text(
+                            "Par priorité de remboursement".uppercase(Locale.FRANCE),
+                            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.14.em),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
                     }
 
                     items(uiState.loans, key = { it.id }) { loan ->
@@ -122,66 +144,62 @@ fun LoanListScreen(
                             onClick = { onOpenLoan(loan.id) },
                             modifier = Modifier.fillMaxWidth().testTag(UiTags.LOAN_ROW),
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(loan.name, style = MaterialTheme.typography.bodyLarge)
-                                        if (loan.projected) {
-                                            Text(
-                                                "Projeté",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                modifier = Modifier
-                                                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp))
-                                                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                                            )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text(loan.name, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                            if (loan.projected) {
+                                                Text(
+                                                    "Projeté",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    modifier = Modifier
+                                                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp))
+                                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                                )
+                                            }
                                         }
-                                    }
-                                    Text(
-                                        text = LoanLabels.type(loan.type),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Text(
-                                        text = "${formatCents(loan.principalRemainingCents, loan.currency)} " +
-                                            "restants · ${formatCents(loan.monthlyPaymentCents, loan.currency)}/mois " +
-                                            "· ${formatRate(loan.annualRateBasisPoints)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    loan.repaidShare()?.let { share ->
-                                        LinearProgressIndicator(progress = { share }, modifier = Modifier.fillMaxWidth())
-                                    }
-                                    schedule?.let {
                                         Text(
-                                            text = if (it.endsBeyondHorizon) {
-                                                "Se termine au-delà de l'horizon"
-                                            } else {
-                                                "Libéré en ${formatLoanMonth(it.freedOn)}"
-                                            },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                        )
-                                        Text(
-                                            text = "Intérêts restants : ${formatCents(it.totalInterestCents, loan.currency)}",
-                                            style = MaterialTheme.typography.bodySmall,
+                                            loanSubtitle(loan),
+                                            fontSize = 13.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                }
-                                IconButton(onClick = { deletingLoan = loan }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Supprimer",
-                                        tint = MaterialTheme.colorScheme.error,
+                                    Text(
+                                        formatCentsRounded(loan.principalRemainingCents, loan.currency),
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Medium,
                                     )
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        loanEndLine(schedule).orEmpty(),
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    IconButton(onClick = { deletingLoan = loan }) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Supprimer",
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
+
+                    uiState.timeline?.savingCapacity?.takeIf { it.isIncomeKnown }?.let { capacity ->
+                        item { CapacityBand(capacity) }
                     }
                 }
             }
@@ -211,44 +229,62 @@ fun LoanListScreen(
 }
 
 @Composable
-private fun DebtTimelineCard(timeline: DebtTimeline) {
-    MaggieCard(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Libération des charges", style = MaterialTheme.typography.titleSmall)
+private fun LoansHeader(timeline: DebtTimeline) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Prêts", fontSize = 30.sp, fontWeight = FontWeight.Medium)
+        Text(
+            "${formatCentsRounded(timeline.totalMonthlyPaymentCents)} / mois",
+            fontSize = 46.sp,
+            fontWeight = FontWeight.Light,
+        )
+        Text(
+            "de mensualités · ${formatCentsRounded(timeline.totalPrincipalRemainingCents)} restants",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ReliefCard(timeline: DebtTimeline) {
+    val first = timeline.reliefByMonth.first()
+    val (months, _) = reliefSteps(timeline, YearMonth.now())
+
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Libération des charges", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Text("$months mois", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Text(
-                text = "${formatCents(timeline.totalPrincipalRemainingCents)} restant dû · " +
-                    "${formatCents(timeline.totalMonthlyPaymentCents)}/mois",
-                style = MaterialTheme.typography.bodySmall,
+                text = buildAnnotatedString {
+                    append("Prochaine libération : ")
+                    withStyle(SpanStyle(color = MaggieTokens.Signal.success, fontWeight = FontWeight.Medium)) {
+                        append(
+                            "+${formatCentsRounded(first.freedCents)} par mois en " +
+                                formatLoanMonth(first.month).lowercase(Locale.FRANCE),
+                        )
+                    }
+                },
+                fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            timeline.reliefByMonth.forEach { relief ->
-                Text(
-                    text = "${formatLoanMonth(relief.month)} : +${formatCents(relief.freedCents)}/mois " +
-                        "(${relief.loans.joinToString(", ")})",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-
-            if (timeline.savingCapacity.isIncomeKnown) {
-                Text(
-                    text = "Capacité d'épargne nette : " +
-                        formatCents(timeline.savingCapacity.netCapacityCents) + "/mois",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            } else {
-                Text(
-                    text = "Renseignez votre revenu dans le matelas pour connaître votre capacité d'épargne.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
+            ReliefStepChart(timeline, YearMonth.now())
         }
+    }
+}
+
+@Composable
+private fun CapacityBand(capacity: SavingCapacity) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("Capacité d’épargne nette", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${formatCentsRounded(capacity.netCapacityCents)} / mois", fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -336,8 +372,17 @@ private fun LoanCreateDialog(
     )
 }
 
-/** How much of the amount borrowed is repaid, when the loan says what was borrowed. */
-internal fun Loan.repaidShare(): Float? {
-    val initial = initialAmountCents?.takeIf { it > 0 } ?: return null
-    return (1f - principalRemainingCents.toFloat() / initial).coerceIn(0f, 1f)
+internal fun loanSubtitle(loan: Loan): String =
+    "${loan.lender?.takeIf { it.isNotBlank() } ?: LoanLabels.type(loan.type)} · ${formatRate(loan.annualRateBasisPoints)} · " +
+        "${formatCentsRounded(loan.monthlyPaymentCents, loan.currency)} / mois"
+
+internal fun loanEndLine(schedule: LoanSchedule?): String? {
+    schedule ?: return null
+    val interest = "${formatCentsRounded(schedule.totalInterestCents, schedule.currency)} d’intérêts restants"
+
+    return if (schedule.endsBeyondHorizon) {
+        "Se termine au-delà de l'horizon · $interest"
+    } else {
+        "Fini en ${formatLoanMonth(schedule.freedOn).lowercase(Locale.FRANCE)} · $interest"
+    }
 }
