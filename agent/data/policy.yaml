@@ -5,14 +5,24 @@
 # The first rule whose `tools` patterns match wins, so the exceptions come
 # before the broad patterns; when none matches, `default` applies. A rule may
 # narrow itself with `when` (an argument must take one of the listed values)
-# and with `sources` (who asked: chat, chat_stream, proaction, subagent:<name>,
-# a2a). `approval` is never evaluated — it *is* the user's answer — and an
+# and with `sources` (who asked, exact names, no glob: chat, chat_stream,
+# proaction, subagent:<name>, a2a). Every proaction — morning planning, digest,
+# trips, review — calls its tools as `proaction`. `approval` is never evaluated — it *is* the user's answer — and an
 # `ask` reached from `a2a` becomes `deny`, because no one is there to answer.
 #
 # Read by app/policy/engine.py. A malformed file stops the agent from starting
 # rather than silently allowing everything.
 default: allow
 rules:
+  # Fiches and missed recalls are written only in a turn the owner started (spec C):
+  # a proaction, a sub-agent or a peer reads the memory, never writes it.
+  # The tools stay offered everywhere: the tool list is one cached prefix (MAG-853).
+  - tools: ["memory_write_fiche", "memory_log_miss"]
+    sources: ["chat", "chat_stream"]
+    mode: allow
+  - tools: ["memory_write_fiche", "memory_log_miss"]
+    mode: deny
+
   # Maggie's own notes: hers to correct, or she would ask permission to forget
   # a thing she herself got wrong. Her memory has no delete tool at all (MAG-17).
   - tools: ["delete_instruction"]
