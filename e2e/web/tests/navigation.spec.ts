@@ -52,3 +52,57 @@ test('only the current module opens its entries, and « Agenda » opens the agen
   await shell.openMenu()
   await expect(shell.menuItem('Magasins')).toHaveCount(0)
 })
+
+/** The admin installs as an app (MAG-894): a French page, a manifest named « Maggie », a service worker on `/admin/`. */
+test.describe('PWA installable', () => {
+  test.use({ serviceWorkers: 'allow' })
+
+  test('the admin page is French and titled Maggie', async ({ page }) => {
+    const shell = new AdminShell(page)
+
+    await shell.goto(ROUTES.home)
+    await shell.expectLoaded()
+
+    await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
+    await expect(page).toHaveTitle('Maggie')
+    await expect(page.locator('link[rel="manifest"]')).toHaveCount(1)
+  })
+
+  test('the manifest names Maggie with its 192 and 512 icons', async ({ page, request }) => {
+    const shell = new AdminShell(page)
+
+    await shell.goto(ROUTES.home)
+    await shell.expectLoaded()
+
+    const href = await page.locator('link[rel="manifest"]').getAttribute('href')
+    const manifestUrl = new URL(href ?? '', page.url()).toString()
+    const response = await request.get(manifestUrl)
+    expect(response.status()).toBe(200)
+
+    const manifest = await response.json()
+    expect(manifest).toMatchObject({
+      name: 'Maggie',
+      short_name: 'Maggie',
+      lang: 'fr',
+      display: 'standalone',
+      start_url: '/admin/',
+      scope: '/admin/',
+    })
+
+    for (const sizes of ['192x192', '512x512']) {
+      const icon = manifest.icons.find((i: { sizes: string }) => i.sizes === sizes)
+      expect(icon, sizes).toBeDefined()
+      expect((await request.get(new URL(icon.src, manifestUrl).toString())).status(), sizes).toBe(200)
+    }
+  })
+
+  test('a service worker controls /admin/', async ({ page }) => {
+    const shell = new AdminShell(page)
+
+    await shell.goto(ROUTES.home)
+    await shell.expectLoaded()
+
+    const scope = await page.evaluate(async () => (await navigator.serviceWorker.ready).scope)
+    expect(scope).toMatch(/\/admin\/$/)
+  })
+})
