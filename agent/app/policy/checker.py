@@ -172,7 +172,11 @@ class CheckedToolRouter:
             return await hold_for_approval(name, arguments, user_id, source, context_id)
 
         if self._words is None:
-            self._words = await planning_words(user_id)
+            try:
+                self._words = await planning_words(user_id)
+            except Exception as e:
+                logger.warning("Owner instructions unreadable, the write is held: %s", e)
+                self._words = []
         authorized = await check_authorization(self._client, user_id, name, arguments, self._words)
         self.decisions.append({"name": name, "authorized_by": authorized})
         logger.info("Checker: %s authorized_by=%s ref=%s", name, authorized.kind, authorized.ref)
