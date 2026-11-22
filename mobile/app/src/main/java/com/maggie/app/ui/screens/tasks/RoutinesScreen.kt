@@ -23,15 +23,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -42,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -51,13 +47,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.maggie.app.data.model.Routine
 import com.maggie.app.data.model.RoutineDay
 import com.maggie.app.data.model.RoutineGroup
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FabModule
+import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.interruption.rememberReducedMotion
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.theme.readableTextOn
+import java.util.Locale
 
 /** The routines' green (MAG-511): a tick, a day done — the charter's « in the rhythm ». Never a red: a day missed is only grey. */
 internal val RoutineGreen = MaggieTokens.Signal.success
@@ -126,11 +127,12 @@ fun RoutinesScreen(viewModel: RoutinesViewModel, modifier: Modifier = Modifier) 
             }
         }
 
-        ExtendedFloatingActionButton(
+        ModuleFab(
+            module = FabModule.TASKS,
+            contentDescription = "Nouvelle routine",
             onClick = viewModel::openNew,
-            icon = { Icon(Icons.Default.Add, contentDescription = null) },
-            text = { Text("Nouvelle routine") },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).testTag(UiTags.ROUTINES_ADD),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            tag = UiTags.ROUTINES_ADD,
         )
     }
 
@@ -186,9 +188,10 @@ private fun RoutineList(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = group.label,
-                        style = MaterialTheme.typography.titleSmall,
+                        text = group.label.uppercase(Locale.FRANCE),
+                        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.14.em),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp),
                     )
                     members.forEach { routine ->
                         RoutineCard(
@@ -218,57 +221,55 @@ internal fun RoutineCard(
     onToggle: () -> Unit,
     onOpen: () -> Unit,
 ) {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .alpha(if (routine.active) 1f else 0.45f)
+            .clip(RoundedCornerShape(20.dp))
+            .background(maggieSurface().paper)
+            .padding(start = 4.dp, end = 14.dp, top = 8.dp, bottom = 8.dp)
             .testTag(UiTags.routineCard(routine.id)),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        if (routine.dueToday && routine.active) {
+            RoutineRound(
+                checked = routine.checkedToday,
+                title = routine.title,
+                enabled = !pending,
+                animate = animate,
+                onToggle = onToggle,
+                modifier = Modifier.testTag(UiTags.routineCheck(routine.id)),
+            )
+        } else {
+            Spacer(Modifier.size(48.dp))
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onOpen)
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (routine.dueToday && routine.active) {
-                RoutineRound(
-                    checked = routine.checkedToday,
-                    title = routine.title,
-                    enabled = !pending,
-                    animate = animate,
-                    onToggle = onToggle,
-                    modifier = Modifier.testTag(UiTags.routineCheck(routine.id)),
-                )
-            } else {
-                Spacer(Modifier.size(48.dp))
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onOpen)
-                    .padding(vertical = 4.dp, horizontal = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(routine.title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    routine.whenLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RecentDays(days = routine.recentDays)
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = routine.totalLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(UiTags.routineTotal(routine.id)),
-                    )
-                }
-            }
+            Text(routine.title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                routine.whenLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Column(
+            modifier = Modifier.clickable(onClick = onOpen).padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RecentDays(days = routine.recentDays)
+            Text(
+                text = routine.totalLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(UiTags.routineTotal(routine.id)),
+            )
         }
     }
 }
@@ -288,6 +289,7 @@ private fun RoutineRound(
         animationSpec = if (animate) spring() else snap(),
         label = "routine-round-fill",
     )
+    val grey = MaterialTheme.colorScheme.onSurfaceVariant
     val scale by animateFloatAsState(
         targetValue = if (checked) 1f else 0.88f,
         animationSpec = if (animate) spring(dampingRatio = Spring.DampingRatioHighBouncy, stiffness = Spring.StiffnessMedium) else snap(),
@@ -302,32 +304,31 @@ private fun RoutineRound(
     ) {
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(26.dp)
                 .scale(scale)
                 .background(fill, CircleShape)
-                .border(2.dp, RoutineGreen, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (checked) Icon(Icons.Default.Check, contentDescription = null, tint = OnRoutineGreen, modifier = Modifier.size(18.dp))
-        }
+                .border(2.dp, if (checked) RoutineGreen else grey, CircleShape),
+        )
     }
 }
 
-/** Seven dots, the oldest first: green done, grey due and not done, nothing on a day it was not due. */
+/** Seven dots, the oldest first (the last is today): green done, pale green today still to tick, grey due and not done, nothing when not due. */
 @Composable
 private fun RecentDays(days: List<RoutineDay>) {
     val grey = MaterialTheme.colorScheme.outlineVariant
     Row(
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
         modifier = Modifier.clearAndSetSemantics {},
     ) {
-        days.forEach { day ->
-            val color = when {
-                day.checked -> RoutineGreen
-                day.due -> grey
-                else -> Color.Transparent
-            }
-            Box(Modifier.size(8.dp).background(color, CircleShape))
+        days.forEachIndexed { index, day ->
+            Box(Modifier.size(8.dp).background(recentDayColorOf(day, isToday = index == days.lastIndex, grey = grey), CircleShape))
         }
     }
+}
+
+internal fun recentDayColorOf(day: RoutineDay, isToday: Boolean, grey: Color): Color = when {
+    day.checked -> RoutineGreen
+    isToday && day.due -> RoutineGreen.copy(alpha = 0.35f)
+    day.due -> grey
+    else -> Color.Transparent
 }
