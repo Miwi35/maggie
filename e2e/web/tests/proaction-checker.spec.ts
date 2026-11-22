@@ -8,7 +8,7 @@ import { openSubscribed } from '../helpers/mercure.js'
  * A proaction writes only what an instruction says (MAG-943, extends MAG-103).
  *
  * The proaction « Ajoute du lait à la liste de courses (checker e2e) » makes Maggie call
- * `add_grocery_item` (`98-proaction-checker-milk-due.yaml`). The checker reads the action against the
+ * `add_grocery_item` (`07e-proaction-checker-milk-due.yaml`). The checker reads the action against the
  * owner's planning instructions: with none that covers it the write waits for « Autoriser / Refuser »,
  * with one that says it word for word (`07d-checker-grocery-milk.yaml`) it runs.
  *

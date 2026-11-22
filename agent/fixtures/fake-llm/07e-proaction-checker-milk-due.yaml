@@ -1,3 +1,4 @@
+# Named 07e so it is read before 45-grocery-list, which also matches « la liste de courses ».
 # A proaction come due (MAG-943): « Ajoute du lait à la liste de courses (checker e2e) ». Maggie adds
 # milk; the checker decides whether an owner instruction covers it or the owner is asked first.
 name: proaction-checker-milk-due
