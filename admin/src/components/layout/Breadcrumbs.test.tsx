@@ -53,6 +53,11 @@ describe('Breadcrumbs', () => {
     expect(screen.getByText('Catégories')).toHaveAttribute('aria-current', 'page')
   })
 
+  test('the digest sits under the Accueil', () => {
+    renderAt('/digest')
+    expect(labels()).toEqual(['Accueil', 'Digest du matin'])
+  })
+
   test('the periods read « Agenda › Périodes », Périodes being the current page', () => {
     renderAt('/periods')
 

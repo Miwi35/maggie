@@ -1,0 +1,1 @@
+export { maggieResources } from './resources'

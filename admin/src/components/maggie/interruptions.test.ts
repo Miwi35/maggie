@@ -14,7 +14,7 @@ describe('notificationLink', () => {
     ['/finance', 'Ouvrir les finances', '/finance/dashboard'],
     ['/finance/cushion', 'Ouvrir les finances', '/finance/cushion'],
     ['/chat?message=01K0MSG', 'Ouvrir la conversation', '/chat?message=01K0MSG'],
-    ['/digest?message=01K0MSG', 'Voir le digest', '/chat?message=01K0MSG'],
+    ['/digest?message=01K0MSG', 'Voir le digest', '/digest?message=01K0MSG'],
     ['/health/nutrition', 'Ouvrir Nutrition', '/health/nutrition'],
   ])('%s opens %s', (iri, label, path) => {
     expect(notificationLink(iri)).toEqual({ label, path })
