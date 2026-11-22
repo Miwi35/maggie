@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.cookbook.recipes
 
-import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -18,6 +20,7 @@ import com.maggie.app.data.model.RecipeStep
 import com.maggie.app.data.repository.IngredientRepository
 import com.maggie.app.data.repository.RecipeRepository
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
 import io.mockk.every
@@ -27,6 +30,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,7 +44,7 @@ class RecipeListScreenTest {
         id = "r-tarte",
         name = "Tarte aux pommes",
         servings = 2,
-        tags = listOf("Végétarien"),
+        tags = listOf("végétarien"),
         ingredients = listOf(
             RecipeIngredient(ingredient = JsonObject(mapOf("id" to JsonPrimitive("rice"))), quantity = 400f, unit = CookbookUnit.G),
         ),
@@ -81,26 +85,65 @@ class RecipeListScreenTest {
     }
 
     @Test
+    fun `the pills sit above the search field`() {
+        show()
+
+        assertTopToBottom(
+            "pills" to compose.onNodeWithTag(UiTags.subview("all")),
+            "search" to compose.onNodeWithTag(UiTags.RECIPE_SEARCH_FIELD),
+        )
+    }
+
+    @Test
     fun `the pills are Toutes and the tags the recipes carry`() {
         show()
 
-        compose.onNodeWithTag(UiTags.RECIPE_FILTER_ALL).assertExists()
+        compose.onNodeWithTag(UiTags.subview("all")).assertExists().assertIsSelected()
+        assertEquals(
+            Role.Tab,
+            compose.onNodeWithTag(UiTags.subview("all")).fetchSemanticsNode().config[SemanticsProperties.Role],
+        )
+        compose.onNodeWithTag(UiTags.subview("tag:Plat")).assertExists()
+        compose.onNodeWithTag(UiTags.subview("tag:végétarien")).assertExists()
         compose.onNodeWithText("Végétarien").assertExists()
-        compose.onNodeWithText("Plat").assertExists()
         compose.onNodeWithText("Rapide").assertDoesNotExist()
-        assertEquals(2, compose.onAllNodes(hasTestTag(UiTags.RECIPE_FILTER_TAG)).fetchSemanticsNodes().size)
     }
 
     @Test
     fun `a pill narrows the list and Toutes brings it back`() {
         show()
 
-        compose.onNodeWithText("Plat").performClick()
+        compose.onNodeWithTag(UiTags.subview("tag:Plat")).performClick()
         compose.onNodeWithText("Tarte aux pommes").assertDoesNotExist()
         compose.onNodeWithText("Curry de pois chiches").assertExists()
 
-        compose.onNodeWithTag(UiTags.RECIPE_FILTER_ALL).performClick()
+        compose.onNodeWithTag(UiTags.subview("all")).performClick()
         compose.onNodeWithText("Tarte aux pommes").assertExists()
+
+        compose.onNodeWithTag(UiTags.subview("tag:Plat")).performClick()
+        compose.onNodeWithTag(UiTags.subview("tag:Plat")).performClick()
+        compose.onNodeWithText("Tarte aux pommes").assertExists()
+    }
+
+    @Test
+    fun `a row shows its first tag in lower case, a recipe without tag has none`() {
+        show()
+
+        compose.onNodeWithText("végétarien").assertExists()
+        assertNull(recipeChip(Recipe(id = "r-none", name = "Nu", tags = emptyList())))
+    }
+
+    @Test
+    fun `recipePills capitalises each tag and starts with Toutes`() {
+        val pills = recipePills(listOf("végétarien", "Plat"))
+
+        assertEquals(listOf("all", "tag:végétarien", "tag:Plat"), pills.map { it.key })
+        assertEquals(listOf("Toutes", "Végétarien", "Plat"), pills.map { it.label })
+    }
+
+    @Test
+    fun `recipeChip takes the first non-blank tag in lower case`() {
+        assertEquals("four", recipeChip(Recipe(id = "r", name = "R", tags = listOf(" ", " Four "))))
     }
 
     @Test
