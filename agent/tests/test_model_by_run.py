@@ -38,6 +38,7 @@ def test_the_two_models_differ():
         (models.PROACTION, HAIKU),
         (models.UTILITY, HAIKU),
         (models.APPROVAL_REPLY, SONNET),
+        (models.CHECKER, SONNET),
     ],
 )
 def test_each_kind_of_run_has_its_model(run, expected):
@@ -46,7 +47,7 @@ def test_each_kind_of_run_has_its_model(run, expected):
 
 def test_every_kind_of_run_is_in_the_table():
     kinds = {models.CHAT, models.PLANNING, models.DIGEST, models.TRIP, models.NIGHT, models.PROACTION,
-        models.UTILITY, models.APPROVAL_REPLY}
+        models.UTILITY, models.APPROVAL_REPLY, models.CHECKER}
     assert kinds == set(MODEL_BY_RUN)
 
 
