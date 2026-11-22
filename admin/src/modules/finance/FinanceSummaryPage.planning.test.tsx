@@ -195,7 +195,7 @@ describe('Finance › Planification, with its real screens', () => {
 
     const placements = await screen.findByRole('region', { name: 'Placements' })
     expect(await within(placements).findByText('PEA')).toBeInTheDocument()
-    expect(within(placements).getByText(/^Retiré à 4 % par an/)).toBeInTheDocument()
+    expect(within(placements).getByText('Rente à 4 %')).toBeInTheDocument()
     expect(screen.queryByText('Aucune rente déclarée')).toBeNull()
   })
 

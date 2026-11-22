@@ -52,17 +52,6 @@ const failureText = (error: unknown, fallback: string) => (error instanceof Erro
 
 const numeric = { fontVariantNumeric: 'tabular-nums' } as const
 
-const Figure = ({ label, cents }: { label: string; cents: number }) => (
-  <Box>
-    <Typography variant="caption" color="text.secondary">
-      {label}
-    </Typography>
-    <Typography variant="h6" sx={{ fontWeight: 300, ...numeric }}>
-      {formatCentsRounded(cents)}
-    </Typography>
-  </Box>
-)
-
 /** The curve of the selected placement, read from its simulation whenever one of its figures changes. */
 const SelectedPlacement = ({ placement }: { placement: Placement }) => {
   // The figures are the simulation's own: a change of any of them reads it again.
@@ -105,14 +94,22 @@ const SelectedPlacement = ({ placement }: { placement: Placement }) => {
           name={placement.name}
           curve={simulation.curve}
           years={placement.years}
-          withdrawal={withdrawing ? { curveWithout: simulation.curveWithout, curveWith: simulation.curveWith } : undefined}
+          figures={{ paid: placement.paid, interest: placement.interest }}
+          withdrawal={
+            withdrawing
+              ? {
+                  curveWithout: simulation.curveWithout,
+                  curveWith: simulation.curveWith,
+                  finalWithout: placement.final,
+                  finalWith: simulation.finalWith,
+                  gapAtEnd: simulation.gapAtEnd,
+                }
+              : undefined
+          }
         />
       )}
       {withdrawing && simulation && (
         <>
-          <Typography variant="body1" sx={numeric} data-testid="placement-gap">
-            Écart à {duration} : {simulation.gapAtEnd > 0 ? `−${formatCentsRounded(simulation.gapAtEnd)}` : formatCentsRounded(0)}
-          </Typography>
           <Box component="ul" aria-label={`Retraits de ${placement.name}`} sx={{ m: 0, p: 0, listStyle: 'none' }}>
             {withdrawals.map((withdrawal) => (
               <Stack
@@ -131,22 +128,6 @@ const SelectedPlacement = ({ placement }: { placement: Placement }) => {
             ))}
           </Box>
         </>
-      )}
-      <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap' }}>
-        <Figure label={withdrawing ? `Capital dans ${duration}, sans retrait` : `Capital dans ${duration}`} cents={placement.final} />
-        {withdrawing && simulation && <Figure label="Capital après retrait" cents={simulation.finalWith} />}
-        <Figure label="Dont versements" cents={placement.paid} />
-        <Figure label="Dont intérêts composés" cents={placement.interest} />
-      </Stack>
-      {withdrawing && simulation ? (
-        <Typography variant="body2" color="text.secondary" data-testid="placement-rent-with">
-          Après ces retraits, retiré à 4 % par an, le capital donnerait environ {formatCentsRounded(simulation.rentWith)} par mois de rente, contre{' '}
-          {formatCentsRounded(placement.rent)} sans retrait (simulation).
-        </Typography>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          Retiré à 4 % par an, ce capital donnerait environ {formatCentsRounded(placement.rent)} par mois de rente (simulation).
-        </Typography>
       )}
     </Stack>
   )
@@ -274,7 +255,7 @@ export const PlacementsSection = () => {
           <Stack direction="row" sx={{ alignItems: 'center', gap: 2 }}>
             {status === 'ready' && placements.length > 0 && (
               <Typography variant="body2" color="text.secondary" sx={numeric} data-testid="placements-monthly">
-                {formatCentsRounded(monthly)} / mois de versements
+                {formatCentsRounded(monthly)} / mois pris sur la capacité
               </Typography>
             )}
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditing('new')}>
@@ -297,9 +278,7 @@ export const PlacementsSection = () => {
           </Alert>
         )}
         {status === 'ready' && placements.length === 0 && (
-          <Typography color="text.secondary">
-            Aucun placement pour l'instant. Simulez un PEA, une assurance-vie ou un livret pour voir ce qu'il donnerait.
-          </Typography>
+          <Typography color="text.secondary">Aucun placement</Typography>
         )}
         {status === 'ready' && placements.length > 0 && (
           <>

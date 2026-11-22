@@ -154,7 +154,7 @@ describe('PlacementsSection', () => {
     await loaded(3)
 
     expect(shown()).toEqual(['Assurance-vie', 'Livret jeune de Léo', 'PEA'])
-    expect(screen.getByTestId('placements-monthly')).toHaveTextContent(text('250 € / mois de versements'))
+    expect(screen.getByTestId('placements-monthly')).toHaveTextContent(text('250 € / mois pris sur la capacité'))
 
     const pea = within(row('PEA'))
     expect(pea.getByText(text('150 € / mois · 2 000 € initial'))).toBeInTheDocument()
@@ -178,8 +178,8 @@ describe('PlacementsSection', () => {
     expect(await within(simulation()).findByTestId('placement-curve')).toBeInTheDocument()
     expect(within(simulation()).getByText('Assurance-vie · 15 ans')).toBeInTheDocument()
     expect(within(simulation()).getByRole('img', { name: /^Courbe de Assurance-vie sur 15 ans/ })).toBeInTheDocument()
-    expect(within(simulation()).getByText('versements cumulés')).toBeInTheDocument()
-    expect(within(simulation()).getByText('intérêts composés')).toBeInTheDocument()
+    expect(within(simulation()).getByText(/^versements /)).toBeInTheDocument()
+    expect(within(simulation()).getByText(/^intérêts /)).toBeInTheDocument()
 
     await user.click(within(row('PEA')).getByText('PEA'))
 
@@ -187,12 +187,9 @@ describe('PlacementsSection', () => {
     expect(row('Assurance-vie')).toHaveAttribute('aria-selected', 'false')
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/finance/placements/PEA/simulation', expect.anything()))
     expect(await within(simulation()).findByRole('img', { name: /^Courbe de PEA sur 20 ans/ })).toBeInTheDocument()
-    expect(within(simulation()).getByText('Capital dans 20 ans').nextSibling).toHaveTextContent(text('74 430 €'))
-    expect(within(simulation()).getByText('Dont versements').nextSibling).toHaveTextContent(text('38 000 €'))
-    expect(within(simulation()).getByText('Dont intérêts composés').nextSibling).toHaveTextContent(text('36 430 €'))
-    expect(
-      within(simulation()).getByText(/^Retiré à 4 % par an, ce capital donnerait environ 248\s€ par mois de rente \(simulation\)\.$/),
-    ).toBeInTheDocument()
+    expect(within(simulation()).getByText(/^versements 38\s000\s€$/)).toBeInTheDocument()
+    expect(within(simulation()).getByText(/^intérêts 36\s430\s€$/)).toBeInTheDocument()
+    expect(within(simulation()).queryByText(/Capital dans|Retiré à 4 %/)).toBeNull()
   })
 
   describe('when a project takes capital out of the placement', () => {
@@ -215,7 +212,7 @@ describe('PlacementsSection', () => {
       rentWith: 20667,
     }
 
-    test('draws the capital with and without the withdrawals, the gap at the end and the rente after them', async () => {
+    test('draws the capital with and without the withdrawals, the gap at the end in the legend', async () => {
       stubApi([PEA], { withdrawal: WITHDRAWAL })
       render(<PlacementsSection />)
       await loaded(1)
@@ -223,19 +220,16 @@ describe('PlacementsSection', () => {
       expect(await within(simulation()).findByTestId('placement-curve-without')).toHaveAttribute('stroke-dasharray')
       expect(within(simulation()).getByTestId('placement-curve-with')).not.toHaveAttribute('stroke-dasharray')
       expect(within(simulation()).queryByTestId('placement-curve-paid')).toBeNull()
-      expect(within(simulation()).getByText('capital sans retrait')).toBeInTheDocument()
-      expect(within(simulation()).getByText('capital avec retrait')).toBeInTheDocument()
+      expect(within(simulation()).getByText(/^sans retrait 74\s430\s€$/)).toBeInTheDocument()
+      expect(within(simulation()).getByText(/^avec retrait 62\s000\s€$/)).toBeInTheDocument()
       expect(within(simulation()).getByText('PEA · avec et sans retrait pour Voyage au Japon et Vélo')).toBeInTheDocument()
       expect(
         within(simulation()).getByRole('img', { name: /^Courbe de PEA sur 20 ans : 74\s430\s€ de capital à la fin sans retrait, 62\s000\s€ avec retrait$/ }),
       ).toBeInTheDocument()
 
-      expect(within(simulation()).getByTestId('placement-gap')).toHaveTextContent(text('Écart à 20 ans : −12 430 €'))
-      expect(within(simulation()).getByText('Capital dans 20 ans, sans retrait').nextSibling).toHaveTextContent(text('74 430 €'))
-      expect(within(simulation()).getByText('Capital après retrait').nextSibling).toHaveTextContent(text('62 000 €'))
-      expect(within(simulation()).getByTestId('placement-rent-with')).toHaveTextContent(
-        /environ 207\s€ par mois de rente, contre 248\s€ sans retrait \(simulation\)\.$/,
-      )
+      expect(within(simulation()).getByTestId('placement-gap')).toHaveTextContent(text('écart à 20 ans 12 430 €'))
+      expect(within(simulation()).queryByText(/Capital après retrait|Capital dans/)).toBeNull()
+      expect(within(simulation()).queryByTestId('placement-rent-with')).toBeNull()
     })
 
     test('lists each withdrawal: the project, the month and the amount', async () => {
@@ -308,7 +302,7 @@ describe('PlacementsSection', () => {
     stubApi([])
     render(<PlacementsSection />)
 
-    expect(await screen.findByText(/^Aucun placement pour l'instant\./)).toBeInTheDocument()
+    expect(await screen.findByText('Aucun placement')).toBeInTheDocument()
     expect(screen.queryByTestId('placements-monthly')).toBeNull()
   })
 
@@ -323,13 +317,24 @@ describe('PlacementsSection', () => {
     await loaded(1)
   })
 
-  test('says when the curve could not be computed, and still shows the figures', async () => {
+  test('says when the curve could not be computed, the table keeps the figures', async () => {
     stubApi([PEA], { failSimulation: true })
     render(<PlacementsSection />)
     await loaded(1)
 
     expect(await screen.findByText("La courbe de ce placement n'a pas pu être calculée.")).toBeInTheDocument()
-    expect(within(simulation()).getByText('Capital dans 20 ans')).toBeInTheDocument()
+    expect(screen.getByTestId('placement-final')).toBeInTheDocument()
+    expect(screen.getByTestId('placement-rent')).toBeInTheDocument()
+    expect(within(simulation()).queryByTestId('placement-gap')).toBeNull()
+  })
+
+  test('no tile and no rente sentence under the curve', async () => {
+    stubApi([PEA])
+    render(<PlacementsSection />)
+    await loaded(1)
+    await within(simulation()).findByTestId('placement-curve')
+
+    expect(within(simulation()).queryByText(/Dont versements|Dont intérêts|Capital dans|Retiré à 4 %/)).toBeNull()
   })
 
   test('creates a placement of 100 € a month at 5 % over 10 years, and selects it', async () => {
@@ -516,7 +521,7 @@ describe('PlacementsSection', () => {
 
     await emitMercure(TOPIC, { '@id': iri('LIFE'), deleted: true })
     expect(shown()).toEqual(['Livret jeune de Léo', 'PEA'])
-    expect(screen.getByTestId('placements-monthly')).toHaveTextContent(text('150 € / mois de versements'))
+    expect(screen.getByTestId('placements-monthly')).toHaveTextContent(text('150 € / mois pris sur la capacité'))
     expect(listReads()).toBe(reads)
   })
 
