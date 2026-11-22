@@ -9,6 +9,7 @@ import com.maggie.app.data.model.CushionAccount
 import com.maggie.app.data.model.CushionStatus
 import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.tap
 import com.maggie.app.ui.UiTags
 import io.mockk.every
 import io.mockk.mockk
@@ -133,7 +134,8 @@ class CushionScreenTest {
 
         compose.onNodeWithText("Part du matelas").performClick()
         compose.onNodeWithTag(UiTags.CUSHION_SHARE_PERCENT).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.CUSHION_SAVE).performClick()
+        // Inside a ModalBottomSheet the touch is swallowed, see ScreenInteractions.tap.
+        compose.onNodeWithTag(UiTags.CUSHION_SAVE).tap()
 
         verify { viewModel.configure(any()) }
         compose.onNodeWithTag(UiTags.CUSHION_SAVE).assertDoesNotExist()
