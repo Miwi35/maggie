@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 
 def _mcp(name: str) -> dict:
@@ -14,7 +15,7 @@ class TestToolDefinitions:
     """No tool is offered twice, and the executor's tools never reach a conversation (MAG-326)."""
 
     async def test_an_mcp_tool_named_like_one_of_the_agent_s_own_is_not_offered(self):
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         with patch("app.llm.tools.mcp_client") as mcp:
             mcp.list_tools = AsyncMock(return_value=[_mcp("memory_search"), _mcp("cancel_proaction")])
             tools = await router.get_tool_definitions()
@@ -27,7 +28,7 @@ class TestToolDefinitions:
 
     async def test_the_proaction_tools_offered_are_the_api_s_once_each(self):
         # MAG-327: the agent no longer serves schedule_proaction nor list_proactions itself.
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         with patch("app.llm.tools.mcp_client") as mcp:
             mcp.list_tools = AsyncMock(return_value=[_mcp("schedule_proaction"), _mcp("list_proactions")])
             tools = await router.get_tool_definitions()
@@ -39,7 +40,7 @@ class TestToolDefinitions:
         ]
 
     async def test_the_executor_s_tools_are_never_offered(self):
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         with patch("app.llm.tools.mcp_client") as mcp:
             mcp.list_tools = AsyncMock(
                 return_value=[
@@ -56,7 +57,7 @@ class TestToolDefinitions:
 
     @pytest.mark.parametrize("name", ["claim_due_proactions", "record_proaction_result", "list_daily_rendezvous"])
     async def test_the_executor_s_tools_are_refused_when_called(self, name):
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         with patch("app.llm.tools.mcp_client") as mcp:
             mcp.call_tool = AsyncMock(return_value="{}")
             result = json.loads(await router.call_tool(name, {}, user_id="u1"))

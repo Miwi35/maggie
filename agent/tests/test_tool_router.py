@@ -6,15 +6,12 @@ import pytest
 
 from app.llm.time_tool import DATE_TIME_TOOLS
 from app.agents.registry import SubagentDefinition, SubagentRegistry
-from app.llm.tools import (
-    INSTRUCTION_TOOLS,
-    MEMORY_TOOLS,
-    PENDING_APPROVAL_MESSAGE,
-    POLICY_DENIED_MESSAGE,
-    SKILL_TOOLS,
-    VOICE_TOOLS,
-    ToolRouter,
-)
+from app.instruction_tools import INSTRUCTION_TOOLS
+from app.llm.tools import PENDING_APPROVAL_MESSAGE, POLICY_DENIED_MESSAGE, ToolRouter
+from app.memory.tools import MEMORY_TOOLS
+from app.skills.tools import SKILL_TOOLS
+from app.tts.voice_message import SEND_VOICE_MESSAGE_TOOL
+from app.native_tools import build_native_registry
 from app.policy.engine import PolicyEngine
 
 NUM_MEMORY_TOOLS = len(MEMORY_TOOLS)
@@ -22,7 +19,7 @@ NUM_INSTRUCTION_TOOLS = len(INSTRUCTION_TOOLS) + 1  # + add_bilan_consigne (MAG-
 NUM_SKILL_TOOLS = len(SKILL_TOOLS)
 NUM_DATE_TIME_TOOLS = len(DATE_TIME_TOOLS)
 NUM_ANSWER_TOOLS = 2  # answer_approval (MAG-683), ask_owner (MAG-717)
-NUM_VOICE_TOOLS = len(VOICE_TOOLS)
+NUM_VOICE_TOOLS = len([SEND_VOICE_MESSAGE_TOOL])
 NUM_COACH_TOOLS = 1  # get_coach_method (MAG-778)
 # Every native tool; the proaction tools are the API's since MAG-327, served over MCP
 NUM_DEFAULT_TOOLS = (
@@ -63,7 +60,7 @@ class TestToolRouter:
             },
         ])
 
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         tools = await router.get_tool_definitions()
 
         # Native tools + 2 MCP tools
@@ -88,7 +85,7 @@ class TestToolRouter:
             {"name": "list_proactions", "description": "API's", "inputSchema": {"type": "object", "properties": {}}},
         ])
 
-        tools = await ToolRouter().get_tool_definitions()
+        tools = await ToolRouter(natives=build_native_registry()).get_tool_definitions()
 
         assert len(tools) == NUM_DEFAULT_TOOLS + 2
         proactions = [t for t in tools if t["name"] in {"schedule_proaction", "list_proactions"}]
@@ -99,7 +96,7 @@ class TestToolRouter:
         mock_mcp_client.call_tool = AsyncMock(return_value='{"success": true}')
         arguments = {"prompt": "Check calendar", "scheduled_at": "2037-02-20T09:00:00+01:00"}
 
-        result = await ToolRouter().call_tool("schedule_proaction", arguments, user_id="test-user")
+        result = await ToolRouter(natives=build_native_registry()).call_tool("schedule_proaction", arguments, user_id="test-user")
 
         assert result == '{"success": true}'
         mock_mcp_client.call_tool.assert_awaited_once_with("schedule_proaction", arguments, user_id="test-user")
@@ -113,7 +110,7 @@ class TestToolRouter:
             },
         ])
 
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         tools = await router.get_tool_definitions()
 
         assert len(tools) == NUM_DEFAULT_TOOLS + 1
@@ -127,7 +124,7 @@ class TestToolRouter:
         """call_tool should delegate to mcp_client.call_tool for MCP tools."""
         mock_mcp_client.call_tool = AsyncMock(return_value="Event created successfully")
 
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         result = await router.call_tool("create_event", {"title": "Test", "date": "2026-03-01"}, user_id="user-1")
 
         assert result == "Event created successfully"
@@ -140,7 +137,7 @@ class TestToolRouter:
         """call_tool accepts a source without changing how the call is routed."""
         mock_mcp_client.call_tool = AsyncMock(return_value="ok")
 
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         result = await router.call_tool("create_event", {"title": "Test"}, user_id="user-1", source="subagent:cook")
 
         assert result == "ok"
@@ -148,7 +145,7 @@ class TestToolRouter:
 
     async def test_call_native_tool_without_user_id(self):
         """Native tools should fail if user_id is not provided."""
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         result = await router.call_tool("list_instructions", {})
 
         assert "error" in result
@@ -166,10 +163,10 @@ class TestToolRouter:
             return json.dumps({"resultats": []})
 
         with (
-            patch("app.llm.tools.conversations.record_thread", side_effect=record) as recorded,
-            patch.dict("app.llm.tools._NATIVE_HANDLERS", {"memory_search": handler}),
+            patch("app.native_tools.conversations.record_thread", side_effect=record) as recorded,
+            patch.dict("app.native_tools.MEMORY_HANDLERS", {"memory_search": handler}),
         ):
-            result = await ToolRouter().call_tool(
+            result = await ToolRouter(natives=build_native_registry()).call_tool(
                 "memory_search", {"requete": "coffee"}, user_id="test-user", context_id="ctx-1"
             )
 
@@ -180,7 +177,7 @@ class TestToolRouter:
     @patch("app.llm.tools.mcp_client")
     async def test_the_old_memory_tools_are_gone(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(return_value=[])
-        names = {t["name"] for t in await ToolRouter().get_tool_definitions()}
+        names = {t["name"] for t in await ToolRouter(natives=build_native_registry()).get_tool_definitions()}
 
         assert not names & {"store_memory", "search_memory", "update_memory", "delete_memory"}
 
@@ -193,7 +190,7 @@ class TestTheResultsAreMasked:
         mock_mcp_client.call_tool = AsyncMock(return_value=f"jeton {self.TOKEN}, carte 4111 1111 1111 1111, iban FR76 3000 6000 0112 3456 7890 189")
 
         with patch("app.redaction.settings.service_token", self.TOKEN):
-            result = await ToolRouter().call_tool("create_event", {}, user_id="user-1")
+            result = await ToolRouter(natives=build_native_registry()).call_tool("create_event", {}, user_id="user-1")
 
         assert result == "jeton [masqué], carte [masqué], iban FR76 3000 6000 0112 3456 7890 189"
 
@@ -202,7 +199,7 @@ class TestTheResultsAreMasked:
         mock_mcp_client.call_tool = AsyncMock(side_effect=RuntimeError(f"refusé : {self.TOKEN}"))
 
         with patch("app.redaction.settings.service_token", self.TOKEN):
-            result = await ToolRouter().call_tool("create_event", {}, user_id="user-1")
+            result = await ToolRouter(natives=build_native_registry()).call_tool("create_event", {}, user_id="user-1")
 
         assert self.TOKEN not in result
         assert "[masqué]" in result
@@ -210,8 +207,8 @@ class TestTheResultsAreMasked:
     async def test_a_native_tool_result_is_masked_too(self):
         handler = AsyncMock(return_value="clé sk-ant-api03-abcdefghijklmnopqrstuvwx")
 
-        with patch.dict("app.llm.tools._NATIVE_HANDLERS", {"list_instructions": handler}):
-            result = await ToolRouter().call_tool("list_instructions", {}, user_id="user-1")
+        natives = build_native_registry().with_handler("list_instructions", handler)
+        result = await ToolRouter(natives=natives).call_tool("list_instructions", {}, user_id="user-1")
 
         assert result == "clé [masqué]"
 
@@ -253,12 +250,12 @@ class TestThePolicyGuard:
             yield SimpleNamespace(repo=repo, mcp=mcp, summary=summary)
 
     async def test_an_ask_tool_is_not_routed(self, guard):
-        await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1")
+        await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1")
 
         guard.mcp.call_tool.assert_not_awaited()
 
     async def test_an_ask_tool_is_held_with_its_arguments_source_and_thread(self, guard):
-        await ToolRouter().call_tool(
+        await ToolRouter(natives=build_native_registry()).call_tool(
             "delete_event", {"eventId": "evt-1"}, user_id="user-1", source="chat_stream", context_id="ctx-1"
         )
 
@@ -272,20 +269,20 @@ class TestThePolicyGuard:
         )
 
     async def test_the_held_action_carries_a_readable_summary_built_from_a_read_tool(self, guard):
-        await ToolRouter().call_tool("delete_event", {"id": "evt-1"}, user_id="user-1")
+        await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"id": "evt-1"}, user_id="user-1")
 
         guard.summary.assert_awaited_once_with("delete_event", {"id": "evt-1"}, "user-1")
 
     async def test_a_summary_that_cannot_be_built_never_stops_the_action_from_being_held(self, guard):
         guard.summary.side_effect = RuntimeError("boom")
 
-        result = json.loads(await ToolRouter().call_tool("delete_event", {"id": "evt-1"}, user_id="user-1"))
+        result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"id": "evt-1"}, user_id="user-1"))
 
         assert result["status"] == "pending_approval"
         assert guard.repo.create.await_args.kwargs["summary"] is None
 
     async def test_an_ask_tool_answers_the_model_with_the_approval_id_and_an_order_not_to_retry(self, guard):
-        result = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+        result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
 
         assert result == {
             "status": "pending_approval",
@@ -295,49 +292,49 @@ class TestThePolicyGuard:
 
     async def test_a_native_ask_tool_is_held_before_its_handler_runs(self, guard):
         # The guard sits before the native/MCP fork, so a native tool is covered too.
-        result = json.loads(await ToolRouter().call_tool("delete_skill", {"name": "courses"}, user_id="user-1"))
+        result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delete_skill", {"name": "courses"}, user_id="user-1"))
 
         assert result["status"] == "pending_approval"
 
     async def test_the_second_identical_call_gets_the_same_approval(self, guard):
         # Deduplication is the repository's, so what is checked here is that the router
         # asks for it instead of creating a card per turn.
-        first = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
-        second = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+        first = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+        second = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
 
         assert first["approval_id"] == second["approval_id"]
         assert guard.repo.create.await_count == 2
         assert guard.repo.create.await_args_list[0] == guard.repo.create.await_args_list[1]
 
     async def test_a_denied_tool_is_refused_without_being_routed(self, guard):
-        result = json.loads(await ToolRouter().call_tool("drop_database", {}, user_id="user-1"))
+        result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("drop_database", {}, user_id="user-1"))
 
         assert result == {"error": POLICY_DENIED_MESSAGE}
         guard.mcp.call_tool.assert_not_awaited()
         guard.repo.create.assert_not_awaited()
 
     async def test_an_allowed_tool_still_runs(self, guard):
-        result = await ToolRouter().call_tool("create_event", {"title": "Dentiste"}, user_id="user-1")
+        result = await ToolRouter(natives=build_native_registry()).call_tool("create_event", {"title": "Dentiste"}, user_id="user-1")
 
         assert result == '{"deleted": true}'
         guard.repo.create.assert_not_awaited()
 
     async def test_the_exception_rule_lets_maggie_correct_her_own_notes(self, guard):
-        with patch.dict("app.llm.tools._NATIVE_HANDLERS", {"delete_instruction": AsyncMock(return_value='{"deleted": true}')}):
-            result = json.loads(await ToolRouter().call_tool("delete_instruction", {"instruction_id": "i1"}, user_id="user-1"))
+        natives = build_native_registry().with_handler("delete_instruction", AsyncMock(return_value='{"deleted": true}'))
+        result = json.loads(await ToolRouter(natives=natives).call_tool("delete_instruction", {"instruction_id": "i1"}, user_id="user-1"))
 
         assert result == {"deleted": True}
         guard.repo.create.assert_not_awaited()
 
     async def test_an_approved_call_is_replayed_for_real(self, guard):
-        result = await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1", source="approval")
+        result = await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1", source="approval")
 
         assert result == '{"deleted": true}'
         guard.repo.create.assert_not_awaited()
         guard.mcp.call_tool.assert_awaited_once_with("delete_event", {"eventId": "evt-1"}, user_id="user-1")
 
     async def test_an_ask_tool_with_nobody_to_ask_is_refused_rather_than_run(self, guard):
-        result = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}))
+        result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"eventId": "evt-1"}))
 
         assert "error" in result
         guard.mcp.call_tool.assert_not_awaited()
@@ -348,7 +345,7 @@ class TestThePolicyGuard:
         # behind the user's back, which is the one outcome the policy exists to prevent.
         guard.repo.create.side_effect = RuntimeError("db down")
 
-        result = json.loads(await ToolRouter().call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
+        result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delete_event", {"eventId": "evt-1"}, user_id="user-1"))
 
         assert "error" in result
         guard.mcp.call_tool.assert_not_awaited()
@@ -370,8 +367,8 @@ class TestDelegateTool:
     async def test_absent_when_no_sub_agent_is_loaded(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(return_value=[])
 
-        with patch("app.llm.tools.subagent_registry", _registry()):
-            tools = await ToolRouter().get_tool_definitions()
+        with patch("app.agents.tool.subagent_registry", _registry()):
+            tools = await ToolRouter(natives=build_native_registry()).get_tool_definitions()
 
         assert "delegate" not in [t["name"] for t in tools]
         assert len(tools) == NUM_DEFAULT_TOOLS
@@ -380,8 +377,8 @@ class TestDelegateTool:
     async def test_present_with_the_agents_as_enum_and_in_the_description(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(return_value=[])
 
-        with patch("app.llm.tools.subagent_registry", _registry("researcher", "cook")):
-            tools = await ToolRouter().get_tool_definitions()
+        with patch("app.agents.tool.subagent_registry", _registry("researcher", "cook")):
+            tools = await ToolRouter(natives=build_native_registry()).get_tool_definitions()
 
         delegate = next(t for t in tools if t["name"] == "delegate")
         assert delegate["input_schema"]["properties"]["agent"]["enum"] == ["cook", "researcher"]
@@ -393,19 +390,19 @@ class TestDelegateTool:
     async def test_never_offered_to_a_peer_over_a2a(self, mock_mcp_client):
         mock_mcp_client.list_tools = AsyncMock(return_value=[])
 
-        with patch("app.llm.tools.subagent_registry", _registry("researcher")):
-            tools = await ToolRouter().get_tool_definitions(source="a2a")
+        with patch("app.agents.tool.subagent_registry", _registry("researcher")):
+            tools = await ToolRouter(natives=build_native_registry()).get_tool_definitions(source="a2a")
 
         assert "delegate" not in [t["name"] for t in tools]
 
     async def test_a2a_cannot_call_it_either(self):
-        result = json.loads(await ToolRouter().call_tool("delegate", {}, user_id="u", source="a2a"))
+        result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("delegate", {}, user_id="u", source="a2a"))
 
         assert "not available over A2A" in result["error"]
 
     async def test_call_reaches_the_delegate_handler(self):
-        with patch("app.agents.delegate.handle_delegate", AsyncMock(return_value='{"agent": "researcher"}')) as handle:
-            result = await ToolRouter().call_tool("delegate", {"agent": "researcher", "task": "x"}, user_id="u")
+        with patch("app.agents.tool.handle_delegate", AsyncMock(return_value='{"agent": "researcher"}')) as handle:
+            result = await ToolRouter(natives=build_native_registry()).call_tool("delegate", {"agent": "researcher", "task": "x"}, user_id="u")
 
         assert result == '{"agent": "researcher"}'
         handle.assert_awaited_once_with({"agent": "researcher", "task": "x"}, "u")

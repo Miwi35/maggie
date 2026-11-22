@@ -22,6 +22,7 @@ from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import PROACTION_MAX_ITERATIONS
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.tts.voice_message import VoiceMessageError
 from app.queue.scheduler import daily_planning_prompt
 from tests.fake_proaction_api import FakeProactionApi
@@ -97,7 +98,7 @@ async def run(prompt: str, review=None) -> dict:
             [{"role": "user", "content": prompt}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="proaction",
@@ -151,7 +152,7 @@ class _Gateway:
     """What `run_digest` asks of the gateway: the proaction run, a client and the tools."""
 
     client = None
-    tool_router = ToolRouter()
+    tool_router = ToolRouter(natives=build_native_registry())
 
     async def proaction(
         self,

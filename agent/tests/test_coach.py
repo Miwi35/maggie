@@ -13,6 +13,7 @@ from app.coach_method import SECTIONS, handle_get_coach_method
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient, expand_days
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.policy.engine import Mode, policy_engine
 from tests.test_subagent_registry import MCP_TOOL_NAMES
 
@@ -124,21 +125,20 @@ class FakeHealthApi:
 
 
 async def maggie_turn(message: str, api: FakeHealthApi, delegated: list[dict]) -> dict:
-    async def delegate(arguments: dict, user_id: str) -> str:
+    async def delegate(arguments: dict, ctx) -> str:
         delegated.append(arguments)
         return json.dumps({"agent": "coach", "result": "semaine de calibrage proposée"})
 
     with (
         patch("app.llm.tools.mcp_client", api),
         patch("app.llm.runner.record_llm_usage"),
-        patch.dict("app.llm.tools._NATIVE_HANDLERS", {"delegate": delegate}, clear=False),
     ):
         return await run_tool_loop(
             "Tu es Maggie.",
             [{"role": "user", "content": message}],
             [{"name": "delegate", "input_schema": {}}, {"name": "manage_workouts", "input_schema": {}}],
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry().with_handler("delegate", delegate)),
             user_id="user-1",
             model="fake",
             source="chat",
@@ -180,7 +180,7 @@ async def test_the_coach_run_reads_the_method_and_prescribes_without_writing():
             [{"role": "user", "content": "Prépare la semaine du lundi prochain."}],
             offered,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id="user-1",
             model="fake",
             max_iterations=definition.max_iterations,

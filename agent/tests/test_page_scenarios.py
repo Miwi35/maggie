@@ -13,6 +13,7 @@ import pytest
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 OFFERED = [{"name": name, "input_schema": {}} for name in ("read_web_page", "search_ingredients", "create_recipe", "create_event", "add_grocery_item")]
 WRITES = {"create_recipe", "create_event", "add_grocery_item"}
@@ -49,7 +50,7 @@ async def ask(message: str, address: str) -> dict:
             [{"role": "user", "content": content}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id="user-1",
             model="fake",
             source="chat",

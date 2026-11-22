@@ -9,7 +9,9 @@ from app.container import Container, container
 from app.a2a import setup_a2a
 from app.config import settings
 from app.llm.gateway import LLMGateway
-from app.llm.tools import A2A_ALLOWED_TOOLS, MEMORY_TOOLS, ToolRouter
+from app.llm.tools import A2A_ALLOWED_TOOLS, ToolRouter
+from app.memory.tools import MEMORY_TOOLS
+from app.native_tools import build_native_registry
 
 A2A_TOKEN = "a2a-secret-token"
 
@@ -121,7 +123,7 @@ class TestA2AToolRestriction:
             ]
         )
 
-        tools = await ToolRouter().get_tool_definitions(source="a2a")
+        tools = await ToolRouter(natives=build_native_registry()).get_tool_definitions(source="a2a")
 
         assert [t["name"] for t in tools] == ["get_events"]
 
@@ -137,7 +139,7 @@ class TestA2AToolRestriction:
         with patch("app.llm.tools.mcp_client") as mock_mcp_client:
             mock_mcp_client.call_tool = AsyncMock(return_value="{}")
 
-            result = await ToolRouter().call_tool(name, {}, user_id="a2a", source="a2a")
+            result = await ToolRouter(natives=build_native_registry()).call_tool(name, {}, user_id="a2a", source="a2a")
 
         assert "error" in json.loads(result)
         mock_mcp_client.call_tool.assert_not_awaited()
@@ -146,7 +148,7 @@ class TestA2AToolRestriction:
     async def test_a2a_call_to_a_read_tool_goes_through(self, mock_mcp_client):
         mock_mcp_client.call_tool = AsyncMock(return_value='{"events": []}')
 
-        result = await ToolRouter().call_tool("get_events", {}, user_id="a2a", source="a2a")
+        result = await ToolRouter(natives=build_native_registry()).call_tool("get_events", {}, user_id="a2a", source="a2a")
 
         assert result == '{"events": []}'
 
@@ -159,12 +161,12 @@ class TestA2AToolRestriction:
             ]
         )
 
-        names = {t["name"] for t in await ToolRouter().get_tool_definitions()}
+        names = {t["name"] for t in await ToolRouter(natives=build_native_registry()).get_tool_definitions()}
 
         assert {"create_event", "memory_write_fiche", "schedule_proaction"} <= names
 
     async def test_gateway_chat_asks_for_a2a_tools_only_when_called_from_a2a(self):
-        gateway = LLMGateway(client=object(), tool_router=ToolRouter())
+        gateway = LLMGateway(client=object(), tool_router=ToolRouter(natives=build_native_registry()))
         gateway._build_system_prompt = AsyncMock(return_value=[])
 
         with (

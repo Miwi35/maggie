@@ -13,6 +13,7 @@ from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import PROACTION_MAX_ITERATIONS
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.proactions.api import Proaction
 from app.queue import proaction_consumer
 from app.queue.scheduler import daily_planning_prompt
@@ -186,7 +187,7 @@ async def say(prompt: str) -> dict:
             [{"role": "user", "content": prompt}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="chat",
@@ -297,7 +298,7 @@ class TestTheConsigneTool:
             "state": {"step": "demain", "instructions": [{"id": "1", "text": "vieux", "kind": "task", "targetId": "x"}]},
         }
 
-        out = await ToolRouter().call_tool(
+        out = await ToolRouter(natives=build_native_registry()).call_tool(
             "add_bilan_consigne",
             {"day": "2030-11-14", "kind": "task", "text": "Acheter du pain", "due_date": "2030-11-15"},
             user_id=USER,
@@ -307,7 +308,7 @@ class TestTheConsigneTool:
         assert [i["text"] for i in api.status["state"]["instructions"]] == ["Acheter du pain"]
 
     async def test_a_reminder_without_a_time_creates_nothing(self, api):
-        out = await ToolRouter().call_tool(
+        out = await ToolRouter(natives=build_native_registry()).call_tool(
             "add_bilan_consigne", {"day": "2030-11-14", "kind": "reminder", "text": "Appeler le garage"}, user_id=USER
         )
 
@@ -315,7 +316,7 @@ class TestTheConsigneTool:
         assert api.of(USER) == [] and api.status is None
 
     async def test_an_unknown_kind_is_refused(self, api):
-        out = await ToolRouter().call_tool(
+        out = await ToolRouter(natives=build_native_registry()).call_tool(
             "add_bilan_consigne", {"day": "2030-11-14", "kind": "idée", "text": "x"}, user_id=USER
         )
 

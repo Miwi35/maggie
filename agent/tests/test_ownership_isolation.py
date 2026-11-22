@@ -4,13 +4,14 @@ from unittest.mock import AsyncMock, patch
 from app.container import Container
 from app.db.instruction_model import Instruction
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 OWNER = "user-owner"
 OTHER = "user-other"
 
 
 async def _call(tool: str, arguments: dict, user_id: str) -> dict:
-    return json.loads(await ToolRouter().call_tool(tool, arguments, user_id=user_id))
+    return json.loads(await ToolRouter(natives=build_native_registry()).call_tool(tool, arguments, user_id=user_id))
 
 
 def _row(factory, model, row_id):

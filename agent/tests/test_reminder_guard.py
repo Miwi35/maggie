@@ -26,6 +26,7 @@ from app.llm.claim_guard import (
 from app.llm.runner import run_tool_loop
 from app.llm.streaming import StreamingGateway
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.memory.agent_memory import MemoryBlocks
 
 WATER = "Rappelle-moi de boire de l'eau dans 1 minute"
@@ -286,7 +287,7 @@ class TestTheToolLoop:
                 messages,
                 OFFERED,
                 client=client,
-                tool_router=ToolRouter(),
+                tool_router=ToolRouter(natives=build_native_registry()),
                 user_id="user-1",
                 model="fake",
             )
@@ -357,7 +358,7 @@ def the_bubble(events: list[dict]) -> str:
 async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> tuple[list[dict], list[dict]]:
     """One `chat_stream` turn on a real ToolRouter: the events, and the messages it stored."""
     saved: list[dict] = []
-    router = ToolRouter()
+    router = ToolRouter(natives=build_native_registry())
 
     with (
         patch("app.llm.streaming.model_for", return_value="fake"),

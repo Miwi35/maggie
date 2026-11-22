@@ -12,6 +12,7 @@ from app.llm.dry_run import is_read_only
 from app.llm.time_places import PlaceError, normalize, resolve_place
 from app.llm.time_tool import handle_date_time, run_date_time
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 PARIS = ZoneInfo("Europe/Paris")
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)  # Monday, 14:00 in Paris (summer time)
@@ -352,7 +353,7 @@ class TestToolRouting:
         assert "mercredi 11 février 2026" in raw
 
     async def test_the_router_runs_date_time_without_the_mcp_server(self):
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         with (
             patch("app.llm.time_tool.resolve_user_timezone", AsyncMock(return_value=PARIS)),
             patch("app.llm.tools.mcp_client") as mcp,
@@ -368,12 +369,12 @@ class TestToolRouting:
         assert json.loads(raw)["target"]["iso"] == "2026-07-15T09:00-04:00"
 
     async def test_the_router_needs_a_user(self):
-        raw = await ToolRouter().call_tool("date_time", {"action": "now"}, user_id=None)
+        raw = await ToolRouter(natives=build_native_registry()).call_tool("date_time", {"action": "now"}, user_id=None)
 
         assert "user_id required" in json.loads(raw)["error"]
 
     async def test_chat_and_proaction_are_offered_the_tool_but_not_a2a_peers(self):
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         with patch("app.llm.tools.mcp_client") as mcp:
             mcp.list_tools = AsyncMock(return_value=[])
             chat = await router.get_tool_definitions()

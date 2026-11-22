@@ -9,6 +9,7 @@ from app.agents.delegate import ScopedToolRouter, handle_delegate, select_tools
 from app.agents.registry import SubagentDefinition, SubagentRegistry
 from app.config import settings
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from app.metrics import LLM_REQUESTS
 
 RESEARCHER = SubagentDefinition(
@@ -38,7 +39,7 @@ ALL_TOOLS = [
 @pytest.fixture()
 def registry():
     registry = SubagentRegistry(agents={"researcher": RESEARCHER})
-    with patch("app.agents.delegate.subagent_registry", registry), patch("app.llm.tools.subagent_registry", registry):
+    with patch("app.agents.delegate.subagent_registry", registry), patch("app.agents.tool.subagent_registry", registry):
         yield registry
 
 
@@ -224,7 +225,7 @@ class TestDelegateThroughTheToolRouter:
             patch("app.agents.delegate.AgentMemory") as memory,
         ):
             memory.return_value.get_memory_context = AsyncMock(return_value="")
-            raw = await ToolRouter().call_tool(
+            raw = await ToolRouter(natives=build_native_registry()).call_tool(
                 "delegate", {"agent": "researcher", "task": "Ma semaine"}, user_id="user-1"
             )
 

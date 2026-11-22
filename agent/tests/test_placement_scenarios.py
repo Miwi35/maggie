@@ -13,6 +13,7 @@ import pytest
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 USER = "user-1"
 OFFERED = [{"name": "manage_placements", "input_schema": {}}]
@@ -48,7 +49,7 @@ async def ask(content: str) -> dict:
             [{"role": "user", "content": content}],
             OFFERED,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(),
+            tool_router=ToolRouter(natives=build_native_registry()),
             user_id=USER,
             model="fake",
             source="chat",

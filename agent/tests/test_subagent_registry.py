@@ -174,7 +174,9 @@ class TestShippedAgents:
     def test_researcher_only_reaches_tools_that_read(self):
         from app.agents.delegate import select_tools
         from app.llm.dry_run import READ_ONLY_TOOLS
-        from app.llm.tools import INSTRUCTION_TOOLS, MEMORY_TOOLS, SKILL_TOOLS
+        from app.instruction_tools import INSTRUCTION_TOOLS
+        from app.memory.tools import MEMORY_TOOLS
+        from app.skills.tools import SKILL_TOOLS
 
         registry = SubagentRegistry()
         registry.load(SHIPPED_AGENTS)

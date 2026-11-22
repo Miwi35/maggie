@@ -12,6 +12,7 @@ from app.llm.runner import run_tool_loop
 from app.llm.streaming import StreamingGateway
 from app.llm.tool_failures import TOOL_FAILURE_LIMIT, FailureStreak, invalid_input
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 from tests.test_runner import _text_response, _tool_response
 
 FAILED = json.dumps({"error": "Store not found"})
@@ -172,7 +173,7 @@ class TestOnTheFakeModel:
                 [{"role": "user", "content": "ajoute du pain chez le boulanger fantôme"}],
                 offered,
                 client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-                tool_router=ToolRouter(),
+                tool_router=ToolRouter(natives=build_native_registry()),
                 user_id="user-1",
                 model="fake",
             )
@@ -197,7 +198,7 @@ class TestInvalidInput:
     async def test_a_native_tool_missing_a_required_field_is_not_run(self):
         with patch("app.instruction_tools.instruction_repo") as repo, patch("app.llm.tools.policy_engine") as policy:
             policy.evaluate = AsyncMock()
-            result = json.loads(await ToolRouter().call_tool("add_instruction", {}, user_id="user-1"))
+            result = json.loads(await ToolRouter(natives=build_native_registry()).call_tool("add_instruction", {}, user_id="user-1"))
 
         assert result["error"] == "invalid_input"
         assert result["tool"] == "add_instruction"

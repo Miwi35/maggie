@@ -75,6 +75,7 @@ class TestInstructionTools:
     async def test_add_instruction(self, mock_repo):
         """add_instruction tool should store via instruction_repo."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_instruction = MagicMock()
         mock_instruction.to_dict.return_value = {
@@ -83,7 +84,7 @@ class TestInstructionTools:
         }
         mock_repo.store = AsyncMock(return_value=mock_instruction)
 
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         result = await router.call_tool(
             "add_instruction",
             {"content": "Morning summary at 9", "kind": "planning"},
@@ -99,10 +100,11 @@ class TestInstructionTools:
     async def test_add_a_behaviour_preference(self, mock_repo):
         """What the user says in the chat — « tutoie-moi » — has to land as a behaviour preference."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_repo.store = AsyncMock(return_value=MagicMock(to_dict=lambda: {"id": "inst9"}))
 
-        await ToolRouter().call_tool(
+        await ToolRouter(natives=build_native_registry()).call_tool(
             "add_instruction",
             {"content": "Tutoie-moi", "kind": "behavior"},
             user_id="test-user",
@@ -114,10 +116,11 @@ class TestInstructionTools:
     async def test_add_instruction_forgives_the_casing_of_the_kind(self, mock_repo):
         """A model answering "Behavior" meant the right thing; a round trip to say so is waste."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_repo.store = AsyncMock(return_value=MagicMock(to_dict=lambda: {"id": "inst9"}))
 
-        await ToolRouter().call_tool(
+        await ToolRouter(natives=build_native_registry()).call_tool(
             "add_instruction",
             {"content": "Tutoie-moi", "kind": " Behavior "},
             user_id="test-user",
@@ -129,10 +132,11 @@ class TestInstructionTools:
     async def test_add_instruction_refuses_an_unknown_kind(self, mock_repo):
         """Guessing here would file a behaviour preference where nobody reads it."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_repo.store = AsyncMock()
 
-        result = await ToolRouter().call_tool(
+        result = await ToolRouter(natives=build_native_registry()).call_tool(
             "add_instruction",
             {"content": "Tutoie-moi", "kind": "tone"},
             user_id="test-user",
@@ -144,10 +148,11 @@ class TestInstructionTools:
     @patch("app.instruction_tools.instruction_repo")
     async def test_add_instruction_refuses_a_missing_kind(self, mock_repo):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_repo.store = AsyncMock()
 
-        result = await ToolRouter().call_tool("add_instruction", {"content": "Tutoie-moi"}, user_id="test-user")
+        result = await ToolRouter(natives=build_native_registry()).call_tool("add_instruction", {"content": "Tutoie-moi"}, user_id="test-user")
 
         assert "error" in result
         mock_repo.store.assert_not_awaited()
@@ -156,12 +161,13 @@ class TestInstructionTools:
     async def test_list_instructions(self, mock_repo):
         """list_instructions tool should return all instructions."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_inst = MagicMock()
         mock_inst.to_dict.return_value = {"id": "inst1", "content": "Rule 1"}
         mock_repo.find_by_user = AsyncMock(return_value=[mock_inst])
 
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         result = await router.call_tool(
             "list_instructions",
             {},
@@ -175,20 +181,22 @@ class TestInstructionTools:
     async def test_list_instructions_of_one_kind(self, mock_repo):
         """What the daily planning prompt asks for: the planning rules, not the tone."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_repo.find_by_user = AsyncMock(return_value=[])
 
-        await ToolRouter().call_tool("list_instructions", {"kind": "planning"}, user_id="test-user")
+        await ToolRouter(natives=build_native_registry()).call_tool("list_instructions", {"kind": "planning"}, user_id="test-user")
 
         mock_repo.find_by_user.assert_awaited_once_with("test-user", kind=InstructionKind.PLANNING)
 
     @patch("app.instruction_tools.instruction_repo")
     async def test_list_instructions_refuses_an_unknown_kind(self, mock_repo):
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_repo.find_by_user = AsyncMock()
 
-        result = await ToolRouter().call_tool("list_instructions", {"kind": "tone"}, user_id="test-user")
+        result = await ToolRouter(natives=build_native_registry()).call_tool("list_instructions", {"kind": "tone"}, user_id="test-user")
 
         assert "error" in result
         mock_repo.find_by_user.assert_not_awaited()
@@ -197,10 +205,11 @@ class TestInstructionTools:
     async def test_delete_instruction(self, mock_repo):
         """delete_instruction tool should remove via instruction_repo."""
         from app.llm.tools import ToolRouter
+        from app.native_tools import build_native_registry
 
         mock_repo.delete = AsyncMock(return_value=True)
 
-        router = ToolRouter()
+        router = ToolRouter(natives=build_native_registry())
         result = await router.call_tool(
             "delete_instruction",
             {"instruction_id": "inst123"},

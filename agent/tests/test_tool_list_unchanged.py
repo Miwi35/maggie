@@ -8,6 +8,7 @@ import pytest
 
 from app.agents.registry import SubagentDefinition, SubagentRegistry
 from app.llm.tools import ToolRouter
+from app.native_tools import build_native_registry
 
 SNAPSHOT = Path(__file__).parent / "fixtures" / "tool_definitions.json"
 
@@ -24,7 +25,7 @@ RESEARCHER = SubagentDefinition(
 
 
 def _router() -> ToolRouter:
-    return ToolRouter()
+    return ToolRouter(natives=build_native_registry())
 
 
 @pytest.mark.asyncio
@@ -34,7 +35,7 @@ async def test_the_tool_list_sent_to_the_model_is_unchanged():
         registry = SubagentRegistry(agents=agents)
         with (
             patch("app.llm.tools.mcp_client") as mcp,
-            patch("app.llm.tools.subagent_registry", registry),
+            patch("app.agents.tool.subagent_registry", registry),
         ):
             mcp.list_tools = AsyncMock(return_value=MCP_TOOLS)
             for source in (None, "proaction", "a2a"):
