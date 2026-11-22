@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -47,6 +48,9 @@ fun RecipeListScreen(
     onRecipeClick: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // The view model may have loaded before the session existed; opening the list asks again.
+    LaunchedEffect(viewModel) { viewModel.refresh() }
 
     when {
         uiState.isLoading && uiState.recipes.isEmpty() -> {
