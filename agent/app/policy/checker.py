@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 _TIMEOUT_S = 20.0
 _MIN_QUOTE_WORDS = 3
+_APOSTROPHES = str.maketrans({chr(0x2019): "'", chr(0x2018): "'"})
 _REMOVED = "[données externes retirées]"
 _READ_PREFIXES = ("get_", "list_", "search_", "preview_")
 _NEVER_CHECKED = frozenset({"ask_owner", "send_voice_message", VERDICT_TOOL_NAME}) | MEMORY_TOOL_NAMES
@@ -62,8 +63,7 @@ NOT_AUTHORIZED = AuthorizedBy("none", None, None)
 
 
 def _normalize(text: str) -> str:
-    text = text.replace("’", "'").replace("‘", "'")
-    return " ".join(text.lower().split())
+    return " ".join(text.translate(_APOSTROPHES).lower().split())
 
 
 def verify_quote(quote: str | None, words: list[OwnerWords]) -> OwnerWords | None:

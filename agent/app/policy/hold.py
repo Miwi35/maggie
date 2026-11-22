@@ -18,7 +18,9 @@ def _title(arguments: dict) -> str | None:
     return None
 
 
-async def hold_for_approval(name: str, arguments: dict, user_id: str | None, source: str, context_id: str | None) -> str:
+async def hold_for_approval(
+    name: str, arguments: dict, user_id: str | None, source: str, context_id: str | None
+) -> str:
     if user_id is None:
         logger.error(f"Tool call needing approval has no user to ask: {name}")
         return json.dumps({"error": "user_id required to request approval"})
