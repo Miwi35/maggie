@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -37,6 +36,7 @@ import com.maggie.app.ui.screens.health.WorkoutType
 import com.maggie.app.ui.screens.health.formatWorkoutDuration
 import com.maggie.app.ui.screens.health.workoutStart
 import com.maggie.app.ui.theme.maggieSurface
+import com.maggie.app.ui.theme.readableTextOn
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -98,7 +98,7 @@ fun SportLaunchButton(label: String, onClick: () -> Unit, modifier: Modifier = M
         onClick = onClick,
         modifier = modifier.heightIn(min = 44.dp).testTag(UiTags.SPORT_LAUNCH_BUTTON),
         shape = RoundedCornerShape(22.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = Color(0xFF1A0F0E)),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = readableTextOn(MaterialTheme.colorScheme.primary)),
         contentPadding = PaddingValues(horizontal = if (resuming) 16.dp else 18.dp),
     ) {
         if (resuming) {
