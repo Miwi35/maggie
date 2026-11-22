@@ -204,15 +204,16 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 ui_blocks=ui_blocks,
                 screen=screen,
             )
-            # An interruption is announced by the API once the run is recorded (one sentence and the link
-            # to this message); a message left in the thread tells nobody (MAG-886), except the review,
-            # which notifies itself as a `message` like the digest.
-            if is_bilan(proaction.summary):
+            # An interruption is announced by the API once the run is recorded (a `proaction` notification);
+            # a message left in the thread is announced as a `message` notification, like the digest (owner,
+            # 22 Nov.: both ask for attention, only the target differs).
+            if delivery is Delivery.THREAD:
                 await notify_message(
                     proaction.user_id,
                     stored.id,
                     stored.content,
                     has_audio=bool(getattr(stored, "audio", None)),
+                    screen=screen,
                 )
             trace["message_link"] = message_link(stored.id, screen)
             trace["notice"] = (verdict.headline if verdict else None) or message_preview(
