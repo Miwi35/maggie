@@ -17,7 +17,7 @@ import { ROUTES, adminUrl } from '../pages/routes.js'
  *     et un virement Livret → Courant de 1 500,00 € pendant le retard
  *     et un Courant qui contient 4 000,00 €
  *   Quand je demande à Maggie « combien je dois remettre sur mon livret ? »
- *   Alors `get_savings_advances` et `propose_advance_repayments` ont tourné et ont réussi
+ *   Alors `get_finance_summary` et `manage_accounts` ont tourné et ont réussi
  *     et l'API rend une avance en cours de 1 500,00 € sur le Livret
  *     et un retard de salaire compté depuis le jour J du mois dernier
  *     et un contre-virement proposé de 1 500,00 € du Courant vers le Livret
@@ -229,12 +229,12 @@ test('« combien je dois remettre sur mon livret ? » reads the advance taken du
   await new HomePage(page).open()
   const events = await new ChatPanel(page).send('Combien je dois remettre sur mon livret ?')
 
-  // Then she read the savings advances and asked what to transfer, and both went through.
-  expect(calledTools(events)).toEqual(expect.arrayContaining(['get_savings_advances', 'propose_advance_repayments']))
+  // Then she read the summary (advances) and the account balances, and both went through.
+  expect(calledTools(events)).toEqual(expect.arrayContaining(['get_finance_summary', 'manage_accounts']))
   expect(toolResults(events)).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ toolName: 'get_savings_advances', status: 'success' }),
-      expect.objectContaining({ toolName: 'propose_advance_repayments', status: 'success' }),
+      expect.objectContaining({ toolName: 'get_finance_summary', status: 'success' }),
+      expect.objectContaining({ toolName: 'manage_accounts', status: 'success' }),
     ]),
   )
 

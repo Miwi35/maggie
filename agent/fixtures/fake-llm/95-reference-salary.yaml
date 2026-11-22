@@ -1,8 +1,8 @@
 # « Sur quel salaire tu juges mon mois ? » (MAG-273): the reference salary and
-# its source, through `get_reference_salary` (no argument — a pure read). The
+# its source, through `get_finance_summary` (no argument — a pure read). The
 # fake does not read the result: the journey asserts the tool ran and reads
 # the same figure on `GET /api/finance/reference-salary`; what the tool returns
-# for each source is `ReferenceSalaryToolTest`'s business.
+# for each source is `GetReferenceSalaryTest`'s business.
 name: reference-salary
 description: Read the reference salary and its source through MCP.
 
@@ -11,6 +11,6 @@ match:
 
 turns:
   - tools:
-      - name: get_reference_salary
+      - name: get_finance_summary
         input: {}
   - text: "Je juge votre mois sur votre salaire attendu, primes exclues."

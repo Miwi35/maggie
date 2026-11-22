@@ -35,7 +35,7 @@ Lis la journée : `get_events` (`from` et `to` : le jour) pour l'agenda fait, `g
 
 ## 3. Finance (`finance`)
 
-Appelle `get_finance_scores` avec `date`. Dis où en est la semaine en une phrase, **sans verdict** : ni « bien », ni « mal », ni « attention », ni conseil. Un outil en erreur : saute l'étape en une phrase, sans bloquer le bilan.
+Appelle `get_finance_summary` avec `period` (le mois du bilan, `YYYY-MM`) et lis la section `scores`. Dis où en est la semaine en une phrase, **sans verdict** : ni « bien », ni « mal », ni « attention », ni conseil. Un outil en erreur : saute l'étape en une phrase, sans bloquer le bilan.
 
 ## 4. Santé (`sante`)
 
