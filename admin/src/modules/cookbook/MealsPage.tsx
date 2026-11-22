@@ -14,21 +14,13 @@ import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Select from '@mui/material/Select'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import DeleteIcon from '@mui/icons-material/Delete'
-import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket'
 import { useMercure } from '../../hooks/useMercure'
 import { GuestsStepper } from './GuestsStepper'
-import { MealCard, mealTitle } from './MealCard'
+import { MealCard } from './MealCard'
 import type { MealActions } from './MealCard'
 import { MealGroceryChoice } from './MealGroceryChoice'
 import { idOf } from './recipeSheet'
@@ -44,10 +36,11 @@ import {
   distinctProducts,
   formatDate,
   getMonday,
+  guestsLabel,
   iriOf,
+  listDayLabel,
   mealRecipesOf,
   mealToChoose,
-  slotLabel,
   weekLabel,
 } from './mealsWeek'
 import type { Meal, Recipe } from './mealsWeek'
@@ -85,47 +78,28 @@ function Pill({ label, active = false, onClick }: { label: string; active?: bool
   )
 }
 
-function MealRow({ meal, known, busy, actions }: { meal: Meal; known: Map<string, Recipe>; busy: boolean; actions: MealActions }) {
-  const title = mealTitle(meal)
-  const date = new Date(`${meal.date}T12:00:00`)
-  const dayName = DAYS[(date.getDay() + 6) % 7]
+function MealRow({ meal, known, isToday }: { meal: Meal; known: Map<string, Recipe>; isToday: boolean }) {
   const names = mealRecipesOf(meal, known)
     .map((entry) => entry.recipe?.name)
     .filter(Boolean)
 
   return (
-    <TableRow data-testid={`meal-row-${idOf(meal.id)}`}>
-      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-        {dayName} {date.getDate()} {date.toLocaleDateString('fr-FR', { month: 'short' })}
-      </TableCell>
-      <TableCell>{slotLabel(meal.slot)}</TableCell>
-      <TableCell>{names.length > 0 ? names.join(', ') : meal.summary}</TableCell>
-      <TableCell>
-        <GuestsStepper
-          label="Convives"
-          name={`Convives du repas ${title}`}
-          hideLabel
-          value={meal.guests ?? FALLBACK_GUESTS}
-          isDefault={meal.guestsIsDefault === true}
-          disabled={busy}
-          onChange={(value) => actions.onGuests(meal, value)}
-        />
-      </TableCell>
-      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-        <IconButton
-          size="small"
-          aria-label={`Revoir les ingrédients à acheter pour ${title}`}
-          title="Revoir les ingrédients à acheter"
-          disabled={busy}
-          onClick={() => actions.onReview(meal)}
-        >
-          <ShoppingBasketIcon fontSize="small" />
-        </IconButton>
-        <IconButton size="small" aria-label={`Supprimer le repas ${title}`} disabled={busy} onClick={() => actions.onDelete(meal)}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      </TableCell>
-    </TableRow>
+    <Paper
+      variant="outlined"
+      data-testid={`meal-row-${idOf(meal.id)}`}
+      aria-current={isToday ? 'date' : undefined}
+      sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.25, borderRadius: 2 }}
+    >
+      <Typography sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: isToday ? 'module.cuisine' : 'text.secondary' }}>
+        {listDayLabel(meal)}
+      </Typography>
+      <Typography sx={{ whiteSpace: 'nowrap' }} color="text.secondary">
+        {guestsLabel(meal.guests ?? FALLBACK_GUESTS)}
+      </Typography>
+      <Typography noWrap sx={{ flex: 1, minWidth: 0 }}>
+        {names.length > 0 ? names.join(' · ') : meal.summary}
+      </Typography>
+    </Paper>
   )
 }
 
@@ -311,7 +285,13 @@ export const MealsPage = () => {
     <Box sx={{ p: { xs: 1, md: 2 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Title title="Repas" />
 
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 500 }}>
+          Repas
+        </Typography>
+        <Pill label="Menu" active={view === 'menu'} onClick={() => setView('menu')} />
+        <Pill label="Liste" active={view === 'list'} onClick={() => setView('list')} />
+        <Box sx={{ flex: 1 }} />
         <IconButton aria-label="Semaine précédente" onClick={() => setWeekStart(addDays(weekStart, -7))}>
           <ChevronLeftIcon />
         </IconButton>
@@ -321,26 +301,7 @@ export const MealsPage = () => {
         <IconButton aria-label="Semaine suivante" onClick={() => setWeekStart(addDays(weekStart, 7))}>
           <ChevronRightIcon />
         </IconButton>
-        <Pill label="Aujourd'hui" onClick={() => setWeekStart(getMonday(new Date()))} />
-        <Box sx={{ flex: 1 }} />
-        <Pill label="Menu" active={view === 'menu'} onClick={() => setView('menu')} />
-        <Pill label="Liste" active={view === 'list'} onClick={() => setView('list')} />
       </Box>
-
-      {meals.length > 0 && (
-        <Paper data-testid="week-ingredients" variant="outlined" sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1.5 }}>
-          <Typography sx={{ fontWeight: 500 }}>Ingrédients de la semaine</Typography>
-          <Typography color="text.secondary">·</Typography>
-          <Typography>{meals.length} repas</Typography>
-          <Typography color="text.secondary">·</Typography>
-          <Typography sx={{ flex: 1 }}>
-            {products} produit{products > 1 ? 's' : ''}
-          </Typography>
-          <Button disabled={!choice} onClick={() => choice && openChoice(choice)}>
-            Choisir
-          </Button>
-        </Paper>
-      )}
 
       {view === 'menu' ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -375,29 +336,12 @@ export const MealsPage = () => {
         </Box>
       ) : (
         <>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Jour</TableCell>
-                  <TableCell>Créneau</TableCell>
-                  <TableCell>Recettes</TableCell>
-                  <TableCell>Convives</TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sorted.map((meal) => (
-                  <MealRow key={meal.id} meal={meal} known={known} busy={busy.has(meal.id)} actions={actions} />
-                ))}
-                {sorted.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5}>Aucun repas cette semaine</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {sorted.map((meal) => (
+              <MealRow key={meal.id} meal={meal} known={known} isToday={meal.date === todayDay} />
+            ))}
+            {sorted.length === 0 && <Typography color="text.secondary">Aucun repas cette semaine</Typography>}
+          </Box>
           <Button
             size="small"
             sx={{ alignSelf: 'flex-start' }}
@@ -406,6 +350,20 @@ export const MealsPage = () => {
             + Ajouter un repas
           </Button>
         </>
+      )}
+
+      {meals.length > 0 && (
+        <Paper data-testid="week-ingredients" variant="outlined" sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 500 }}>Ingrédients de la semaine</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {`${meals.length} repas · ${products} produit${products > 1 ? 's' : ''}`}
+            </Typography>
+          </Box>
+          <Button disabled={!choice} onClick={() => choice && openChoice(choice)}>
+            Choisir
+          </Button>
+        </Paper>
       )}
 
       {/* The meal, then — once it exists — which of its ingredients go on the list. The same second step is reopened from a planned meal. */}

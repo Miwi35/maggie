@@ -64,6 +64,17 @@ export function weekLabel(weekStart: Date, today: Date): string {
 
 export const slotLabel = (slot: string) => SLOTS.find((s) => s.value === slot)?.label ?? slot
 
+export const guestsLabel = (n: number) => `${n} convive${n > 1 ? 's' : ''}`
+
+const SHORT_DAYS = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.']
+
+/** « Mar. 14 · midi »: the short day, its number, and the moment. */
+export function listDayLabel(meal: Meal): string {
+  const date = new Date(`${meal.date}T12:00:00`)
+
+  return `${SHORT_DAYS[(date.getDay() + 6) % 7]} ${date.getDate()} · ${meal.slot === 'lunch' ? 'midi' : 'soir'}`
+}
+
 /** Chronological: the day, then lunch before dinner. */
 export const byDayAndSlot = (a: Meal, b: Meal): number =>
   a.date.localeCompare(b.date) || SLOTS.findIndex((s) => s.value === a.slot) - SLOTS.findIndex((s) => s.value === b.slot)
