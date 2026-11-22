@@ -18,6 +18,7 @@ from app.auth import (
     require_proaction_trigger,
     require_service_token,
 )
+from app.container import container
 from app.db.chat_read_state_repository import UnknownMessage, chat_read_state_repo
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
@@ -35,7 +36,6 @@ from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
 from app.llm.context_summary import context_summarizer
 from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
-from app.llm.gateway import LLMGateway
 from app.llm.held_secret import hold_secrets
 from app.llm.image import ChatImage
 from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
@@ -44,7 +44,7 @@ from app.llm.questions import choices_message
 from app.llm.replace import abandon_approvals, withdraw_turn
 from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
-from app.llm.streaming import StreamingGateway, answer_message_id
+from app.llm.streaming import answer_message_id
 from app.llm.style_synthesis import style_synthesizer
 from app.llm.transcription import CLEANUP_MODES, transcribe_audio
 from app.llm.turns import lease_deadline, turn_runner
@@ -66,9 +66,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 router.include_router(memory_router)
 
-llm_gateway = LLMGateway()
 read_publisher = MercurePublisher()
-streaming_gateway = StreamingGateway()
 
 
 class ChatRequest(BaseModel):
@@ -207,7 +205,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
     said, screen = split_screen_context(request.message, request.screen_context)
     said, screen = hold_secrets(said, screen)
     screen = with_reply(screen, request.in_reply_to)
-    await grant_approval_answer(user_id, request.in_reply_to, said, llm_gateway.client)
+    await grant_approval_answer(user_id, request.in_reply_to, said, container.llm_gateway.client)
     logger.info(f"Chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     # A screenshot, or the message it answers, makes it another message, whatever the words say:
@@ -271,7 +269,7 @@ async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: st
         user_id=user_id, role="user", content=said, has_image=request.image is not None
     )
 
-    result = await llm_gateway.chat(
+    result = await container.llm_gateway.chat(
         said,
         user_id,
         exclude_message_id=user_msg.id,
@@ -304,7 +302,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
     said, screen = split_screen_context(request.message, request.screen_context)
     said, screen = hold_secrets(said, screen)
     screen = with_reply(screen, request.in_reply_to)
-    await grant_approval_answer(user_id, request.in_reply_to, said, llm_gateway.client)
+    await grant_approval_answer(user_id, request.in_reply_to, said, container.llm_gateway.client)
     logger.info(f"Stream chat request from user {user_id}: {said[:100]}{_image_note(request.image)}")
 
     key = request.idempotency_key
@@ -344,7 +342,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                 logger.info(f"Message {received.id} already received under key {key}: not answered twice")
             else:
                 events = turn_runner.start(
-                    streaming_gateway,
+                    container.streaming_gateway,
                     user_id=user_id,
                     message_id=user_msg.id,
                     message=said,
@@ -466,7 +464,7 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
     """Execute a proaction prompt autonomously, reading the open threads but no message history."""
     logger.info(f"Proaction request for user {user_id}: {request.message[:100]}")
 
-    result = await llm_gateway.proaction(request.message, user_id, spoken=request.spoken)
+    result = await container.llm_gateway.proaction(request.message, user_id, spoken=request.spoken)
 
     # Stored in the thread the gateway routed it to, so a reply to it stays in the same
     # one — and that thread is re-summarized, since the reply will be routed against its
@@ -544,7 +542,7 @@ async def announce_approved_action(action: PendingAction, result: str) -> None:
     `execute_proaction` — the message is stored (and published on the chat topic by
     `message_repo`) in the thread, which is then re-summarized.
     """
-    if llm_gateway.client is None:
+    if container.llm_gateway.client is None:
         return
 
     prompt = (
@@ -552,13 +550,13 @@ async def announce_approved_action(action: PendingAction, result: str) -> None:
         f"Résultat : {result}. Annonce-le brièvement."
     )
     try:
-        system = await llm_gateway._build_system_prompt(action.user_id, current_context_id=action.context_id)
+        system = await container.llm_gateway._build_system_prompt(action.user_id, current_context_id=action.context_id)
         answer = await run_tool_loop(
             system,
             [{"role": "user", "content": prompt}],
             None,
-            client=llm_gateway.client,
-            tool_router=llm_gateway.tool_router,
+            client=container.llm_gateway.client,
+            tool_router=container.llm_gateway.tool_router,
             user_id=action.user_id,
             model=model_for(CHAT),
             effort=effort_for(CHAT),
@@ -583,7 +581,7 @@ class QuestionAnswer(BaseModel):
 
 async def _resume_after_answer(user_id: str, said: str, user_msg_id: str) -> None:
     try:
-        result = await llm_gateway.chat(said, user_id, exclude_message_id=user_msg_id)
+        result = await container.llm_gateway.chat(said, user_id, exclude_message_id=user_msg_id)
         await _store_reply(user_id, result)
     except Exception as e:
         logger.error(f"Turn resumed after the answer {user_msg_id} failed: {e}")
@@ -669,7 +667,7 @@ async def approve_action(
     await record_decision(claimed, channel)
 
     try:
-        result = await llm_gateway.tool_router.call_tool(
+        result = await container.llm_gateway.tool_router.call_tool(
             action.tool_name, action.arguments or {}, user_id, source="approval"
         )
     except Exception as e:
@@ -856,7 +854,7 @@ async def generate_user_proactions(
     """
     known = set() if dry_run else {p.id for p in await _user_proactions(user_id)}
     try:
-        result = await generate_proactions(llm_gateway, user_id, dry_run=dry_run)
+        result = await generate_proactions(container.llm_gateway, user_id, dry_run=dry_run)
     except Exception as e:
         logger.error(f"Proaction generation failed for user {user_id}: {e}")
         raise HTTPException(status_code=502, detail=f"Proaction generation failed: {e}") from e
@@ -906,7 +904,7 @@ async def execute_user_proaction(
         proaction = claimed[0]
 
     try:
-        result = await execute_proaction(llm_gateway, proaction, dry_run=dry_run)
+        result = await execute_proaction(container.llm_gateway, proaction, dry_run=dry_run)
     except Exception as e:
         logger.error(f"Execution of proaction {proaction_id} failed: {e}")
         raise HTTPException(status_code=502, detail=f"Proaction execution failed: {e}") from e
@@ -956,7 +954,7 @@ async def run_journal_planning(user_id: str = Depends(get_current_user_id)):
     for tomorrow. Today's proactions already scheduled are left be: the planning reads them first.
     """
     try:
-        result = await generate_proactions(llm_gateway, user_id)
+        result = await generate_proactions(container.llm_gateway, user_id)
     except Exception as e:
         logger.error(f"Planning on demand failed for user {user_id}: {e}")
         raise HTTPException(status_code=502, detail="La planification a échoué : voir le journal.") from e
@@ -982,14 +980,14 @@ async def reset_recette_data(request: RecetteResetRequest, _: None = Depends(req
 @router.get("/personality")
 async def get_personality(user_id: str = Depends(get_current_user_id)):
     """Return current personality configuration."""
-    return await llm_gateway.personality.get_config(user_id)
+    return await container.llm_gateway.personality.get_config(user_id)
 
 
 @router.put("/personality")
 async def update_personality(data: PersonalityUpdate, user_id: str = Depends(get_current_user_id)):
     """Update personality configuration and reload."""
     updates = data.model_dump(exclude_none=True)
-    return await llm_gateway.personality.update_config(user_id, updates)
+    return await container.llm_gateway.personality.update_config(user_id, updates)
 
 
 MAX_AUDIO_SIZE = 25 * 1024 * 1024  # 25 MB (Whisper limit)

@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from app.container import Container
 from app.work_hours import IN_WORK_HOURS_LINE, OUT_OF_WORK_HOURS_LINE, in_work_hours, work_hours_line
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -83,7 +84,7 @@ class TestTheStreamedChatSaysIt:
         from app.llm.streaming import StreamingGateway
         from app.memory.agent_memory import MemoryBlocks
 
-        gateway = StreamingGateway()
+        gateway = Container().streaming_gateway
         gateway.personality = MagicMock()
         gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
         gateway.agent_memory = MagicMock()

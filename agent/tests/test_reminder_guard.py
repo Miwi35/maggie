@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import pytest
 import yaml
 
+from app.container import Container
 from app.error_tracking import CLAIM_UNBACKED
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.claim_guard import (
@@ -391,7 +392,7 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
         created.id = "ctx-1"
         context_repo.create = AsyncMock(return_value=created)
 
-        gateway = StreamingGateway()
+        gateway = Container().streaming_gateway
         gateway.client = client
         gateway.personality = MagicMock()
         gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")

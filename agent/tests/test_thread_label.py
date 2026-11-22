@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import Container
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeUsage
@@ -74,7 +75,7 @@ class TestTheHistoryLabelsTheUserSideOnly:
 
 
 def _streaming_gateway(answer: str) -> StreamingGateway:
-    gw = StreamingGateway()
+    gw = Container().streaming_gateway
     gw.client = MagicMock()
     gw.client.messages.stream = lambda **_kwargs: FakeStream(
         FakeMessage(
@@ -144,7 +145,7 @@ class TestTheStreamedAnswerCarriesNoLabel:
 
 class TestThePlainChatCarriesNoLabel:
     async def test_a_copied_label_is_not_returned(self):
-        gateway = LLMGateway()
+        gateway = Container().llm_gateway
         gateway.client = MagicMock()
         gateway.personality = MagicMock()
         gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")

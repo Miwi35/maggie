@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import Container, container
 from app.config import settings
 from app.db.context_model import ContextStatus
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
@@ -23,7 +24,7 @@ class TestStreamingGateway:
         """When no API key is configured, emit error text."""
         with patch("app.llm.client.settings") as mock_settings:
             mock_settings.anthropic_api_key = ""
-            gw = StreamingGateway()
+            gw = Container().streaming_gateway
             assert gw.client is None
 
             events = []
@@ -53,7 +54,7 @@ class TestStreamingGateway:
             mock_repo.create = AsyncMock(return_value=ctx)
             mock_msg_repo.update_context = AsyncMock()
 
-            gw = StreamingGateway()
+            gw = Container().streaming_gateway
             # Mock the Anthropic client response
             response = MagicMock()
             response.content = [MagicMock(text='{"context_id": null, "label": "Liste de courses"}')]
@@ -85,7 +86,7 @@ class TestStreamingGateway:
             mock_repo.find_active = AsyncMock(return_value=[existing])
             mock_msg_repo.update_context = AsyncMock()
 
-            gw = StreamingGateway()
+            gw = Container().streaming_gateway
             response = MagicMock()
             response.content = [MagicMock(text='{"context_id": "ctx-123"}')]
             response.usage.input_tokens = 80
@@ -106,7 +107,7 @@ class TestStreamingGateway:
         with patch("app.llm.contexts.context_repo") as mock_repo:
             mock_repo.find_active = AsyncMock(return_value=[])
 
-            gw = StreamingGateway()
+            gw = Container().streaming_gateway
             gw.client = MagicMock()
             gw.client.messages = MagicMock()
             gw.client.messages.create = AsyncMock(side_effect=Exception("API error"))
@@ -117,7 +118,7 @@ class TestStreamingGateway:
     @pytest.mark.asyncio
     async def test_resolve_context_no_client(self):
         """When no client configured, returns None."""
-        gw = StreamingGateway()
+        gw = Container().streaming_gateway
         gw.client = None
         result = await gw._resolve_context("test", "user-1", "msg-1")
         assert result is None
@@ -137,7 +138,7 @@ class TestStreamingGateway:
             mock_repo.find_active = AsyncMock(return_value=[existing])
             mock_msg_repo.update_context = AsyncMock()
 
-            gw = StreamingGateway()
+            gw = Container().streaming_gateway
             response = MagicMock()
             response.content = [MagicMock(text='{"context_id": "ctx-123"}')]
             response.usage.input_tokens = 80
@@ -161,7 +162,7 @@ class TestStreamingGateway:
             mock_repo.create = AsyncMock(return_value=ctx)
             mock_msg_repo.update_context = AsyncMock()
 
-            gw = StreamingGateway()
+            gw = Container().streaming_gateway
             response = MagicMock()
             response.content = [MagicMock(text='{"context_id": null, "label": "Budget"}')]
             response.usage.input_tokens = 50
@@ -200,7 +201,7 @@ async def _system_blocks(contexts: list, current_context_id: str | None = None) 
         skills.get_skills_index.return_value = ""
         skills.skills_for_moment.return_value = ""
         skills.refresh = AsyncMock()
-        gw = StreamingGateway()
+        gw = Container().streaming_gateway
         gw.personality = MagicMock()
         gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
         gw.agent_memory = MagicMock()
@@ -260,7 +261,7 @@ class TestSummaryTrigger:
 
     @staticmethod
     def _gateway():
-        gw = StreamingGateway()
+        gw = Container().streaming_gateway
         gw.client = MagicMock()
         gw.client.messages.stream = lambda **_kwargs: FakeStream(
             FakeMessage(
@@ -643,7 +644,7 @@ class TestStreamedExchangeReachesOtherDevices:
             yield {"type": "RUN_FINISHED", "runId": "run-1"}
 
         with (
-            patch("app.api.routes.streaming_gateway") as gateway,
+            patch.object(container, "streaming_gateway") as gateway,
             patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
         ):
             gateway.chat_stream = empty_run
@@ -669,7 +670,7 @@ class TestStreamedExchangeReachesOtherDevices:
         block = "[Contexte de l'écran]\nPage : https://dice.fm/event/x?utm_source=spam"
 
         with (
-            patch("app.api.routes.streaming_gateway") as gateway,
+            patch.object(container, "streaming_gateway") as gateway,
             patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
         ):
             gateway.chat_stream = empty_run

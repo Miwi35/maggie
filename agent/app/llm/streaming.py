@@ -20,7 +20,7 @@ from app.db.models import NOTHING_SAID, Message
 from app.error_tracking import capture_error
 from app.llm.capabilities import generate_capability_summary
 from app.llm.claim_guard import ClaimGuard, Verdict
-from app.llm.client import client_for, create_llm_client, llm_configured
+from app.llm.client import client_for
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import active_contexts_section, open_threads, route_message, with_routed
 from app.llm.directives import behavior_directives_section
@@ -79,10 +79,10 @@ class _ThreadFreeParts:
 class StreamingGateway:
     """Claude API gateway with AG-UI streaming event emission."""
 
-    def __init__(self):
-        self.client = create_llm_client() if llm_configured() else None
+    def __init__(self, *, client, tool_router: ToolRouter):
+        self.client = client
         self.personality = PersonalityEngine()
-        self.tool_router = ToolRouter()
+        self.tool_router = tool_router
         self.agent_memory = AgentMemory()
         # Background work the answer does not wait for. Held in a set because the event
         # loop keeps only a weak reference to a running task: one nobody holds can be

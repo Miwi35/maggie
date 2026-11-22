@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import Container
 from app.llm.gateway import LLMGateway
 from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H, build_system, cache_tools
 from app.llm.web_search import with_web_search
@@ -284,7 +285,7 @@ class TestStreamingPrefix:
         with patch("app.llm.streaming.message_repo") as message_repo:
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
-            gateway = StreamingGateway()
+            gateway = Container().streaming_gateway
             gateway.client = MagicMock()
             gateway.client.messages.stream = MagicMock(return_value=FakeStream())
             gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[{"name": "a"}, {"name": "b"}]))
@@ -329,7 +330,7 @@ class TestStreamingPrefix:
         with patch("app.llm.streaming.message_repo") as message_repo:
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
-            gateway = StreamingGateway()
+            gateway = Container().streaming_gateway
             gateway.client = MagicMock()
             gateway.client.messages.stream = MagicMock(return_value=FakeStream())
             gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[{"name": "a"}, {"name": "b"}]))
@@ -384,7 +385,7 @@ class TestSharedToolPrefix:
         with patch("app.llm.streaming.message_repo") as message_repo:
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
-            chat = StreamingGateway()
+            chat = Container().streaming_gateway
             chat.client = MagicMock()
             chat.client.messages.stream = MagicMock(return_value=FakeStream())
             chat.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))

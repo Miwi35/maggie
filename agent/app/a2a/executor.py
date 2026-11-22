@@ -4,7 +4,7 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
 
-from app.llm.gateway import LLMGateway
+from app.container import container
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class MaggieAgentExecutor(AgentExecutor):
     """
 
     def __init__(self):
-        self.gateway = LLMGateway()
+        self.gateway = container.llm_gateway
 
     async def execute(
         self,

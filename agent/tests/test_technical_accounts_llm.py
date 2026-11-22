@@ -3,6 +3,7 @@
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.container import Container
 from app.llm import client as client_module
 from app.llm.client import client_for
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
@@ -61,7 +62,7 @@ class TestWhoIsTechnical:
 
 class TestNoAnthropicCallForATechnicalAccount:
     def _gateway(self) -> LLMGateway:
-        gateway = LLMGateway()
+        gateway = Container().llm_gateway
         gateway.client = _anthropic()
         gateway.personality = MagicMock()
         gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")

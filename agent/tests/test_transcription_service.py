@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import container
 from app.llm.transcription import (
     WhisperTranscript,
     needs_cleanup,
@@ -119,13 +120,11 @@ class TestTranscriptionService:
         )
 
     @pytest.mark.asyncio
-    @patch("app.llm.transcription.create_llm_client")
-    async def test_cleanup_runs_on_the_fast_model_and_counts(self, mock_create_client):
+    async def test_cleanup_runs_on_the_fast_model_and_counts(self):
         """The cleanup nobody reads twice runs on Haiku, and the e2e counter sees it."""
         from app.llm.transcription import _cleanup_with_llm, cleanup_requests, settings
 
         mock_client = AsyncMock()
-        mock_create_client.return_value = mock_client
         mock_content_block = MagicMock()
         mock_content_block.text = "Texte propre."
         mock_usage = MagicMock()
@@ -136,7 +135,8 @@ class TestTranscriptionService:
         mock_response.usage = mock_usage
         mock_client.messages.create = AsyncMock(return_value=mock_response)
 
-        result = await _cleanup_with_llm("texte sale euh")
+        with container.override(llm_client=mock_client):
+            result = await _cleanup_with_llm("texte sale euh")
 
         assert result == "Texte propre."
         assert mock_client.messages.create.call_args.kwargs["model"] == settings.anthropic_fast_model

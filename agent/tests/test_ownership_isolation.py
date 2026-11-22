@@ -1,6 +1,7 @@
 import json
 from unittest.mock import AsyncMock, patch
 
+from app.container import Container
 from app.db.instruction_model import Instruction
 from app.llm.tools import ToolRouter
 
@@ -111,7 +112,7 @@ class TestContextRouterIsolation:
         response.content = [MagicMock(text=model_answer)]
         response.usage.input_tokens = 50
         response.usage.output_tokens = 10
-        gateway = StreamingGateway()
+        gateway = Container().streaming_gateway
         gateway.client = MagicMock()
         gateway.client.messages.create = AsyncMock(return_value=response)
         return gateway, context_repo, message_repo

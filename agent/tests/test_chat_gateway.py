@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import anthropic
 import httpx
 
+from app.container import Container
 from app.db.context_model import ContextStatus
 from app.llm.gateway import API_ERROR_MESSAGE, UNREACHABLE_MESSAGE, LLMGateway
 from app.memory.agent_memory import MemoryBlocks
@@ -25,7 +26,7 @@ ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "act
 
 
 def _gateway() -> LLMGateway:
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.client = MagicMock()
     gateway.personality = MagicMock()
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")

@@ -1,6 +1,6 @@
 """Where the agent gets its LLM client — the real one, or the scripted fake (MAG-95).
 
-Every call to a model goes through `create_llm_client()`, so `LLM_PROVIDER` is
+Called by `app/container.py` only — everything else reads `container.llm_client`. So `LLM_PROVIDER` is
 the single switch: nothing else in the agent knows there is a fake, and no
 caller takes an e2e-only branch.
 """
@@ -8,6 +8,7 @@ caller takes an e2e-only branch.
 import logging
 
 import anthropic
+import httpx
 
 from app.config import settings
 from app.llm.fake import FakeAnthropicClient
@@ -32,7 +33,10 @@ def create_llm_client():
     if settings.llm_provider == FAKE:
         logger.info("LLM_PROVIDER=fake — answers come from the scenario fixtures, not from Claude")
         return FakeAnthropicClient()
-    return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    return anthropic.AsyncAnthropic(
+        api_key=settings.anthropic_api_key,
+        timeout=httpx.Timeout(settings.llm_timeout_seconds, connect=5.0),
+    )
 
 
 _technical_client: FakeAnthropicClient | None = None

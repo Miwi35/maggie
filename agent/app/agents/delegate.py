@@ -3,7 +3,8 @@ import logging
 from fnmatch import fnmatchcase
 
 from app.agents.registry import SubagentDefinition, subagent_registry
-from app.llm.client import client_for, create_llm_client, llm_configured
+from app.container import container
+from app.llm.client import client_for, llm_configured
 from app.llm.runner import run_tool_loop
 from app.llm.tools import ToolRouter
 from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
@@ -15,15 +16,6 @@ from app.user_timezone import resolve_user_timezone
 logger = logging.getLogger(__name__)
 
 DELEGATE_TOOL = "delegate"
-
-_client = None
-
-
-def _llm_client():
-    global _client
-    if _client is None:
-        _client = create_llm_client()
-    return _client
 
 
 def select_tools(definition: SubagentDefinition, tools: list[dict]) -> list[dict]:
@@ -80,7 +72,7 @@ async def handle_delegate(arguments: dict, user_id: str) -> str:
     if not llm_configured():
         return json.dumps({"error": "AI service is not configured"})
 
-    router = ToolRouter()
+    router = container.tool_router
     tools = select_tools(definition, await router.get_tool_definitions())
     if WEB_SEARCH_TOOL in definition.tools:
         # Anthropic's server tool, not one the router knows: offered, never routed (MAG-384).
@@ -91,7 +83,7 @@ async def handle_delegate(arguments: dict, user_id: str) -> str:
         system,
         [{"role": "user", "content": task}],
         tools,
-        client=await client_for(user_id, _llm_client()),
+        client=await client_for(user_id, container.llm_client),
         tool_router=ScopedToolRouter(router, {t["name"] for t in tools}),
         user_id=user_id,
         model=definition.model_id,

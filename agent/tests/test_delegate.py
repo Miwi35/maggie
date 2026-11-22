@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import container
 from app.agents.delegate import ScopedToolRouter, handle_delegate, select_tools
 from app.agents.registry import SubagentDefinition, SubagentRegistry
 from app.config import settings
@@ -46,7 +47,7 @@ def router():
     mock = MagicMock()
     mock.get_tool_definitions = AsyncMock(return_value=ALL_TOOLS)
     mock.call_tool = AsyncMock(return_value='{"ok": true}')
-    with patch("app.agents.delegate.ToolRouter", return_value=mock):
+    with container.override(tool_router=mock):
         yield mock
 
 
@@ -55,7 +56,7 @@ def loop():
     result = {"response": "Votre semaine est calme.", "tool_calls": [{"name": "get_events"}, {"name": "search_recipes"}]}
     with (
         patch("app.agents.delegate.run_tool_loop", AsyncMock(return_value=result)) as run,
-        patch("app.agents.delegate._llm_client", return_value="client"),
+        container.override(llm_client="client"),
         patch("app.agents.delegate.llm_configured", return_value=True),
         patch("app.agents.delegate.AgentMemory") as memory,
     ):
@@ -218,7 +219,7 @@ class TestDelegateThroughTheToolRouter:
         before = metric._value.get()
 
         with (
-            patch("app.agents.delegate._llm_client", return_value=client),
+            container.override(llm_client=client),
             patch("app.agents.delegate.llm_configured", return_value=True),
             patch("app.agents.delegate.AgentMemory") as memory,
         ):

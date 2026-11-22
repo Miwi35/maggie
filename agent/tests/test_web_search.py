@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import container
 from app.agents.delegate import handle_delegate
 from app.agents.registry import SubagentDefinition, SubagentRegistry, parse_subagent
 from app.config import settings
@@ -212,9 +213,9 @@ class TestTheResearcher:
         result = {"response": "Du 17 octobre.", "tool_calls": []}
         with (
             patch("app.agents.delegate.subagent_registry", registry),
-            patch("app.agents.delegate.ToolRouter", return_value=router),
+            container.override(tool_router=router),
             patch("app.agents.delegate.run_tool_loop", AsyncMock(return_value=result)) as loop,
-            patch("app.agents.delegate._llm_client", return_value="client"),
+            container.override(llm_client="client"),
             patch("app.agents.delegate.llm_configured", return_value=True),
             patch("app.agents.delegate.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
             patch("app.agents.delegate.AgentMemory") as memory,

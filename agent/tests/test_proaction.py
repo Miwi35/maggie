@@ -7,6 +7,7 @@ import httpx
 import pytest
 import respx
 
+from app.container import Container, container
 from app.db.context_model import ContextStatus
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import LLMGateway
@@ -85,7 +86,7 @@ class TestProactionRoute:
         stored = MagicMock()
         stored.to_dict.return_value = {"id": "msg-1", "role": "assistant", "contextId": result.get("context_id")}
         with (
-            patch("app.api.routes.llm_gateway") as gateway,
+            patch.object(container, "llm_gateway") as gateway,
             patch("app.api.routes.message_repo") as messages,
             patch("app.api.routes.context_summarizer") as summarizer,
         ):
@@ -126,7 +127,7 @@ class TestProactionRoute:
 
 def _gateway() -> LLMGateway:
     """An `LLMGateway` with everything but the piece under test stubbed out."""
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.client = MagicMock()
     gateway.personality = MagicMock()
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
@@ -343,7 +344,7 @@ async def _consume(
         patch("app.queue.proaction_consumer.proactions_api") as proactions,
         patch("app.queue.proaction_consumer.publisher") as publisher,
         patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
-        patch("app.queue.proaction_consumer.LLMGateway", return_value=gateway_instance),
+        container.override(llm_gateway=gateway_instance),
         patch("app.queue.proaction_consumer.get_channel", return_value=channel),
     ):
         proactions.record = AsyncMock(side_effect=record)

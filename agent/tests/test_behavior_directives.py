@@ -9,6 +9,7 @@ stated mid-conversation has to hold on the very next message.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.container import Container
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.llm.directives import behavior_directives_section
@@ -52,7 +53,7 @@ class TestBehaviorDirectivesSection:
 
 
 def _streaming_gateway() -> StreamingGateway:
-    gateway = StreamingGateway()
+    gateway = Container().streaming_gateway
     gateway.personality = MagicMock()
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()
@@ -62,7 +63,7 @@ def _streaming_gateway() -> StreamingGateway:
 
 
 def _llm_gateway() -> LLMGateway:
-    gateway = LLMGateway()
+    gateway = Container().llm_gateway
     gateway.personality = MagicMock()
     gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
     gateway.agent_memory = MagicMock()

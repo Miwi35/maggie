@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from app.config import settings
+from app.container import container
 from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.instruction_model import InstructionKind
@@ -254,7 +255,7 @@ async def run_planning_cycle(gateway: LLMGateway, since: datetime) -> datetime:
 
 async def _daily_planning_loop() -> None:
     """Every day at the planning hour of each user's own timezone, ask Maggie to plan/manage their proactions."""
-    gateway = LLMGateway()
+    gateway = container.llm_gateway
     since = _utcnow()
 
     while True:

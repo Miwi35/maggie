@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.container import Container
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeUsage
 from app.llm.streaming import StreamingGateway
 from app.memory.agent_memory import MemoryBlocks
@@ -13,7 +14,7 @@ class Sentinel(Exception):
 
 async def test_the_memory_catch_up_starts_before_the_thread_is_chosen():
     order: list[str] = []
-    gw = StreamingGateway()
+    gw = Container().streaming_gateway
     gw.client = MagicMock()
     gw.client.messages.stream = lambda **_kwargs: FakeStream(
         FakeMessage(

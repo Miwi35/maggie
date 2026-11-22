@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.container import Container
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient, FakeMessage, FakeStream, FakeToolUseBlock, FakeUsage
 from app.llm.prompt_cache import build_system
 from app.llm.runner import run_tool_loop
@@ -139,7 +140,7 @@ class TestChatStream:
         ):
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
-            gateway = StreamingGateway()
+            gateway = Container().streaming_gateway
             gateway.client = MagicMock()
             gateway.client.messages.stream = stream
             gateway.tool_router = MagicMock(
