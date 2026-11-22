@@ -1,0 +1,14 @@
+# A proaction come due (MAG-943): « Ajoute du lait à la liste de courses (checker e2e) ». Maggie adds
+# milk; the checker decides whether an owner instruction covers it or the owner is asked first.
+name: proaction-checker-milk-due
+description: A proaction that adds milk to the grocery list, for the checker journey.
+
+match:
+  user_contains: ["[Proaction due maintenant]", "lait à la liste de courses (checker e2e)"]
+
+turns:
+  - tools:
+      - name: add_grocery_item
+        input:
+          label: "Lait"
+  - text: "Je m'occupe du lait pour la liste de courses, monsieur."

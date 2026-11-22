@@ -1,0 +1,10 @@
+# The checker (MAG-943): the instruction « Chaque lundi, ajoute du lait à la liste de courses » covers adding milk.
+name: checker-grocery-milk
+description: Authorize add_grocery_item « Lait », quoting the instruction.
+
+match:
+  system_contains: "tu vérifies qu'une action"
+  user_contains: ["add_grocery_item", "Lait"]
+
+turns:
+  - text: '{"authorized": true, "quote": "ajoute du lait à la liste de courses"}'
