@@ -1,6 +1,6 @@
 # The plan of a quarter, written through Maggie (MAG-462).
 #
-# One real MCP call: `manage_period_plan` sets the envelope of a one-off event,
+# One real MCP call: `manage_envelopes` (set, one_off) sets the envelope of a one-off event,
 # the one element of a plan that needs no id from the seed. The fake scripts only
 # the model's side — the tool runs against the real MCP server and database.
 #
@@ -16,6 +16,6 @@ match:
 turns:
   - text: "J'inscris le budget de votre escapade au plan du trimestre."
     tools:
-      - name: manage_period_plan
-        input: {action: set_one_off_envelope, period: "2033-Q2", name: "Escapade MAG-462", amountCents: 45000}
+      - name: manage_envelopes
+        input: {action: set, mode: one_off, name: "Escapade MAG-462", amountCents: 45000}
   - text: "450,00 € sont prévus pour votre escapade au deuxième trimestre."

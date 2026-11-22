@@ -1,5 +1,5 @@
 """Maggie creates a project, reorders the priority list through `manage_projects` (MAG-519) and reads
-its planning through `get_project_planning` (MAG-526).
+its planning through `manage_projects` list (MAG-526).
 
 Whether a real model fills the right fields is judged on the real model; what this proves is the
 run itself with the shipped scenarios: the tool they reach, its arguments, and that the reorder
@@ -21,7 +21,6 @@ MOVE_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7W"
 SOFA_ID = "01K6ZQ8R1V3J9F0C2M4N5P6T7X"
 OFFERED = [
     {"name": "manage_projects", "input_schema": {}},
-    {"name": "get_project_planning", "input_schema": {}},
 ]
 
 
@@ -54,8 +53,6 @@ class FakeProjectApi:
 
     async def call_tool(self, name: str, arguments: dict, user_id: str | None = None) -> str:
         self.calls.append((name, dict(arguments)))
-        if name == "get_project_planning":
-            return json.dumps({"projects": [], "months": []})
         if arguments.get("action") == "list":
             # The order the seed gives (api/fixtures/e2e/50-finance.yaml); json.dumps escapes the
             # accents as the API's json_encode does.
@@ -145,5 +142,5 @@ class TestPlanning:
     async def test_when_can_the_sofa_be_bought_reads_the_planning(self, api):
         result = await ask([{"role": "user", "content": "Quand pourrai-je acheter le canapé ?"}])
 
-        assert api.calls == [("get_project_planning", {})]
+        assert api.calls == [("manage_projects", {"action": "list"})]
         assert "Canapé" in result["response"]

@@ -10,7 +10,7 @@ import { HomePage } from '../pages/HomePage.js'
  * The session has no screen yet: this slice is the read side of the plan, over
  * HTTP and over MCP. So the channel under test is the conversation — and with
  * `LLM_PROVIDER=fake` (MAG-95) only the model is scripted: the tool loop, the
- * MCP client and the real `plan_annual_budget` call are the production ones.
+ * MCP client and the real `get_finance_summary` call are the production ones.
  *
  * Which is why the arithmetic is asserted against the API and not against
  * Maggie's wording. She says "489,00 €" because `48-annual-plan.yaml` says so;
@@ -85,10 +85,10 @@ test('asking Maggie to prepare the year reads what the year behind cost', async 
   // The tool really ran, against the real MCP server. A tool loop that wrote
   // markup as text instead of calling anything (a7b08cf) looks like activity
   // and reads nothing.
-  expect(calledTools(events)).toContain('plan_annual_budget')
+  expect(calledTools(events)).toContain('get_finance_summary')
   expect(toolResults(events)).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ toolName: 'plan_annual_budget', status: 'success' }),
+      expect.objectContaining({ toolName: 'get_finance_summary', status: 'success' }),
     ]),
   )
 

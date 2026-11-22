@@ -20,7 +20,10 @@ READ_ONLY_TOOLS = (A2A_ALLOWED_TOOLS - {"get_grocery_list"}) | {
 }
 # One tool, read and write actions: only these actions read.
 READ_ONLY_ACTIONS = {"list", "get"}
-READ_ONLY_ACTIONS_BY_TOOL = {"monthly_review": {"review"}}
+READ_ONLY_ACTIONS_BY_TOOL = {
+    "manage_projects": {"list", "get", "preview"},
+    "manage_operations": {"list", "get", "preview", "suggest"},
+}
 
 SIMULATED_RESULT = {
     "dry_run": True,

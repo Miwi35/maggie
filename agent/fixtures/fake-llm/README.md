@@ -243,8 +243,8 @@ figures said are PlacementSimulator's: the fake does not read the tool's result.
 `91-projects-funding.yaml` funds the « Voiture » with 1 000 € of the Livret jeune and a 6 000 € loan through
 `manage_project_funding` set (MAG-524): one round lists the projects and the accounts, `results_matches` captures
 both ids from it.
-`91-projects-planning.yaml` answers « Quand pourrai-je acheter le canapé ? » with `get_project_planning` (MAG-526), a
-pure read that takes no argument.
+`91-projects-planning.yaml` answers « Quand pourrai-je acheter le canapé ? » with `manage_projects` `list` (MAG-526), a
+pure read whose projects carry their purchase month.
 
 **Advisor** (MAG-559). `91-advisor-delegate.yaml` answers « Et si je remboursais le prêt auto plus tôt ? » by handing the
 question to the `advisor` sub-agent through `delegate`; `90-advisor-loan-early.yaml` is the advisor's own run

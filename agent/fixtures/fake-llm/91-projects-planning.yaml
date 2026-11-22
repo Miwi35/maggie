@@ -1,7 +1,7 @@
 # « Quand pourrai-je acheter le canapé ? » (MAG-526): the 36-month planning is read through
-# `get_project_planning` (no argument — a pure read). The fake does not read the result: the
+# `manage_projects` `list` (a pure read: each project carries its purchase month). The fake does not read the result: the
 # journey asserts the tool ran and reads the same planning on `GET /api/finance/project-planning`;
-# what the tool returns is GetProjectPlanningToolTest's business.
+# what the tool returns is the manage_projects tool tests's business.
 name: projects-planning
 description: Read when a project can be bought through the planning tool.
 
@@ -10,6 +10,6 @@ match:
 
 turns:
   - tools:
-      - name: get_project_planning
-        input: {}
+      - name: manage_projects
+        input: {action: list}
   - text: "Le Canapé passe après le Déménagement, dont il dépend : je vous donne son mois dès que votre capacité d'épargne le permet."

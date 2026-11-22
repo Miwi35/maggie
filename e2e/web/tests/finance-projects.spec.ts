@@ -216,9 +216,9 @@ test('the planning puts Canapé after Déménagement, and moving Canapé first c
     // --- When: Maggie is asked when the sofa can be bought -------------------
     await new HomePage(page).open()
     const events = await new ChatPanel(page).send('Quand pourrai-je acheter le canapé ?')
-    expect(calledTools(events)).toContain('get_project_planning')
+    expect(calledTools(events)).toContain('manage_projects')
     expect(toolResults(events)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ toolName: 'get_project_planning', status: 'success' })]),
+      expect.arrayContaining([expect.objectContaining({ toolName: 'manage_projects', status: 'success' })]),
     )
 
     // --- Then: the planning she read puts Déménagement first, Canapé after it
