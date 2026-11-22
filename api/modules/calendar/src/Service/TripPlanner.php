@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Calendar\Service;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\TripCarAt;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Exception\InvalidTripException;
@@ -23,11 +24,13 @@ use Psr\Clock\ClockInterface;
  * Door to door to an event (« Partir à l'heure », MAG-653).
  *
  * - **Car**: a walk to the car when it stands more than {@see self::CAR_WALK_METERS}
- *   away (where the phone saw it parked, home when that is unknown; chained from an
- *   event reached by car, at that event, MAG-854), the drive
+ *   away, the drive
  *   to the parking of the known place the event is at ({@see PlaceMatcher}),
  *   then the walk from the parking. Without a known parking, the drive goes to
  *   the event and {@see self::PARKING_MINUTES} are added to find a spot.
+ *   The car is where the phone saw it parked (home when unknown) for a trip from `position`,
+ *   at the origin for one from home or a place, at an event reached by car (MAG-854), MAG-929.
+ *   `carAt` says otherwise: {@see TripCarAt::Parked} or {@see TripCarAt::Origin}.
  * - **Transit**: Google's steps, walks included.
  * - **Walk**, **bicycle**: one step.
  *
@@ -62,11 +65,12 @@ class TripPlanner
      * $origin is `position`, `place:<ulid>` or `event:<ulid>`, or one already
      * resolved — several modes from the same origin ask for the position once.
      * A return ignores it: it starts at the event's place and ends at the home.
+     * $carAt is for a drive only, ignored otherwise and for a return.
      *
      * @throws InvalidTripException
      * @throws RoutingException
      */
-    public function estimate(Event $event, TripMode $mode, string|TripOrigin $origin, ?\DateTimeImmutable $arriveAt = null, TripLeg $leg = TripLeg::Outbound, ?\DateTimeImmutable $departAt = null): TripEstimate
+    public function estimate(Event $event, TripMode $mode, string|TripOrigin $origin, ?\DateTimeImmutable $arriveAt = null, TripLeg $leg = TripLeg::Outbound, ?\DateTimeImmutable $departAt = null, ?TripCarAt $carAt = null): TripEstimate
     {
         if (TripLeg::Return === $leg) {
             return $this->estimateReturn($event, $mode, self::departure($event, $departAt, $arriveAt));
@@ -87,7 +91,7 @@ class TripPlanner
         $routeMinutes = 0;
         switch ($mode) {
             case TripMode::Drive:
-                ['steps' => $steps, 'car' => $car, 'parking' => $parking] = $this->drive($user, $origin, $latitude, $longitude, $start);
+                ['steps' => $steps, 'car' => $car, 'parking' => $parking] = $this->drive($user, $origin, $latitude, $longitude, $start, $carAt);
                 break;
             case TripMode::Transit:
                 $route = $this->transit($origin, $latitude, $longitude, $start);
@@ -116,6 +120,7 @@ class TripPlanner
             carLatitude: $car[0] ?? null,
             carLongitude: $car[1] ?? null,
             arriveAt: null === $event->getStartAt() ? $start : null,
+            carAt: TripMode::Drive === $mode ? $carAt : null,
         );
     }
 
@@ -234,11 +239,21 @@ class TripPlanner
      * The steps, where the car is known to be and the parking driven to (null when unknown).
      *
      * @return array{steps: list<RouteLeg>, car: array{float, float}|null, parking: array{float, float}|null}
+     *
+     * @throws InvalidTripException carAt=parked and the phone never saw the car parked
      */
-    private function drive(User $user, TripOrigin $origin, float $latitude, float $longitude, \DateTimeImmutable $start): array
+    private function drive(User $user, TripOrigin $origin, float $latitude, float $longitude, \DateTimeImmutable $start, ?TripCarAt $carAt): array
     {
         $this->locatePlaces($user);
-        $knownCar = $this->carAtOrigin($user, $origin, $start) ?? $this->car($user);
+        $knownCar = match (true) {
+            TripCarAt::Parked === $carAt => $this->parkedCar($user)
+                ?? throw new InvalidTripException('carAt', 'the phone never saw the car parked: ask where it is, or send carAt=origin.'),
+            TripCarAt::Origin === $carAt => $this->atOrigin($user, $origin),
+            TripOrigin::POSITION === $origin->kind => $this->car($user),
+            TripOrigin::EVENT === $origin->kind => $this->carAtOrigin($user, $origin, $start) ?? $this->car($user),
+            // A chosen place describes a departure to come: where the car stands now says nothing of it.
+            default => $this->atOrigin($user, $origin),
+        };
         // A car nobody knows the place of is taken where the trip starts.
         $car = $knownCar ?? [$origin->latitude, $origin->longitude];
         $steps = [];
@@ -332,9 +347,34 @@ class TripPlanner
             return null;
         }
 
+        return $this->atOrigin($user, $origin);
+    }
+
+    /**
+     * A car at the origin: at the parking of its known place, else at the origin itself.
+     *
+     * @return array{float, float}
+     */
+    private function atOrigin(User $user, TripOrigin $origin): array
+    {
         $place = $this->placeMatcher->match($user, $origin->latitude, $origin->longitude);
 
         return (null === $place ? null : $this->locations->ofParking($place)) ?? [$origin->latitude, $origin->longitude];
+    }
+
+    /**
+     * Where the phone saw the car parked, null when it never did.
+     *
+     * @return array{float, float}|null
+     */
+    private function parkedCar(User $user): ?array
+    {
+        $location = $this->userLocations->findOneByUser($user);
+        if (null !== $location?->getCarLatitude() && null !== $location->getCarLongitude()) {
+            return [$location->getCarLatitude(), $location->getCarLongitude()];
+        }
+
+        return null;
     }
 
     /**
@@ -344,9 +384,9 @@ class TripPlanner
      */
     private function car(User $user): ?array
     {
-        $location = $this->userLocations->findOneByUser($user);
-        if (null !== $location?->getCarLatitude() && null !== $location->getCarLongitude()) {
-            return [$location->getCarLatitude(), $location->getCarLongitude()];
+        $parked = $this->parkedCar($user);
+        if (null !== $parked) {
+            return $parked;
         }
 
         $home = $this->places->findHomes($user)[0] ?? null;

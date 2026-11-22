@@ -32711,6 +32711,19 @@
                             "null"
                         ]
                     },
+                    "carAt": {
+                        "readOnly": true,
+                        "description": "Where the user said the car is (MAG-929), kept for the recheck; null when unsaid.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "parked",
+                            "origin",
+                            null
+                        ]
+                    },
                     "originDecidedBy": {
                         "readOnly": true,
                         "type": "string",
@@ -32842,6 +32855,19 @@
                         "type": [
                             "number",
                             "null"
+                        ]
+                    },
+                    "carAt": {
+                        "readOnly": true,
+                        "description": "Where the user said the car is (MAG-929), kept for the recheck; null when unsaid.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "parked",
+                            "origin",
+                            null
                         ]
                     },
                     "originDecidedBy": {
@@ -32979,6 +33005,19 @@
                                 "type": [
                                     "number",
                                     "null"
+                                ]
+                            },
+                            "carAt": {
+                                "readOnly": true,
+                                "description": "Where the user said the car is (MAG-929), kept for the recheck; null when unsaid.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "enum": [
+                                    "parked",
+                                    "origin",
+                                    null
                                 ]
                             },
                             "originDecidedBy": {

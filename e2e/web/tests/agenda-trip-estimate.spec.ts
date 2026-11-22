@@ -77,6 +77,45 @@ test('by car from home, the car 300 m away: walk 4, drive 14 to the parking, wal
   expect(drive.navigationUrl).toContain(`ll=${DENTIST_PARKING}`)
 })
 
+/** MAG-929: from home the car is taken at home; carAt=parked walks to where the phone saw it. */
+test('by car from home, the car parked 300 m away: no walk to it; carAt=parked walks to it', async ({ tripEstimateUser }) => {
+  const { api } = tripEstimateUser
+  const day = parisDay()
+  const created = await callMcpTool(api, 'create_event', {
+    title: 'Dentiste',
+    start_date: day,
+    start_time: '14:00',
+    end_date: day,
+    end_time: '15:00',
+    location: '5 allée du Sourire Fictif, 35000 Rennes',
+  })
+  expect(created.error, JSON.stringify(created)).toBeUndefined()
+  const eventId = (created.event as { id: string }).id
+
+  const now = e2eNow().toISOString()
+  expect((await api.put('/api/me/location', { data: { ...HOME, accuracy: 10, capturedAt: now } })).status()).toBe(204)
+  expect((await api.put('/api/me/car', { data: { ...CAR, parkedAt: now } })).status()).toBe(204)
+
+  const fromHome = await callMcpTool(api, 'estimate_trip', { eventId, modes: ['drive'], origin: 'home' })
+  expect(fromHome.error, JSON.stringify(fromHome)).toBeUndefined()
+  const [drive] = fromHome.estimates as TripEstimate[]
+  expect(drive.steps).toEqual([
+    { kind: 'drive', minutes: 14 },
+    { kind: 'walk', minutes: 3 },
+  ])
+  expect(drive.departAt).toBe(parisTime(day, '13:38:00'))
+
+  const parked = await callMcpTool(api, 'estimate_trip', { eventId, modes: ['drive'], origin: 'home', carAt: 'parked' })
+  expect(parked.error, JSON.stringify(parked)).toBeUndefined()
+  const [walkToTheCar] = parked.estimates as TripEstimate[]
+  expect(walkToTheCar.steps).toEqual([
+    { kind: 'walk', minutes: 4 },
+    { kind: 'drive', minutes: 14 },
+    { kind: 'walk', minutes: 3 },
+  ])
+  expect(walkToTheCar.departAt).toBe(parisTime(day, '13:34:00'))
+})
+
 test('an event without a location is refused, naming the event', async ({ tripEstimateUser }) => {
   const { api } = tripEstimateUser
   const day = parisDay()

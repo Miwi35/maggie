@@ -10,6 +10,7 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Maggie\Calendar\Enum\TripCarAt;
 use Maggie\Calendar\Enum\TripDecider;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
@@ -107,6 +108,10 @@ class Trip implements MercurePublishable, OwnedThroughInterface
     #[ORM\Column(nullable: true)]
     private ?float $carLongitude = null;
 
+    /** Where the user said the car is (MAG-929), kept for the recheck; null when unsaid. */
+    #[ORM\Column(length: 10, nullable: true, enumType: TripCarAt::class)]
+    private ?TripCarAt $carAt = null;
+
     #[ORM\Column(length: 10, enumType: TripDecider::class)]
     private TripDecider $originDecidedBy;
 
@@ -149,6 +154,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         $this->originLongitude = $estimate->origin->longitude;
         $this->carLatitude = $estimate->carLatitude;
         $this->carLongitude = $estimate->carLongitude;
+        $this->carAt = $estimate->carAt;
         $this->originDecidedBy = $decidedBy;
         $this->computedAt = $computedAt;
         $this->arriveAt = $estimate->arriveAt;
@@ -250,6 +256,11 @@ class Trip implements MercurePublishable, OwnedThroughInterface
         return $this->carLongitude;
     }
 
+    public function getCarAt(): ?TripCarAt
+    {
+        return $this->carAt;
+    }
+
     public function getOriginDecidedBy(): TripDecider
     {
         return $this->originDecidedBy;
@@ -317,6 +328,7 @@ class Trip implements MercurePublishable, OwnedThroughInterface
             'originLongitude' => $this->originLongitude,
             'carLatitude' => $this->carLatitude,
             'carLongitude' => $this->carLongitude,
+            'carAt' => $this->carAt?->value,
             'originDecidedBy' => $this->originDecidedBy->value,
             'computedAt' => $this->computedAt->format(\DATE_ATOM),
             'arriveAt' => $this->arriveAt?->format(\DATE_ATOM),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maggie\Calendar\Mcp\Tool;
 
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Enum\TripCarAt;
 use Maggie\Calendar\Enum\TripLeg;
 use Maggie\Calendar\Enum\TripMode;
 use Maggie\Calendar\Exception\InvalidTripException;
@@ -23,7 +24,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'estimate_trip', description: 'Estimate the trip to an event, several modes at once. date (YYYY-MM-DD, Paris): the occurrence\'s day; required for a repeating event, else optional and must match. modes: drive, transit, walk, bicycle. origin: position (phone\'s last position, default), home (the user\'s home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable.')]
+#[McpTool(name: 'estimate_trip', description: 'Estimate the trip to an event, several modes at once. date (YYYY-MM-DD, Paris): the occurrence\'s day; required for a repeating event, else optional and must match. modes: drive, transit, walk, bicycle. origin: position (phone\'s last position, default), home (the user\'s home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip\'s origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable.')]
 final class EstimateTripTool
 {
     public function __construct(
@@ -47,6 +48,8 @@ final class EstimateTripTool
         ?string $leg = null,
         ?string $departAt = null,
         ?string $date = null,
+        #[Schema(enum: ['parked', 'origin'])]
+        ?string $carAt = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -56,6 +59,7 @@ final class EstimateTripTool
 
         try {
             $tripModes = self::modes($modes);
+            $car = self::carAt($carAt);
 
             $event = Ulid::isValid($eventId) ? $this->events->find($eventId) : null;
             // Another user's event answers exactly like a missing one.
@@ -79,7 +83,7 @@ final class EstimateTripTool
             $unavailable = [];
             foreach ($tripModes as $mode) {
                 try {
-                    $estimates[] = $this->planner->estimate($occurrence, $mode, $from, $arrival, $tripLeg, $departure);
+                    $estimates[] = $this->planner->estimate($occurrence, $mode, $from, $arrival, $tripLeg, $departure, $car);
                 } catch (NoRouteException $e) {
                     $unavailable[] = ['mode' => $mode->value, 'reason' => $e->getMessage()];
                 }
@@ -122,6 +126,13 @@ final class EstimateTripTool
         }
 
         return array_values($tripModes);
+    }
+
+    /** @throws InvalidTripException */
+    public static function carAt(?string $carAt): ?TripCarAt
+    {
+        return null === $carAt ? null : TripCarAt::tryFrom($carAt)
+            ?? throw new InvalidTripException('carAt', "« {$carAt} » is not where the car is: parked or origin.");
     }
 
     /** @param array<string, mixed> $data */
