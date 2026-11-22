@@ -10,19 +10,23 @@ interface NutritionWeekCardProps {
   /** The day the page shows, the last bar. */
   day: string
   today: string
+  /** Inside the bilan card: no surface of its own, shorter bars. */
+  embedded?: boolean
 }
 
 const BAR_HEIGHT = 120
+const EMBEDDED_BAR_HEIGHT = 54
+const embeddedSx = { display: 'flex', flexDirection: 'column', gap: 0.5, pt: 0.5, minWidth: 0 } as const
 
 /** « 7 jours »: one bar a day, up for a surplus and down for a deficit, around zero. */
-export const NutritionWeekCard = ({ state, day, today }: NutritionWeekCardProps) => {
+export const NutritionWeekCard = ({ state, day, today, embedded = false }: NutritionWeekCardProps) => {
   const days = state.status === 'ready' ? state.data : []
   const scale = barScale(days.map((row) => row.balanceKcal))
   const share = (value: number) => `${Math.min(50, (Math.abs(value) / scale) * 50).toFixed(2)}%`
 
   return (
-    <Box component="section" aria-label="7 jours" sx={cardSx}>
-      <Box sx={{ fontSize: 15, fontWeight: 500 }}>7 jours</Box>
+    <Box component="section" aria-label="7 jours" sx={embedded ? embeddedSx : cardSx}>
+      <Box sx={embedded ? { fontSize: 12, color: (theme) => theme.palette.veilleuse.caption } : { fontSize: 15, fontWeight: 500 }}>7 jours</Box>
       {state.status === 'loading' && <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Chargement…</Typography>}
       {state.status === 'error' && (
         <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>Erreur : les 7 jours n’ont pas pu être chargés.</Typography>
@@ -45,7 +49,7 @@ export const NutritionWeekCard = ({ state, day, today }: NutritionWeekCardProps)
                   sx={(theme) => ({
                     position: 'relative',
                     width: '100%',
-                    height: BAR_HEIGHT,
+                    height: embedded ? EMBEDDED_BAR_HEIGHT : BAR_HEIGHT,
                     borderRadius: 1,
                     bgcolor: row.date === day ? alpha(theme.palette.text.primary, 0.05) : 'transparent',
                   })}
