@@ -18,7 +18,8 @@ tags:
 #   no Planning any more: the meals are the page);
 # - Given a meal of two recipes this week, when I open Cuisine, Repas shows and I
 #   pass a recipe from 4 to 2 portions: its quantities halve, the other recipe's do
-#   not, and the meal still holds 4 guests (a simulation, never a write).
+#   not, and the meal still holds 4 guests (a simulation, never a write);
+# - Cuisine › Recettes (MAG-937): the tag pills sit above the search field.
 #
 # Tomorrow can be in the next week (on a Sunday): the flow first gives the meals time
 # to arrive, and only steps forward when the seeded meal still is not on screen.
@@ -135,6 +136,16 @@ tags:
     visible: ".*Pâtes à la tomate.*"
     timeout: 20000
 - assertNotVisible: ".*Stage de voile MAG-288.*"
+
+- tapOn:
+    id: "breadcrumb_section"
+- tapOn:
+    id: "breadcrumb_menu_recipes"
+- extendedWaitUntil:
+    visible: "Rechercher une recette"
+    timeout: 20000
+- assertVisible: "Toutes"
+- assertVisible: "Végétarien"
 
 # Left as found.
 - runScript:
