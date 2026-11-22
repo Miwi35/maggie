@@ -478,10 +478,10 @@ tags:
       id: "cushion_peer_claims"
     timeout: 30000
 - assertVisible: "Avancé à des proches.*"
-- assertVisible: "revient au remboursement"
-- assertVisible: "−600,00.€"
-- assertVisible: "4.{0,1}600,00.€ sur.*"
-- assertVisible: ".*dont 600,00.€ avancés à des proches.*"
+- assertVisible: "COMPTES DU MATELAS"
+- assertVisible: "−600.€"
+- assertVisible: "4.{0,1}600.€"
+- assertVisible: ".*dont 600.€ avancés à des proches.*"
 
 # Emma gives her 200 € back: the cushion refills.
 - runScript:
@@ -491,9 +491,9 @@ tags:
       ACTION: repay
 - openLink: "maggie-e2e://finance/cushion"
 - extendedWaitUntil:
-    visible: "−400,00.€"
+    visible: "−400.€"
     timeout: 30000
-- assertVisible: "4.{0,1}800,00.€ sur.*"
+- assertVisible: "4.{0,1}800.€"
 
 # Left as found.
 - runScript:
