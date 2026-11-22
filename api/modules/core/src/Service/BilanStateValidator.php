@@ -7,7 +7,9 @@ namespace Maggie\Core\Service;
 /**
  * The state of the « Bilan du soir » activity (MAG-747): `step`, `answers`
  * {tasks[{taskId, choice}], mood, fatigue, note} and `instructions`
- * [{id, text, kind, targetId}]. Only what is present is checked; the
+ * [{id, text, kind, targetId}], plus `tomorrowTasks` and `tomorrowSpares`
+ * [{taskId, title, reason?}]. A state without `step` is a prepared bilan,
+ * not yet started. Only what is present is checked; the
  * activity's other states stay opaque to the API.
  */
 final class BilanStateValidator
@@ -15,6 +17,7 @@ final class BilanStateValidator
     public const STEPS = ['journee', 'finance', 'sante', 'consignes', 'demain'];
     public const CHOICES = ['done', 'tomorrow', 'later'];
     public const KINDS = ['reminder', 'task', 'instruction'];
+    public const REASON_MAX = 80;
 
     /** @return string|null the first problem found, null when the state is valid */
     public static function validate(string $originId, \stdClass $state): ?string
@@ -36,7 +39,38 @@ final class BilanStateValidator
         }
 
         if (\property_exists($state, 'instructions')) {
-            return self::validateInstructions($state->instructions);
+            $error = self::validateInstructions($state->instructions);
+            if (null !== $error) {
+                return $error;
+            }
+        }
+
+        foreach (['tomorrowTasks', 'tomorrowSpares'] as $key) {
+            if (\property_exists($state, $key)) {
+                $error = self::validateTomorrow($state->$key, $key);
+                if (null !== $error) {
+                    return $error;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function validateTomorrow(mixed $list, string $key): ?string
+    {
+        if (!\is_array($list)) {
+            return \sprintf('state.%s must be a list.', $key);
+        }
+        foreach ($list as $entry) {
+            if (!$entry instanceof \stdClass
+                || !\is_string($entry->taskId ?? null) || '' === $entry->taskId
+                || !\is_string($entry->title ?? null) || '' === $entry->title) {
+                return \sprintf('Each state.%s entry needs a taskId and a title.', $key);
+            }
+            if (\property_exists($entry, 'reason') && (!\is_string($entry->reason) || mb_strlen($entry->reason) > self::REASON_MAX)) {
+                return \sprintf('state.%s[].reason must be a string of at most %d characters.', $key, self::REASON_MAX);
+            }
         }
 
         return null;

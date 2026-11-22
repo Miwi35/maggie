@@ -143,6 +143,8 @@ class ActivityStatusControllerTest extends WebTestCase
         yield 'origin with an empty id' => [['origin' => ['kind' => 'recipe', 'id' => ' '], 'state' => $valid['state']]];
         yield 'origin id not a string' => [['origin' => ['kind' => 'recipe', 'id' => 42], 'state' => $valid['state']]];
         yield 'origin id too long' => [['origin' => ['kind' => 'recipe', 'id' => str_repeat('a', 65)], 'state' => $valid['state']]];
+        yield 'tomorrowTasks not a list' => [['origin' => $valid['origin'], 'state' => ['tomorrowTasks' => 'demain']]];
+        yield 'tomorrow task without taskId' => [['origin' => $valid['origin'], 'state' => ['tomorrowSpares' => [['title' => 'x']]]]];
         yield 'origin kind of another activity' => [['origin' => ['kind' => 'review', 'id' => 'x'], 'state' => $valid['state']]];
         yield 'no state' => [['origin' => $valid['origin']]];
         yield 'state null' => [['origin' => $valid['origin'], 'state' => null]];
@@ -375,6 +377,16 @@ class ActivityStatusControllerTest extends WebTestCase
         $this->request('PUT', self::ENDPOINT.'/bilan', ['origin' => ['kind' => 'day', 'id' => '2026-10-25'], 'state' => ['step' => 'demain']]);
 
         self::assertResponseStatusCodeSame(201);
+    }
+
+    public function testAPreparedBilanWithoutAStepIsAccepted(): void
+    {
+        $state = ['tomorrowTasks' => [['taskId' => '01JB0000000000000000000001', 'title' => 'Trier les papiers', 'reason' => 'reportée hier']]];
+
+        $created = $this->request('PUT', self::ENDPOINT.'/bilan', ['origin' => ['kind' => 'day', 'id' => '2026-10-25'], 'state' => $state]);
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($state, $created['state']);
     }
 
     public function testACoursesTourIsKeptAsSentAndRefusesAnotherOriginKind(): void

@@ -1,0 +1,28 @@
+{
+    "activity": "bilan",
+    "origin": {
+        "kind": "day",
+        "id": "2026-03-15"
+    },
+    "state": {
+        "tomorrowTasks": [
+            {
+                "taskId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "title": "Trier les papiers",
+                "reason": "reportée hier"
+            },
+            {
+                "taskId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "title": "Appeler le garage"
+            }
+        ],
+        "tomorrowSpares": [
+            {
+                "taskId": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                "title": "Ranger les photos"
+            }
+        ]
+    },
+    "startedAt": "2026-04-22T12:00:00+00:00",
+    "updatedAt": "2026-01-01T00:00:00+00:00"
+}

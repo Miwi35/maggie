@@ -441,6 +441,39 @@ final class RecordedResponseContractTest extends WebTestCase
         );
     }
 
+    /** The prepared evening review (MAG-964): no step, the tasks Maggie chose for tomorrow. */
+    public function testTheBilanStatusRecordingIsCurrent(): void
+    {
+        $this->loadFixtures('RecordedResponses.yaml');
+
+        $user = $this->getFixture('recorded_user');
+        self::assertInstanceOf(User::class, $user);
+        $this->authenticateAsUser($user);
+
+        $this->client->request('PUT', '/api/activity-status/bilan', [], [], $this->authHeaders() + ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'origin' => ['kind' => 'day', 'id' => '2026-03-15'],
+            'state' => [
+                'tomorrowTasks' => [
+                    ['taskId' => '01JB0000000000000000000001', 'title' => 'Trier les papiers', 'reason' => 'reportée hier'],
+                    ['taskId' => '01JB0000000000000000000002', 'title' => 'Appeler le garage'],
+                ],
+                'tomorrowSpares' => [['taskId' => '01JB0000000000000000000003', 'title' => 'Ranger les photos']],
+            ],
+        ], \JSON_THROW_ON_ERROR));
+        self::assertResponseStatusCodeSame(201);
+
+        $this->client->request('GET', '/api/activity-status/bilan', [], [], $this->authHeaders());
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+
+        $this->assertMatchesContract(
+            'responses/activity_status.bilan.read.json',
+            self::stabilise($body),
+            "The bilan's clients (Android, admin) read this response.",
+        );
+    }
+
     public function testTheEnvelopeAdjustmentsRecordingIsCurrent(): void
     {
         $this->loadFixtures(\dirname(__DIR__, 2).'/modules/finance/tests/Controller/fixtures/envelope_adjustments.yaml');

@@ -36,11 +36,11 @@ class SaveBilanStepToolTest extends KernelTestCase
     }
 
     /** @return array<string, mixed> */
-    private function call(string $day, string $step, ?array $answers = null, ?array $instructions = null): array
+    private function call(string $day, ?string $step, ?array $answers = null, ?array $instructions = null, ?array $tomorrowTasks = null, ?array $tomorrowSpares = null): array
     {
         $tool = self::getContainer()->get(SaveBilanStepTool::class);
 
-        return json_decode($tool($day, $step, $answers, $instructions), true, 512, JSON_THROW_ON_ERROR);
+        return json_decode($tool($day, $step, $answers, $instructions, $tomorrowTasks, $tomorrowSpares), true, 512, JSON_THROW_ON_ERROR);
     }
 
     private function stored(): ?ActivityStatus
@@ -104,6 +104,98 @@ class SaveBilanStepToolTest extends KernelTestCase
         self::assertSame('finance', $state['step']);
         self::assertSame($answers, $state['answers']);
         self::assertSame($instructions, $state['instructions']);
+    }
+
+    /** @return list<array<string, string>> */
+    private static function tasks(string ...$titles): array
+    {
+        return array_map(static fn (string $title, int $i): array => ['taskId' => '01JB000000000000000000000'.($i + 1), 'title' => $title], $titles, array_keys($titles));
+    }
+
+    public function testABilanPreparedWithoutAStepKeepsItsTomorrowTasks(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+        $tasks = [['taskId' => '01JB0000000000000000000001', 'title' => 'Trier les papiers', 'reason' => 'reportée hier']];
+
+        $result = $this->call('2026-10-25', null, null, null, $tasks);
+
+        self::assertTrue($result['success'], json_encode($result));
+        $state = json_decode($this->stored()->getState(), true);
+        self::assertSame(['answers' => [], 'instructions' => [], 'tomorrowTasks' => $tasks], $state);
+        $this->assertMercureUpdatePublished('/users/'.$this->getFixture('test_user')->getId().'/api/activity-status/bilan');
+    }
+
+    public function testStartingThePreparedBilanKeepsTheTomorrowLists(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+        $this->call('2026-10-25', null, null, null, self::tasks('A', 'B'), self::tasks('C'));
+
+        $this->call('2026-10-25', 'journee');
+
+        $state = json_decode($this->stored()->getState(), true);
+        self::assertSame('journee', $state['step']);
+        self::assertSame(self::tasks('A', 'B'), $state['tomorrowTasks']);
+        self::assertSame(self::tasks('C'), $state['tomorrowSpares']);
+    }
+
+    public function testTheConsigneCallKeepsTheTomorrowLists(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+        $this->call('2026-10-25', null, null, null, self::tasks('A'), self::tasks('C'));
+        $instructions = [['id' => 'i1', 'text' => 'Appeler le plombier', 'kind' => 'reminder']];
+
+        $this->call('2026-10-25', 'consignes', null, $instructions);
+
+        $state = json_decode($this->stored()->getState(), true);
+        self::assertSame($instructions, $state['instructions']);
+        self::assertSame(self::tasks('A'), $state['tomorrowTasks']);
+        self::assertSame(self::tasks('C'), $state['tomorrowSpares']);
+    }
+
+    public function testOmittingTheStepKeepsTheStoredOne(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+        $this->call('2026-10-25', 'sante');
+
+        $this->call('2026-10-25', null, null, null, self::tasks('A'));
+
+        $state = json_decode($this->stored()->getState(), true);
+        self::assertSame('sante', $state['step']);
+        self::assertSame(self::tasks('A'), $state['tomorrowTasks']);
+    }
+
+    public function testANewDayDropsYesterdaysLists(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+        $this->call('2026-10-25', null, null, null, self::tasks('A'), self::tasks('C'));
+
+        $this->call('2026-10-26', 'journee');
+
+        $state = json_decode($this->stored()->getState(), true);
+        self::assertArrayNotHasKey('tomorrowTasks', $state);
+        self::assertArrayNotHasKey('tomorrowSpares', $state);
+    }
+
+    public function testATomorrowTaskWithoutATitleIsRefusedAndNothingIsWritten(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+
+        $result = $this->call('2026-10-25', null, null, null, [['taskId' => '01JB0000000000000000000001']]);
+
+        self::assertArrayHasKey('error', $result);
+        self::assertNull($this->stored());
+        $this->assertMercureUpdateCount(0);
+    }
+
+    public function testAReasonOverEightyCharactersIsRefused(): void
+    {
+        $this->loginUser($this->getFixture('test_user'));
+
+        $result = $this->call('2026-10-25', null, null, null, null, [['taskId' => 't', 'title' => 'x', 'reason' => str_repeat('a', 81)]]);
+
+        self::assertArrayHasKey('error', $result);
+        self::assertNull($this->stored());
+        $this->assertMercureUpdateCount(0);
     }
 
     public function testMovingOnWithoutAnyAnswerYetStillWrites(): void
