@@ -102,9 +102,8 @@ tags:
     timeout: 20000
 
 # « Aujourd’hui » on its row plans it today: it leaves the section and is in « Aujourd'hui ».
-- tapOn:
-    id: "tasks_stock_pick_.*"
-    rightOf: "Tâche MAG-408"
+# By its description (« Faire aujourd’hui « <titre> »»): rightOf picked another row's button in CI.
+- tapOn: "Faire aujourd.hui .*Tâche MAG-408.*"
 - extendedWaitUntil:
     notVisible: "Tâche MAG-408"
     timeout: 20000
