@@ -146,6 +146,7 @@ describe('a voice message in the chat', () => {
     const message = bubble.closest('#msg-m-d') as HTMLElement
     expect(message).not.toBeNull()
     expect(within(message).getByText('Votre digest du matin est disponible.')).toBeInTheDocument()
+    expect(within(message).queryByRole('button', { name: 'Transcription' })).not.toBeInTheDocument()
   })
 
   test('the same announcement arriving over Mercure shows text and bubble', async () => {
