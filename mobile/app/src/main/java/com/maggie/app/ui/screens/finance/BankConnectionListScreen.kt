@@ -3,7 +3,15 @@ package com.maggie.app.ui.screens.finance
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -53,7 +61,6 @@ import com.maggie.app.data.model.bankReconnectLabel
 import com.maggie.app.data.model.lastSyncLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ConfirmDeleteDialog
-import com.maggie.app.ui.components.EmptyState
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.MaggieCard
@@ -139,12 +146,17 @@ fun BankConnectionListScreen(
                     }
                 }
                 uiState.connections.isEmpty() -> {
-                    EmptyState(
-                        title = "Aucune banque connectée",
-                        description = "Connectez une banque : vos transactions arriveront ensuite toutes seules, et cet écran les récupérera.",
-                        actionLabel = "Connecter une banque",
-                        onAction = onConnect,
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            "Aucune banque connectée",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        ConnectCard(onConnect = onConnect)
+                    }
                 }
                 else -> {
                     LazyColumn(
@@ -183,15 +195,29 @@ fun BankConnectionListScreen(
 
 @Composable
 private fun ConnectCard(onConnect: () -> Unit, modifier: Modifier = Modifier) {
-    MaggieCard(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.Center,
+    val green = MaggieTokens.Signal.success
+    Row(
+        modifier = modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, green, RoundedCornerShape(12.dp))
+            .clickable(onClick = onConnect)
+            .padding(12.dp)
+            .testTag(UiTags.BANK_CONNECT),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(green.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Button(onClick = onConnect, modifier = Modifier.testTag(UiTags.BANK_CONNECT)) {
-                Text("Connecter une banque")
-            }
+            Icon(Icons.Default.Add, contentDescription = null, tint = green)
         }
+        Text(
+            "Connecter une banque",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = green)
     }
 }
 
