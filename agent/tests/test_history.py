@@ -363,9 +363,10 @@ class TestWhatTheToolsSaid:
         ]
 
     async def test_blocks_that_cannot_be_vouched_for_cost_the_blocks_only(self, say, thread):
-        """A `tool_use` whose result went missing is a rejected call, so the text answers alone."""
+        """A result paired with another call's id is a rejected call, so the text answers alone."""
         courses = await thread("Courses")
-        broken = self._round()[:1]  # the call, without its result
+        broken = self._round()
+        broken[1]["content"][0]["tool_use_id"] = "toolu_elsewhere"
         await say("user", "Ma liste ?", context=courses.id, minutes=1)
         await say("assistant", "La voilà.", context=courses.id, minutes=2, blocks=broken)
 

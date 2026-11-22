@@ -17,6 +17,7 @@ A single malformed round would therefore cost the user her answer, not just her 
 left with the text it has always had.
 """
 
+import json
 import logging
 from typing import Any
 
@@ -28,6 +29,16 @@ logger = logging.getLogger(__name__)
 # survives it and low enough that a round cannot eat the budget on its own.
 TOOL_RESULT_MAX_CHARS = 8000
 TRUNCATION_MARK = "… [résultat tronqué]"
+
+# What a call left without an answer by an interrupted turn is given (MAG-872). A text the
+# method of using tools quotes: change it in both places.
+INTERRUPTED_RESULT = json.dumps(
+    {
+        "error": "interrupted",
+        "detail": "Appel interrompu avant sa réponse : issue inconnue. Vérifier son effet avant de le refaire.",
+    },
+    ensure_ascii=False,
+)
 
 
 def record(calls: list[dict]) -> list[dict]:
@@ -70,56 +81,83 @@ def record(calls: list[dict]) -> list[dict]:
     ]
 
 
-def replay(blocks: Any) -> list[dict]:
-    """The stored rounds as turns to send — or nothing at all, if one of them is off.
+def record_partial(uses: list[dict], done: list[dict]) -> list[dict]:
+    """A round in progress: the assistant turn of every call asked for, then the results so far.
 
-    Nothing at all is the whole point. A `tool_use` whose result went missing, a column
-    holding something that is not a round, a result truncated by a hand-written
-    `UPDATE`: each of them is a rejected API call, which the user reads as « une erreur
-    est survenue ». The message still has its text, and the text is what she said.
+    `uses` are `{"id", "name", "input"}` as the model asked for them, `done` the calls that
+    have run, in `record()`'s shape. With nothing done there is no user turn yet.
+    """
+    turns = record([{**use, "result": ""} for use in uses])
+    if not turns:
+        return []
+    results = record(done)[1:]
+    return [turns[0], *results]
+
+
+def replay(blocks: Any) -> list[dict]:
+    """The stored rounds as turns to send, a call without a result closed as interrupted.
+
+    A column holding something that is not a round, a result truncated by a hand-written
+    `UPDATE`, an id used twice: each of them is a rejected API call, which the user reads as
+    « une erreur est survenue ». Those are dropped whole, and the message keeps the text it
+    has always had. A call whose result never came is another matter: it is closed with
+    `INTERRUPTED_RESULT`, so the model knows it may have acted (MAG-872).
+    """
+    return close_interrupted(blocks)
+
+
+def close_interrupted(blocks: Any) -> list[dict]:
+    """The stored turns, every call that has no result answered with `INTERRUPTED_RESULT`.
+
+    The results of a round must be a prefix of its calls (same ids, same order: the loop runs
+    them in order); a last assistant turn with no user turn after it is a round whose calls
+    all went unanswered. Anything else that does not hold gives `[]`.
     """
     if not isinstance(blocks, list) or not blocks:
         return []
 
-    # Rounds, always: the loop appends the call and its result together, so an odd number
-    # of turns means something else wrote this column.
-    if len(blocks) % 2 != 0:
-        logger.warning(f"Replayed tool blocks are not whole rounds ({len(blocks)} turns): dropped")
-        return []
-
     turns: list[dict] = []
-    for position in range(0, len(blocks), 2):
-        round_turns = _round(blocks[position], blocks[position + 1])
+    seen: set[str] = set()
+    position = 0
+    while position < len(blocks):
+        result_turn = blocks[position + 1] if position + 1 < len(blocks) else None
+        round_turns = _round(blocks[position], result_turn, seen)
         if round_turns is None:
             logger.warning(f"Round {position // 2 + 1} of the replayed tool blocks is malformed: all dropped")
             return []
         turns.extend(round_turns)
+        position += 2
     return turns
 
 
-def _round(call_turn: Any, result_turn: Any) -> list[dict] | None:
+def _round(call_turn: Any, result_turn: Any, seen: set[str]) -> list[dict] | None:
     """One stored round, rebuilt and checked — `None` as soon as anything does not hold."""
     uses = _content(call_turn, role="assistant")
-    results = _content(result_turn, role="user")
-    if uses is None or results is None or len(uses) != len(results):
+    results = _content(result_turn, role="user") if result_turn is not None else []
+    if uses is None or results is None or len(results) > len(uses):
         return None
 
     rebuilt_uses: list[dict] = []
     rebuilt_results: list[dict] = []
-    for use, result in zip(uses, results, strict=True):
+    for index, use in enumerate(uses):
+        tool_use_id = use.get("id")
+        if not _is_filled(tool_use_id) or tool_use_id in seen:
+            return None
+        if use.get("type") != "tool_use" or not _is_filled(use.get("name")) or not isinstance(use.get("input"), dict):
+            return None
+        seen.add(tool_use_id)
+        rebuilt_uses.append({"type": "tool_use", "id": tool_use_id, "name": use["name"], "input": use["input"]})
+
+        if index >= len(results):
+            rebuilt_results.append({"type": "tool_result", "tool_use_id": tool_use_id, "content": INTERRUPTED_RESULT})
+            continue
         # Paired by position *and* by id: the API reads the id, and a round whose two
         # halves disagree on it is the failure this check exists for.
-        tool_use_id = use.get("id")
-        if not _is_filled(tool_use_id) or result.get("tool_use_id") != tool_use_id:
-            return None
-        if use.get("type") != "tool_use" or result.get("type") != "tool_result":
-            return None
-        if not _is_filled(use.get("name")) or not isinstance(use.get("input"), dict):
+        result = results[index]
+        if result.get("tool_use_id") != tool_use_id or result.get("type") != "tool_result":
             return None
         if not isinstance(result.get("content"), str):
             return None
-
-        rebuilt_uses.append({"type": "tool_use", "id": tool_use_id, "name": use["name"], "input": use["input"]})
         # Capped again on the way out, so a row written before the ceiling moved — or by
         # anything but `record()` — cannot blow the prompt budget of every later message.
         rebuilt_results.append(

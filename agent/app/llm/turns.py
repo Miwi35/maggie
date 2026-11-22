@@ -9,6 +9,8 @@ Now the turn is a background task and the response only follows it through a que
 user's message carries the turn's state (`turn_status`, `turn_lease_until`): a running turn
 renews its lease while it works, and a message whose lease has lapsed belongs to a process
 that is gone — it is taken up again if it is recent, and marked unanswered if it is not.
+A streamed turn keeps its tool calls on that message (`turn_blocks`, MAG-872): the one taken up again closes
+a call that never answered as interrupted instead of running it again.
 """
 
 import asyncio
@@ -76,6 +78,7 @@ class TurnRunner:
         follow: bool = True,
         spoken: bool = False,
         in_car: bool = False,
+        checkpoint: list | None = None,
     ) -> AsyncGenerator[dict | None, None] | None:
         """Launch the turn answering `message_id`; the events come back to whoever follows it.
 
@@ -83,7 +86,19 @@ class TurnRunner:
         """
         queue: asyncio.Queue | None = asyncio.Queue() if follow else None
         task = asyncio.create_task(
-            self._run(gateway, user_id, message_id, message, screen_context, image, carried_over, queue, spoken, in_car)
+            self._run(
+                gateway,
+                user_id,
+                message_id,
+                message,
+                screen_context,
+                image,
+                carried_over,
+                queue,
+                spoken,
+                in_car,
+                checkpoint,
+            )
         )
         self._tasks[message_id] = task
         task.add_done_callback(lambda _: self._forget(message_id))
@@ -101,6 +116,7 @@ class TurnRunner:
         queue: asyncio.Queue | None,
         spoken: bool,
         in_car: bool,
+        checkpoint: list | None = None,
     ) -> None:
         heartbeat = asyncio.create_task(self._renew_lease(message_id))
         try:
@@ -114,6 +130,7 @@ class TurnRunner:
                 stopped=lambda: message_id in self._stopped,
                 spoken=spoken,
                 in_car=in_car,
+                checkpoint=checkpoint,
             ):
                 if queue is not None:
                     queue.put_nowait(event)
@@ -224,6 +241,7 @@ class TurnRunner:
                 # history tells the model there was one.
                 screen_context=message.turn_screen_context,
                 follow=False,
+                checkpoint=message.turn_blocks,
             )
             resumed += 1
         return resumed
