@@ -40,6 +40,13 @@ test('a proaction write no instruction covers waits for Â« Autoriser / Refuser Â
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toContainText('Lait', { timeout: 20_000 })
   expect(JSON.stringify(await callMcpTool(api, 'get_grocery_list', {}))).not.toContain('Lait')
+
+  // The card covers every window of this account: answer it through the API so the next journey starts clear.
+  const pending = (await (await api.get('/agent/approvals?status=pending')).json()) as { id: string }[]
+  for (const action of pending) {
+    const denied = await api.post(`/agent/approvals/${action.id}/deny?channel=notification`)
+    expect(denied.ok(), await denied.text()).toBe(true)
+  }
 })
 
 test('a proaction write an instruction covers word for word runs without a validation', async ({ interruptedUser }) => {
