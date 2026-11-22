@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,11 +35,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,12 +52,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Utensil
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.components.FIELD_RADIUS
+import com.maggie.app.ui.components.LabeledField
+import com.maggie.app.ui.components.LabeledTextField
+import com.maggie.app.ui.components.filledFieldColors
 import com.maggie.app.ui.components.markdown.MarkdownEditor
+import com.maggie.app.ui.theme.MaggieTokens
+import java.util.Locale
 
 /** What the full-screen utensil search is choosing for: the recipe's equipment, or one step's. */
 private sealed interface UtensilTarget {
@@ -109,10 +122,20 @@ internal fun RecipeFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.Default.Close, contentDescription = "Fermer")
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = onSave,
+                        enabled = form.name.isNotBlank() && !isSaving,
+                        shape = CircleShape,
+                        modifier = Modifier.padding(end = 8.dp).testTag(UiTags.RECIPE_SAVE),
+                    ) {
+                        Text(saveLabel)
                     }
                 },
             )
@@ -122,34 +145,41 @@ internal fun RecipeFormScreen(
             modifier = Modifier.fillMaxSize().padding(paddingValues)
                 .verticalScroll(scroll)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            Text(title, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+
             banner()
 
-            OutlinedTextField(
+            LabeledTextField(
+                label = "Nom",
                 value = form.name,
                 onValueChange = { v -> edit { it.copy(name = v) } },
-                label = { Text("Nom") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
             )
 
-            OutlinedTextField(
-                value = form.servings,
-                onValueChange = { v -> edit { it.copy(servings = v) } },
-                label = { Text("Portions") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-
-            OutlinedTextField(
-                value = form.tagsText,
-                onValueChange = { v -> edit { it.copy(tagsText = v) } },
-                label = { Text("Tags (séparés par des virgules)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LabeledField("Portions", Modifier.weight(1f)) {
+                    TextField(
+                        value = form.servings,
+                        onValueChange = { v -> edit { it.copy(servings = v) } },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        shape = RoundedCornerShape(FIELD_RADIUS),
+                        colors = filledFieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                LabeledField("Tags", Modifier.weight(1f)) {
+                    TextField(
+                        value = form.tagsText,
+                        onValueChange = { v -> edit { it.copy(tagsText = v) } },
+                        singleLine = true,
+                        shape = RoundedCornerShape(FIELD_RADIUS),
+                        colors = filledFieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
 
             MarkdownEditor(
                 value = form.notes,
@@ -158,17 +188,7 @@ internal fun RecipeFormScreen(
                 minLines = 3,
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Ingrédients")
-                TextButton(onClick = { edit { it.withIngredients(it.ingredients + IngredientRow()) } }) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Text("Ajouter")
-                }
-            }
+            SectionLabel("Ingrédients")
 
             form.ingredients.forEachIndexed { index, row ->
                 IngredientRowInput(
@@ -178,26 +198,15 @@ internal fun RecipeFormScreen(
                     onSearchCiqual = onSearchCiqual,
                 )
             }
+            AddRowButton("+ Ingrédient", onClick = { edit { it.withIngredients(it.ingredients + IngredientRow()) } })
 
-            HorizontalDivider()
             UtensilsEditor(
                 utensils = form.utensils,
                 onAdd = { target = UtensilTarget.Recipe },
                 onRemove = { removed -> edit { it.removeUtensil(removed) } },
             )
 
-            HorizontalDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Étapes")
-                TextButton(onClick = { edit { it.addStep() } }, modifier = Modifier.testTag(UiTags.RECIPE_STEP_ADD)) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Text("Ajouter")
-                }
-            }
+            SectionLabel("Étapes")
 
             form.steps.forEachIndexed { index, step ->
                 StepEditor(
@@ -209,19 +218,33 @@ internal fun RecipeFormScreen(
                     onAddUtensil = { target = UtensilTarget.Step(step.key) },
                 )
             }
+            AddRowButton("+ Étape", onClick = { edit { it.addStep() } }, modifier = Modifier.testTag(UiTags.RECIPE_STEP_ADD))
 
             error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
-
-            Button(
-                onClick = onSave,
-                modifier = Modifier.fillMaxWidth().testTag(UiTags.RECIPE_SAVE),
-                enabled = form.name.isNotBlank() && !isSaving,
-            ) {
-                Text(saveLabel)
-            }
         }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text.uppercase(Locale.FRANCE),
+        fontSize = 12.sp,
+        letterSpacing = 0.14.em,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun AddRowButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier.fillMaxWidth().height(48.dp),
+    ) {
+        Text(text, fontSize = 15.sp, color = MaggieTokens.Module.cuisine.second)
     }
 }
 
@@ -232,7 +255,7 @@ private fun UtensilsEditor(
     onAdd: () -> Unit,
     onRemove: (UtensilRef) -> Unit,
 ) {
-    Text("Matériel")
+    SectionLabel("Matériel")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         utensils.forEach { utensil ->
             InputChip(
@@ -245,8 +268,8 @@ private fun UtensilsEditor(
         }
         AssistChip(
             onClick = onAdd,
-            label = { Text("Ustensile") },
-            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+            label = { Text("+ Ustensile", color = MaggieTokens.Module.cuisine.second) },
+            shape = RoundedCornerShape(50),
             modifier = Modifier.testTag(UiTags.RECIPE_UTENSIL_ADD),
         )
     }
