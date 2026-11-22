@@ -63,6 +63,9 @@ tags:
       - assertVisible:
           id: "interruptions_panel"
       - assertVisible: "En attente de votre réponse"
+      # The header stays sharp under the open bell (Notifs-Tel).
+      - assertVisible:
+          id: "header_bell"
       - tapOn:
           id: "interruptions_scrim"
           point: "50%,95%"

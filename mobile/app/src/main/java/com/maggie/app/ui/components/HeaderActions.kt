@@ -10,6 +10,8 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
@@ -20,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
@@ -69,7 +72,13 @@ fun MaggieBell(state: InterruptionsUiState, actions: InterruptionsActions) {
             bottomPx = (it.positionInWindow().y + it.size.height).toInt()
         },
     ) {
-        IconButton(onClick = { open = true }, modifier = Modifier.size(48.dp).testTag(UiTags.HEADER_BELL)) {
+        IconButton(
+            onClick = { open = true },
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = if (open) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.Transparent,
+            ),
+            modifier = Modifier.size(48.dp).testTag(UiTags.HEADER_BELL),
+        ) {
             if (count > 0) {
                 BadgedBox(
                     badge = {
