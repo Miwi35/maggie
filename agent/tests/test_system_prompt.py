@@ -172,3 +172,20 @@ def test_no_build_system_prompt_is_left_in_app():
                 offenders.add(path.relative_to(APP).as_posix())
 
     assert not offenders
+
+
+def test_the_personality_routes_read_and_write_the_owner_settings(authed_client):
+    from unittest.mock import AsyncMock, patch
+
+    from app.db.personality_repository import personality_repo
+
+    row = SimpleNamespace(name="Jeanne", language="en", backstory="Née à Rennes.")
+    with (
+        patch.object(personality_repo, "get", AsyncMock(return_value=row)),
+        patch.object(personality_repo, "upsert", AsyncMock(return_value=SimpleNamespace(name="Jo", language="en", backstory="Née à Rennes."))),
+    ):
+        got = authed_client.get("/personality")
+        put = authed_client.put("/personality", json={"name": "Jo"})
+
+    assert got.status_code == 200 and got.json()["name"] == "Jeanne"
+    assert put.status_code == 200 and put.json()["name"] == "Jo"
