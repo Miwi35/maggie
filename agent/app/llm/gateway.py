@@ -14,7 +14,7 @@ from app.llm.dry_run import DryRunToolRouter
 from app.llm.history import build_history, strip_thread_label
 from app.llm.image import ChatImage
 from app.llm.last_exchange import last_exchange_section
-from app.llm.models import CHAT, effort_for, model_for, proaction_run
+from app.llm.models import CHAT, PROACTION, effort_for, model_for, proaction_run
 from app.llm.prompt_cache import build_system
 from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
@@ -22,6 +22,7 @@ from app.llm.tools import ToolRouter
 from app.llm.web_search import with_web_search
 from app.memory.agent_memory import AgentMemory
 from app.personality.engine import PersonalityEngine, current_datetime_line
+from app.policy.checker import CheckedToolRouter
 from app.policy.engine import A2A_SOURCE
 from app.proactions.triage import KIND_CHECK
 from app.proactions.verdict import VERDICT_TOOL_NAME, VerdictToolRouter
@@ -205,7 +206,11 @@ class LLMGateway:
                 "error": "AI service is not configured.",
             }
 
-        tool_router = BlockedToolsRouter(self.tool_router, blocked_tools) if blocked_tools else self.tool_router
+        run = proaction_run(silent=silent, summary=summary, prompt=prompt)
+        checked = run == PROACTION and not dry_run
+        tool_router = CheckedToolRouter(self.tool_router, self.client) if checked else self.tool_router
+        if blocked_tools:
+            tool_router = BlockedToolsRouter(tool_router, blocked_tools)
         trip_run = not silent and summary is not None and is_silent_trip_run(summary)
         check = kind == KIND_CHECK and not silent and not trip_run
         if check:
@@ -230,7 +235,6 @@ class LLMGateway:
         messages = [{"role": "user", "content": content}]
         tool_router = DryRunToolRouter(tool_router) if dry_run else tool_router
 
-        run = proaction_run(silent=silent, summary=summary, prompt=prompt)
         model = model_for(run)
         try:
             result = await run_tool_loop(
