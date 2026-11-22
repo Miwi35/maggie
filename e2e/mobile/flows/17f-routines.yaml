@@ -95,6 +95,7 @@ onFlowComplete:
       childOf:
         id: "routine_group_weekly"
     timeout: 20000
+- assertVisible: "CHAQUE SEMAINE"
 - runScript:
     file: ../scripts/routines-api.js
     env:
