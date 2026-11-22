@@ -3,8 +3,8 @@ name: 17-tasks-views
 tags:
   - calendar
 ---
-# The Tâches screen, in four views (MAG-408): « Aujourd'hui », « À venir », « Un jour »,
-# « Faites », chosen from the header « Tâches › … ▾ » (MAG-626). Reached from the drawer / the rail. « Aujourd'hui »
+# The Tâches screen, in three sections (MAG-408, MAG-934): « Aujourd'hui », « Tâches » (« À venir » and « Un jour »
+# grouped CETTE SEMAINE · PLUS TARD · SANS DATE), « Archives », chosen from the header « Tâches › … ▾ » (MAG-626). Reached from the drawer / the rail. « Aujourd'hui »
 # is the day since MAG-497: five slots and a reserve folded under its count
 # (`17b-tasks-day` plays it).
 #
@@ -17,8 +17,8 @@ tags:
 # asserted (the entries are tapped by id). The ordering and the counts are the API's
 # (`TaskViewsTest`) and the ViewModel's (`TasksViewModelTest`).
 #
-# Then the gestures: a task added in « À venir » gets tomorrow, ticking it takes it out
-# of the view and into « Faites », and its detail (a sheet on a phone, the pane on a
+# Then the gestures: a task added in « Tâches » has no date, so it is in SANS DATE; « Aujourd’hui » on its row
+# plans it today, it leaves the section for « Aujourd'hui », ticking it there takes it to « Archives », and its detail (a sheet on a phone, the pane on a
 # tablet) is read and edited through the pencil, and its bin deletes it after a confirmation, so the shared server is left as it was.
 
 - launchApp:
@@ -76,13 +76,16 @@ tags:
 - runFlow:
     file: ../subflows/open-tasks-view.yaml
     env:
-      VIEW: upcoming
+      VIEW: stock
 - extendedWaitUntil:
     visible: "Appeler le garage"
     timeout: 20000
+# « Appeler le garage » is dated, « Trier les photos de vacances » is not: it is under SANS DATE.
+- assertVisible:
+    id: "tasks_stock_group_undated"
+- assertVisible: "Trier les photos de vacances"
 
-# The floating « + » (MAG-721) opens « Nouvelle tâche », whose due day is tomorrow from « À venir »:
-# « Créer » and the task lands in the tab.
+# The floating « + » (MAG-721) opens « Nouvelle tâche » with no due day: « Créer » and the task lands in SANS DATE.
 - tapOn:
     id: "tasks_add"
 - tapOn:
@@ -94,11 +97,10 @@ tags:
     visible: "Tâche MAG-408"
     timeout: 20000
 
-# Ticking takes it out of « À venir » and into « Faites ». « Appeler le garage » is
-# the only other task of the tab and is dated later, so the new one is the box above it.
+# « Aujourd’hui » on its row plans it today: it leaves the section and is in « Aujourd'hui ».
 - tapOn:
-    id: "tasks_check_.*"
-    above: "Appeler le garage"
+    id: "tasks_stock_pick_.*"
+    rightOf: "Tâche MAG-408"
 - extendedWaitUntil:
     notVisible: "Tâche MAG-408"
     timeout: 20000
@@ -107,9 +109,24 @@ tags:
 - runFlow:
     file: ../subflows/open-tasks-view.yaml
     env:
-      VIEW: someday
+      VIEW: today
 - extendedWaitUntil:
-    visible: "Trier les photos de vacances"
+    visible: "Tâche MAG-408"
+    timeout: 20000
+
+# Ticked from « Aujourd'hui »: the Bravo, back to the day, and the task is in « Archives ».
+- tapOn:
+    id: "tasks_today_check_.*"
+    leftOf: "Tâche MAG-408"
+- extendedWaitUntil:
+    visible:
+      id: "bravo"
+    timeout: 20000
+- tapOn:
+    id: "bravo_back"
+- extendedWaitUntil:
+    visible:
+      id: "tasks_ring"
     timeout: 20000
 
 - runFlow:
