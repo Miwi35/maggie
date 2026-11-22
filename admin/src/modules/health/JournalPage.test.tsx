@@ -134,7 +134,7 @@ describe('JournalPage', () => {
 
     expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual(['Jours', 'Entrée du jour'])
     expect(within(screen.getByRole('radiogroup', { name: 'Période' })).getByRole('radio', { name: '30 j' })).toHaveAttribute('aria-checked', 'true')
-    expect(within(entry()).getByTestId('journal-day')).toHaveTextContent('Aujourd’hui samedi 7 nov.')
+    expect(within(entry()).getByTestId('journal-day')).toHaveTextContent('Aujourd’hui · samedi 7 nov.')
 
     const rows = await within(table()).findAllByTestId(/^journal-row-/)
     expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([`journal-row-${TODAY}`, `journal-row-${YESTERDAY}`])
@@ -144,16 +144,20 @@ describe('JournalPage', () => {
       'Fatigue',
       'Poids',
       'Pas',
-      'Bilan',
+      'Bilan kcal',
       'Sport',
       'Note',
     ])
-    expect(rows[0]).toHaveTextContent(/^Aujourd’hui——71,6 kg8\s000−320 kcal45 min—$/)
+    expect(rows[0]).toHaveTextContent(/^sam\. 7 nov\.——71,6 kg8\s000−32045 min—$/)
     expect(rows[1]).toHaveTextContent(/^ven\. 6 nov\.6571,9 kg———Longue journée de travail, mais une bell…$/)
     expect(fetcher.mock.calls.map(([url]) => url)).toEqual(expect.arrayContaining(['/api/health/days?from=2026-10-09&to=2026-11-07', '/api/health/days/2026-11-07']))
 
     expect(await within(entry()).findByTestId('journal-weight-value')).toHaveTextContent('71,6 kg')
-    expect(within(entry()).getByTestId('journal-weight-detail')).toHaveTextContent('pesé à 07:12')
+    expect(within(entry()).getByTestId('journal-weight-detail')).toHaveTextContent('première pesée · 07:12')
+    expect(within(entry()).getByTestId('journal-balance-detail')).toHaveTextContent(/^1\s580 · 1\s900$/)
+    expect(within(entry()).getByTestId('journal-mood-value')).toHaveTextContent('—')
+    expect(within(entry()).getByTestId('journal-fatigue-value')).toHaveTextContent('—')
+    expect(within(table()).queryByText('Jours')).not.toBeInTheDocument()
     expect(within(entry()).getByTestId('journal-steps-value')).toHaveTextContent(/^8\s000$/)
     expect(within(entry()).getByTestId('journal-balance-value')).toHaveTextContent('−320 kcal')
     expect(within(entry()).getByTestId('journal-sport-value')).toHaveTextContent('45 min')
@@ -177,12 +181,14 @@ describe('JournalPage', () => {
     await waitFor(() => expect(within(scale('Moral')).getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'true'))
     await user.click(within(scale('Fatigue')).getByRole('radio', { name: '4' }))
     await waitFor(() => expect(within(scale('Fatigue')).getByRole('radio', { name: '4' })).toHaveAttribute('aria-checked', 'true'))
+    expect(within(entry()).getByTestId('journal-mood-value')).toHaveTextContent('7 / 10')
+    expect(within(entry()).getByTestId('journal-fatigue-value')).toHaveTextContent('4 / 10')
 
     expect(patches(fetcher)).toEqual([
       ['/api/health/days/2026-11-07', { mood: 7 }, 'application/json'],
       ['/api/health/days/2026-11-07', { fatigue: 4 }, 'application/json'],
     ])
-    await waitFor(() => expect(within(table()).getByTestId(`journal-row-${TODAY}`)).toHaveTextContent(/^Aujourd’hui7471,6 kg/))
+    await waitFor(() => expect(within(table()).getByTestId(`journal-row-${TODAY}`)).toHaveTextContent(/^sam\. 7 nov\.7471,6 kg/))
   })
 
   test('two scores clicked in a row are sent one after the other, and the entry keeps both', async () => {
@@ -251,6 +257,8 @@ describe('JournalPage', () => {
 
     expect(within(entry()).getByTestId('journal-day')).toHaveTextContent('vendredi 6 nov.')
     expect(await within(entry()).findByTestId('journal-noted-by')).toHaveTextContent('avec Maggie · 21:42')
+    expect(within(entry()).getByTestId('journal-header')).toContainElement(screen.getByTestId('journal-noted-by'))
+    expect(within(within(entry()).getByTestId('journal-header')).getByTestId('maggie-avatar')).toBeInTheDocument()
     expect(within(scale('Moral')).getByRole('radio', { name: '6' })).toHaveAttribute('aria-checked', 'true')
     expect(within(scale('Fatigue')).getByRole('radio', { name: '5' })).toHaveAttribute('aria-checked', 'true')
     expect(within(entry()).getByRole('textbox', { name: 'Note' })).toHaveValue(YESTERDAY_ENTRY.note)
@@ -259,7 +267,7 @@ describe('JournalPage', () => {
     expect(fetcher.mock.calls.map(([url]) => url)).toContain('/api/health/days/2026-11-06')
 
     await user.click(within(entry()).getByRole('button', { name: 'Jour suivant' }))
-    expect(within(entry()).getByTestId('journal-day')).toHaveTextContent('Aujourd’hui samedi 7 nov.')
+    expect(within(entry()).getByTestId('journal-day')).toHaveTextContent('Aujourd’hui · samedi 7 nov.')
     await user.click(within(entry()).getByRole('button', { name: 'Jour précédent' }))
     await user.click(within(entry()).getByRole('button', { name: 'Jour précédent' }))
     expect(within(entry()).getByTestId('journal-day')).toHaveTextContent('jeudi 5 nov.')
@@ -297,9 +305,25 @@ describe('JournalPage', () => {
 
     expect(await within(table()).findByText('Aucun jour noté sur la période.')).toBeInTheDocument()
     expect(await within(entry()).findByTestId('journal-weight-value')).toHaveTextContent('—')
-    expect(within(entry()).queryByTestId('journal-weight-detail')).not.toBeInTheDocument()
+    expect(within(entry()).getByTestId('journal-weight-detail')).toHaveTextContent('pas de pesée')
+    expect(within(entry()).queryByTestId('journal-balance-detail')).not.toBeInTheDocument()
     expect(within(entry()).getByTestId('journal-balance-value')).toHaveTextContent('—')
     expect(within(entry()).getByTestId('journal-sport-value')).toHaveTextContent('—')
+  })
+
+  test('the note field says « Note du jour » when empty', async () => {
+    stubApi({ days: [TODAY_ENTRY] })
+    renderPage()
+
+    expect(await within(entry()).findByRole('textbox', { name: 'Note' })).toHaveAttribute('placeholder', 'Note du jour')
+  })
+
+  test('the checked score takes the Santé colour', async () => {
+    stubApi({ days: [{ ...TODAY_ENTRY, mood: 7 }] })
+    renderPage()
+
+    await waitFor(() => expect(within(scale('Moral')).getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'true'))
+    expect(within(scale('Moral')).getByRole('radio', { name: '7' })).toHaveStyle({ backgroundColor: veilleuseLightTheme.palette.module.sport })
   })
 
   test('says in French when the journal cannot be read', async () => {
