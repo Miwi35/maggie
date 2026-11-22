@@ -125,6 +125,10 @@ test('filter À qualifier, validate the first line: it becomes Reconnue, Suivant
   const second = (await review.rows.nth(1).getAttribute('aria-label')) as string
   expect(unrecognised).toContain(first)
   expect(unrecognised).toContain(second)
+  await expect(review.content.getByRole('heading', { level: 1, name: 'Revue', exact: true })).toBeVisible()
+  await expect(review.content.getByText('2 transactions', { exact: true })).toBeVisible()
+  expect(await review.row(first).innerText()).toMatch(/^\d{2}\/\d{2}\s/)
+  await expect(review.row(first)).toContainText('Compte courant')
 
   await review.select(first)
   await expect(review.sheet).toContainText(categoryName)

@@ -172,7 +172,7 @@ describe('ReviewPage', () => {
       expect(within(screen.getByRole('region', { name: 'Reconnues' })).getAllByTestId('review-row')).toHaveLength(2)
       expect(stateOf('PAIEMENT PAR CARTE X')).toBe('À qualifier')
       expect(stateOf('NETFLIX.COM')).toBe('Reconnue')
-      expect(within(row('CARREFOUR MARKET 1234')).getByText(`12/${MONTH.slice(5)}/${MONTH.slice(0, 4)}`)).toBeInTheDocument()
+      expect(within(row('CARREFOUR MARKET 1234')).getByText(`12/${MONTH.slice(5)}`)).toBeInTheDocument()
     })
 
     test('shows the amount signed, an income with a plus', async () => {
@@ -198,6 +198,8 @@ describe('ReviewPage', () => {
       expect(within(row('RESTO')).getByText('À conserver')).toBeInTheDocument()
       expect(within(row('JEU')).getByText('Superflue')).toBeInTheDocument()
       expect(within(row('JEU')).queryByText('À conserver')).not.toBeInTheDocument()
+      const state = within(row('RESTO')).getByText('À qualifier')
+      expect(state.compareDocumentPosition(within(row('RESTO')).getByText('À conserver')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     test('a line that was controlled shows a check', async () => {
@@ -245,11 +247,48 @@ describe('ReviewPage', () => {
   })
 
   describe('the page as the mock-up draws it (MAG-634)', () => {
-    test('is titled « Revue · n », n being the lines of the period', async () => {
+    test('is titled « Revue », with the count of the lines shown beside it', async () => {
       renderPage()
+      await screen.findByRole('region', { name: 'Non reconnues' })
 
-      expect(await screen.findByRole('heading', { level: 1, name: 'Revue · 4' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 1, name: 'Revue' })).toBeInTheDocument()
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+      expect(screen.getByText('4 transactions')).toBeInTheDocument()
+
+      await userEvent.click(pill('À qualifier · 2'))
+
+      expect(screen.getByText('2 transactions')).toBeInTheDocument()
+    })
+
+    test('the count says « 1 transaction » for one line and follows the search', async () => {
+      renderPage()
+      await screen.findByRole('region', { name: 'Non reconnues' })
+
+      await userEvent.type(screen.getByRole('searchbox', { name: 'Rechercher une transaction' }), 'NETFLIX')
+
+      expect(await screen.findByText('1 transaction')).toBeInTheDocument()
+    })
+
+    test('the period comes first, then the state, then the search, on one row', async () => {
+      renderPage()
+      await screen.findByRole('region', { name: 'Non reconnues' })
+
+      const period = screen.getByRole('group', { name: 'Période' })
+      const state = screen.getByRole('group', { name: 'État' })
+      const search = screen.getByRole('searchbox', { name: 'Rechercher une transaction' })
+      expect(period.compareDocumentPosition(state) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(state.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(search).toHaveAttribute('placeholder', 'Rechercher…')
+    })
+
+    test('a row reads its day, its label over its account, its state and its amount, in that order', async () => {
+      renderPage()
+      await screen.findByRole('region', { name: 'Non reconnues' })
+
+      const text = row('CARREFOUR MARKET 1234').textContent ?? ''
+      const at = [`12/${MONTH.slice(5)}`, 'CARREFOUR MARKET 1234', 'Courant', 'À qualifier', '45,99'].map((t) => text.indexOf(t))
+      expect(at.every((i) => i >= 0)).toBe(true)
+      expect([...at].sort((a, b) => a - b)).toEqual(at)
     })
 
     test('filters with pills, never with segmented buttons', async () => {
