@@ -238,11 +238,12 @@ class SportActivityTest {
     private val now = Instant.parse("2026-11-11T17:09:00Z")
 
     @Test
-    fun `a session of today with exercises is launched from a card that tells its moment`() {
+    fun `the launch card is titled after the session, its moment kept for accessibility`() {
         val launch = sportLaunchOf(listOf(session()), today, zone, null, now)!!
 
         assertEquals("w1", launch.workoutId)
-        assertEquals("Séance de ce soir", launch.title)
+        assertEquals("Haut du corps", launch.title)
+        assertEquals("Séance de ce soir", launch.label)
         assertEquals("Ce soir · 18 h 30 · 30 min · 3 exercices", launch.subtitle)
         assertEquals("Lancer", launch.buttonLabel)
         assertFalse(launch.resuming)
@@ -254,7 +255,7 @@ class SportActivityTest {
         val launch = sportLaunchOf(listOf(session()), today, zone, resume, now)!!
 
         assertEquals("En cours · exercice 2 / 6 · 9 min", launch.subtitle)
-        assertEquals("▶ Reprendre · 2/6", launch.buttonLabel)
+        assertEquals("Reprendre · 2/6", launch.buttonLabel)
         assertTrue(launch.resuming)
     }
 

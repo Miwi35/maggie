@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.health
 
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
@@ -28,6 +29,7 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.screentest.tap
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.health.sport.SportResume
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -190,10 +192,41 @@ class SportScreenTest {
         compose.onNodeWithText("0 faite · 0 prévue").assertIsDisplayed()
         compose.onNodeWithContentDescription("M 21").assertExists()
         compose.onNodeWithText("Séances").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.SPORT_EMPTY).assertTextContains("Aucune séance", substring = true)
+        compose.onNodeWithTag(UiTags.SPORT_EMPTY).assertTextEquals("Aucune séance")
         compose.onNodeWithTag(UiTags.SPORT_ADD).assertIsDisplayed().performClick()
 
         assertEquals(listOf<String?>(null), opened)
+    }
+
+    private val gymWithExercises = gym.copy(
+        title = "Séance A",
+        exercises = listOf(
+            WorkoutExercise("pull-up-negative", "Tractions négatives", unit = "reps", sets = 3, target = 5),
+            WorkoutExercise("plank", "Planche", unit = "seconds", sets = 3, target = 30),
+        ),
+    )
+
+    private fun waitForLaunchCard() =
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.SPORT_LAUNCH_CARD).fetchSemanticsNodes().isNotEmpty() }
+
+    @Test
+    fun `the launch card shows the session's title and reads as Séance de ce soir`() {
+        compose.setContent { SportScreen(viewModel(listOf(gymWithExercises)), onOpenForm = {}) }
+
+        waitForLaunchCard()
+        compose.onNodeWithTag(UiTags.SPORT_LAUNCH_CARD).assertContentDescriptionEquals("Séance de ce soir")
+        compose.onNodeWithText("Séance A").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.SPORT_LAUNCH_BUTTON).assertTextEquals("Lancer")
+    }
+
+    @Test
+    fun `a session in progress offers Reprendre with its progress and no play character`() {
+        val resume = SportResume("gym", exerciseIndex = 1, exerciseCount = 6, startedAt = null)
+        compose.setContent { SportScreen(viewModel(listOf(gymWithExercises)), onOpenForm = {}, sportResume = resume) }
+
+        waitForLaunchCard()
+        compose.onNodeWithTag(UiTags.SPORT_LAUNCH_BUTTON).assertTextEquals("Reprendre · 2/6")
+        compose.onAllNodesWithText("▶", substring = true).assertCountEquals(0)
     }
 
     @Test

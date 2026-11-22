@@ -143,7 +143,7 @@ fun WorkoutDetail(
         }
 
         if (launch != null) {
-            SportLaunchButton(launch.buttonLabel, onClick = { onLaunch(launch.workoutId) }, modifier = Modifier.fillMaxWidth())
+            SportLaunchButton(launch.buttonLabel, onClick = { onLaunch(launch.workoutId) }, modifier = Modifier.fillMaxWidth(), resuming = launch.resuming)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

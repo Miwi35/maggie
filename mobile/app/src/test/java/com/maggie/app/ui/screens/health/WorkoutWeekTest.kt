@@ -102,4 +102,17 @@ class WorkoutWeekTest {
         assertEquals("J 22", week.days[3].description)
         assertFalse(week.days[3].isToday)
     }
+
+    @Test
+    fun `each day draws as the mockup, done filled, planned ringed, empty ringed in grey, today circled`() {
+        val week = weekOf(
+            listOf(workout("a", "2026-10-19T07:10:00+02:00"), workout("b", "2026-10-21T18:30:00+02:00", "planned")),
+            today,
+            paris,
+        )
+
+        assertEquals(DayLook(false, DayBorder.ACCENT, filled = true, digit = DayDigit.ON_ACCENT), dayLook(week.days[0]))
+        assertEquals(DayLook(false, DayBorder.TRACK, filled = false, digit = DayDigit.TEXT), dayLook(week.days[1]))
+        assertEquals(DayLook(true, DayBorder.ACCENT, filled = false, digit = DayDigit.TEXT), dayLook(week.days[2]))
+    }
 }
