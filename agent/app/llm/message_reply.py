@@ -12,9 +12,10 @@ import json
 import logging
 import time
 
-from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
 
+from app.container import container
+from app.domain.approvals.errors import ApprovalError
 from app.policy.reply_classifier import classify_approval_reply
 
 logger = logging.getLogger(__name__)
@@ -140,9 +141,6 @@ ANSWER_APPROVAL_TOOL = {
 
 
 async def handle_answer_approval(arguments: dict, user_id: str) -> str:
-    # Imported here: the routes import the gateway, which imports the tools.
-    from app.api import routes
-
     approval_id = arguments.get("approval_id")
     decision = arguments.get("decision")
     if not isinstance(approval_id, str) or decision not in {"approve", "deny"}:
@@ -156,12 +154,12 @@ async def handle_answer_approval(arguments: dict, user_id: str) -> str:
 
     try:
         if decision == "approve":
-            # Not announced by a background task: the turn that called this answers the owner.
-            decided = await routes.approve_action(
-                approval_id, BackgroundTasks(), channel="notification", user_id=user_id
-            )
+            # Not announced: the turn that called this answers the owner.
+            approved = await container.approvals.approve(approval_id, user_id=user_id, channel="notification")
+            decided = approved.action.to_dict()
         else:
-            decided = await routes.deny_action(approval_id, channel="notification", user_id=user_id)
-    except HTTPException as e:
-        return json.dumps({"error": str(e.detail)})
+            denied = await container.approvals.deny(approval_id, user_id=user_id, channel="notification")
+            decided = denied.to_dict()
+    except ApprovalError as e:
+        return json.dumps({"error": str(e)})
     return json.dumps({"success": True, "approval": decided}, default=str)

@@ -3,7 +3,7 @@
 Python FastAPI service. Separate from Symfony — consumes the API via MCP like any external client.
 
 ## Layout
-`agent/app/`: `main.py` (FastAPI entry, `root_path="/agent"`), `container.py` (shared instances), `config.py` (pydantic-settings), `api/` (routes), `llm/` (gateway, tool loop, history, prompt cache), `mcp/` (MCP client), `memory/`, `mercure/` (publisher, topics), `personality/` (YAML), `policy/`, `skills/`, `agents/` (sub-agents), `a2a/`, `queue/` (proactions), `db/` (models and repositories), `tts/`.
+`agent/app/`: `main.py` (FastAPI entry, `root_path="/agent"`), `container.py` (shared instances), `config.py` (pydantic-settings), `api/` (routes), `domain/` (domain services, no FastAPI), `llm/` (gateway, tool loop, history, prompt cache), `mcp/` (MCP client), `memory/`, `mercure/` (publisher, topics), `personality/` (YAML), `policy/`, `skills/`, `agents/` (sub-agents), `a2a/`, `queue/` (proactions), `db/` (models and repositories), `tts/`.
 
 ## Assembly
 - `app/container.py` is the only place of the shared instances: the Anthropic client, the `ToolRouter`, `LLMGateway` and `StreamingGateway` (`container.llm_client`, `.tool_router`, `.llm_gateway`, `.streaming_gateway`). Nothing else calls `create_llm_client()`, `LLMGateway(`, `StreamingGateway(` or `ToolRouter(` (`tests/test_container.py` checks it)
@@ -63,6 +63,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 - The guard sits in `ToolRouter.call_tool`, before native or MCP routing. `deny` returns `{"error": "Action interdite par la politique"}`. `ask` stores a **pending action** with its arguments frozen (table `agent_pending_action`: tool, arguments, source, `context_id`, status, result, `expires_at` = creation + 24 h; an identical pending call is reused, not duplicated) and returns `{"status": "pending_approval", "approval_id": …}` — Maggie ends her turn by saying what she is waiting for. The streamed `tool_result` carries the same status for the Mind panel
 - Statuses: `pending` → `approved` / `denied` / `expired` / `failed`. The scheduler loop expires overdue actions every minute
 - Endpoints (`app/api/routes.py`, user-scoped, another user's id is a 404): `GET /approvals?status=pending`, `POST /approvals/{id}/approve` (409 if already decided, 410 if expired), `POST /approvals/{id}/deny`. Approving replays the **frozen arguments** with `source="approval"`, stores the result, then — in the background, with `tools=None` — Maggie announces the outcome in the original thread. Denying runs nothing and calls no model
+- The logic lives in `app/domain/approvals/service.py` (`ApprovalService`: `approve`, `deny`, `announce`, built by `container.approvals`); the routes only translate its errors (`app/domain/approvals/errors.py`) into 404, 409, 410, 400. A domain service raises its own errors, never `HTTPException`, and `app/llm` never imports `app.api`
 - Every change is published on Mercure `/approvals/{userId}` (`private=on`, like all agent topics) for the web and mobile cards
 - Proactions run under the same policy: a deletion scheduled by Maggie shows up as a pending card instead of being executed
 - The policy is enforced in code, not asked of the model: never rely on the prompt to stop a destructive call

@@ -11,7 +11,7 @@ from functools import cached_property
 
 from app.llm.client import create_llm_client, llm_configured
 
-_PARTS = ("llm_client", "tool_router", "llm_gateway", "streaming_gateway")
+_PARTS = ("llm_client", "tool_router", "llm_gateway", "streaming_gateway", "approvals")
 
 
 class Container:
@@ -39,16 +39,26 @@ class Container:
 
         return StreamingGateway(client=self.llm_client, tool_router=self.tool_router)
 
+    @cached_property
+    def approvals(self):
+        from app.domain.approvals.service import ApprovalService
+
+        return ApprovalService(gateway=self.llm_gateway)
+
     @contextmanager
     def override(self, **parts) -> Iterator["Container"]:
         unknown = set(parts) - set(_PARTS)
         if unknown:
             raise TypeError(f"Unknown container part(s): {sorted(unknown)}")
         saved = dict(self.__dict__)
+        stale = []
         if "llm_client" in parts or "tool_router" in parts:
-            for name in ("llm_gateway", "streaming_gateway"):
-                if name not in parts:
-                    self.__dict__.pop(name, None)
+            stale += ["llm_gateway", "streaming_gateway"]
+        if stale or "llm_gateway" in parts:
+            stale.append("approvals")
+        for name in stale:
+            if name not in parts:
+                self.__dict__.pop(name, None)
         self.__dict__.update(parts)
         try:
             yield self

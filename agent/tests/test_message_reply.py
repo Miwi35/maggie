@@ -2,11 +2,13 @@
 
 import json
 import time
-from unittest.mock import AsyncMock, patch
+from contextlib import contextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
 
+from app.container import container
+from app.domain.approvals.errors import ApprovalNotPending
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.message_reply import (
     HEADER,
@@ -77,6 +79,23 @@ class TestReplyBlock:
         assert with_reply(None, a_reminder()).startswith(HEADER)
 
 
+@contextmanager
+def deciding(approve=None, deny=None):
+    """The approval service replaced by one whose answers the test sets; yields its `approve` and `deny`."""
+    approve = approve or AsyncMock()
+    deny = deny or AsyncMock()
+    with container.override(approvals=MagicMock(approve=approve, deny=deny)):
+        yield approve, deny
+
+
+def approved(row: dict) -> MagicMock:
+    return MagicMock(action=MagicMock(to_dict=MagicMock(return_value=row)))
+
+
+def denied(row: dict) -> MagicMock:
+    return MagicMock(to_dict=MagicMock(return_value=row))
+
+
 async def owner_answers(approval_id: str = "appr-1", user_id: str = "user-1", answer: str = "approve") -> None:
     with patch("app.llm.message_reply.classify_approval_reply", new=AsyncMock(return_value=answer)):
         await grant_approval_answer(user_id, ReplyTo(id="n-1", approval_id=approval_id), "oui", None)
@@ -84,7 +103,7 @@ async def owner_answers(approval_id: str = "appr-1", user_id: str = "user-1", an
 
 class TestAnswerApproval:
     async def test_the_model_cannot_decide_a_held_action_the_owner_did_not_answer(self):
-        with patch("app.api.routes.approve_action", new=AsyncMock()) as approve:
+        with deciding() as (approve, _):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-9", "decision": "approve"}, "user-1"))
 
         assert "error" in result
@@ -92,7 +111,7 @@ class TestAnswerApproval:
 
     async def test_the_owners_answer_decides_that_approval_once(self):
         await owner_answers("appr-2")
-        with patch("app.api.routes.approve_action", new=AsyncMock(return_value={"id": "appr-2"})) as approve:
+        with deciding(approve=AsyncMock(return_value=approved({"id": "appr-2"}))) as (approve, _):
             first = json.loads(await handle_answer_approval({"approval_id": "appr-2", "decision": "approve"}, "user-1"))
             second = json.loads(await handle_answer_approval({"approval_id": "appr-2", "decision": "approve"}, "user-1"))
 
@@ -102,7 +121,7 @@ class TestAnswerApproval:
 
     async def test_the_answer_to_one_approval_does_not_decide_another_or_another_users(self):
         await owner_answers("appr-3")
-        with patch("app.api.routes.approve_action", new=AsyncMock()) as approve:
+        with deciding() as (approve, _):
             other_approval = json.loads(await handle_answer_approval({"approval_id": "appr-4", "decision": "approve"}, "user-1"))
             other_user = json.loads(await handle_answer_approval({"approval_id": "appr-3", "decision": "approve"}, "user-2"))
 
@@ -111,9 +130,7 @@ class TestAnswerApproval:
 
     async def test_a_yes_with_a_condition_decides_nothing(self):
         await owner_answers("appr-6", answer="other")
-        with patch("app.api.routes.approve_action", new=AsyncMock()) as approve, patch(
-            "app.api.routes.deny_action", new=AsyncMock()
-        ) as deny:
+        with deciding() as (approve, deny):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-6", "decision": "approve"}, "user-1"))
 
         assert result == {"error": "Sa réponse n'est pas un oui ou un non net : rien n'est décidé."}
@@ -122,7 +139,7 @@ class TestAnswerApproval:
 
     async def test_the_model_cannot_turn_a_no_into_a_yes(self):
         await owner_answers("appr-7", answer="deny")
-        with patch("app.api.routes.approve_action", new=AsyncMock()) as approve:
+        with deciding() as (approve, _):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-7", "decision": "approve"}, "user-1"))
 
         assert "error" in result
@@ -130,7 +147,7 @@ class TestAnswerApproval:
 
     async def test_the_model_cannot_turn_a_yes_into_a_no(self):
         await owner_answers("appr-8", answer="approve")
-        with patch("app.api.routes.deny_action", new=AsyncMock()) as deny:
+        with deciding() as (_, deny):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-8", "decision": "deny"}, "user-1"))
 
         assert "error" in result
@@ -145,9 +162,7 @@ class TestAnswerApproval:
 
     async def test_a_grant_expires(self):
         await owner_answers("appr-5")
-        with patch("app.llm.message_reply.time.monotonic", return_value=time.monotonic() + 601), patch(
-            "app.api.routes.approve_action", new=AsyncMock()
-        ) as approve:
+        with patch("app.llm.message_reply.time.monotonic", return_value=time.monotonic() + 601), deciding() as (approve, _):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-5", "decision": "approve"}, "user-1"))
 
         assert "error" in result
@@ -155,7 +170,7 @@ class TestAnswerApproval:
 
     async def test_approve_runs_the_held_call_as_the_button_does(self):
         await owner_answers()
-        with patch("app.api.routes.approve_action", new=AsyncMock(return_value={"id": "appr-1", "status": "approved"})) as approve:
+        with deciding(approve=AsyncMock(return_value=approved({"id": "appr-1", "status": "approved"}))) as (approve, _):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-1", "decision": "approve"}, "user-1"))
 
         assert result == {"success": True, "approval": {"id": "appr-1", "status": "approved"}}
@@ -165,7 +180,7 @@ class TestAnswerApproval:
 
     async def test_deny_refuses_it(self):
         await owner_answers(answer="deny")
-        with patch("app.api.routes.deny_action", new=AsyncMock(return_value={"id": "appr-1", "status": "denied"})) as deny:
+        with deciding(deny=AsyncMock(return_value=denied({"id": "appr-1", "status": "denied"}))) as (_, deny):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-1", "decision": "deny"}, "user-1"))
 
         assert result["success"] is True
@@ -173,8 +188,8 @@ class TestAnswerApproval:
 
     async def test_an_approval_already_decided_is_reported_not_raised(self):
         await owner_answers()
-        gone = AsyncMock(side_effect=HTTPException(status_code=409, detail="Approval is not pending"))
-        with patch("app.api.routes.approve_action", new=gone):
+        gone = AsyncMock(side_effect=ApprovalNotPending())
+        with deciding(approve=gone):
             result = json.loads(await handle_answer_approval({"approval_id": "appr-1", "decision": "approve"}, "user-1"))
 
         assert result == {"error": "Approval is not pending"}
@@ -184,9 +199,7 @@ class TestAnswerApproval:
         [{}, {"approval_id": "appr-1"}, {"approval_id": "appr-1", "decision": "maybe"}, {"decision": "approve"}],
     )
     async def test_an_incomplete_call_decides_nothing(self, arguments):
-        with patch("app.api.routes.approve_action", new=AsyncMock()) as approve, patch(
-            "app.api.routes.deny_action", new=AsyncMock()
-        ) as deny:
+        with deciding() as (approve, deny):
             result = json.loads(await handle_answer_approval(arguments, "user-1"))
 
         assert "error" in result
