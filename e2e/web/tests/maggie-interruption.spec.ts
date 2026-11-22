@@ -445,6 +445,111 @@ test('a proaction asked for in the chat sits in the « Maggie » agenda, runs on
   // A reminder the owner asked for always interrupts (MAG-886): the API notifies it as a `proaction`, with a link to the message.
   const run = ((await callMcpTool(api, 'list_proactions', {})).proactions as ListedProaction[]).find((p) => p.id === id)
   expect({ kind: run?.kind, delivery: run?.delivery }).toEqual({ kind: 'reminder', delivery: 'interrupt' })
+  const notified = (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100')).filter(
+    (n) => n.type === 'proaction' && n.relatedEntityIri === `/chat?message=${delivered[0].id}`,
+  )
+  expect(notified).toHaveLength(1)
+})
+
+test('the evening review arrives as a message notification, never as a proaction one', async ({ interruptedUser }) => {
+  test.setTimeout(240_000)
+  const { api } = interruptedUser
+
+  const scheduled = await callMcpTool(api, 'schedule_proaction', {
+    prompt: "Fais le bilan de la journée avec l'utilisateur (compétence bilan-soir, ouverture par le rendez-vous du soir).",
+    summary: 'Bilan de la journée',
+    scheduled_at: new Date(e2eNow().getTime() + 3_600_000).toISOString(),
+  })
+  const id = (scheduled.proaction as { id?: string } | undefined)?.id
+  expect(id, JSON.stringify(scheduled)).toBeDefined()
+
+  const moved = await api.patch(`/api/events/${id}`, {
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+    data: { startAt: new Date(e2eNow().getTime() - 60_000).toISOString() },
+  })
+  expect(moved.ok(), `PATCH /api/events/${id} answered ${moved.status()}: ${await moved.text()}`).toBe(true)
+
+  type StoredMessage = { id: string; role: string; blocks?: unknown[] | null }
+  let review: StoredMessage | undefined
+  await expect
+    .poll(
+      async () => {
+        const messages = (await (await api.get('/agent/messages?limit=10')).json()) as StoredMessage[]
+        review = messages.find((m) => m.role === 'assistant' && JSON.stringify(m.blocks ?? []).includes('"bilan"'))
+        return review?.id ?? null
+      },
+      { message: 'the review message never arrived', timeout: 180_000, intervals: [2_000] },
+    )
+    .not.toBeNull()
+
+  // The agent notifies right after storing the message: wait for it.
+  await expect
+    .poll(
+      async () =>
+        (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100'))
+          .filter((n) => n.relatedEntityIri === `/chat?message=${review!.id}`)
+          .map((n) => n.type),
+      { message: 'the review was never notified', timeout: 30_000, intervals: [1_000] },
+    )
+    .toEqual(['message'])
+})
+
+/**
+ * A check is triaged (MAG-886, extends MAG-99 / MAG-103): Maggie gives her verdict — low,
+ * on the topic `enveloppe-loisirs` (`98-proaction-check-envelope-due.yaml`) — and the code
+ * leaves her message in the thread, announced by a `message` notification (owner, 22 Nov.), never a bubble. The same
+ * check again, on a topic told minutes ago with nothing changed, says nothing at all.
+ */
+test('a check with a low verdict waits in the thread, and the same check again says nothing', async ({ interruptedUser }) => {
+  // Two runs, each up to a minute before the executor claims it.
+  test.setTimeout(360_000)
+  const { page, api, session } = interruptedUser
+  const dashboard = new HomePage(page)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  await new ChatPanel(page).ensureClosed()
+
+  const PROMPT = "Vérifie l'enveloppe Loisirs (tri e2e)"
+  const SAID = 'Votre enveloppe Loisirs est à 72 %, monsieur.'
+
+  const runCheck = async (offsetMinutes: number): Promise<ListedProaction> => {
+    const scheduled = await callMcpTool(api, 'schedule_proaction', {
+      prompt: PROMPT,
+      scheduled_at: new Date(e2eNow().getTime() + offsetMinutes * 60_000).toISOString(),
+      kind: 'check',
+    })
+    const created = scheduled.proaction as ListedProaction
+    expect(created.kind).toBe('check')
+
+    // Due now: moved to a minute ago, the way the agenda would.
+    const moved = await api.patch(`/api/events/${created.id}`, {
+      headers: { 'Content-Type': 'application/merge-patch+json' },
+      data: { startAt: new Date(e2eNow().getTime() - 60_000).toISOString() },
+    })
+    expect(moved.ok(), `PATCH /api/events/${created.id} answered ${moved.status()}: ${await moved.text()}`).toBe(true)
+
+    let done: ListedProaction | undefined
+    await expect
+      .poll(
+        async () => {
+          const all = (await callMcpTool(api, 'list_proactions', {})).proactions as ListedProaction[]
+          done = all.find((p) => p.id === created.id)
+          return done?.status
+        },
+        { message: 'the check was never run', timeout: 150_000, intervals: [2_000] },
+      )
+      .toBe('completed')
+    return done!
+  }
+
+  const said = async () =>
+    ((await (await api.get('/agent/messages?limit=20')).json()) as { id: string; role: string; content: string }[]).filter(
+      (m) => m.role === 'assistant' && m.content === SAID,
+    )
+
+  // Given a check whose verdict is low, when it runs: in the thread, once, announced by one `message` notification.
+  const first = await runCheck(30)
+  expect({ delivery: first.delivery, topicKey: first.topicKey }).toEqual({ delivery: 'thread', topicKey: 'enveloppe-loisirs' })
+  expect(await said()).toHaveLength(1)
   const messageId = (await said())[0].id
   const notifiedOnce = async () => {
     await expect
