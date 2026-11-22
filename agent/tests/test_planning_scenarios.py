@@ -52,7 +52,7 @@ def api():
     instruction = SimpleNamespace(to_dict=lambda: {"id": "i-1", "content": INSTRUCTION, "kind": "planning"})
     with (
         patch("app.llm.tools.mcp_client", fake),
-        patch("app.llm.tools.instruction_repo.find_by_user", AsyncMock(return_value=[instruction])),
+        patch("app.instruction_tools.instruction_repo.find_by_user", AsyncMock(return_value=[instruction])),
         patch("app.llm.time_tool.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
     ):
         yield fake

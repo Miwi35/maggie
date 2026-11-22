@@ -82,8 +82,8 @@ def api():
     instruction = SimpleNamespace(to_dict=lambda: {"id": "i-1", "content": INSTRUCTION, "kind": "planning"})
     with (
         patch("app.llm.tools.mcp_client", fake),
-        patch("app.llm.tools.instruction_repo.find_by_user", AsyncMock(return_value=[instruction])),
-        patch("app.llm.tools.skill_index.get", AsyncMock(return_value="---\nname: digest\n---\n\nLe digest.")),
+        patch("app.instruction_tools.instruction_repo.find_by_user", AsyncMock(return_value=[instruction])),
+        patch("app.skills.tools.skill_index.get", AsyncMock(return_value="---\nname: digest\n---\n\nLe digest.")),
         patch("app.llm.time_tool.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
         patch("app.llm.fake.datetime", _Frozen),
     ):

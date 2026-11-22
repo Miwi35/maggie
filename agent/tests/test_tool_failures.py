@@ -195,7 +195,7 @@ class TestInvalidInput:
 
 
     async def test_a_native_tool_missing_a_required_field_is_not_run(self):
-        with patch("app.llm.tools.instruction_repo") as repo, patch("app.llm.tools.policy_engine") as policy:
+        with patch("app.instruction_tools.instruction_repo") as repo, patch("app.llm.tools.policy_engine") as policy:
             policy.evaluate = AsyncMock()
             result = json.loads(await ToolRouter().call_tool("add_instruction", {}, user_id="user-1"))
 

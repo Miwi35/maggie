@@ -59,7 +59,7 @@ def skills(agent_db):
     """The real skill index on the in-memory database: `create_skill` writes a row."""
     index = SkillIndex()
     index._publisher.publish = AsyncMock()
-    with patch("app.llm.tools.skill_index", index):
+    with patch("app.skills.tools.skill_index", index):
         yield agent_db
 
 

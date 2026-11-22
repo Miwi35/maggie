@@ -5,9 +5,13 @@ import logging
 from app.agents.registry import subagent_registry
 from app.bilan_consigne import BILAN_CONSIGNE_TOOL, handle_add_bilan_consigne
 from app.coach_method import GET_COACH_METHOD_TOOL, handle_get_coach_method
-from app.db.instruction_model import InstructionKind
-from app.db.instruction_repository import instruction_repo
 from app.db.pending_action_repository import pending_action_repo
+from app.instruction_tools import (
+    INSTRUCTION_TOOLS,
+    handle_add_instruction,
+    handle_delete_instruction,
+    handle_list_instructions,
+)
 from app.llm.message_reply import ANSWER_APPROVAL_TOOL, handle_answer_approval
 from app.llm.questions import ASK_OWNER, ASK_OWNER_TOOL, handle_ask_owner
 from app.llm.time_tool import DATE_TIME_TOOLS, handle_date_time
@@ -21,75 +25,17 @@ from app.memory.tools import NATIVE_HANDLERS as MEMORY_HANDLERS
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
 from app.policy.summary import build_summary
 from app.redaction import redact
-from app.skills.index import LOCKED_SKILL_DETAIL, SkillLocked, skill_index
+from app.skills.tools import (
+    SKILL_TOOLS,
+    handle_create_skill,
+    handle_delete_skill,
+    handle_get_skill,
+    handle_list_skills,
+    handle_update_skill,
+)
 from app.tts.voice_message import SEND_VOICE_MESSAGE_TOOL, handle_send_voice_message
 
 logger = logging.getLogger(__name__)
-
-# Declared on the schemas so the model picks from the enum instead of inventing a kind.
-INSTRUCTION_KINDS = [kind.value for kind in InstructionKind]
-
-# Instruction tools (always available — chat + proaction)
-INSTRUCTION_TOOLS = [
-    {
-        "name": "add_instruction",
-        "description": (
-            "Store a standing directive from the user. Two kinds, and the kind decides who reads it: "
-            "'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning "
-            "at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; "
-            "'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is "
-            "injected into the system prompt of every chat reply and proaction. "
-            "Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — "
-            "a one-off request for this reply needs no directive."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string",
-                    "description": "The directive, in the user's own words",
-                },
-                "kind": {
-                    "type": "string",
-                    "enum": INSTRUCTION_KINDS,
-                    "description": (
-                        "'planning' for a scheduling/notification rule, "
-                        "'behavior' for a preference about tone, style or length"
-                    ),
-                },
-            },
-            "required": ["content", "kind"],
-        },
-    },
-    {
-        "name": "list_instructions",
-        "description": "List the current user's standing directives, of one kind or of both.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "kind": {
-                    "type": "string",
-                    "enum": INSTRUCTION_KINDS,
-                    "description": "Only directives of this kind; omit for all of them",
-                },
-            },
-        },
-    },
-    {
-        "name": "delete_instruction",
-        "description": "Delete a standing directive by its ID.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "instruction_id": {
-                    "type": "string",
-                    "description": "The ID of the instruction to delete",
-                },
-            },
-            "required": ["instruction_id"],
-        },
-    },
-]
 
 # Voice message tool (always available — chat + proaction, MAG-685). Offered even when the bucket
 # is off: the model then hears why it cannot send one, and says so, rather than never knowing the tool.
@@ -97,125 +43,6 @@ VOICE_TOOLS = [SEND_VOICE_MESSAGE_TOOL]
 
 # Native tools that post into the thread the call was made in: they are handed its context id.
 _THREAD_HANDLERS = {"send_voice_message": handle_send_voice_message}
-
-# Skill tools (always available — chat + proaction)
-SKILL_TOOLS = [
-    {
-        "name": "create_skill",
-        "description": (
-            "Create a new skill file. Skills teach Maggie HOW to perform specific tasks "
-            "(e.g. 'when adding a concert, search for the event webpage'). "
-            "The owner's rule: 'when I ask you X, do Y' — a general request about how Maggie should act is a skill, "
-            "even when it is about reminders or notifications (e.g. 'quand je demande un rappel, je veux une "
-            "notification'). Tone and wording go to add_instruction kind='behavior', a fixed schedule to "
-            "kind='planning', a one-off action later to schedule_proaction, knowledge about the user or the "
-            "people around them to memory_write_fiche. "
-            "Use update_skill when a skill already covers it. "
-            "Skills are listed by name and description in the system prompt and loaded on demand with get_skill; "
-            "the user sees and edits them in the admin, Réglages \u203a Agent \u203a Compétences. "
-            "Tag the moment the skill applies, deduced from what the user said: 'moment:chat' (when they ask "
-            "you something), 'moment:proaction' (when a reminder or a proaction comes due), "
-            "'moment:planification' (the daily planning). A skill tagged with a moment is put in full in the "
-            "prompt at that moment; one without stays in the index only."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Unique skill name (kebab-case, e.g. 'concert-event-link')",
-                },
-                "description": {
-                    "type": "string",
-                    "description": "Short description of what the skill does",
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": (
-                        "Keywords describing the skill, plus the moment it applies "
-                        "(e.g. ['rappel', 'notification', 'moment:proaction'])"
-                    ),
-                },
-                "content": {
-                    "type": "string",
-                    "description": "The full skill procedure in markdown",
-                },
-            },
-            "required": ["name", "description", "tags", "content"],
-        },
-    },
-    {
-        "name": "list_skills",
-        "description": "List all available skills (name, description, tags).",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
-        "name": "get_skill",
-        "description": (
-            "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre "
-            "(voir l'index des compétences du system prompt)."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "The skill name to load",
-                },
-            },
-            "required": ["name"],
-        },
-    },
-    {
-        "name": "update_skill",
-        "description": (
-            "Update an existing skill's content, description, or tags. Tags replace the old ones: keep them, "
-            "and add or fix the moment the skill applies ('moment:chat', 'moment:proaction', "
-            "'moment:planification') when the user says when it should be applied."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "The skill name to update",
-                },
-                "content": {
-                    "type": "string",
-                    "description": "New skill content (optional)",
-                },
-                "description": {
-                    "type": "string",
-                    "description": "New description (optional)",
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "New tags, moment tags included (optional; they replace the old ones)",
-                },
-            },
-            "required": ["name"],
-        },
-    },
-    {
-        "name": "delete_skill",
-        "description": "Delete a skill by name.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "The skill name to delete",
-                },
-            },
-            "required": ["name"],
-        },
-    },
-]
 
 
 def delegate_tool_definition() -> dict:
@@ -251,121 +78,6 @@ def delegate_tool_definition() -> dict:
 # --- Handlers ---
 
 
-def _parse_instruction_kind(raw: object) -> InstructionKind | None:
-    """The `kind` argument as an enum, or None when it is absent or unreadable.
-
-    Case and surrounding space are forgiven — a model answering `"Behavior"` meant the
-    right thing, and refusing it would only buy a wasted tool round trip. A kind that is
-    not one of the two is still an error: see `_handle_add_instruction`.
-    """
-    try:
-        return InstructionKind(str(raw).strip().lower())
-    except ValueError:
-        return None
-
-
-async def _handle_add_instruction(arguments: dict, user_id: str) -> str:
-    content = arguments.get("content", "")
-    if not content:
-        return json.dumps({"error": "'content' is required"})
-    # The schema requires a kind, but nothing forces the model to honour it. Defaulting
-    # a behaviour preference to 'planning' would store it where nobody reads it, so an
-    # unreadable kind is an error the model can see and correct (MAG-22).
-    kind = _parse_instruction_kind(arguments.get("kind"))
-    if kind is None:
-        return json.dumps({"error": f"'kind' must be one of {INSTRUCTION_KINDS}"})
-    instruction = await instruction_repo.store(user_id, content, kind=kind)
-    return json.dumps(instruction.to_dict())
-
-
-async def _handle_list_instructions(arguments: dict, user_id: str) -> str:
-    raw_kind = arguments.get("kind")
-    kind = _parse_instruction_kind(raw_kind) if raw_kind else None
-    if raw_kind and kind is None:
-        return json.dumps({"error": f"'kind' must be one of {INSTRUCTION_KINDS}"})
-    instructions = await instruction_repo.find_by_user(user_id, kind=kind)
-    return json.dumps([i.to_dict() for i in instructions])
-
-
-async def _handle_delete_instruction(arguments: dict, user_id: str) -> str:
-    instruction_id = arguments.get("instruction_id", "")
-    if not instruction_id:
-        return json.dumps({"error": "'instruction_id' is required"})
-    deleted = await instruction_repo.delete(user_id, instruction_id)
-    if not deleted:
-        return json.dumps({"error": f"Instruction '{instruction_id}' not found"})
-    return json.dumps({"deleted": True, "id": instruction_id})
-
-
-def _locked_skill_result(e: SkillLocked) -> str:
-    return json.dumps({"error": "locked", "skill": e.name, "detail": LOCKED_SKILL_DETAIL}, ensure_ascii=False)
-
-
-async def _handle_create_skill(arguments: dict, user_id: str) -> str:
-    name = arguments.get("name", "")
-    description = arguments.get("description", "")
-    tags = arguments.get("tags", [])
-    content = arguments.get("content", "")
-    if not name or not content:
-        return json.dumps({"error": "'name' and 'content' are required"})
-    if len(name) > 200:
-        return json.dumps({"error": "'name' must be 200 characters or fewer"})
-    if not isinstance(tags, list):
-        return json.dumps({"error": "'tags' must be a list of strings"})
-    try:
-        entry = await skill_index.create(name, description, tags, content, user_id)
-    except SkillLocked as e:
-        return _locked_skill_result(e)
-    return json.dumps({"name": entry.name, "description": entry.description, "tags": entry.tags})
-
-
-async def _handle_list_skills(arguments: dict, user_id: str) -> str:
-    await skill_index.refresh()
-    entries = skill_index.list_all()
-    return json.dumps([{"name": e.name, "description": e.description, "tags": e.tags} for e in entries])
-
-
-async def _handle_get_skill(arguments: dict, user_id: str) -> str:
-    name = arguments.get("name", "")
-    if not name:
-        return json.dumps({"error": "'name' is required"})
-    content = await skill_index.get(name)
-    if content is None:
-        return json.dumps({"error": f"Skill '{name}' not found"})
-    return json.dumps({"name": name, "content": content})
-
-
-async def _handle_update_skill(arguments: dict, user_id: str) -> str:
-    name = arguments.get("name", "")
-    if not name:
-        return json.dumps({"error": "'name' is required"})
-    if arguments.get("tags") is not None and not isinstance(arguments["tags"], list):
-        return json.dumps({"error": "'tags' must be a list of strings"})
-    try:
-        entry = await skill_index.update(
-            name,
-            description=arguments.get("description"),
-            tags=arguments.get("tags"),
-            content=arguments.get("content"),
-            user_id=user_id,
-        )
-    except SkillLocked as e:
-        return _locked_skill_result(e)
-    if entry is None:
-        return json.dumps({"error": f"Skill '{name}' not found"})
-    return json.dumps({"name": entry.name, "description": entry.description, "tags": entry.tags})
-
-
-async def _handle_delete_skill(arguments: dict, user_id: str) -> str:
-    name = arguments.get("name", "")
-    if not name:
-        return json.dumps({"error": "'name' is required"})
-    deleted = await skill_index.delete(name, user_id=user_id)
-    if not deleted:
-        return json.dumps({"error": f"Skill '{name}' not found"})
-    return json.dumps({"deleted": True, "name": name})
-
-
 async def _handle_delegate(arguments: dict, user_id: str) -> str:
     # Imported here: app.agents.delegate imports this module for ToolRouter.
     from app.agents.delegate import handle_delegate
@@ -374,15 +86,15 @@ async def _handle_delegate(arguments: dict, user_id: str) -> str:
 
 
 _NATIVE_HANDLERS = {
-    "add_instruction": _handle_add_instruction,
+    "add_instruction": handle_add_instruction,
     "add_bilan_consigne": handle_add_bilan_consigne,
-    "list_instructions": _handle_list_instructions,
-    "delete_instruction": _handle_delete_instruction,
-    "create_skill": _handle_create_skill,
-    "list_skills": _handle_list_skills,
-    "get_skill": _handle_get_skill,
-    "update_skill": _handle_update_skill,
-    "delete_skill": _handle_delete_skill,
+    "list_instructions": handle_list_instructions,
+    "delete_instruction": handle_delete_instruction,
+    "create_skill": handle_create_skill,
+    "list_skills": handle_list_skills,
+    "get_skill": handle_get_skill,
+    "update_skill": handle_update_skill,
+    "delete_skill": handle_delete_skill,
     "date_time": handle_date_time,
     "delegate": _handle_delegate,
     "get_coach_method": handle_get_coach_method,

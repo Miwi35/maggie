@@ -170,11 +170,11 @@ def api():
     learned = AsyncMock(return_value=SimpleNamespace(to_dict=lambda: {"id": "i-1"}))
     fake.learned = learned
     with (
-        patch("app.llm.tools.instruction_repo.store", learned),
+        patch("app.instruction_tools.instruction_repo.store", learned),
         patch("app.llm.tools.mcp_client", fake),
         patch("app.bilan_consigne.mcp_client", fake),
         patch("app.bilan_consigne.instruction_repo.store", learned),
-        patch("app.llm.tools.skill_index.get", AsyncMock(return_value="---\nname: bilan-soir\n---\n\nLe bilan.")),
+        patch("app.skills.tools.skill_index.get", AsyncMock(return_value="---\nname: bilan-soir\n---\n\nLe bilan.")),
     ):
         yield fake
 

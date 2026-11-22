@@ -71,7 +71,7 @@ class TestInstructionRepository:
 
 
 class TestInstructionTools:
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_add_instruction(self, mock_repo):
         """add_instruction tool should store via instruction_repo."""
         from app.llm.tools import ToolRouter
@@ -95,7 +95,7 @@ class TestInstructionTools:
             "test-user", "Morning summary at 9", kind=InstructionKind.PLANNING
         )
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_add_a_behaviour_preference(self, mock_repo):
         """What the user says in the chat — « tutoie-moi » — has to land as a behaviour preference."""
         from app.llm.tools import ToolRouter
@@ -110,7 +110,7 @@ class TestInstructionTools:
 
         mock_repo.store.assert_awaited_once_with("test-user", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_add_instruction_forgives_the_casing_of_the_kind(self, mock_repo):
         """A model answering "Behavior" meant the right thing; a round trip to say so is waste."""
         from app.llm.tools import ToolRouter
@@ -125,7 +125,7 @@ class TestInstructionTools:
 
         mock_repo.store.assert_awaited_once_with("test-user", "Tutoie-moi", kind=InstructionKind.BEHAVIOR)
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_add_instruction_refuses_an_unknown_kind(self, mock_repo):
         """Guessing here would file a behaviour preference where nobody reads it."""
         from app.llm.tools import ToolRouter
@@ -141,7 +141,7 @@ class TestInstructionTools:
         assert "error" in result
         mock_repo.store.assert_not_awaited()
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_add_instruction_refuses_a_missing_kind(self, mock_repo):
         from app.llm.tools import ToolRouter
 
@@ -152,7 +152,7 @@ class TestInstructionTools:
         assert "error" in result
         mock_repo.store.assert_not_awaited()
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_list_instructions(self, mock_repo):
         """list_instructions tool should return all instructions."""
         from app.llm.tools import ToolRouter
@@ -171,7 +171,7 @@ class TestInstructionTools:
         assert "Rule 1" in result
         mock_repo.find_by_user.assert_awaited_once_with("test-user", kind=None)
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_list_instructions_of_one_kind(self, mock_repo):
         """What the daily planning prompt asks for: the planning rules, not the tone."""
         from app.llm.tools import ToolRouter
@@ -182,7 +182,7 @@ class TestInstructionTools:
 
         mock_repo.find_by_user.assert_awaited_once_with("test-user", kind=InstructionKind.PLANNING)
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_list_instructions_refuses_an_unknown_kind(self, mock_repo):
         from app.llm.tools import ToolRouter
 
@@ -193,7 +193,7 @@ class TestInstructionTools:
         assert "error" in result
         mock_repo.find_by_user.assert_not_awaited()
 
-    @patch("app.llm.tools.instruction_repo")
+    @patch("app.instruction_tools.instruction_repo")
     async def test_delete_instruction(self, mock_repo):
         """delete_instruction tool should remove via instruction_repo."""
         from app.llm.tools import ToolRouter

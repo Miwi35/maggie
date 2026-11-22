@@ -485,7 +485,7 @@ class TestSkillsCreatedByAnotherProcess:
         await other.rebuild()
         await one.create("gestion-des-dates", "Dates", [], "Corps", user_id="u")
 
-        with patch("app.llm.tools.skill_index", other):
+        with patch("app.skills.tools.skill_index", other):
             listed = await ToolRouter().call_tool("list_skills", {}, user_id="u")
 
         assert [s["name"] for s in json.loads(listed)] == ["gestion-des-dates"]
@@ -514,7 +514,7 @@ class TestSkillToolsAfterRestart:
         from app.llm.tools import ToolRouter
 
         before = _index()
-        with patch("app.llm.tools.skill_index", before):
+        with patch("app.skills.tools.skill_index", before):
             created = await ToolRouter().call_tool(
                 "create_skill",
                 {"name": "concert-link", "description": "Lier un concert", "tags": ["concert"], "content": "Étapes"},
@@ -524,7 +524,7 @@ class TestSkillToolsAfterRestart:
 
         restarted = _index()
         await restarted.rebuild()
-        with patch("app.llm.tools.skill_index", restarted):
+        with patch("app.skills.tools.skill_index", restarted):
             found = await ToolRouter().call_tool("get_skill", {"name": "concert-link"}, user_id="u")
 
         assert "Étapes" in json.loads(found)["content"]
@@ -543,7 +543,7 @@ class TestLockedSkillTools:
 
         index = await self._locked_index()
         before = (index.store.load("verrouillee"), await index.get("verrouillee"))
-        with patch("app.llm.tools.skill_index", index):
+        with patch("app.skills.tools.skill_index", index):
             result = await ToolRouter().call_tool(
                 "update_skill", {"name": "verrouillee", "content": "Réécrit"}, user_id="u"
             )
@@ -555,7 +555,7 @@ class TestLockedSkillTools:
         from app.llm.tools import ToolRouter
 
         index = await self._locked_index()
-        with patch("app.llm.tools.skill_index", index):
+        with patch("app.skills.tools.skill_index", index):
             result = await ToolRouter().call_tool(
                 "create_skill", {"name": "verrouillee", "description": "X", "tags": [], "content": "Remplacé"}, user_id="u"
             )
@@ -650,7 +650,7 @@ class TestCreateSkillToolValidation:
         from app.llm.tools import ToolRouter
 
         index = _index()
-        with patch("app.llm.tools.skill_index", index):
+        with patch("app.skills.tools.skill_index", index):
             result = await ToolRouter().call_tool("create_skill", arguments, user_id="u")
 
         assert "error" in json.loads(result)
@@ -663,7 +663,7 @@ class TestCreateSkillToolValidation:
 
         index = _index()
         await index.create("s", "d", ["t"], "body", user_id="u")
-        with patch("app.llm.tools.skill_index", index):
+        with patch("app.skills.tools.skill_index", index):
             result = await ToolRouter().call_tool("update_skill", {"name": "s", "tags": "oops"}, user_id="u")
 
         assert "error" in json.loads(result)
