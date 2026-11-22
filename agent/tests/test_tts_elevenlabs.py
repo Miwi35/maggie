@@ -302,7 +302,7 @@ class TestTheRoutes:
         assert voices[0]["name"] == "Claire"
 
     def test_claire_can_be_chosen_as_the_voice(self, authed_client):
-        with patch("app.api.routes.user_setting_repo.set_tts_voice") as store:
+        with patch("app.api.voice_routes.user_setting_repo.set_tts_voice") as store:
             store.return_value = None
             response = authed_client.put("/tts/voice", json={"voice": CLAIRE_VOICE})
 

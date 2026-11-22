@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import select
 
 from app.container import container
-from app.api import routes
+from app.api import chat_routes as routes
 from app.db.message_repository import message_repo
 from app.db.models import TURN_EXPIRED, Message
 from app.llm import turns

@@ -411,7 +411,7 @@ class TestSkillRoutes:
         response = client.get("/skills")
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.skill_index")
+    @patch("app.api.skill_routes.skill_index")
     def test_list_skills_with_auth(self, mock_index, authed_client):
         """GET /skills with valid auth returns skills list."""
         mock_index.refresh = AsyncMock()
@@ -447,7 +447,7 @@ class TestSkillsCreatedByAnotherProcess:
         asyncio.run(one.create("chercher-dans-les-agendas", "Agendas", ["moment:chat"], "Corps", user_id="u"))
         asyncio.run(one.create("gestion-des-dates", "Dates", [], "Corps", user_id="u"))
 
-        with patch("app.api.routes.skill_index", other):
+        with patch("app.api.skill_routes.skill_index", other):
             listing = authed_client.get("/skills")
 
         assert listing.status_code == 200
@@ -462,7 +462,7 @@ class TestSkillsCreatedByAnotherProcess:
                 return [(s.name, s.description, list(s.tags), s.content) for s in session.query(Skill).all()]
 
         before = stored()
-        with patch("app.api.routes.skill_index", other):
+        with patch("app.api.skill_routes.skill_index", other):
             authed_client.get("/skills")
 
         assert stored() == before
@@ -473,7 +473,7 @@ class TestSkillsCreatedByAnotherProcess:
         asyncio.run(other.rebuild())
         asyncio.run(one.delete("gone"))
 
-        with patch("app.api.routes.skill_index", other):
+        with patch("app.api.skill_routes.skill_index", other):
             listing = authed_client.get("/skills")
 
         assert listing.json() == []
@@ -577,7 +577,7 @@ class TestSkillRoutesOnDatabase:
 
     def test_create_then_read_back(self, agent_db, authed_client):
         index = _index()
-        with patch("app.api.routes.skill_index", index):
+        with patch("app.api.skill_routes.skill_index", index):
             created = authed_client.post(
                 "/skills", json={"name": "concert-link", "description": "Lier", "tags": ["c"], "content": "Étapes"}
             )
@@ -592,11 +592,11 @@ class TestSkillRoutesOnDatabase:
         assert [s["name"] for s in listing.json()] == ["concert-link"]
 
     def test_detail_unknown_is_404(self, agent_db, authed_client):
-        with patch("app.api.routes.skill_index", _index()):
+        with patch("app.api.skill_routes.skill_index", _index()):
             assert authed_client.get("/skills/nope").status_code == 404
 
     def test_create_rejects_a_too_long_name(self, agent_db, authed_client):
-        with patch("app.api.routes.skill_index", _index()):
+        with patch("app.api.skill_routes.skill_index", _index()):
             response = authed_client.post(
                 "/skills", json={"name": "x" * 201, "description": "d", "tags": [], "content": "c"}
             )
@@ -604,7 +604,7 @@ class TestSkillRoutesOnDatabase:
 
     def test_update_and_delete(self, agent_db, authed_client):
         index = _index()
-        with patch("app.api.routes.skill_index", index):
+        with patch("app.api.skill_routes.skill_index", index):
             authed_client.post("/skills", json={"name": "s", "description": "d", "tags": [], "content": "old"})
             updated = authed_client.put("/skills/s", json={"content": "new"})
             deleted = authed_client.delete("/skills/s")
@@ -616,7 +616,7 @@ class TestSkillRoutesOnDatabase:
 
     def test_an_edit_from_the_admin_locks_the_skill(self, agent_db, authed_client):
         index = _index()
-        with patch("app.api.routes.skill_index", index):
+        with patch("app.api.skill_routes.skill_index", index):
             authed_client.post("/skills", json={"name": "s", "description": "d", "tags": [], "content": "old"})
             assert index.store.load("s")[0].locked
             authed_client.put("/skills/s", json={"content": "new"})
@@ -624,7 +624,7 @@ class TestSkillRoutesOnDatabase:
         assert index.store.load("s")[0].locked
 
     def test_update_unknown_is_404(self, agent_db, authed_client):
-        with patch("app.api.routes.skill_index", _index()):
+        with patch("app.api.skill_routes.skill_index", _index()):
             assert authed_client.put("/skills/missing", json={"content": "x"}).status_code == 404
             assert authed_client.delete("/skills/missing").status_code == 404
 

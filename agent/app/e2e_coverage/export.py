@@ -6,7 +6,7 @@ Reads every data file coverage.py left in `--data-dir` (one per process, `parall
 without combining or deleting them — running it twice gives the same files, and a later run sees
 what the agent recorded since. Writes `<out>/<slug>.json`:
 
-    {"journey": "e2e/web/tests/chat.spec.ts", "files": {"agent/app/api/routes.py": [12, 13, 40]}}
+    {"journey": "e2e/web/tests/chat.spec.ts", "files": {"agent/app/api/chat_routes.py": [12, 13, 40]}}
 
 Paths are made relative to `--root` (the agent's directory inside the container) and prefixed
 with `--prefix` (its place in the repository). Lines recorded outside any journey — start-up,

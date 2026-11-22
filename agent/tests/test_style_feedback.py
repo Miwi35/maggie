@@ -342,7 +342,7 @@ class TestProposals:
 
         with (
             patch("app.auth._get_public_key", return_value=_public_key_pem),
-            patch("app.api.routes.instruction_repo.store", AsyncMock(side_effect=RuntimeError("db down"))),
+            patch("app.api.settings_routes.instruction_repo.store", AsyncMock(side_effect=RuntimeError("db down"))),
             TestClient(app, raise_server_exceptions=False) as client,
         ):
             response = client.post(f"/style-proposals/{proposal.id}/accept", headers=_as(OWNER))

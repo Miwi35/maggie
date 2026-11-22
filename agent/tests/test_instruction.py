@@ -217,7 +217,7 @@ class TestInstructionRoutes:
         response = client.get("/instructions")
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.instruction_repo")
+    @patch("app.api.settings_routes.instruction_repo")
     def test_list_instructions_with_auth(self, mock_repo, authed_client):
         """GET /instructions with valid auth returns instructions list."""
         mock_inst = MagicMock()
@@ -235,7 +235,7 @@ class TestInstructionRoutes:
         assert len(data) == 1
         assert data[0]["id"] == "inst123"
 
-    @patch("app.api.routes.instruction_repo")
+    @patch("app.api.settings_routes.instruction_repo")
     def test_list_instructions_of_one_kind(self, mock_repo, authed_client):
         """GET /instructions?kind=behavior narrows to the behaviour preferences."""
         mock_repo.find_by_user = AsyncMock(return_value=[])
@@ -248,7 +248,7 @@ class TestInstructionRoutes:
     def test_list_instructions_refuses_an_unknown_kind(self, authed_client):
         assert authed_client.get("/instructions?kind=tone").status_code == 422
 
-    @patch("app.api.routes.instruction_repo")
+    @patch("app.api.settings_routes.instruction_repo")
     def test_create_instruction_with_auth(self, mock_repo, authed_client):
         """POST /instructions with valid auth creates an instruction."""
         mock_inst = MagicMock()
@@ -268,7 +268,7 @@ class TestInstructionRoutes:
             "test-user", "No notifications after 9pm", kind=InstructionKind.PLANNING
         )
 
-    @patch("app.api.routes.instruction_repo")
+    @patch("app.api.settings_routes.instruction_repo")
     def test_create_a_behaviour_preference(self, mock_repo, authed_client):
         mock_repo.store = AsyncMock(return_value=MagicMock(to_dict=lambda: {"id": "inst7"}))
 
@@ -282,7 +282,7 @@ class TestInstructionRoutes:
 
         assert response.status_code == 422
 
-    @patch("app.api.routes.instruction_repo")
+    @patch("app.api.settings_routes.instruction_repo")
     def test_delete_instruction_with_auth(self, mock_repo, authed_client):
         """DELETE /instructions/{id} with valid auth deletes the instruction."""
         mock_repo.delete = AsyncMock(return_value=True)
@@ -292,7 +292,7 @@ class TestInstructionRoutes:
         assert response.status_code == 200
         assert response.json()["deleted"] is True
 
-    @patch("app.api.routes.instruction_repo")
+    @patch("app.api.settings_routes.instruction_repo")
     def test_delete_instruction_not_found(self, mock_repo, authed_client):
         """DELETE /instructions/{id} returns 404 if not found."""
         mock_repo.delete = AsyncMock(return_value=False)

@@ -27,7 +27,7 @@ class TestRoutes:
         response = client.post("/chat", json={"message": "Hello"})
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_chat_endpoint_without_api_key(self, mock_gateway, mock_msg_repo, authed_client):
         """POST /chat without ANTHROPIC_API_KEY returns a not-configured message."""
@@ -53,8 +53,8 @@ class TestRoutes:
         assert "not configured" in data["response"].lower()
         assert data["tool_calls"] == []
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_chat_stores_the_answer_in_the_routed_thread(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
@@ -77,8 +77,8 @@ class TestRoutes:
         # that knows about this exchange — what `POST /agent/proaction` already does.
         mock_summarizer.maybe_summarize.assert_awaited_once_with("ctx-1")
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_chat_without_a_thread_summarizes_nothing(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
@@ -95,8 +95,8 @@ class TestRoutes:
         )
         mock_summarizer.maybe_summarize.assert_not_awaited()
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_a_turn_the_model_never_answered_is_not_summarized(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
@@ -138,8 +138,8 @@ class TestRoutes:
         assert authed_client.post("/chat", json={"message": ""}).status_code == 422
         assert authed_client.post("/chat/stream", json={"message": ""}).status_code == 422
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_the_screen_context_is_not_stored_in_the_question(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
@@ -168,8 +168,8 @@ class TestRoutes:
         assert mock_gateway.chat.await_args.kwargs["screen_context"] == block
         assert mock_gateway.chat.await_args.args[0] == "De quoi parle cette page ?"
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_a_code_alone_never_reaches_the_model_nor_the_stored_message(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client, caplog
@@ -191,8 +191,8 @@ class TestRoutes:
         assert "4821" not in repr(mock_msg_repo.create.await_args_list)
         assert "4821" not in caplog.text
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_a_reply_reaches_the_model_with_its_message_and_is_stored_as_said(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
@@ -219,8 +219,8 @@ class TestRoutes:
         assert "Appeler le garage" in screen
         assert "reminderId : r-9" in screen
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch("app.llm.message_reply.classify_approval_reply", new_callable=AsyncMock, return_value="approve")
     @patch.object(container, "llm_gateway")
     def test_a_reply_to_a_validation_lets_the_model_decide_that_one_validation(
@@ -242,8 +242,8 @@ class TestRoutes:
         assert _take_grant("test-user", "ap-7") == "approve"
         assert _take_grant("test-user", "ap-8") is None
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch("app.llm.message_reply.classify_approval_reply", new_callable=AsyncMock, return_value="other")
     @patch.object(container, "llm_gateway")
     def test_a_reply_with_a_condition_grants_no_decision(
@@ -269,8 +269,8 @@ class TestRoutes:
 
         assert response.status_code == 422
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_a_client_glueing_the_block_to_the_message_still_stores_the_question(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
@@ -291,7 +291,7 @@ class TestRoutes:
         mock_msg_repo.create.assert_any_await(user_id="test-user", role="user", content="ajoute ça à mon agenda", has_image=False)
         assert mock_gateway.chat.await_args.kwargs["screen_context"] == block
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "streaming_gateway")
     def test_the_streamed_route_stores_the_question_alone_too(
         self, mock_streaming, mock_msg_repo, authed_client
@@ -321,7 +321,7 @@ class TestRoutes:
         assert mock_streaming.chat_stream.call_args.kwargs["screen_context"] == block
 
     @pytest.mark.parametrize("spoken", [False, True])
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "streaming_gateway")
     def test_the_streamed_route_holds_a_labelled_code_spoken_or_written(
         self, mock_streaming, mock_msg_repo, spoken, authed_client
@@ -346,8 +346,8 @@ class TestRoutes:
         assert kwargs["screen_context"].startswith("[Message retenu]")
         assert "4821" not in repr(mock_streaming.chat_stream.call_args)
 
-    @patch("app.api.routes.context_summarizer")
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.context_summarizer")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "llm_gateway")
     def test_a_screenshot_reaches_the_model_and_is_not_stored(
         self, mock_gateway, mock_msg_repo, mock_summarizer, authed_client
@@ -368,7 +368,7 @@ class TestRoutes:
         assert (image.media_type, image.data) == ("image/jpeg", SCREENSHOT)
         assert response.json()["messages"][0]["hasImage"] is True
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.message_repo")
     @patch.object(container, "streaming_gateway")
     def test_the_streamed_route_takes_the_screenshot_too(self, mock_streaming, mock_msg_repo, authed_client):
         async def no_events(*_args, **_kwargs):
@@ -389,7 +389,7 @@ class TestRoutes:
         assert (stored["content"], stored["has_image"]) == ("c'est quoi ?", True)
         assert mock_streaming.chat_stream.call_args.kwargs["image"].media_type == "image/png"
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.chat_routes.message_repo")
     def test_a_bad_screenshot_is_refused_before_anything_is_stored(self, mock_msg_repo, authed_client):
         mock_msg_repo.create = AsyncMock()
         bad = [
@@ -419,7 +419,7 @@ class TestRoutes:
         response = client.get("/messages")
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.message_routes.message_repo")
     def test_messages_with_before_param(self, mock_msg_repo, authed_client):
         """GET /messages?before=<id> calls find_before and returns messages."""
         fake_msg = Message(id="msg-1", user_id="test-user", role="user", content="Older message")
@@ -433,7 +433,7 @@ class TestRoutes:
         assert data[0]["id"] == "msg-1"
         mock_msg_repo.find_before.assert_called_once_with("test-user", before_id="msg-2", limit=20)
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.message_routes.message_repo")
     def test_messages_with_limit_param(self, mock_msg_repo, authed_client):
         """GET /messages?limit=5 passes custom limit."""
         mock_msg_repo.find_recent = AsyncMock(return_value=[])
@@ -448,7 +448,7 @@ class TestRoutes:
         response = client.get("/messages/search", params={"q": "hello"})
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.message_routes.message_repo")
     def test_messages_search(self, mock_msg_repo, authed_client):
         """GET /messages/search?q=hello returns matching messages."""
         fake_msg = Message(id="msg-1", user_id="test-user", role="assistant", content="Hello there!")
@@ -472,7 +472,7 @@ class TestRoutes:
         response = client.get("/messages/context", params={"around": "msg-1"})
         assert response.status_code in (401, 403)
 
-    @patch("app.api.routes.message_repo")
+    @patch("app.api.message_routes.message_repo")
     def test_messages_context(self, mock_msg_repo, authed_client):
         """GET /messages/context?around=<id> returns messages with targetIndex."""
         fake_msgs = [
@@ -546,7 +546,7 @@ class TestApprovals:
     def test_deny_requires_auth(self, client):
         assert client.post("/approvals/act-1/deny").status_code in (401, 403)
 
-    @patch("app.api.routes.pending_action_repo")
+    @patch("app.api.approval_routes.pending_action_repo")
     def test_list_returns_the_users_pending_actions(self, mock_repo, authed_client):
         mock_repo.find_pending = AsyncMock(return_value=[held_action(), held_action(id="act-2")])
 
@@ -557,7 +557,7 @@ class TestApprovals:
         assert response.json()[0]["toolName"] == "delete_event"
         mock_repo.find_pending.assert_awaited_once_with("test-user")
 
-    @patch("app.api.routes.pending_action_repo")
+    @patch("app.api.approval_routes.pending_action_repo")
     def test_list_serves_the_readable_summary_and_falls_back_to_the_action_label(self, mock_repo, authed_client):
         mock_repo.find_pending = AsyncMock(
             return_value=[
@@ -582,7 +582,7 @@ class TestApprovals:
         for params in ({"status": "decided", "since": "yesterday"}, {"status": "decided"}):
             assert authed_client.get("/approvals", params=params).status_code == 400
 
-    @patch("app.api.routes.pending_action_repo")
+    @patch("app.api.approval_routes.pending_action_repo")
     def test_decided_list_serves_the_users_recent_decisions(self, mock_repo, authed_client):
         mock_repo.find_decided = AsyncMock(return_value=[held_action(id="act-9")])
 

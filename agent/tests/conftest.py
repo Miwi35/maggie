@@ -52,8 +52,8 @@ def no_duplicate_lookup(request):
         yield
         return
     with (
-        patch("app.api.routes.find_duplicated_turn", AsyncMock(return_value=None)),
-        patch("app.api.routes.find_settled_answer", AsyncMock(return_value=None)),
+        patch("app.api.chat_routes.find_duplicated_turn", AsyncMock(return_value=None)),
+        patch("app.api.chat_routes.find_settled_answer", AsyncMock(return_value=None)),
     ):
         yield
 

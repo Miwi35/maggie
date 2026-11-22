@@ -143,7 +143,7 @@ def recette_db(proaction_api):
         patch("app.db.user_data.agent_session", open_session),
         patch("app.db.message_repository.message_repo.publisher.publish", new=AsyncMock()),
         patch("app.queue.proaction_consumer.context_summarizer.maybe_summarize", new=AsyncMock()),
-        patch("app.api.routes.context_summarizer.maybe_summarize", new=AsyncMock()),
+        patch("app.api.chat_routes.context_summarizer.maybe_summarize", new=AsyncMock()),
     ):
         yield factory
     engine.dispose()
@@ -281,7 +281,7 @@ class TestGenerate:
         assert snapshot(api) == before
 
     def test_a_failing_run_is_a_502_not_a_silent_success(self, api):
-        with patch("app.api.routes.generate_proactions", AsyncMock(side_effect=RuntimeError("boom"))):
+        with patch("app.api.proaction_routes.generate_proactions", AsyncMock(side_effect=RuntimeError("boom"))):
             response = api.post("/proactions/generate", headers=bearer(roles=TRIGGER))
 
         assert response.status_code == 502

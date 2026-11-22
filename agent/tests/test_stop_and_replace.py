@@ -359,8 +359,8 @@ class TestInterruptStopsTheTurn:
         await _turn(chat_db, blocks=record(CALLS), interrupted=True)
 
         with (
-            patch("app.api.routes.turn_runner.stop", AsyncMock(return_value=True)) as stop,
-            patch("app.api.routes.abandon_approvals", AsyncMock()) as abandon,
+            patch("app.api.chat_routes.turn_runner.stop", AsyncMock(return_value=True)) as stop,
+            patch("app.api.chat_routes.abandon_approvals", AsyncMock()) as abandon,
         ):
             response = authed_client.post("/chat/interrupt", json={"spokenText": "Je regarde"})
 
@@ -373,8 +373,8 @@ class TestInterruptStopsTheTurn:
         await _turn(chat_db)
 
         with (
-            patch("app.api.routes.turn_runner.stop", AsyncMock(return_value=False)),
-            patch("app.api.routes.abandon_approvals", AsyncMock()) as abandon,
+            patch("app.api.chat_routes.turn_runner.stop", AsyncMock(return_value=False)),
+            patch("app.api.chat_routes.abandon_approvals", AsyncMock()) as abandon,
         ):
             response = authed_client.post("/chat/interrupt", json={"spokenText": "Fait"})
 
