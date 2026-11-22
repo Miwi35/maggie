@@ -58,8 +58,10 @@ class TasksHeaderScreenTest {
                 counts = TaskViewCounts(today = 1, upcoming = 2, someday = 3, done = 4),
             ),
         )
-        coEvery { repository.getTaskView(TaskView.UPCOMING, null) } returns
-            Result.success(TaskViewResponse(counts = TaskViewCounts(today = 1, upcoming = 2, someday = 3, done = 4)))
+        val counts = TaskViewCounts(today = 1, upcoming = 2, someday = 3, done = 4)
+        coEvery { repository.getTaskView(TaskView.UPCOMING, null) } returns Result.success(TaskViewResponse(counts = counts))
+        coEvery { repository.getTaskView(TaskView.SOMEDAY, null) } returns Result.success(TaskViewResponse(counts = counts))
+        coEvery { repository.getTaskView(TaskView.DONE, null) } returns Result.success(TaskViewResponse(counts = counts))
         coEvery { repository.getCompletedBetween(any(), any(), any()) } returns emptyList()
         val auth = mockk<AuthRepository>()
         every { auth.token } returns flowOf("jwt")
@@ -86,7 +88,7 @@ class TasksHeaderScreenTest {
 
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).assertIsDisplayed().assertTextEquals("Aujourd'hui")
         compose.onNodeWithTag(UiTags.BREADCRUMB_MODULE).assertTextEquals("Tâches")
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("upcoming")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("stock")).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.breadcrumbMenu(ROUTINES_TAB)).assertDoesNotExist()
     }
 
@@ -102,7 +104,7 @@ class TasksHeaderScreenTest {
     }
 
     @Test
-    fun `the menu lists the five views in order, with the counts the tabs had`() {
+    fun `the menu is Aujourd'hui, Tâches, Routines, Archives with their counts`() {
         show()
 
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
@@ -110,31 +112,32 @@ class TasksHeaderScreenTest {
         // The day has no slot yet: « Aujourd'hui » counts the today view, a task scheduled today included (MAG-718).
         compose.onNodeWithTag(UiTags.breadcrumbMenu("today")).assertTextContains("Aujourd'hui (1)")
         compose.onNodeWithTag(UiTags.breadcrumbMenu(ROUTINES_TAB)).assertTextEquals("Routines")
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("upcoming")).assertTextContains("À venir (2)")
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("someday")).assertTextContains("Un jour (3)")
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("done")).assertTextContains("Faites (4)")
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("stock")).assertTextContains("Tâches (5)")
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("done")).assertTextContains("Archives (4)")
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("upcoming")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("someday")).assertDoesNotExist()
     }
 
     @Test
-    fun `without routines the menu has the four views only`() {
+    fun `without routines the menu has the three sections only`() {
         show(withRoutines = false)
 
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
 
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("upcoming")).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("stock")).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.breadcrumbMenu(ROUTINES_TAB)).assertDoesNotExist()
     }
 
     @Test
-    fun `picking « À venir » selects the view and the header follows`() {
+    fun `picking « Tâches » selects the section and the header follows`() {
         show()
 
         compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).performClick()
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("upcoming")).performClick()
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("stock")).performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).assertTextEquals("À venir")
-        compose.onNodeWithTag(UiTags.breadcrumbMenu("upcoming")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.BREADCRUMB_SECTION).assertTextEquals("Tâches")
+        compose.onNodeWithTag(UiTags.breadcrumbMenu("stock")).assertDoesNotExist()
     }
 
     @Test
@@ -172,9 +175,9 @@ class TasksHeaderScreenTest {
     }
 
     @Test
-    fun `a view label is its name, and its count when it has one`() {
-        assertEquals("Un jour", TaskView.SOMEDAY.label)
-        assertEquals("Faites", tabLabelOf(TaskView.DONE, TasksUiState()))
+    fun `Archives replaces Faites`() {
+        assertEquals("Archives", tabLabelOf(TasksSection.ARCHIVES, TasksUiState()))
+        assertEquals("Archives (4)", tabLabelOf(TasksSection.ARCHIVES, TasksUiState(counts = TaskViewCounts(done = 4))))
     }
 
     @Test
@@ -182,7 +185,7 @@ class TasksHeaderScreenTest {
         val counts = TaskViewCounts(today = 1)
         val tasks = listOf(Task(id = "t1", title = "Appeler le garage"), Task(id = "t2", title = "Méditer", completedAt = "2026-10-15T07:00:00Z"))
 
-        assertEquals(1, tabCountOf(TaskView.TODAY, TasksUiState(todayTasks = tasks, counts = TaskViewCounts(today = 5))))
-        assertEquals(1, tabCountOf(TaskView.TODAY, TasksUiState(counts = counts)))
+        assertEquals(1, tabCountOf(TasksSection.TODAY, TasksUiState(todayTasks = tasks, counts = TaskViewCounts(today = 5))))
+        assertEquals(1, tabCountOf(TasksSection.TODAY, TasksUiState(counts = counts)))
     }
 }

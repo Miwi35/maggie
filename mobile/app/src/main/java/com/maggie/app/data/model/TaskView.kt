@@ -1,7 +1,6 @@
 package com.maggie.app.data.model
 
 import kotlinx.serialization.Serializable
-import java.time.LocalDate
 
 /**
  * The four views of the tasks (MAG-408), as `GET /api/tasks/view/{key}` names them. Each task
@@ -12,16 +11,6 @@ enum class TaskView(val key: String, val label: String) {
     UPCOMING("upcoming", "À venir"),
     SOMEDAY("someday", "Un jour"),
     DONE("done", "Faites"),
-    ;
-
-    /**
-     * The due day the « + » form opens with from this view: tomorrow in « À venir », none elsewhere —
-     * added to the day (MAG-497), it takes a slot, not a deadline.
-     */
-    fun defaultDueDate(today: LocalDate): String? = when (this) {
-        UPCOMING -> today.plusDays(1).toString()
-        TODAY, SOMEDAY, DONE -> null
-    }
 }
 
 /** What each view holds, sent with every read of one so the tab labels stay true. */
