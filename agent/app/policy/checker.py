@@ -3,11 +3,13 @@
 It sees the proposed action and the owner's planning instructions, nothing else — never the proaction's prompt,
 never external data. It must quote the sentence that authorizes the write; the server verifies the quote word
 for word. Anything else (no, no quote, failure, timeout) holds the write for the owner's card (fail closed).
+When the instruction says an amount, every `…Cents` amount of the action must be one of them, else the write is held.
 """
 
 import asyncio
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from typing import Literal
@@ -61,6 +63,14 @@ class AuthorizedBy:
 
 NOT_AUTHORIZED = AuthorizedBy("none", None, None)
 
+_SPACES = r" \u00a0\u202f"
+_AMOUNT = re.compile(
+    rf"(?<![\d.,])(\d{{1,3}}(?:[{_SPACES}.]\d{{3}})+|\d+)(?:[.,](\d{{1,2}})(?!\d))?"
+    rf"[{_SPACES}]*(?:€|euros?|eur)(?![^\W\d_])",
+    re.IGNORECASE,
+)
+_CENTS_SUFFIX = "Cents"
+
 
 def _normalize(text: str) -> str:
     return " ".join(text.translate(_APOSTROPHES).lower().split())
@@ -83,6 +93,36 @@ def _without_external_data(value):
     if isinstance(value, list):
         return [_without_external_data(v) for v in value]
     return value
+
+
+def owner_amounts(text: str) -> frozenset[int]:
+    return frozenset(
+        int(re.sub(r"\D", "", m.group(1))) * 100 + int((m.group(2) or "").ljust(2, "0")) for m in _AMOUNT.finditer(text)
+    )
+
+
+def action_amounts(arguments: dict) -> frozenset[int]:
+    found: set[int] = set()
+
+    def walk(value):
+        if isinstance(value, dict):
+            for k, v in value.items():
+                is_number = isinstance(v, int | float) and not isinstance(v, bool)
+                if isinstance(k, str) and k.endswith(_CENTS_SUFFIX) and is_number:
+                    found.add(round(abs(v)))
+                else:
+                    walk(v)
+        elif isinstance(value, list):
+            for v in value:
+                walk(v)
+
+    walk(arguments)
+    return frozenset(found)
+
+
+def amounts_agree(text: str, arguments: dict) -> bool:
+    said = owner_amounts(text)
+    return not said or action_amounts(arguments) <= said
 
 
 def needs_check(name: str, arguments: dict) -> bool:
@@ -141,6 +181,9 @@ async def check_authorization(
         logger.warning("Checker failed on %s, the write is held: %s", name, e)
         return NOT_AUTHORIZED
     if found is None:
+        return NOT_AUTHORIZED
+    if not amounts_agree(found.text, arguments or {}):
+        logger.info("Checker: %s holds an amount the owner did not say (ref=%s)", name, found.ref)
         return NOT_AUTHORIZED
     return AuthorizedBy(found.kind, found.ref, answer["quote"])
 
