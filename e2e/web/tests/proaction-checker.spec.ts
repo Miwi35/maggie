@@ -65,7 +65,9 @@ test('a proaction write an instruction covers word for word runs without a valid
   await expect
     .poll(async () => JSON.stringify(await callMcpTool(api, 'get_grocery_list', {})), { timeout: 20_000 })
     .toContain('Lait')
-  await expect(page.getByRole('alertdialog')).toBeHidden()
+  await expect(page.getByRole('alertdialog')).toContainText('Je m\'occupe du lait', { timeout: 20_000 })
+  await expect(page.getByRole('button', { name: 'Autoriser' })).toHaveCount(0)
+  expect(await (await api.get('/agent/approvals?status=pending')).json()).toEqual([])
 })
 
 async function runDueProaction(api: Parameters<typeof callMcpTool>[0]): Promise<void> {
