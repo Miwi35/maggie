@@ -27,22 +27,26 @@ from app.db.journal_model import PLANNING, PROACTION
 from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
-from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
 from app.db.provider_state_repository import provider_state_repo
 from app.db.style_proposal_model import StyleProposalStatus
 from app.db.style_proposal_repository import style_proposal_repo
 from app.db.user_data import purge_user_data
 from app.db.user_setting_repository import user_setting_repo
+from app.domain.approvals.errors import (
+    ApprovalError,
+    ApprovalExpired,
+    ApprovalNotFound,
+    ApprovalNotPending,
+    UnknownChannel,
+)
 from app.llm.context_summary import context_summarizer
 from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
 from app.llm.held_secret import hold_secrets
 from app.llm.image import ChatImage
 from app.llm.message_reply import ReplyTo, grant_approval_answer, with_reply
-from app.llm.models import CHAT, effort_for, model_for
 from app.llm.questions import choices_message
 from app.llm.replace import abandon_approvals, withdraw_turn
-from app.llm.runner import run_tool_loop
 from app.llm.screen_context import split as split_screen_context
 from app.llm.streaming import answer_message_id
 from app.llm.style_synthesis import style_synthesizer
@@ -52,7 +56,6 @@ from app.memory.bucket import FakeBucket, ObjectNotFound
 from app.memory.service import memory_service
 from app.mercure import topics as mercure_topics
 from app.mercure.publisher import MercurePublisher
-from app.policy.decision import CHANNELS, record_decision
 from app.proactions import api as proactions_api
 from app.queue.proaction_consumer import execute_proaction
 from app.queue.scheduler import generate_proactions
@@ -495,86 +498,6 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
 # --- Approvals (MAG-5) ---
 
 
-def _is_overdue(action: PendingAction) -> bool:
-    expires_at = action.expires_at
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=UTC)
-    return expires_at <= datetime.now(UTC)
-
-
-def _is_error_result(result: str) -> bool:
-    try:
-        parsed = json.loads(result)
-    except (TypeError, ValueError):
-        return False
-    return isinstance(parsed, dict) and "error" in parsed
-
-
-async def _pending_action_or_error(user_id: str, action_id: str) -> PendingAction:
-    """The user's action if it can still be answered — 404, 409 or 410 otherwise.
-
-    The owner is part of the query: someone else's action is as unknown as a made-up id.
-    """
-    action = await pending_action_repo.get_for_user(user_id, action_id)
-    if action is None:
-        raise HTTPException(status_code=404, detail="Approval not found")
-    if action.status == PendingActionStatus.EXPIRED:
-        raise HTTPException(status_code=410, detail="Approval has expired")
-    if action.status != PendingActionStatus.PENDING:
-        raise HTTPException(status_code=409, detail="Approval is not pending")
-    if _is_overdue(action):
-        raise HTTPException(status_code=410, detail="Approval has expired")
-    return action
-
-
-def _answer_channel(channel: str) -> str:
-    """The surface the answer came from, `chat` unless the client says otherwise."""
-    if channel not in CHANNELS:
-        raise HTTPException(status_code=400, detail=f"Unknown channel, one of {', '.join(CHANNELS)}")
-    return channel
-
-
-async def announce_approved_action(action: PendingAction, result: str) -> None:
-    """Have Maggie say what the approved action did, in the thread it was asked in.
-
-    Runs after the response has gone out, so it never raises: the action is already done and
-    recorded, and a failed announcement must not look like a failed approval. Same ending as
-    `execute_proaction` — the message is stored (and published on the chat topic by
-    `message_repo`) in the thread, which is then re-summarized.
-    """
-    if container.llm_gateway.client is None:
-        return
-
-    prompt = (
-        f"L'utilisateur a validé {action.tool_name}({json.dumps(action.arguments, ensure_ascii=False)}). "
-        f"Résultat : {result}. Annonce-le brièvement."
-    )
-    try:
-        system = await container.llm_gateway._build_system_prompt(action.user_id, current_context_id=action.context_id)
-        answer = await run_tool_loop(
-            system,
-            [{"role": "user", "content": prompt}],
-            None,
-            client=container.llm_gateway.client,
-            tool_router=container.llm_gateway.tool_router,
-            user_id=action.user_id,
-            model=model_for(CHAT),
-            effort=effort_for(CHAT),
-            call_type="approval",
-            source="approval",
-            context_id=action.context_id,
-        )
-        if not answer["response"]:
-            return
-        await message_repo.create(
-            user_id=action.user_id, role="assistant", content=answer["response"], context_id=action.context_id
-        )
-        if action.context_id:
-            await context_summarizer.maybe_summarize(action.context_id)
-    except Exception as e:
-        logger.error(f"Announcement of approved action {action.id} failed: {e}")
-
-
 class QuestionAnswer(BaseModel):
     choices: list[str] = Field(min_length=1)
 
@@ -645,6 +568,13 @@ async def get_approvals(
     return [a.to_dict() for a in actions]
 
 
+_APPROVAL_STATUS = {ApprovalNotFound: 404, ApprovalNotPending: 409, ApprovalExpired: 410, UnknownChannel: 400}
+
+
+def _http_error(e: ApprovalError) -> HTTPException:
+    return HTTPException(status_code=_APPROVAL_STATUS[type(e)], detail=str(e))
+
+
 @router.post("/approvals/{approval_id}/approve")
 async def approve_action(
     approval_id: str,
@@ -652,34 +582,13 @@ async def approve_action(
     channel: str = Query(default="chat", description="Where the user answered: chat, notification or voice"),
     user_id: str = Depends(get_current_user_id),
 ):
-    """Run the held call with its frozen arguments, record the outcome, and announce it in the background.
-
-    The row is claimed as approved *before* the call runs: two tabs clicking at once, or the
-    scheduler expiring the action meanwhile, get a 409 instead of a second execution. The one
-    who wins the claim also leaves the answer in the thread (MAG-336).
-    """
-    channel = _answer_channel(channel)
-    action = await _pending_action_or_error(user_id, approval_id)
-
-    claimed = await pending_action_repo.decide(approval_id, PendingActionStatus.APPROVED)
-    if claimed is None:
-        raise HTTPException(status_code=409, detail="Approval is not pending")
-    await record_decision(claimed, channel)
-
+    """Run the held call with its frozen arguments, record the outcome, and announce it in the background."""
     try:
-        result = await container.llm_gateway.tool_router.call_tool(
-            action.tool_name, action.arguments or {}, user_id, source="approval"
-        )
-    except Exception as e:
-        logger.error(f"Approved action {approval_id} failed to run: {e}")
-        result = json.dumps({"error": f"Tool call failed: {e}"})
-
-    status = PendingActionStatus.FAILED if _is_error_result(result) else PendingActionStatus.APPROVED
-    settled = await pending_action_repo.settle(approval_id, status, result)
-    final = settled or claimed
-
-    background_tasks.add_task(announce_approved_action, final, result)
-    return final.to_dict()
+        approved = await container.approvals.approve(approval_id, user_id=user_id, channel=channel)
+    except ApprovalError as e:
+        raise _http_error(e) from e
+    background_tasks.add_task(container.approvals.announce, approved)
+    return approved.action.to_dict()
 
 
 @router.post("/approvals/{approval_id}/deny")
@@ -688,14 +597,11 @@ async def deny_action(
     channel: str = Query(default="chat", description="Where the user answered: chat, notification or voice"),
     user_id: str = Depends(get_current_user_id),
 ):
-    """Refuse the held call: nothing runs and the model is not called. The refusal stays in the thread (MAG-336)."""
-    channel = _answer_channel(channel)
-    await _pending_action_or_error(user_id, approval_id)
-
-    denied = await pending_action_repo.decide(approval_id, PendingActionStatus.DENIED)
-    if denied is None:
-        raise HTTPException(status_code=409, detail="Approval is not pending")
-    await record_decision(denied, channel)
+    """Refuse the held call: nothing runs and the model is not called."""
+    try:
+        denied = await container.approvals.deny(approval_id, user_id=user_id, channel=channel)
+    except ApprovalError as e:
+        raise _http_error(e) from e
     return denied.to_dict()
 
 

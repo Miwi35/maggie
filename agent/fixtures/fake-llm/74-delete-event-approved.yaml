@@ -1,6 +1,6 @@
 # What Maggie says once the user has authorized a held action: the agent re-prompts her
 # with « L'utilisateur a validé <tool>(<args>). Résultat : … Annonce-le brièvement »
-# (`announce_approved_action`, agent/app/api/routes.py), and the answer is stored in the
+# (`ApprovalService.announce`, agent/app/domain/approvals/service.py), and the answer is stored in the
 # conversation and published on the chat topic.
 #
 # The event's id is in the sentence, as in 73-delete-event-held.yaml: several runs of the
