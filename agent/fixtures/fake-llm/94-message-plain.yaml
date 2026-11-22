@@ -1,0 +1,21 @@
+# Maggie sends a plain message while the app is open (MAG-927).
+#
+# The journey `14-interruption.yaml` sends this message over HTTP; the scripted model creates a
+# `message` notification through the real `manage_notifications` tool. The open app must not
+# interrupt for it: a message is the conversation notification, never a toaster.
+name: message-plain
+description: Create a message notification that must never take the screen.
+
+match:
+  user_contains: "Message simple de Maggie e2e"
+
+turns:
+  - tools:
+      - name: manage_notifications
+        input:
+          action: create
+          type: message
+          title: Maggie
+          body: "Votre bilan du soir vous attend."
+          relatedEntityIri: "/chat?message=01JE2EMESSAGE0000000000000"
+  - text: "C'est envoyé."

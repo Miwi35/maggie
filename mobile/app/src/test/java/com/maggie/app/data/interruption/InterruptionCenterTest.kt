@@ -75,6 +75,22 @@ class InterruptionCenterTest {
     }
 
     @Test
+    fun `a message is never offered`() {
+        assertFalse(center.offer(message("a", type = "message")))
+
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `isHeld follows hold and release`() {
+        assertFalse(center.isHeld("message"))
+        center.hold("message")
+        assertTrue(center.isHeld("message"))
+        center.release("message")
+        assertFalse(center.isHeld("message"))
+    }
+
+    @Test
     fun `a held action never takes the screen, it waits in the bell and the chat`() {
         center.offer(question("q1"))
 

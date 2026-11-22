@@ -39,9 +39,10 @@ val PushPayload.isQuestion: Boolean get() = approvalId != null || interaction?.k
 
 /**
  * An `approval` notification announces a held action that is answered as itself, through the
- * approvals feed: raising both would show the same question twice.
+ * approvals feed: raising both would show the same question twice. A message of Maggie (MAG-923) is a
+ * conversation, never an interruption.
  */
-val PushPayload.interrupts: Boolean get() = !(type == "approval" && approvalId == null)
+val PushPayload.interrupts: Boolean get() = !isMessage && !(type == "approval" && approvalId == null)
 
 /** What one message of a feed means for the queue. */
 sealed interface FeedEvent {
