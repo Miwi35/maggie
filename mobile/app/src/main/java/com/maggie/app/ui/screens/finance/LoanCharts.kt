@@ -22,12 +22,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.maggie.app.data.model.DebtTimeline
 import com.maggie.app.data.model.EarlyRepayment
 import com.maggie.app.data.model.LoanCurvePoint
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.formatLoanMonth
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.maggieSurface
+import java.time.YearMonth
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 /** « Fin en Mars 2034 », or the dash when the schedule never reaches zero. */
 fun loanEndLabel(freedOn: String?): String = if (freedOn == null) "Pas de fin calculée" else "Fin en ${formatLoanMonth(freedOn)}"
@@ -133,6 +139,79 @@ private fun BarLine(label: String, cents: Int, scale: Float, currency: String, c
                         .background(color, RoundedCornerShape(5.dp)),
                 )
             }
+        }
+    }
+}
+
+internal data class ReliefStep(val monthIndex: Int, val cumulativeCents: Int)
+
+private fun monthsBetween(from: YearMonth, month: String): Int =
+    ChronoUnit.MONTHS.between(from, YearMonth.parse(month)).toInt()
+
+/** The months the staircase covers (60 at least) and one step per relief, indexed from [from]. */
+internal fun reliefSteps(timeline: DebtTimeline, from: YearMonth): Pair<Int, List<ReliefStep>> {
+    val steps = timeline.reliefByMonth.map { ReliefStep(monthsBetween(from, it.month), it.cumulativeFreedCents) }
+    val last = steps.maxOfOrNull { it.monthIndex } ?: 0
+
+    return maxOf(60, last + 1) to steps
+}
+
+/** What a screen reader says of the staircase. */
+internal fun reliefDescription(timeline: DebtTimeline): String =
+    "Mensualités libérées cumulées : " + timeline.reliefByMonth.joinToString(", ") {
+        "${formatCentsRounded(it.cumulativeFreedCents)} en ${formatLoanMonth(it.month).lowercase(Locale.FRANCE)}"
+    }
+
+private val SHORT_MONTHS = listOf("janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc.")
+
+private fun shortMonth(month: YearMonth) = "${SHORT_MONTHS[month.monthValue - 1]} ${month.year}"
+
+/** The monthly payments freed so far, as a staircase from [from] up to the total of the payments. */
+@Composable
+fun ReliefStepChart(timeline: DebtTimeline, from: YearMonth, modifier: Modifier = Modifier) {
+    val (months, steps) = reliefSteps(timeline, from)
+    val line = MaggieTokens.Signal.success
+    val axis = MaterialTheme.colorScheme.outline
+    val top = maxOf(timeline.totalMonthlyPaymentCents, steps.maxOfOrNull { it.cumulativeCents } ?: 0, 1).toFloat()
+    val end = from.plusMonths((months - 1).toLong())
+    val years = steps.map { from.plusMonths(it.monthIndex.toLong()).year }.distinct()
+
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(90.dp)
+                .semantics { contentDescription = reliefDescription(timeline) },
+        ) {
+            fun x(index: Int) = size.width * index / maxOf(months - 1, 1)
+            fun y(cents: Int) = size.height * (1f - cents / top)
+
+            drawLine(axis, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
+
+            val path = Path().apply {
+                moveTo(0f, y(0))
+                var current = 0
+                steps.forEach { step ->
+                    lineTo(x(step.monthIndex.coerceAtLeast(0)), y(current))
+                    lineTo(x(step.monthIndex.coerceAtLeast(0)), y(step.cumulativeCents))
+                    current = step.cumulativeCents
+                }
+                lineTo(size.width, y(current))
+            }
+            val area = Path().apply {
+                addPath(path)
+                lineTo(size.width, size.height)
+                lineTo(0f, size.height)
+                close()
+            }
+            drawPath(area, line.copy(alpha = 0.10f))
+            drawPath(path, line, style = Stroke(width = 2.5.dp.toPx()))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            val muted = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(shortMonth(from), style = MaterialTheme.typography.labelSmall, color = muted)
+            years.forEach { Text("$it", style = MaterialTheme.typography.labelSmall, color = muted) }
+            Text(shortMonth(end), style = MaterialTheme.typography.labelSmall, color = muted)
         }
     }
 }
