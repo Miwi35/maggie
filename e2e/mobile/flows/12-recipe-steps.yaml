@@ -125,13 +125,15 @@ tags:
 - extendedWaitUntil:
     visible: "Modifier la recette"
     timeout: 20000
-- assertVisible: "MATÉRIEL"
 - scrollUntilVisible:
     element:
       id: "recipe_utensil_add"
     centerElement: true
 - extendedWaitUntil:
     visible: "+ Ustensile"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "MATÉRIEL"
     timeout: 10000
 - tapOn:
     id: "recipe_utensil_add"
