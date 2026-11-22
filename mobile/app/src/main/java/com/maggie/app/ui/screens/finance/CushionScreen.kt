@@ -8,25 +8,29 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,22 +41,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.api.CushionConfigRequest
 import com.maggie.app.data.model.CushionStatus
-import com.maggie.app.data.model.cushionDeficitLabel
 import com.maggie.app.data.model.cushionShareRuleLabel
 import com.maggie.app.data.model.cushionStateLabel
-import com.maggie.app.data.model.formatCents
-import com.maggie.app.data.model.label
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.rechargePlanLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.maggieSurface
+import com.maggie.app.ui.uiTagRoot
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,6 +73,7 @@ fun CushionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var sheetOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.savedMessage) {
         uiState.savedMessage?.let {
@@ -82,10 +93,19 @@ fun CushionScreen(
         topBar = {
             FinanceTopBar(Screen.Cushion.route) {
                 TopAppBar(
-                    title = { Text("Matelas") },
+                    title = {},
                     navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        TextButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "Trésorerie",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
                         }
                     },
                 )
@@ -119,120 +139,194 @@ fun CushionScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
-            CushionSummaryCard(status)
-            CushionSettingsCard(
+            CushionHead(status)
+            CushionSavingCard(status)
+            CushionAccounts(status)
+            CushionSettingsRows(status, onOpen = { sheetOpen = true })
+        }
+
+        if (sheetOpen) {
+            CushionSettingsSheet(
                 status = status,
                 isSaving = uiState.isSaving,
                 onSave = viewModel::configure,
+                onDismiss = { sheetOpen = false },
             )
         }
     }
 }
 
 @Composable
-internal fun CushionSummaryCard(status: CushionStatus) {
-    MaggieCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+internal fun CushionHead(status: CushionStatus) {
+    val surface = maggieSurface()
+    val stateColor = cushionStateColor(status.state)
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Matelas", fontSize = 30.sp, fontWeight = FontWeight.Medium)
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(stateColor.copy(alpha = 0.16f))
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
             ) {
-                Text("Matelas de sécurité", style = MaterialTheme.typography.titleMedium)
-                AssistChip(onClick = {}, label = { Text(cushionStateLabel(status.state)) })
-            }
-
-            Text(
-                text = "${formatCents(status.currentCents)} sur ${formatCents(status.targetCents)}",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Text(
-                text = "${status.monthsCovered} mois de revenu couverts sur ${status.targetMonths}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            LinearProgressIndicator(
-                progress = { status.coveragePercent / 100f },
-                color = if (status.state == "complete") {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.tertiary
-                },
-                modifier = Modifier.fillMaxWidth().height(8.dp).padding(top = 8.dp),
-            )
-
-            if (status.deficitCents > 0) {
                 Text(
-                    text = "${cushionDeficitLabel(status)} — " +
-                        rechargePlanLabel(status),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 8.dp),
+                    cushionStateLabel(status.state),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = stateColor,
                 )
             }
+        }
 
+        Text(formatCentsRounded(status.currentCents), fontSize = 52.sp, fontWeight = FontWeight.Light)
+        Text(cushionGapLine(status), fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        Box(
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .fillMaxWidth()
+                .height(12.dp)
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(status.coveragePercent.coerceIn(0, 100) / 100f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaggieTokens.Rhythm.onTrack.second),
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("seuil critique ${formatCentsRounded(status.criticalCents)}", fontSize = 13.sp, color = surface.caption)
+            Text("cible ${formatCentsRounded(status.targetCents)}", fontSize = 13.sp, color = surface.caption)
+        }
+    }
+}
+
+@Composable
+internal fun CushionSavingCard(status: CushionStatus) {
+    MaggieCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(cushionSavingTitle(status), fontSize = 16.sp, fontWeight = FontWeight.Medium)
             Text(
                 text = cushionShareRuleLabel(status),
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 8.dp).testTag(UiTags.CUSHION_SHARE_RULE),
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(UiTags.CUSHION_SHARE_RULE),
             )
-
-            if (status.accounts.isEmpty()) {
-                Text(
-                    text = "Aucun compte n'est marqué « matelas ».",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            } else {
-                Text(
-                    text = "Comptes comptés",
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-                status.accounts.forEach { account ->
-                    Text(
-                        text = "${account.label()} — ${formatCents(account.balanceCents, account.currency)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            if (status.peerClaimsCents > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag(UiTags.CUSHION_PEER_CLAIMS),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Avancé à des proches (${status.peerClaimObjects.joinToString(", ")})",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Text(
-                            text = "revient au remboursement",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        text = "−${formatCents(status.peerClaimsCents)}",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+            if (status.deficitCents > 0) {
+                Text(rechargePlanLabel(status), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun CushionSettingsCard(
+internal fun CushionAccounts(status: CushionStatus) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        CushionSectionLabel("Comptes du matelas")
+
+        if (status.accounts.isEmpty()) {
+            Text(
+                text = "Aucun compte n'est marqué « matelas ».",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        status.accounts.forEach { account ->
+            CushionLine(
+                title = account.name,
+                subtitle = account.bank,
+                amount = formatCentsRounded(account.balanceCents, account.currency),
+            )
+        }
+        if (status.peerClaimsCents > 0) {
+            CushionLine(
+                title = "Avancé à des proches",
+                subtitle = status.peerClaimObjects.joinToString(", "),
+                amount = "−${formatCentsRounded(status.peerClaimsCents)}",
+                amountColor = MaggieTokens.Signal.info,
+                modifier = Modifier.testTag(UiTags.CUSHION_PEER_CLAIMS),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun CushionSettingsRows(status: CushionStatus, onOpen: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        CushionSectionLabel("Réglages")
+        CushionLine(
+            title = "Seuil critique",
+            amount = "${status.criticalMonths} mois de dépenses · ${formatCentsRounded(status.criticalCents)}",
+            amountColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clickable(onClick = onOpen),
+        )
+        CushionLine(
+            title = "Part du matelas",
+            amount = "${status.cushionSharePercent} % au-delà du seuil",
+            amountColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clickable(onClick = onOpen),
+        )
+        CushionLine(
+            title = "Cible",
+            amount = "${status.targetMonths} mois de salaire · ${formatCentsRounded(status.targetCents)}",
+            amountColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clickable(onClick = onOpen),
+        )
+    }
+}
+
+@Composable
+private fun CushionSectionLabel(text: String) {
+    Text(text.uppercase(), fontSize = 12.sp, letterSpacing = 1.7.sp, color = maggieSurface().caption)
+}
+
+@Composable
+private fun CushionLine(
+    title: String,
+    amount: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    amountColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontSize = 15.sp)
+                if (!subtitle.isNullOrBlank()) {
+                    Text(subtitle, fontSize = 13.sp, color = maggieSurface().caption)
+                }
+            }
+            Text(amount, fontSize = 15.sp, color = amountColor, modifier = Modifier.padding(start = 12.dp))
+        }
+        HorizontalDivider()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CushionSettingsSheet(
     status: CushionStatus,
     isSaving: Boolean,
     onSave: (CushionConfigRequest) -> Unit,
+    onDismiss: () -> Unit,
 ) {
     var targetMonths by remember(status.targetMonths) {
         mutableStateOf(status.targetMonths.toString())
@@ -250,13 +344,11 @@ private fun CushionSettingsCard(
         mutableStateOf(status.cushionSharePercent.toString())
     }
 
-    MaggieCard(modifier = Modifier.fillMaxWidth()) {
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.uiTagRoot()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Réglages", style = MaterialTheme.typography.titleSmall)
-
             OutlinedTextField(
                 value = targetMonths,
                 onValueChange = { targetMonths = it },
@@ -311,6 +403,7 @@ private fun CushionSettingsCard(
                             cushionSharePercent = sharePercent.toIntOrNull(),
                         ),
                     )
+                    onDismiss()
                 },
                 enabled = !isSaving,
                 modifier = Modifier.testTag(UiTags.CUSHION_SAVE),
@@ -319,4 +412,25 @@ private fun CushionSettingsCard(
             }
         }
     }
+}
+
+private fun cushionStateColor(state: String): Color = when (state) {
+    "complete" -> MaggieTokens.Rhythm.onTrack.second
+    "recharging" -> MaggieTokens.Signal.info
+    else -> MaggieTokens.Signal.warning
+}
+
+internal fun cushionGapLine(status: CushionStatus): String {
+    if (status.deficitCents <= 0) return "La cible est atteinte."
+
+    val lent = min(status.deficitCents, status.peerClaimsCents)
+    val tail = if (lent > 0) ", dont ${formatCentsRounded(lent)} avancés à des proches" else ""
+
+    return "Il manque ${formatCentsRounded(status.deficitCents)}$tail."
+}
+
+internal fun cushionSavingTitle(status: CushionStatus): String = when {
+    status.criticalDeficitCents > 0 -> "Sous le seuil critique"
+    status.deficitCents > 0 -> "Au-dessus du seuil critique"
+    else -> "Rien à faire"
 }

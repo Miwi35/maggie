@@ -8,7 +8,9 @@ tags:
 # Étant donné un matelas au-dessus de 2 mois de dépenses mais sous sa cible, et un projet (seed)
 # Quand j'ouvre Planification › Projets
 # Alors le projet a une date d'achat dans les 36 mois
-# Quand je règle la part du matelas à 100 % dans Trésorerie › matelas
+# Quand j'ouvre Trésorerie › matelas
+# Alors « COMPTES DU MATELAS », « RÉGLAGES » et le seuil critique sont visibles
+# Quand je touche « Part du matelas », je règle la part à 100 % et j'enregistre
 # Alors le projet recule après le mois où le matelas est complet
 #
 # An account of its own, the phone's twin of the web journey's (69-finance-cushion-share.yaml):
@@ -100,9 +102,18 @@ tags:
     timeout: 10000
 
 - scrollUntilVisible:
-    element:
+    element: "COMPTES DU MATELAS"
+    timeout: 20000
+- assertVisible: "COMPTES DU MATELAS"
+- scrollUntilVisible:
+    element: "RÉGLAGES"
+    timeout: 20000
+- assertVisible: "RÉGLAGES"
+- assertVisible: ".*seuil critique.*"
+- tapOn: "Part du matelas"
+- extendedWaitUntil:
+    visible:
       id: "cushion_share_percent"
-    centerElement: true
     timeout: 20000
 - tapOn:
     id: "cushion_share_percent"
