@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 import aio_pika
 
-from app.bilan import BILAN_AVAILABLE, bilan_block, is_bilan, is_retired_relance
+from app.bilan import BILAN_AVAILABLE, bilan_block, is_bilan, is_retired_relance, prepare_bilan
 from app.container import container
 from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
@@ -151,11 +151,17 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 )
             result_is_digest = True
         elif is_bilan(proaction.summary):
-            # The owner's sentence, written by the code: no model woken.
+            # The owner's sentence, written by the code; the model only prepares tomorrow (MAG-958), unseen.
             result_is_digest = False
+            bilan_day = started_at.astimezone(await resolve_user_timezone(proaction.user_id)).date()
+            prepared_calls: list[dict] = []
+            try:
+                prepared_calls = (await prepare_bilan(gateway, proaction.user_id, bilan_day)).get("tool_calls") or []
+            except Exception as e:
+                logger.warning(f"Could not prepare the review of proaction {proaction_id}: {e}")
             result = {
                 "response": BILAN_AVAILABLE,
-                "tool_calls": [],
+                "tool_calls": prepared_calls,
                 "context_id": await gateway.proaction_context(BILAN_AVAILABLE, proaction.user_id),
             }
         else:
@@ -198,8 +204,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             screen = voice_screen(result.get("tool_calls") or [])
             ui_blocks = result.get("ui_blocks")
             if is_bilan(proaction.summary):
-                tz = await resolve_user_timezone(proaction.user_id)
-                ui_blocks = [*(ui_blocks or []), bilan_block(started_at.astimezone(tz).date())]
+                ui_blocks = [*(ui_blocks or []), bilan_block(bilan_day)]
             stored = await message_repo.create(
                 user_id=proaction.user_id,
                 role="assistant",

@@ -1,4 +1,4 @@
-import { test, expect, parisDay } from '../fixtures/index.js'
+import { test, expect, parisDay, e2eNow } from '../fixtures/index.js'
 import { assistantText, calledTools, parseAgUiStream, toolResults } from '../helpers/agui.js'
 import { HealthJournalPage } from '../pages/HealthJournalPage.js'
 import { BilanActivityPage } from '../pages/BilanActivityPage.js'
@@ -172,4 +172,71 @@ test('the evening review runs full screen and resumes where it was left', async 
   await bilan.next()
   await expect(bilan.root).toBeHidden()
   await expect.poll(async () => (await api.get('/api/activity-status/bilan')).status(), { intervals: [1000], timeout: 15_000 }).toBe(404)
+})
+
+/**
+ * The Demain step takes up what Maggie chose at the creation of the bilan — MAG-958 (extends MAG-99).
+ *
+ * Given « Trier les papiers », a task without a date, and the bilan prepared with it (no step), When I write
+ * « C'est tout pour les consignes », Then Maggie reads the bilan, proposes the task and writes nothing; When I
+ * answer « Oui, je garde », Then the task is scheduled for tomorrow and its due date stays empty.
+ */
+test('the Demain step proposes the prepared task and schedules it for tomorrow on a yes — MAG-958', async ({ page, api, session }) => {
+  const today = parisDay()
+  const tomorrow = parisDay(new Date(e2eNow().getTime() + 86_400_000))
+  const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+  await new HomePage(page).open()
+
+  const created = await api.post('/api/tasks', { headers: jsonLd, data: { title: 'Trier les papiers' } })
+  expect(created.status(), await created.text()).toBe(201)
+  const taskId = ((await created.json()) as { id: string }).id
+
+  const prepared = await api.put('/api/activity-status/bilan', {
+    data: {
+      origin: { kind: 'day', id: today },
+      state: { answers: {}, instructions: [], tomorrowTasks: [{ taskId, title: 'Trier les papiers' }] },
+    },
+  })
+  expect(prepared.status(), await prepared.text()).toBeLessThan(300)
+
+  const say = (message: string) =>
+    page.evaluate(
+      async ({ token, message }) => {
+        const response = await fetch('/agent/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ message, idempotency_key: `e2e-demain-${Math.random().toString(36).slice(2)}` }),
+        })
+        return response.text()
+      },
+      { token: session.token, message },
+    )
+
+  const proposal = parseAgUiStream(await say("C'est tout pour les consignes"))
+  expect(calledTools(proposal)).toContain('get_activity_status')
+  expect(calledTools(proposal)).not.toContain('update_task')
+  expect(assistantText(proposal)).toContain('papiers')
+
+  await expect
+    .poll(async () => ((await (await api.get('/api/activity-status/bilan')).json()) as { state: { step?: string } }).state.step, {
+      intervals: [1_000],
+      timeout: 15_000,
+    })
+    .toBe('demain')
+  const status = (await (await api.get('/api/activity-status/bilan')).json()) as { state: { tomorrowTasks: { taskId: string }[] } }
+  expect(status.state.tomorrowTasks.map((task) => task.taskId)).toEqual([taskId])
+  const untouched = (await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { scheduledDate?: string | null }
+  expect(untouched.scheduledDate ?? null).toBeNull()
+
+  const kept = parseAgUiStream(await say('Oui, je garde'))
+  expect(calledTools(kept)).toEqual(['update_task'])
+
+  await expect
+    .poll(async () => ((await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { scheduledDate?: string | null }).scheduledDate?.slice(0, 10), {
+      intervals: [1_000],
+      timeout: 15_000,
+    })
+    .toBe(tomorrow)
+  const task = (await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { dueDate?: string | null }
+  expect(task.dueDate ?? null).toBeNull()
 })

@@ -1,0 +1,18 @@
+# « C'est tout pour les consignes » moves the review to the Demain step (MAG-958): Maggie reads the bilan
+# back, then tomorrow's agenda, and proposes the tasks kept in it without writing anything.
+name: bilan-soir-demain
+description: The Demain step proposes the tasks chosen at the creation of the bilan.
+
+match:
+  user_contains: "c'est tout pour les consignes"
+
+turns:
+  - tools:
+      - name: save_bilan_step
+        input: {day: '${today}', step: demain}
+      - name: get_activity_status
+        input: {activity: bilan}
+  - tools:
+      - name: get_events
+        input: {from: '${tomorrow}', to: '${tomorrow}'}
+  - text: "Demain, rien à l'agenda. Je vous propose de trier les papiers. On garde ?"

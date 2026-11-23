@@ -9,9 +9,10 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app import bilan
-from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
+from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient, expand_days
 from app.llm.gateway import PROACTION_MAX_ITERATIONS
 from app.llm.runner import run_tool_loop
+from app.llm.tool_blocks import replay
 from app.llm.tools import ToolRouter
 from app.native_tools import build_native_registry
 from app.proactions.api import Proaction
@@ -23,6 +24,7 @@ USER = "user-1"
 DAY = date(2030, 11, 14)
 EVENT_ID = "01HZX3Q8R5T6V7W8X9Y0Z1A2B3"
 PREVIOUS_ID = "01HZX3Q8R5T6V7W8X9Y0Z1A2B4"
+TASK_ID = "01HZX3Q8R5T6V7W8X9Y0Z1A2B5"
 OFFERED = [
     {"name": name, "input_schema": {}}
     for name in (
@@ -40,6 +42,7 @@ OFFERED = [
         "get_health_day",
         "update_health_day",
         "set_trip",
+        "update_task",
     )
 ]
 
@@ -80,12 +83,33 @@ class TestTheReviewMessage:
         assert create.await_args.kwargs["content"] == bilan.BILAN_AVAILABLE
         assert create.await_args.kwargs["context_id"] == "ctx-1"
 
-    async def test_the_review_wakes_no_model(self, run):
+    async def test_the_review_prepares_tomorrow_with_the_model_once(self, run):
         gateway, create = run
 
         await proaction_consumer.execute_proaction(gateway, proaction())
 
-        gateway.proaction.assert_not_awaited()
+        gateway.proaction.assert_awaited_once()
+        assert "Prépare l'étape Demain" in gateway.proaction.await_args.args[0]
+        assert datetime.now(UTC).date().isoformat() in gateway.proaction.await_args.args[0]
+        blocked = gateway.proaction.await_args.kwargs["blocked_tools"]
+        assert {"update_task", "create_task", "send_voice_message"} <= blocked
+
+    async def test_the_review_message_stays_the_owner_s_sentence(self, run):
+        gateway, create = run
+        gateway.proaction.return_value = {"response": "Demain est prêt.", "tool_calls": [], "context_id": None}
+
+        await proaction_consumer.execute_proaction(gateway, proaction())
+
+        assert create.await_args.kwargs["content"] == bilan.BILAN_AVAILABLE
+
+    async def test_a_failed_preparation_still_announces_the_review(self, run):
+        gateway, create = run
+        gateway.proaction.side_effect = RuntimeError("boom")
+
+        await proaction_consumer.execute_proaction(gateway, proaction())
+
+        assert create.await_args.kwargs["content"] == bilan.BILAN_AVAILABLE
+        proaction_consumer.notify_message.assert_awaited_once()
 
     async def test_the_review_message_carries_a_bilan_block(self, run):
         gateway, create = run
@@ -137,6 +161,8 @@ class BilanApi(FakeProactionApi):
     tasks: list[dict] = []
     health_day: dict | None = None
     trips: list[dict] = []
+    updated: list[dict] = []
+    bilan_tomorrow: list[dict] = []
 
     def _set_trip(self, arguments: dict, user_id: str | None) -> dict:
         self.trips.append(arguments)
@@ -145,13 +171,20 @@ class BilanApi(FakeProactionApi):
     def _get_activity_status(self, arguments: dict, user_id: str | None) -> dict | None:
         return self.status
 
+    def _update_task(self, arguments: dict, user_id: str | None) -> dict:
+        self.updated.append(arguments)
+        return {"success": True, "task": arguments}
+
     def _save_bilan_step(self, arguments: dict, user_id: str | None) -> dict:
+        kept = (self.status or {}).get("state", {})
+        chosen = {key: arguments.get(key, kept[key]) for key in ("tomorrowTasks", "tomorrowSpares") if key in arguments or key in kept}
         self.status = {
             "activity": "bilan",
             "origin": {"kind": "day", "id": arguments["day"]},
             "state": {
-                "step": arguments["step"],
+                **({"step": arguments["step"]} if "step" in arguments else {}),
                 "instructions": arguments.get("instructions", []),
+                **chosen,
                 **({"answers": arguments["answers"]} if "answers" in arguments else {}),
             },
         }
@@ -174,6 +207,22 @@ class BilanApi(FakeProactionApi):
         return {"events": []}
 
     def _get_tasks(self, arguments: dict, user_id: str | None) -> dict:
+        if arguments.get("dated") is False:
+            return {
+                "tasks": [
+                    {
+                        "id": TASK_ID,
+                        "title": "Trier les papiers",
+                        "dueDate": None,
+                        "scheduledDate": None,
+                        "urgency": "normal",
+                        "orderScore": 1,
+                        "overdueDays": None,
+                    }
+                ]
+            }
+        if "day" in arguments and arguments["day"] != datetime.now(ZoneInfo("Europe/Paris")).date().isoformat():
+            return {"tasks": []}
         return {"tasks": [{"id": "t1", "title": "Appeler le garage"}]}
 
     def _create_task(self, arguments: dict, user_id: str | None) -> dict:
@@ -186,6 +235,7 @@ def api():
     fake = BilanApi(now=datetime(2020, 1, 1, tzinfo=UTC))
     fake.tasks = []
     fake.trips = []
+    fake.updated = []
     learned = AsyncMock(return_value=SimpleNamespace(to_dict=lambda: {"id": "i-1"}))
     fake.learned = learned
     with (
@@ -224,6 +274,97 @@ class TestOnDemand:
         assert names(result) == ["get_skill", "get_activity_status", "save_bilan_step", "get_events", "get_tasks"]
         assert api.status["state"]["step"] == "journee"
         assert "*" not in result["response"] and "#" not in result["response"]
+
+
+PREPARE_PROMPT = bilan.BILAN_PREPARE_PROMPT.format(day=DAY.isoformat())
+
+
+class TestThePreparation:
+    async def test_the_preparation_reads_tomorrow_and_the_stock(self, api):
+        result = await say(PREPARE_PROMPT)
+
+        assert names(result) == ["get_events", "get_tasks", "get_tasks", "save_bilan_step"]
+        tomorrow = expand_days("${tomorrow}")
+        assert result["tool_calls"][1]["input"] == {"day": tomorrow}
+        assert result["tool_calls"][2]["input"] == {"dated": False}
+
+    async def test_the_preparation_keeps_its_choice_in_the_bilan_without_a_step(self, api):
+        result = await say(PREPARE_PROMPT)
+
+        assert result["tool_calls"][-1]["input"] == {
+            "day": expand_days("${today}"),
+            "tomorrowTasks": [{"taskId": TASK_ID, "title": "Trier les papiers", "reason": "sans date"}],
+            "tomorrowSpares": [],
+        }
+
+    async def test_the_preparation_plans_no_task(self, api):
+        await say(PREPARE_PROMPT)
+
+        assert api.updated == []
+
+
+class TestTheDemainTasks:
+    @pytest.fixture(autouse=True)
+    def prepared(self, api):
+        api.status = {
+            "activity": "bilan",
+            "origin": {"kind": "day", "id": DAY.isoformat()},
+            "state": {
+                "instructions": [],
+                "tomorrowTasks": [{"taskId": TASK_ID, "title": "Trier les papiers"}],
+            },
+        }
+
+    async def say_in_thread(self, first: str, second: str) -> dict:
+        """The second prompt with the first turn's tool results replayed, as the chat history carries them."""
+        opening = await say(first)
+        history = [
+            {"role": "user", "content": first},
+            *replay(opening["blocks"]),
+            {"role": "assistant", "content": opening["response"]},
+            {"role": "user", "content": second},
+        ]
+        with patch("app.runtime.loop.record_llm_usage"):
+            return await run_tool_loop(
+                "Tu es Maggie.",
+                history,
+                OFFERED,
+                client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
+                tool_router=ToolRouter(natives=build_native_registry()),
+                user_id=USER,
+                model="fake",
+                source="chat",
+                max_iterations=PROACTION_MAX_ITERATIONS,
+            )
+
+    async def test_the_demain_step_reads_the_bilan_before_proposing(self, api):
+        result = await say("C'est tout pour les consignes")
+
+        assert "get_activity_status" in names(result)
+        assert "update_task" not in names(result) and "create_task" not in names(result)
+
+    async def test_nothing_is_planned_before_the_owner_answers(self, api):
+        await say("C'est tout pour les consignes")
+
+        assert api.updated == []
+
+    async def test_the_proposal_is_said_for_the_ear(self, api):
+        result = await say("C'est tout pour les consignes")
+
+        assert "*" not in result["response"] and "#" not in result["response"]
+        assert "papiers" in result["response"]
+
+    async def test_a_yes_plans_the_kept_task_for_tomorrow_without_its_due_date(self, api):
+        result = await self.say_in_thread("C'est tout pour les consignes", "Oui, je garde")
+
+        assert names(result) == ["update_task"]
+        assert api.updated == [{"id": TASK_ID, "scheduledDate": expand_days("${tomorrow}")}]
+
+    async def test_without_the_bilan_in_the_history_a_yes_writes_nothing(self, api):
+        result = await say("Oui, je garde")
+
+        assert api.updated == []
+        assert result["response"].startswith("[fake-llm]")
 
 
 class TestTheProactionOpening:
@@ -374,3 +515,16 @@ class TestTheTripAnswersOfTheDemainStep:
 
         assert names(result) == []
         assert api.trips == []
+
+
+def test_the_skill_prepares_tomorrow_and_writes_only_after_the_answer():
+    from pathlib import Path
+
+    skill = (Path(bilan.__file__).parent / "skills" / "bilan-soir.md").read_text(encoding="utf-8")
+    prepare = skill.split("## Préparer demain")[1].split("## 2.")[0]
+    demain = skill.split("## 6. Demain")[1].split("## Quitter")[0]
+
+    for word in ("dated: false", "urgency", "orderScore", "tomorrowTasks", "tomorrowSpares", "Pas de nombre fixe"):
+        assert word in prepare
+    assert "scheduledDate" in demain and "Rien n'est écrit avant sa réponse" in demain
+    assert "DayProposal" not in skill and "day-plan" not in skill
