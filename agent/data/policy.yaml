@@ -14,6 +14,14 @@
 # rather than silently allowing everything.
 default: allow
 rules:
+  # Talking to the owner is never held, whatever the source (owner, 23 Nov.: « pas de notif
+  # pour autoriser les notifs, ça me paraît évident »). A card is only for what acts elsewhere.
+  - tools: ["manage_notifications"]
+    when: { action: ["create"] }
+    mode: allow
+  - tools: ["send_voice_message", "ask_owner"]
+    mode: allow
+
   # Fiches and missed recalls are written only in a turn the owner started (spec C):
   # a proaction, a sub-agent or a peer reads the memory, never writes it.
   # The tools stay offered everywhere: the tool list is one cached prefix (MAG-853).

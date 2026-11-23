@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.policy.summary import action_label, build_summary
+from app.policy.summary import action_label, build_summary, without_reason, write_sentence
 
 ULID = "01KNZ8J6AGQ0K5D3WXYZ123456"
 
@@ -217,3 +217,63 @@ class TestTheLabel:
     )
     def test_it_says_the_action_with_no_tool_name_and_no_id(self, tool, arguments, label):
         assert action_label(tool, arguments) == label
+
+
+class TestWriteSentence:
+    NOW = datetime.fromisoformat("2026-11-23T10:00:00+01:00")
+
+    @pytest.mark.parametrize(
+        ("tool", "arguments", "sentence"),
+        [
+            ("add_grocery_item", {"label": "Lait"}, "Ajouter « Lait » à la liste de courses"),
+            (
+                "create_task",
+                {"title": "Appeler le garage", "dueDate": "2026-11-24"},
+                "Créer la tâche « Appeler le garage » pour le 24 novembre",
+            ),
+            (
+                "create_task",
+                {"title": "Impôts", "dueDate": "2027-01-15"},
+                "Créer la tâche « Impôts » pour le 15 janvier 2027",
+            ),
+            (
+                "create_event",
+                {"summary": "Réunion", "startAt": "2026-11-23T16:15:00+01:00"},
+                "Créer l'événement « Réunion » pour 16:15",
+            ),
+            (
+                "update_event",
+                {"summary": "Réunion", "startAt": "2026-11-25T09:00:00+01:00"},
+                "Modifier l'événement « Réunion » pour le 25 novembre à 09:00",
+            ),
+            (
+                "schedule_proaction",
+                {"summary": "Sortir les poubelles", "scheduled_at": "2026-11-24T19:00:00+01:00"},
+                "Programmer le rappel « Sortir les poubelles » pour le 24 novembre à 19:00",
+            ),
+            ("create_recipe", {"title": "Tarte"}, "Créer la recette « Tarte »"),
+            ("manage_envelopes", {"action": "create", "name": "Loisirs"}, "Créer l'enveloppe « Loisirs »"),
+            ("manage_loans", {"action": "update", "name": "Auto"}, "Modifier le prêt « Auto »"),
+            ("create_event", {"summary": "Réunion", "startAt": "pas une date"}, "Créer l'événement « Réunion »"),
+        ],
+    )
+    def test_it_says_the_action_its_object_and_its_time(self, tool, arguments, sentence):
+        assert write_sentence(tool, arguments, now=self.NOW) == sentence
+
+    @pytest.mark.parametrize(
+        ("tool", "arguments"),
+        [("send_email", {"to": "a@b.c"}), ("add_grocery_item", {}), ("manage_envelopes", {"action": "set", "name": "x"})],
+    )
+    def test_without_a_title_or_a_phrase_it_says_nothing(self, tool, arguments):
+        assert write_sentence(tool, arguments, now=self.NOW) is None
+
+    def test_it_never_shows_an_id_nor_a_tool_name(self):
+        sentence = write_sentence("update_task", {"title": "Appeler", "taskId": ULID}, now=self.NOW)
+
+        assert ULID not in sentence and "update_task" not in sentence
+
+    def test_without_reason_cuts_the_part_after_the_last_separator(self):
+        assert without_reason("Ajouter « Lait » ? Je n'ai pas retrouvé votre demande.") == "Ajouter « Lait »"
+        assert without_reason("Supprimer l'événement « X » — le 8 octobre à 10:00") == (
+            "Supprimer l'événement « X » — le 8 octobre à 10:00"
+        )

@@ -44,12 +44,14 @@ def gateway(calls: Calls) -> LLMGateway:
     return gw
 
 
-async def run_proaction(calls: Calls, words: list[OwnerWords], arguments: dict | None = None, **options) -> list[str]:
+async def run_proaction(
+    calls: Calls, words: list[OwnerWords], arguments: dict | None = None, tool: str = "add_grocery_item", **options
+) -> list[str]:
     """Runs a proaction whose model tries to add milk; returns what the tool answered."""
     answers: list[str] = []
 
     async def loop(*_a, tool_router, **_k):
-        answers.append(await tool_router.call_tool("add_grocery_item", arguments or ADD_MILK, user_id="user-1", source="proaction"))
+        answers.append(await tool_router.call_tool(tool, arguments or ADD_MILK, user_id="user-1", source="proaction"))
         return {"response": "", "tool_calls": []}
 
     with (
@@ -74,7 +76,35 @@ async def test_an_uncovered_write_in_a_proaction_is_held_and_never_runs(pending_
     pending_db.published.assert_awaited_once()
     topic, payload = pending_db.published.await_args.args
     assert topic.endswith("approvals") or "approvals" in topic
-    assert payload["summary"] == "Action en attente de validation — « Lait »"
+    assert payload["summary"] == "Ajouter « Lait » à la liste de courses ? Je n'ai pas retrouvé votre demande."
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments"),
+    [
+        ("manage_notifications", {"action": "create", "type": "reminder", "title": "Fermer les volets", "body": "Les volets."}),
+        ("send_voice_message", {"text": "Il est l'heure de fermer les volets."}),
+    ],
+)
+async def test_a_reminder_notifying_the_owner_is_never_held(pending_db, tool, arguments):
+    calls = Calls()
+
+    answers = await run_proaction(calls, [], arguments, tool=tool, kind="reminder")
+
+    assert answers == ['{"ok": true}']
+    calls.checker.create.assert_not_awaited()
+    calls.mcp.assert_awaited_once()
+    pending_db.published.assert_not_awaited()
+
+
+async def test_a_reminder_still_holds_any_other_write(pending_db):
+    calls = Calls()
+
+    answers = await run_proaction(calls, [], kind="reminder")
+
+    assert json.loads(answers[0])["status"] == "pending_approval"
+    calls.mcp.assert_not_awaited()
+    pending_db.published.assert_awaited_once()
 
 
 async def test_a_write_an_instruction_covers_runs_after_the_checker():

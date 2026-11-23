@@ -22,6 +22,8 @@ LOOKUP_TIMEOUT_SECONDS = 5
 
 GENERIC_LABEL = "Action en attente de validation"
 UNKNOWN_OBJECT = "un élément"
+NOT_FOUND_REASON = "Je n'ai pas retrouvé votre demande."
+REASON_SEPARATOR = " ? "
 
 _MONTHS = (
     "janvier",
@@ -84,12 +86,38 @@ _NO_LIST_LOOKUP = frozenset(
 )
 
 _TITLE_KEYS = ("name", "title", "label", "customLabel", "summary")
+_TIME_KEYS = ("startAt", "scheduled_at", "scheduledDate", "dueDate")
+
+# What a write the checker holds says, with the title of the object in « ».
+_WRITE_TEMPLATES = {
+    "add_grocery_item": "Ajouter « {title} » à la liste de courses",
+    "create_event": "Créer l'événement « {title} »",
+    "update_event": "Modifier l'événement « {title} »",
+    "create_task": "Créer la tâche « {title} »",
+    "update_task": "Modifier la tâche « {title} »",
+    "create_recipe": "Créer la recette « {title} »",
+    "schedule_proaction": "Programmer le rappel « {title} »",
+}
+_MANAGE_VERBS = {"create": "Créer", "update": "Modifier"}
 
 
 def _is_delete(tool_name: str, arguments: dict) -> bool:
     if tool_name.startswith("delete_"):
         return True
     return tool_name.startswith("manage_") and str(arguments.get("action", "")).lower() == "delete"
+
+
+def title_of(arguments: dict) -> str | None:
+    for key in _TITLE_KEYS:
+        value = arguments.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def without_reason(summary: str) -> str:
+    """The card's sentence without the reason it asks, for the thread's line and the model's note."""
+    return summary.rpartition(REASON_SEPARATOR)[0] or summary
 
 
 def _object_phrase(tool_name: str) -> str:
@@ -147,6 +175,44 @@ def _when(event: dict) -> str | None:
     if moment.year != datetime.now(moment.tzinfo).year:
         day += f" {moment.year}"
     return day if all_day else f"{day} à {moment:%H:%M}"
+
+
+def _write_time(arguments: dict, now: datetime | None) -> str | None:
+    value = next((arguments[k] for k in _TIME_KEYS if isinstance(arguments.get(k), str)), None)
+    if value is None:
+        return None
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    today = now or datetime.now(moment.tzinfo)
+    if moment.tzinfo is not None and today.tzinfo is not None:
+        today = today.astimezone(moment.tzinfo)
+    date_only = "T" not in value and " " not in value.strip()
+    if not date_only and moment.date() == today.date():
+        return f"{moment:%H:%M}"
+    day = f"le {moment.day} {_MONTHS[moment.month - 1]}"
+    if moment.year != today.year:
+        day += f" {moment.year}"
+    return day if date_only else f"{day} à {moment:%H:%M}"
+
+
+def write_sentence(tool_name: str, arguments: dict | None, now: datetime | None = None) -> str | None:
+    """« Créer la tâche « Appeler le garage » pour le 24 novembre », or None when it has no title or no phrase."""
+    arguments = arguments or {}
+    title = title_of(arguments)
+    if title is None:
+        return None
+    template = _WRITE_TEMPLATES.get(tool_name)
+    if template is not None:
+        sentence = template.format(title=title)
+    else:
+        verb = _MANAGE_VERBS.get(str(arguments.get("action", "")).lower())
+        if verb is None or tool_name not in _MANAGE_OBJECTS:
+            return None
+        sentence = f"{verb} {_MANAGE_OBJECTS[tool_name]} « {title} »"
+    when = _write_time(arguments, now)
+    return f"{sentence} pour {when}" if when else sentence
 
 
 async def _read(tool_name: str, arguments: dict, user_id: str) -> object:
