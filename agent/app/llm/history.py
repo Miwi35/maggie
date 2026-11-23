@@ -49,7 +49,7 @@ from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE, NOTHING_SAID, TURN_EXPIRED, TURN_RUNNING, Message
 from app.llm.image import GONE_MARKER, ChatImage, with_image
 from app.llm.screen_context import attach
-from app.llm.tool_blocks import replay
+from app.llm.tool_blocks import model_turns, replay
 from app.personality.engine import TZ_PARIS, french_date
 from app.policy.decision import decision_note
 
@@ -355,7 +355,7 @@ def _turns(
         # What this turn's tools said, before the text it led to (MAG-211). Whole or not at
         # all: `replay` returns nothing for blocks it cannot vouch for, and the message is
         # then the text it has always been.
-        rounds = replay(row.blocks) if str(row.id) in replayed else []
+        rounds = model_turns(replay(row.blocks)) if str(row.id) in replayed else []
         if rounds and _append_rounds(turns, rounds):
             turns.append({"role": row.role, "content": content})
             continue

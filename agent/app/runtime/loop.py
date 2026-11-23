@@ -20,8 +20,8 @@ import anthropic
 from app.config import settings
 from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.prompt_cache import cache_tools
-from app.llm.provider_status import note_provider_failure, note_provider_success
-from app.llm.tool_blocks import INTERRUPTED_RESULT, record
+from app.llm.provider_status import is_context_overflow, note_provider_failure, note_provider_success
+from app.llm.tool_blocks import INTERRUPTED_RESULT, for_model, model_turns, record, without_old_results
 from app.llm.tool_failures import FailureStreak, tool_result_status
 from app.llm.web_search import (
     PAUSE_TURN,
@@ -239,6 +239,43 @@ def _back_the_guard(guard: ClaimGuard, resumed: list[dict]) -> None:
                 guard.record(use["name"], result["content"], use["input"])
 
 
+@dataclass(frozen=True)
+class _StepResponse:
+    """The last value of `_model_step`: the final message and the raw text streamed. Never emitted by the loop."""
+
+    message: Any
+    text: str
+
+
+async def _model_step(
+    client: Any, resolve_client: Callable[[], Awaitable[Any]] | None, request: dict, streamed: bool
+) -> AsyncIterator[Any]:
+    """The one model call of a step: its streamed events, then `_StepResponse`."""
+    step_text = ""
+    active = await resolve_client() if resolve_client else client
+    if streamed:
+        async with active.messages.stream(**request) as stream:
+            async for event in stream:
+                if event.type == "content_block_start":
+                    block = event.content_block
+                    if hasattr(block, "name"):
+                        server = block.type == SERVER_TOOL_USE
+                        yield ToolUseStarted(block.id, block.name, server)
+                        if server:
+                            # What was said so far was the model announcing its search: the answer is
+                            # the text written after the last one (MAG-384).
+                            step_text = ""
+                    elif block.type == WEB_SEARCH_RESULT:
+                        yield WebSearchEnded(block.tool_use_id, search_failed(block))
+                elif event.type == "content_block_delta" and hasattr(event.delta, "text"):
+                    step_text += event.delta.text
+                    yield TextDelta(event.delta.text)
+            response = await stream.get_final_message()
+    else:
+        response = await active.messages.create(**request)
+    yield _StepResponse(response, step_text)
+
+
 async def run_loop(
     system: str | list[dict],
     messages: list,
@@ -276,11 +313,12 @@ async def run_loop(
     streak = FailureStreak()
     reviewed = False
     stop_tools = False
+    shrunk = False
     tool_calls: list[dict] = []
     usage = {"input_tokens": 0, "output_tokens": 0}
 
     if resumed:
-        messages.extend(resumed)
+        messages.extend(model_turns(list(resumed)))
         state.blocks.extend(resumed)
         _back_the_guard(guard, list(resumed))
 
@@ -304,27 +342,31 @@ async def run_loop(
                 **({"output_config": {"effort": options.effort}} if options.effort else {}),
             }
             step_text = ""
-            active = await resolve_client() if resolve_client else client
-            if streamed:
-                async with active.messages.stream(**request) as stream:
-                    async for event in stream:
-                        if event.type == "content_block_start":
-                            block = event.content_block
-                            if hasattr(block, "name"):
-                                server = block.type == SERVER_TOOL_USE
-                                yield ToolUseStarted(block.id, block.name, server)
-                                if server:
-                                    # What was said so far was the model announcing its search: the answer is
-                                    # the text written after the last one (MAG-384).
-                                    step_text = ""
-                            elif block.type == WEB_SEARCH_RESULT:
-                                yield WebSearchEnded(block.tool_use_id, search_failed(block))
-                        elif event.type == "content_block_delta" and hasattr(event.delta, "text"):
-                            step_text += event.delta.text
-                            yield TextDelta(event.delta.text)
-                    response = await stream.get_final_message()
-            else:
-                response = await active.messages.create(**request)
+            while True:
+                emitted = False
+                try:
+                    async for item in _model_step(client, resolve_client, request, streamed):
+                        if isinstance(item, _StepResponse):
+                            response, step_text = item.message, item.text
+                        else:
+                            emitted = True
+                            yield item
+                    break
+                except Exception as overflow:
+                    # The window is full: one retry per turn, the older results replaced by a note. Only when
+                    # the step has said nothing yet, so no event is ever emitted twice.
+                    if emitted or shrunk or not is_context_overflow(overflow) or not without_old_results(messages):
+                        raise
+                    shrunk = True
+                    logger.warning("Context window overflow: retrying the step without the older tool results")
+                    record_llm_usage(
+                        model=options.model,
+                        call_type=options.call_type,
+                        input_tokens=0,
+                        output_tokens=0,
+                        duration_seconds=time.monotonic() - t0,
+                        status="error",
+                    )
             await note_provider_success()
             counts = usage_kwargs(response.usage)
             record_llm_usage(
@@ -392,7 +434,13 @@ async def run_loop(
                     tool_calls.append({"name": block.name, "input": block.input, "result": result})
                     guard.record(block.name, result, block.input)
                     streak.record(block.name, result)
-                    tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": for_model(result, settings.tool_result_max_chars),
+                        }
+                    )
                     yield ToolCallEnded(block.id, block.name, block.input, result, tool_result_status(result))
 
                 if streak.gave_up():

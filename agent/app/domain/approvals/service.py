@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from app.config import settings
 from app.db.message_repository import message_repo
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
@@ -13,6 +14,7 @@ from app.domain.approvals.errors import ApprovalExpired, ApprovalNotFound, Appro
 from app.llm.context_summary import context_summarizer
 from app.llm.models import CHAT, effort_for, model_for
 from app.llm.runner import run_tool_loop
+from app.llm.tool_blocks import for_model
 from app.policy.decision import CHANNELS, record_decision
 
 if TYPE_CHECKING:
@@ -123,7 +125,7 @@ class ApprovalService:
 
         prompt = (
             f"L'utilisateur a validé {action.tool_name}({json.dumps(action.arguments, ensure_ascii=False)}). "
-            f"Résultat : {result}. Annonce-le brièvement."
+            f"Résultat : {for_model(result, settings.tool_result_max_chars)}. Annonce-le brièvement."
         )
         try:
             system = await self.system_prompt.build(action.user_id, current_context_id=action.context_id)

@@ -147,6 +147,9 @@ class Settings(BaseSettings):
     # `tool_blocks.TOOL_RESULT_MAX_CHARS` caps one result at 8 000 characters. So raising
     # this is not linear in cost — a thread of heavy turns is where it is felt.
     tool_replay_turns: int = 2
+    # The ceiling of one tool result as the model reads it during the turn (MAG-970); the replay keeps
+    # `tool_blocks.TOOL_RESULT_MAX_CHARS`.
+    tool_result_max_chars: int = 20000
     # How many messages a conversation context has to gain before its summary is
     # rewritten (MAG-11). Low enough that a thread is summarized within a sitting,
     # high enough that a Haiku call is not made on every other message.
