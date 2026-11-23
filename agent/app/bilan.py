@@ -9,6 +9,8 @@ RETIRED_RELANCE_SUMMARY = "Bilan de la journée · relance"
 BILAN_PROMPT = (
     "Fais le bilan de la journée avec l'utilisateur (compétence bilan-soir, ouverture par le rendez-vous du soir)."
 )
+BILAN_AVAILABLE = "Bonsoir monsieur. Votre bilan de la journée vous attend."
+"""The announcement the owner validated (22 Nov.), written by the code as the digest's."""
 BILAN_ROUTE = "maggie://activity/bilan"
 
 

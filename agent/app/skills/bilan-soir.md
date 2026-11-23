@@ -23,7 +23,7 @@ Appelle `get_activity_status` avec `activity: "bilan"`.
 - Résultat `null`, ou `origin.id` d'un autre jour que le jour courant (YYYY-MM-DD ; le jour que dit la proaction, même passé minuit, sinon le jour courant dans le fuseau de l'utilisateur) : un nouveau bilan, on commence à l'étape Journée.
 - `origin.id` égal au jour courant : le bilan est déjà commencé. Reprends à `state.step`, avec `state.answers` et `state.instructions` déjà recueillis. Dis-le en une phrase (« on reprenait aux finances »), sans refaire les étapes passées.
 
-**Proaction.** Ouvre par une phrase d'accueil et la première question de l'étape Journée. N'écris pas encore le statut : c'est la première réponse de l'utilisateur qui l'écrit. Le message est seul, sans relance : ne programme jamais toi-même de relance. Le code y joint la carte « Ouvrir » ; ne la décris pas.
+**Proaction.** Le rendez-vous du soir est annoncé par le code (« Bonsoir monsieur. Votre bilan de la journée vous attend. ») avec sa carte « Ouvrir » : tu n'es pas réveillée pour lui. S'il répond à ce message, mène le bilan comme à la demande.
 
 **À la demande.** Écris tout de suite le statut : `save_bilan_step` avec `day` et `step: "journee"`.
 
