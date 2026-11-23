@@ -129,6 +129,7 @@ final class DayPlans
             'firstStep' => $task->getFirstStep(),
             'completedAt' => $task->getCompletedAt()?->format(\DATE_ATOM),
             'dueDate' => $task->getDueDate()?->format('Y-m-d'),
+            'scheduledDate' => $task->getScheduledDate()?->format('Y-m-d'),
             'postponedSince' => $task->getPostponedSince()?->format('Y-m-d'),
             'urgency' => $task->getUrgency()?->value,
             'criticality' => $task->getCriticality()->value,

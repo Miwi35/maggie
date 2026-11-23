@@ -69,6 +69,26 @@ class GetTasksFiltersToolTest extends KernelTestCase
         self::assertNotContains('Undated', $titles);
     }
 
+    public function testDayReturnsOpenTasksPlannedBeforeIt(): void
+    {
+        $this->loginFixtureUser();
+        $this->planned('Planned the 8th', '2026-10-08');
+
+        self::assertContains('Planned the 8th', $this->titles($this->call(day: '2026-10-14')));
+        self::assertNotContains('Planned the 8th', $this->titles($this->call(day: '2026-10-07')));
+    }
+
+    public function testDayLeavesOutADoneTaskPlannedBefore(): void
+    {
+        $this->loginFixtureUser();
+        $this->planned('Planned the 8th, done', '2026-10-08');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->getRepository(Task::class)->findOneBy(['title' => 'Planned the 8th, done'])->setCompletedAt(new \DateTimeImmutable('2026-10-09 10:00:00 UTC'));
+        $em->flush();
+
+        self::assertNotContains('Planned the 8th, done', $this->titles($this->call(day: '2026-10-13', status: 'all')));
+    }
+
     public function testDayExcludesDoneTasksDueThatDay(): void
     {
         $this->loginFixtureUser();

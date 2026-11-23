@@ -7,6 +7,8 @@ use App\Tests\Support\ElasticsearchAssertionTrait;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Enum\TaskMoment;
+use Maggie\Core\Entity\User;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -172,6 +174,77 @@ class TaskViewsApiTest extends WebTestCase
         }
 
         self::assertCount(20, $seen, 'the 20 tasks of the user, none left out');
+    }
+
+    private function planned(string $title, string $day, ?string $due = null, bool $done = false): Task
+    {
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $task = (new Task())
+            ->setUser($em->getRepository(User::class)->find($this->getFixture('test_user')->getId()))
+            ->setTitle($title)
+            ->schedule(new \DateTimeImmutable($day), TaskMoment::Morning, null, []);
+        if (null !== $due) {
+            $task->setDueDate(new \DateTimeImmutable($due));
+        }
+        if ($done) {
+            $task->setCompletedAt(new \DateTimeImmutable('2026-10-13 10:00:00 UTC'));
+        }
+        $em->persist($task);
+        $em->flush();
+
+        return $task;
+    }
+
+    public function testATaskPlannedSixDaysAgoUndatedIsInTodayPutOffAndNotInSomeday(): void
+    {
+        $this->planned('Planned six days ago', '2026-10-07');
+
+        $today = $this->get('/api/tasks/view/today');
+
+        self::assertContains('Planned six days ago', array_column($today['member'], 'title'));
+        $byTitle = array_column($today['member'], null, 'title');
+        self::assertSame('2026-10-07', $byTitle['Planned six days ago']['postponedSince']);
+        self::assertNotContains('Planned six days ago', $this->titles('someday'));
+    }
+
+    public function testATaskPlannedInThePastDueLaterIsInTodayNotUpcomingAndKeepsItsDueDay(): void
+    {
+        $this->planned('Planned past, due later', '2026-10-07', '2026-10-20');
+
+        $byTitle = array_column($this->get('/api/tasks/view/today')['member'], null, 'title');
+
+        self::assertSame('2026-10-20', $byTitle['Planned past, due later']['dueDate']);
+        self::assertNotContains('Planned past, due later', $this->titles('upcoming'));
+        self::assertNotContains('Planned past, due later', $this->titles('someday'));
+    }
+
+    public function testATaskPlannedInThePastAndDoneIsInNoOpenView(): void
+    {
+        $this->planned('Planned past, done', '2026-10-07', null, true);
+
+        foreach (['today', 'upcoming', 'someday'] as $view) {
+            self::assertNotContains('Planned past, done', $this->titles($view), $view);
+        }
+    }
+
+    public function testTasksPlannedTodayStayAheadOfThePastPlannedOnes(): void
+    {
+        $this->planned('Planned six days ago', '2026-10-07', '2026-10-01');
+        $this->planned('Planned today', '2026-10-13');
+
+        $titles = $this->titles('today');
+
+        self::assertLessThan(array_search('Planned six days ago', $titles, true), array_search('Planned today', $titles, true));
+        self::assertSame('Planned today', $titles[0]);
+    }
+
+    public function testThePastPlannedTaskIsCountedOnceInToday(): void
+    {
+        $this->planned('Planned six days ago', '2026-10-07');
+
+        $counts = $this->get('/api/tasks/view/today')['counts'];
+
+        self::assertSame(['today' => 4, 'upcoming' => 6, 'someday' => 7, 'done' => 4], $counts);
     }
 
     public function testNoViewShowsAnotherUsersTasks(): void
