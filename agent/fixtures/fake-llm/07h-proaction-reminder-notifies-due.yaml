@@ -1,0 +1,17 @@
+# A reminder come due (MAG-988): « Rappel à délivrer : fermer les volets (rappel e2e). » Maggie notifies the
+# owner, which is never held for approval, then says it.
+name: proaction-reminder-notifies-due
+description: A due reminder that notifies the owner, for the checker journey.
+
+match:
+  user_contains: ["[Proaction due maintenant]", "fermer les volets (rappel e2e)"]
+
+turns:
+  - tools:
+      - name: manage_notifications
+        input:
+          action: create
+          type: reminder
+          title: "Fermer les volets"
+          body: "C'est l'heure de fermer les volets."
+  - text: "C'est l'heure de fermer les volets, monsieur."

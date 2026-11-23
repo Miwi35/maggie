@@ -5,7 +5,7 @@ import { callMcpTool } from '../helpers/mcp.js'
 import { openSubscribed } from '../helpers/mercure.js'
 
 /**
- * A proaction writes only what an instruction says (MAG-943, extends MAG-103).
+ * A proaction writes only what an instruction says (MAG-943, MAG-988, extends MAG-103).
  *
  * The proaction « Ajoute du lait à la liste de courses (checker e2e) » makes Maggie call
  * `add_grocery_item` (`07e-proaction-checker-milk-due.yaml`). The checker reads the action against the
@@ -22,6 +22,7 @@ interface ListedProaction {
   status: string
 }
 
+const REMINDER_PROMPT = 'Rappel à délivrer : fermer les volets (rappel e2e).'
 const PROMPT = 'Ajoute du lait à la liste de courses (checker e2e)'
 
 test('a proaction write no instruction covers waits for « Autoriser / Refuser » and is not on the list', async ({ interruptedUser }) => {
@@ -39,6 +40,7 @@ test('a proaction write no instruction covers waits for « Autoriser / Refuser �
 
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toContainText('Lait', { timeout: 20_000 })
+  await expect(interruption).toContainText("Ajouter « Lait » à la liste de courses ? Je n'ai pas retrouvé votre demande.")
   expect(JSON.stringify(await callMcpTool(api, 'get_grocery_list', {}))).not.toContain('Lait')
 
   // The card covers every window of this account: answer it through the API so the next journey starts clear.
@@ -70,9 +72,27 @@ test('a proaction write an instruction covers word for word runs without a valid
   expect(await (await api.get('/agent/approvals?status=pending')).json()).toEqual([])
 })
 
-async function runDueProaction(api: Parameters<typeof callMcpTool>[0]): Promise<void> {
+// Reproduction of MAG-988: talking to the owner is never held for approval (owner, 23 Nov.).
+test('a due reminder notifies the owner without asking to authorise it', async ({ interruptedUser }) => {
+  test.setTimeout(240_000)
+  const { page, api, session } = interruptedUser
+  await openSubscribed(page, () => new HomePage(page).open(), `/proactions/${session.user.id}`)
+  await new ChatPanel(page).ensureClosed()
+
+  await runDueProaction(api, REMINDER_PROMPT)
+
+  // The reminder's own notification surfaces first (« Fermer les volets », « Compris »), then its run's message:
+  // either way it says the reminder and never asks to authorise it.
+  await expect(page.getByRole('alertdialog')).toContainText("C'est l'heure de fermer les volets", { timeout: 20_000 })
+  await expect(page.getByRole('button', { name: 'Autoriser' })).toHaveCount(0)
+  expect(await (await api.get('/agent/approvals?status=pending')).json()).toEqual([])
+  expect(JSON.stringify(await callMcpTool(api, 'manage_notifications', { action: 'list' }))).toContain('Fermer les volets')
+})
+
+async function runDueProaction(api: Parameters<typeof callMcpTool>[0], prompt = PROMPT): Promise<void> {
   const scheduled = await callMcpTool(api, 'schedule_proaction', {
-    prompt: PROMPT,
+    prompt,
+    kind: 'reminder',
     scheduled_at: new Date(e2eNow().getTime() + 30 * 60_000).toISOString(),
   })
   const created = scheduled.proaction as ListedProaction

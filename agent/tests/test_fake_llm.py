@@ -285,6 +285,28 @@ class TestMatching:
         assert plan["plan"] == "agreger" and plan["termes"] == ["pizza"]
         assert re.fullmatch(r"\d{4}-\d{2}-01", plan["debut"]) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", plan["fin"])
 
+    async def test_a_due_reminder_notifies_the_owner_then_says_it(self):
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        message = "[Proaction due maintenant]\nRappel à délivrer : fermer les volets (rappel e2e)."
+
+        first = await ask(client, message, tools=[{"name": "manage_notifications"}])
+        second = await client.messages.create(
+            model="fake",
+            max_tokens=1024,
+            system="Tu es Maggie.",
+            messages=[
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_1"}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_1"}]},
+            ],
+            tools=[{"name": "manage_notifications"}],
+        )
+
+        assert first.content[0].name == "manage_notifications"
+        assert first.content[0].input["action"] == "create" and first.content[0].input["type"] == "reminder"
+        assert first.content[0].input["title"] == "Fermer les volets"
+        assert text_of(second) == "C'est l'heure de fermer les volets, monsieur."
+
     async def test_any_other_written_message_gets_no_recall_plan(self):
         client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
         message = (

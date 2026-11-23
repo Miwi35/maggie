@@ -219,6 +219,7 @@ et Garde Tom » (MAG-325): the rule is stored as a `behavior` directive, and the
 and no `to`, whatever its date.
 `97-move-meal-by-name.yaml` (MAG-639) is its twin for a planned meal, which the event tools leave out: `manage_meals list` with
 `query` and no dates, then `update` on the id found, to tomorrow's `lunch`.
+`07h-proaction-reminder-notifies-due.yaml` (MAG-988) sits next to `07e`: a due « Rappel à délivrer : fermer les volets (rappel e2e) » — `manage_notifications` create (`type: reminder`), then « C'est l'heure de fermer les volets, monsieur. »; the owner is never asked to authorise it.
 `97-health-step-goal.yaml` (MAG-707): « Mon objectif de pas, c'est 10 000 » — `update_health_profile` with `stepGoal: 10000` alone.
 `97-health-food-intake.yaml` (MAG-748): « J'ai mangé une salade César à midi » — `manage_food_intakes` create, today at 12:00, 450 kcal and her macros, estimated.
 `97-health-fasting-protocol.yaml` (MAG-770): « Je passe au 18:6 à partir de 13 h » — `update_health_profile` with `fastingProtocol: 18:6` and `fastingWindowStart: 13:00`.

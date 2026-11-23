@@ -198,6 +198,21 @@ class TestTheShippedPolicy:
     def test_every_turn_still_reads_the_memory(self, tool, source):
         assert policy_engine.evaluate(tool, {}, source) is Mode.ALLOW
 
+    @pytest.mark.parametrize("source", ["chat", "chat_stream", "proaction", "subagent:advisor"])
+    @pytest.mark.parametrize(
+        ("tool", "arguments"),
+        [
+            ("manage_notifications", {"action": "create", "type": "reminder", "title": "Volets"}),
+            ("send_voice_message", {"text": "x"}),
+            ("ask_owner", {"question": "?"}),
+        ],
+    )
+    def test_talking_to_the_owner_is_never_held(self, tool, arguments, source):
+        assert policy_engine.evaluate(tool, arguments, source) is Mode.ALLOW
+
+    def test_deleting_a_notification_is_still_proposed(self):
+        assert policy_engine.evaluate("manage_notifications", {"action": "delete", "id": "n-1"}, "chat") is Mode.ASK
+
     def test_advisor_may_preview_but_not_create_a_project(self):
         source = "subagent:advisor"
         assert policy_engine.evaluate("manage_projects", {"action": "preview"}, source) is Mode.ALLOW

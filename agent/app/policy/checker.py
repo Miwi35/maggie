@@ -4,6 +4,7 @@ It sees the proposed action and the owner's planning instructions, nothing else 
 never external data. It must quote the sentence that authorizes the write; the server verifies the quote word
 for word. Anything else (no, no quote, failure, timeout) holds the write for the owner's card (fail closed).
 When the instruction says an amount, every `…Cents` amount of the action must be one of them, else the write is held.
+Talking to the owner is never held (owner, 23 Nov.: « pas de notif pour autoriser les notifs »).
 """
 
 import asyncio
@@ -25,6 +26,7 @@ from app.memory.tools import MEMORY_TOOL_NAMES
 from app.metrics import record_llm_usage
 from app.policy.engine import Mode, policy_engine
 from app.policy.hold import hold_for_approval
+from app.policy.summary import NOT_FOUND_REASON
 from app.proactions.verdict import VERDICT_TOOL_NAME
 
 logger = logging.getLogger(__name__)
@@ -34,7 +36,8 @@ _MIN_QUOTE_WORDS = 3
 _APOSTROPHES = str.maketrans({chr(0x2019): "'", chr(0x2018): "'"})
 _REMOVED = "[données externes retirées]"
 _READ_PREFIXES = ("get_", "list_", "search_", "preview_")
-_NEVER_CHECKED = frozenset({"ask_owner", "send_voice_message", VERDICT_TOOL_NAME}) | MEMORY_TOOL_NAMES
+_NEVER_CHECKED = frozenset({VERDICT_TOOL_NAME}) | MEMORY_TOOL_NAMES
+_OWNER_COMMUNICATION = frozenset({"ask_owner", "send_voice_message"})
 
 SYSTEM_PROMPT = (
     "Tu vérifies qu'une action de Maggie est autorisée mot pour mot par son propriétaire. "
@@ -125,7 +128,15 @@ def amounts_agree(text: str, arguments: dict) -> bool:
     return not said or action_amounts(arguments) <= said
 
 
+def is_owner_communication(name: str, arguments: dict | None) -> bool:
+    if name in _OWNER_COMMUNICATION:
+        return True
+    return name == "manage_notifications" and str((arguments or {}).get("action", "")).lower() == "create"
+
+
 def needs_check(name: str, arguments: dict) -> bool:
+    if is_owner_communication(name, arguments):
+        return False
     if name in _NEVER_CHECKED or name.startswith(_READ_PREFIXES):
         return False
     return not is_read_only(name, arguments or {})
@@ -224,5 +235,5 @@ class CheckedToolRouter:
         self.decisions.append({"name": name, "authorized_by": authorized})
         logger.info("Checker: %s authorized_by=%s ref=%s", name, authorized.kind, authorized.ref)
         if authorized.kind == "none":
-            return await hold_for_approval(name, arguments, user_id, source, context_id)
+            return await hold_for_approval(name, arguments, user_id, source, context_id, reason=NOT_FOUND_REASON)
         return await self._router.call_tool(name, arguments, **passthrough)

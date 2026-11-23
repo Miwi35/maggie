@@ -9,7 +9,7 @@ from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.llm.history import build_history
-from app.policy.decision import decision_line, record_decision
+from app.policy.decision import decision_line, decision_note, record_decision
 
 SUMMARY = "Supprimer la série « Psychomot Tom »"
 
@@ -128,3 +128,13 @@ class TestDecisionInTheHistory:
         text = "\n".join(t["content"] for t in turns if isinstance(t["content"], str))
         assert "Refuser" in text
         assert "expiré" in text
+
+
+def test_the_reason_never_reaches_the_line_nor_the_note():
+    held = "Ajouter « Lait » à la liste de courses ? Je n'ai pas retrouvé votre demande."
+
+    line = decision_line(PendingActionStatus.APPROVED, held)
+    note = decision_note({"answer": "approved", "summary": held, "channel": "chat"}, "16:15")
+
+    assert line == "Vous avez répondu : Autoriser — ajouter « Lait » à la liste de courses"
+    assert "retrouvé" not in note and "ajouter « Lait » à la liste de courses (via chat" in note

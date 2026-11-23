@@ -22,6 +22,7 @@ from app.policy.checker import (
     verify_quote,
 )
 from app.policy.hold import hold_for_approval
+from app.policy.summary import NOT_FOUND_REASON
 
 WORDS = [OwnerWords("instruction", "i-1", "Chaque lundi, ajoute du lait à la liste de courses")]
 ADD_MILK = {"label": "Lait"}
@@ -123,6 +124,7 @@ async def test_the_checker_speaks_to_its_run_type_model():
         ("manage_meals", {"action": "list"}),
         ("ask_owner", {"question": "?"}),
         ("send_voice_message", {"text": "x"}),
+        ("manage_notifications", {"action": "create", "type": "reminder", "title": "Volets"}),
         ("proaction_verdict", {"impact": "low"}),
         ("memory_search", {"query": "x"}),
         ("memory_write_fiche", {"chemin": "x"}),
@@ -135,6 +137,7 @@ def test_reads_and_talking_to_the_owner_are_not_checked(name, arguments):
 def test_a_write_is_checked():
     assert needs_check("add_grocery_item", ADD_MILK)
     assert needs_check("manage_meals", {"action": "create"})
+    assert needs_check("manage_notifications", {"action": "delete", "id": "n-1"})
 
 
 def router(client):
@@ -155,10 +158,10 @@ async def test_a_call_the_policy_holds_goes_to_the_policy_without_the_checker(na
 
 async def test_a_held_write_names_its_object_on_the_card():
     with patch("app.policy.hold.pending_action_repo.create", new=AsyncMock(return_value=SimpleNamespace(id="a-1"))) as create:
-        out = json.loads(await hold_for_approval("add_grocery_item", ADD_MILK, "user-1", "proaction", None))
+        out = json.loads(await hold_for_approval("add_grocery_item", ADD_MILK, "user-1", "proaction", None, reason=NOT_FOUND_REASON))
 
     assert out["status"] == "pending_approval"
-    assert create.await_args.kwargs["summary"] == "Action en attente de validation — « Lait »"
+    assert create.await_args.kwargs["summary"] == "Ajouter « Lait » à la liste de courses ? Je n'ai pas retrouvé votre demande."
 
 
 LOISIRS = [OwnerWords("instruction", "i-3", "Chaque mois, mets l'enveloppe Loisirs à 150 € pour le mois")]

@@ -5,21 +5,19 @@ import logging
 
 from app.db.pending_action_repository import pending_action_repo
 from app.llm.tools import PENDING_APPROVAL_MESSAGE
-from app.policy.summary import _TITLE_KEYS, GENERIC_LABEL, build_summary
+from app.policy.summary import GENERIC_LABEL, REASON_SEPARATOR, build_summary, title_of, write_sentence
 
 logger = logging.getLogger(__name__)
 
 
-def _title(arguments: dict) -> str | None:
-    for key in _TITLE_KEYS:
-        value = arguments.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
 async def hold_for_approval(
-    name: str, arguments: dict, user_id: str | None, source: str, context_id: str | None
+    name: str,
+    arguments: dict,
+    user_id: str | None,
+    source: str,
+    context_id: str | None,
+    *,
+    reason: str | None = None,
 ) -> str:
     if user_id is None:
         logger.error(f"Tool call needing approval has no user to ask: {name}")
@@ -27,9 +25,11 @@ async def hold_for_approval(
 
     try:
         summary = await build_summary(name, arguments or {}, user_id)
-        title = _title(arguments or {})
-        if summary == GENERIC_LABEL and title:
-            summary = f"{GENERIC_LABEL} — « {title} »"
+        if summary == GENERIC_LABEL:
+            title = title_of(arguments or {})
+            summary = write_sentence(name, arguments) or (f"{GENERIC_LABEL} — « {title} »" if title else summary)
+        if reason:
+            summary += REASON_SEPARATOR + reason
     except Exception as e:
         logger.warning(f"Could not build the summary of {name}: {e}")
         summary = None

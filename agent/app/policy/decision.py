@@ -11,6 +11,7 @@ import logging
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE, Message
 from app.db.pending_action_model import PendingAction, PendingActionStatus
+from app.policy.summary import without_reason
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +45,14 @@ def decision_line(status: PendingActionStatus, summary: str) -> str:
     """What the thread shows: « Vous avez répondu : Autoriser — supprimer la série « … » »."""
     answer = _answer(status)
     if answer == EXPIRED:
-        return f"Sans réponse : la demande a expiré — {_lowered(summary)}"
+        return f"Sans réponse : la demande a expiré — {_lowered(without_reason(summary))}"
     word = "Autoriser" if answer == APPROVED else "Refuser"
-    return f"Vous avez répondu : {word} — {_lowered(summary)}"
+    return f"Vous avez répondu : {word} — {_lowered(without_reason(summary))}"
 
 
 def decision_note(decision: dict, when: str) -> str:
     """What the next model call reads in the user's turn, from the stored `decision` and a local time label."""
-    summary = _lowered(str(decision.get("summary") or "")).strip()
+    summary = _lowered(without_reason(str(decision.get("summary") or ""))).strip()
     answer = decision.get("answer")
     if answer == EXPIRED:
         return f"[Ta demande est restée sans réponse : elle a expiré — {summary} ({when})]"
