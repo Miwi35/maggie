@@ -33,6 +33,9 @@ enum class BilanStep(val wire: String, val label: String, val heading: String) {
     }
 }
 
+/** A task Maggie chose for tomorrow, as `state.tomorrowTasks` and `state.tomorrowSpares` hold it. */
+data class PlannedTask(val taskId: String, val title: String, val reason: String? = null)
+
 /**
  * A bilan in progress. [state] is the status' JSON as it stands — `answers` and `instructions` belong to the
  * steps' slots and to Maggie (`save_bilan_step`), so a change of step rewrites them untouched.
@@ -48,6 +51,66 @@ data class BilanSession(val day: LocalDate, val step: BilanStep, val state: Json
             val choice = item["choice"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             id to choice
         }.toMap()
+
+    /** `state.tomorrowTasks`: the tasks Maggie chose for tomorrow, in order. */
+    fun tomorrowTasks(): List<PlannedTask> = plannedList("tomorrowTasks")
+
+    /** `state.tomorrowSpares`: the reserve a swap draws from, in order. */
+    fun tomorrowSpares(): List<PlannedTask> = plannedList("tomorrowSpares")
+
+    /** The tasks left « Demain » at Journée, in the order of `answers.tasks`. */
+    fun leftForTomorrow(): List<String> {
+        val tasks = (state["answers"] as? JsonObject)?.get("tasks") as? JsonArray ?: return emptyList()
+        return tasks.mapNotNull { entry ->
+            val item = entry as? JsonObject ?: return@mapNotNull null
+            val choice = item["choice"]?.jsonPrimitive?.contentOrNull
+            if (choice == "tomorrow") item["taskId"]?.jsonPrimitive?.contentOrNull else null
+        }
+    }
+
+    /**
+     * Swaps [taskId] for the first spare, which takes its place (or is added, when [taskId] was left at Journée);
+     * [taskId] (named [title], for a task of Journée) goes last in the reserve. `null` without a spare. A task left at Journée stays in `answers.tasks`:
+     * [withTaskChoice] moves it.
+     */
+    fun withSwap(taskId: String, title: String = ""): BilanSession? {
+        val spares = tomorrowSpares()
+        val incoming = spares.firstOrNull() ?: return null
+        val tasks = tomorrowTasks()
+        val outgoing = tasks.firstOrNull { it.taskId == taskId }
+            ?: PlannedTask(taskId, title)
+        val newTasks = if (tasks.any { it.taskId == taskId }) {
+            tasks.map { if (it.taskId == taskId) incoming else it }
+        } else {
+            tasks + incoming
+        }
+        val newSpares = spares.drop(1) + outgoing
+        return copy(
+            state = JsonObject(
+                state + ("tomorrowTasks" to plannedJson(newTasks)) + ("tomorrowSpares" to plannedJson(newSpares)),
+            ),
+        )
+    }
+
+    private fun plannedList(key: String): List<PlannedTask> =
+        (state[key] as? JsonArray).orEmpty().mapNotNull { entry ->
+            val item = entry as? JsonObject ?: return@mapNotNull null
+            val id = item["taskId"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val title = item["title"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            PlannedTask(id, title, item["reason"]?.jsonPrimitive?.contentOrNull)
+        }
+
+    private fun plannedJson(list: List<PlannedTask>) = JsonArray(
+        list.map { t ->
+            JsonObject(
+                buildMap {
+                    put("taskId", JsonPrimitive(t.taskId))
+                    put("title", JsonPrimitive(t.title))
+                    t.reason?.let { put("reason", JsonPrimitive(it)) }
+                },
+            )
+        },
+    )
 
     /** The session with [taskId]'s [choice] in `answers.tasks` — `null` removes it; the other answers stay untouched. */
     fun withTaskChoice(taskId: String, choice: String?): BilanSession {
@@ -99,3 +162,11 @@ fun ActivityStatus.toBilanSession(): BilanSession? {
 
 /** Still resumable: started for [today]. */
 fun BilanSession.isOpenOn(today: LocalDate): Boolean = !day.isBefore(today)
+
+/** The state of a bilan Maggie prepared for [today] — a status of the day with no `step` yet — or null. */
+fun ActivityStatus.preparedFor(today: LocalDate): JsonObject? {
+    if (origin.kind != DAY_KIND) return null
+    val day = runCatching { LocalDate.parse(origin.id) }.getOrNull() ?: return null
+    if (day.isBefore(today) || state["step"] != null) return null
+    return state
+}
