@@ -26,6 +26,12 @@ tags:
 # bilan réglée à 00:00), l'Accueil, avant toute réponse, montre la carte « Bilan de la journée » avec « Ouvrir »; le chat
 # porte un seul message du bilan et sa carte (`chat_bilan_card`), dont « Ouvrir » ouvre l'activité.
 #
+# MAG-967, the tomorrow tasks: étant donné un bilan préparé par Maggie (`scripts/bilan-prepared-api.js`: « Trier les
+# papiers » retenue pour demain, « Ranger les photos » en réserve), à « Demain · 5 sur 5 » la carte « Tâches prévues »
+# montre la tâche laissée « Demain » à Journée, puis « Trier les papiers »; je touche ⇄ sur celle-ci et « Ranger les
+# photos » prend sa place; à « Bonne nuit », « Ranger les photos » est programmée demain sans échéance, et « Trier les
+# papiers » n'est pas programmée.
+#
 # What a JVM test cannot see is the real activity in the real window, the deep link and the status
 # held by the API. What is not here: each transition (`BilanActivityViewModelTest`), the phone and tablet
 # layouts (`BilanActivityScreenTest`), the card's rules and the next-morning cut (`BilanHomeCardTest`,
@@ -51,6 +57,13 @@ tags:
 - runScript:
     file: ../scripts/bilan-proaction-api.js
     env:
+      TODAY: ${TODAY}
+      EMAIL: ${output.journeyEmail}
+
+- runScript:
+    file: ../scripts/bilan-prepared-api.js
+    env:
+      ACTION: setup
       TODAY: ${TODAY}
       EMAIL: ${output.journeyEmail}
 
@@ -225,6 +238,20 @@ tags:
 - assertVisible: "Dentiste"
 - assertVisible: ".*D’où partez-vous pour.*"
 
+# « Tâches prévues » (MAG-967): the task left « Demain » at Journée, then the one Maggie chose; ⇄ swaps it for the spare.
+- extendedWaitUntil:
+    visible:
+      id: "bilan_tomorrow_tasks"
+    timeout: 20000
+- assertVisible: "Appeler le garage MAG-752"
+- assertVisible: "Trier les papiers"
+- tapOn:
+    id: "bilan_tomorrow_swap_${output.preparedTaskId}"
+- extendedWaitUntil:
+    visible: "Ranger les photos"
+    timeout: 20000
+- assertNotVisible: "Trier les papiers"
+
 # « De la maison »: Maggie keeps tomorrow's trip, the next question is the mode.
 - tapOn:
     id: "bilan_ask_0"
@@ -261,6 +288,12 @@ tags:
     notVisible:
       id: "bilan_activity"
     timeout: 20000
+- runScript:
+    file: ../scripts/bilan-prepared-api.js
+    env:
+      ACTION: expect
+      TODAY: ${TODAY}
+      EMAIL: ${output.journeyEmail}
 
 # Santé › Journal: the entry of the day carries them.
 - openLink: "maggie-e2e://health/journal"
