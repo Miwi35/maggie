@@ -36,3 +36,23 @@ async def test_another_tool_goes_through():
 
     assert await VerdictToolRouter(router).call_tool("get_envelopes", {}, user_id="u") == "ok"
     router.call_tool.assert_awaited_once()
+
+
+def test_the_value_is_read_and_recorded():
+    from app.proactions.verdict import read_verdict
+
+    verdict = read_verdict(
+        [{"name": "proaction_verdict", "input": {"impact": "low", "evidence": "solid", "topic": "a", "value": " 72 % "}}]
+    )
+
+    assert verdict.value == "72 %"
+    assert verdict.to_record() == {"impact": "low", "evidence": "solid", "value": "72 %"}
+
+
+def test_a_verdict_without_value_records_none():
+    from app.proactions.verdict import read_verdict
+
+    verdict = read_verdict([{"name": "proaction_verdict", "input": {"impact": "low", "evidence": "solid", "topic": "a"}}])
+
+    assert verdict.value is None
+    assert "value" not in verdict.to_record()

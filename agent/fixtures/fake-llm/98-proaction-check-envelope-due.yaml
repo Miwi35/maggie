@@ -16,5 +16,6 @@ turns:
           impact: low
           evidence: solid
           topic: enveloppe-loisirs
+          value: "72 %"
           headline: "Votre enveloppe Loisirs est à 72 %, monsieur."
   - text: "Votre enveloppe Loisirs est à 72 %, monsieur."

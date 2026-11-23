@@ -63,10 +63,12 @@ EXECUTION_PREAMBLE = (
 )
 # A check is triaged on Maggie's verdict (MAG-886): the code chooses the channel, never the words.
 CHECK_VERDICT_RULES = (
-    "\n\nCette consigne vérifie ou surveille : si tu as quelque chose à dire, "
-    f"appelle {VERDICT_TOOL_NAME} avant ton texte final. "
+    "\n\nCette consigne vérifie ou surveille : "
+    f"appelle {VERDICT_TOOL_NAME} avant ton texte final, même si tu n'as rien à dire, "
+    "avec dans value la valeur que tu viens de lire. "
     "Réutilise la clé d'un sujet de la liste ci-dessous s'il s'agit du même ; "
-    "dis dans changed ce qui a changé depuis, avec le fait lu, et laisse-le vide si rien n'a changé."
+    "compare à sa dernière valeur vérifiée et dis dans changed ce qui a changé depuis, "
+    "avec les deux valeurs, et laisse-le vide si rien n'a changé."
 )
 
 
@@ -83,6 +85,20 @@ def signaled_topics_section(signaled_topics: list[dict] | tuple[dict, ...]) -> s
     if not lines:
         return "\nSujets déjà signalés (7 jours) : aucun."
     return "\nSujets déjà signalés (7 jours) :\n" + "\n".join(lines)
+
+
+def checked_values_section(checked_values: list[dict] | tuple[dict, ...]) -> str:
+    """The last value verified per topic these last 40 days, as the model reads them."""
+    lines = []
+    for checked in checked_values:
+        topic = checked.get("topic") if isinstance(checked, dict) else None
+        value = checked.get("value") if isinstance(checked, dict) else None
+        if not topic or not value:
+            continue
+        lines.append(f"- {topic} : {value} ({checked.get('at') or '?'})")
+    if not lines:
+        return "\nDernières valeurs vérifiées (40 jours) : aucune."
+    return "\nDernières valeurs vérifiées (40 jours) :\n" + "\n".join(lines)
 
 
 class LLMGateway:
@@ -107,6 +123,7 @@ class LLMGateway:
         review: Callable[[str, list[dict]], str | None] | None = None,
         kind: str = "reminder",
         signaled_topics: list[dict] | tuple[dict, ...] = (),
+        checked_values: list[dict] | tuple[dict, ...] = (),
     ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
@@ -153,7 +170,10 @@ class LLMGateway:
 
         preamble = trip_run_rules() if trip_run else PLANNING_PREAMBLE if silent else EXECUTION_PREAMBLE
         if check:
-            preamble = f"{preamble}{CHECK_VERDICT_RULES}{signaled_topics_section(signaled_topics)}"
+            preamble = (
+                f"{preamble}{CHECK_VERDICT_RULES}"
+                f"{signaled_topics_section(signaled_topics)}{checked_values_section(checked_values)}"
+            )
 
         system_prompt = await self.system_prompt.build(
             user_id,

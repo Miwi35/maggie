@@ -212,5 +212,6 @@ class FakeProactionApi:
             return {"error": f'Invalid delivery "{delivery}": use interrupt, thread or none.'}
         proaction["delivery"] = delivery if status == "completed" else None
         proaction["topicKey"] = arguments.get("topic_key") if status == "completed" else None
+        proaction["verdict"] = arguments.get("verdict") if status == "completed" else None
         proaction["completedAt"] = self.now.isoformat()
         return {"success": True, "proaction": dict(proaction)}

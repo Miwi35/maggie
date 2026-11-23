@@ -33,6 +33,7 @@ PROACTION_VERDICT_TOOL = {
         "topic : la clé courte du sujet (ex. enveloppe-loisirs) ; reprends celle d'un sujet déjà signalé "
         "s'il s'agit du même. "
         "changed : ce qui a changé depuis le dernier signalement, avec le fait lu ; vide si rien. "
+        "value : la valeur que tu viens de lire, telle quelle et courte (ex. 82 %), s'il y en a une. "
         "deadline : l'échéance, ISO 8601, s'il y en a une. "
         "headline : la phrase de l'interruption, une seule, écrite pour être dite à voix haute, sans Markdown."
     ),
@@ -43,6 +44,7 @@ PROACTION_VERDICT_TOOL = {
             "evidence": {"type": "string", "enum": list(EVIDENCES)},
             "topic": {"type": "string"},
             "changed": {"type": "string"},
+            "value": {"type": "string"},
             "deadline": {"type": "string", "description": "ISO 8601, ex. 2037-01-15T08:30:00+01:00"},
             "headline": {"type": "string"},
         },
@@ -59,6 +61,7 @@ class Verdict:
     changed: str | None = None
     deadline: datetime | None = None
     headline: str | None = None
+    value: str | None = None
 
     def to_record(self) -> dict:
         """What the API keeps of it on the proaction (`record_proaction_result`)."""
@@ -68,6 +71,8 @@ class Verdict:
             record["deadline"] = self.deadline.isoformat(timespec="seconds")
         if self.changed:
             record["changed"] = self.changed
+        if self.value:
+            record["value"] = self.value
         return record
 
 
@@ -139,5 +144,6 @@ def read_verdict(tool_calls: list[dict]) -> Verdict | None:
             changed=_text(arguments.get("changed")),
             deadline=_deadline(arguments.get("deadline")),
             headline=_text(arguments.get("headline")),
+            value=_text(arguments.get("value")),
         )
     return None
