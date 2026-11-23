@@ -26,6 +26,13 @@ def no_last_exchange_lookup():
 
 
 @pytest.fixture(autouse=True)
+def no_retry_delay():
+    """A step the loop retries waits nothing when the provider gives no `retry-after` (MAG-971)."""
+    with patch("app.config.settings.llm_retry_base_seconds", 0.0):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def nobody_is_technical():
     """Keep the account lookup (MAG-732) off the MCP client: unless a test says otherwise, every user is an owner."""
     with (

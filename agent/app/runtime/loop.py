@@ -20,7 +20,14 @@ import anthropic
 from app.config import settings
 from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.prompt_cache import cache_tools
-from app.llm.provider_status import is_context_overflow, note_provider_failure, note_provider_success
+from app.llm.provider_status import (
+    is_context_overflow,
+    note_provider_failure,
+    note_provider_success,
+    retry_delay,
+    retry_reason,
+    retryable,
+)
 from app.llm.tool_blocks import INTERRUPTED_RESULT, for_model, model_turns, record, without_old_results
 from app.llm.tool_failures import FailureStreak, tool_result_status
 from app.llm.web_search import (
@@ -209,6 +216,16 @@ class ModelFailed:
 
 
 @dataclass(frozen=True)
+class ModelRetrying:
+    """The model failed in a way that clears by itself: the step goes again after `delay_s` (MAG-971)."""
+
+    attempt: int
+    attempts: int
+    delay_s: float
+    reason: str
+
+
+@dataclass(frozen=True)
 class TurnEnded:
     outcome: LoopOutcome
 
@@ -225,6 +242,7 @@ LoopEvent = (
     | QuestionAsked
     | SourcesAdded
     | ModelFailed
+    | ModelRetrying
     | TurnEnded
 )
 
@@ -253,6 +271,9 @@ async def _model_step(
     """The one model call of a step: its streamed events, then `_StepResponse`."""
     step_text = ""
     active = await resolve_client() if resolve_client else client
+    if isinstance(active, anthropic.AsyncAnthropic):
+        # The loop retries a step itself, visibly (MAG-971); the other calls keep the SDK's retries.
+        active = active.with_options(max_retries=0)
     if streamed:
         async with active.messages.stream(**request) as stream:
             async for event in stream:
@@ -342,6 +363,7 @@ async def run_loop(
                 **({"output_config": {"effort": options.effort}} if options.effort else {}),
             }
             step_text = ""
+            attempt = 0
             while True:
                 emitted = False
                 try:
@@ -353,6 +375,22 @@ async def run_loop(
                             yield item
                     break
                 except Exception as overflow:
+                    if not emitted and attempt < settings.llm_retries and retryable(overflow):
+                        attempt += 1
+                        delay = retry_delay(overflow, attempt)
+                        reason = retry_reason(overflow)
+                        logger.warning(f"Model call failed ({reason}): retry {attempt}/{settings.llm_retries}")
+                        record_llm_usage(
+                            model=options.model,
+                            call_type=options.call_type,
+                            input_tokens=0,
+                            output_tokens=0,
+                            duration_seconds=time.monotonic() - t0,
+                            status="error",
+                        )
+                        yield ModelRetrying(attempt, settings.llm_retries, delay, reason)
+                        await asyncio.sleep(delay)
+                        continue
                     # The window is full: one retry per turn, the older results replaced by a note. Only when
                     # the step has said nothing yet, so no event is ever emitted twice.
                     if emitted or shrunk or not is_context_overflow(overflow) or not without_old_results(messages):

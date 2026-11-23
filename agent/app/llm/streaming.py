@@ -30,6 +30,7 @@ from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
 from app.runtime.loop import (
     LoopOptions,
     ModelFailed,
+    ModelRetrying,
     QuestionAsked,
     RoundEnded,
     SourcesAdded,
@@ -302,6 +303,12 @@ class StreamingGateway:
                         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": event.text}
                     elif isinstance(event, SourcesAdded):
                         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{event.line}"}
+                    elif isinstance(event, ModelRetrying):
+                        yield {
+                            "type": "CUSTOM",
+                            "name": "retrying",
+                            "value": {"attempt": event.attempt, "attempts": event.attempts, "delaySeconds": event.delay_s},
+                        }
                     elif isinstance(event, ModelFailed):
                         # The phone's chat goes this way: the owner hears of an empty credit from here too (MAG-448).
                         if (reason := provider_reason(event.error)) is not None:

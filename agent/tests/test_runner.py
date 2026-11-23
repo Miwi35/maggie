@@ -179,8 +179,9 @@ class TestRunToolLoop:
         with pytest.raises(anthropic.APIConnectionError):
             await _run(client, tool_router, tools=[{"name": "list_events"}])
 
-        usage.assert_called_once()
-        assert usage.call_args.kwargs["status"] == "error"
+        # Two retries (MAG-971), then the failure itself: each attempt is recorded.
+        assert usage.call_count == 3
+        assert all(call.kwargs["status"] == "error" for call in usage.call_args_list)
         assert usage.call_args.kwargs["input_tokens"] == 0
 
     async def test_tools_none_sends_no_tools(self, client, tool_router, usage):
