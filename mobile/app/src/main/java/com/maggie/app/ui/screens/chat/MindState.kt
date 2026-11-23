@@ -1,7 +1,7 @@
 package com.maggie.app.ui.screens.chat
 
 /** What Maggie is doing right now, read from the AG-UI stream of the turn (MAG-403). */
-enum class AgentState { IDLE, THINKING, ACTING }
+enum class AgentState { IDLE, THINKING, ACTING, RETRYING }
 
 enum class ToolCallStatus {
     RUNNING,

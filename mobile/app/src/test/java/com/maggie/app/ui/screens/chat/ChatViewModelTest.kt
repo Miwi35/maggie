@@ -2882,6 +2882,44 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `a retrying event makes Maggie retry and shows the retrying indicator`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+
+        push(events, AgUiEvent.Retrying(attempt = 1, delaySeconds = 2.0))
+
+        val state = viewModel.uiState.value
+        assertEquals(AgentState.RETRYING, state.agentState)
+        assertEquals(ChatListItem.LoadingIndicator(retrying = true), state.displayItems.last())
+        events.close()
+    }
+
+    @Test
+    fun `the next text after a retry brings Maggie back to thinking`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+        push(events, AgUiEvent.Retrying(attempt = 1, delaySeconds = 2.0))
+
+        push(events, AgUiEvent.TextMessageStart("resp-1"))
+
+        assertEquals(AgentState.THINKING, viewModel.uiState.value.agentState)
+        events.close()
+    }
+
+    @Test
+    fun `the end of the run after a retry leaves Maggie idle`() = runTest {
+        val events = liveRun()
+        push(events, AgUiEvent.RunStarted("run-1"))
+        push(events, AgUiEvent.Retrying(attempt = 1, delaySeconds = 2.0))
+
+        push(events, AgUiEvent.RunFinished("run-1"))
+        events.close()
+        advanceUntilIdle()
+
+        assertEquals(AgentState.IDLE, viewModel.uiState.value.agentState)
+    }
+
+    @Test
     fun `a tool call that starts makes Maggie act and shows as running`() = runTest {
         val events = liveRun()
         push(events, AgUiEvent.RunStarted("run-1"))

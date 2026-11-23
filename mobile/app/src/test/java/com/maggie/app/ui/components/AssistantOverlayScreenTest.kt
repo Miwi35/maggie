@@ -1,13 +1,16 @@
 package com.maggie.app.ui.components
 
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.maggie.app.data.model.AgUiEvent
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.screentest.FakeChat
 import com.maggie.app.screentest.ScreenRule
@@ -20,6 +23,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -90,6 +94,23 @@ class AssistantOverlayScreenTest {
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithTag(UiTags.approvalAllow("ap-1")).fetchSemanticsNodes().isEmpty()
         }
+    }
+
+    @Test
+    fun `the overlay says Maggie retries while the model is retried`() {
+        val reply = MutableSharedFlow<AgUiEvent>(extraBufferCapacity = 16)
+        val chat = FakeChat(history = emptyList(), reply = reply)
+        show(chat, Voice())
+        compose.waitForIdle()
+        compose.runOnIdle { chat.viewModel.sendMessage("Salut") }
+        compose.waitForIdle()
+        compose.onNodeWithText("Maggie réfléchit...").assertIsDisplayed()
+
+        reply.tryEmit(AgUiEvent.Retrying(attempt = 1, delaySeconds = 2.0))
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Maggie réessaie...").assertIsDisplayed()
+        compose.onAllNodesWithText("Maggie réfléchit...").assertCountEquals(0)
     }
 
     @Test

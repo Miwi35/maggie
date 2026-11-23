@@ -20,6 +20,7 @@ import com.maggie.app.screentest.FakeChat
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.chat.ChatScreen
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -168,6 +169,23 @@ class MindTabScreenTest {
         compose.onNodeWithText("En attente de validation").assertIsDisplayed()
         compose.onNodeWithText("delete_event", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Maggie est au repos").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the mind tab says Maggie retries`() {
+        val reply = MutableSharedFlow<AgUiEvent>(extraBufferCapacity = 16)
+        val chat = FakeChat(reply = reply)
+        compose.setContent { ChatPanel(viewModel = chat.viewModel) }
+        compose.onNodeWithTag(UiTags.CHAT_INPUT).performTextInput("Salut")
+        compose.onNodeWithTag(UiTags.CHAT_SEND).performClick()
+        compose.waitForIdle()
+
+        reply.tryEmit(AgUiEvent.RunStarted("run-1"))
+        reply.tryEmit(AgUiEvent.Retrying(attempt = 1, delaySeconds = 2.0))
+        compose.waitForIdle()
+        openMind()
+
+        compose.onNodeWithText("Maggie réessaie…").assertIsDisplayed()
     }
 
     @Test

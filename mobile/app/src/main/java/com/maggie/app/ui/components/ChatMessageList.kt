@@ -228,7 +228,7 @@ fun ChatMessageList(
                     }
                     is ChatListItem.LoadingIndicator -> {
                         Text(
-                            text = "Maggie réfléchit...",
+                            text = if (item.retrying) "Maggie réessaie..." else "Maggie réfléchit...",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(start = 8.dp),

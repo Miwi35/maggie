@@ -215,6 +215,7 @@ private fun MaggieState(state: AgentState) {
         AgentState.IDLE -> "Maggie est au repos" to MaterialTheme.colorScheme.outline
         AgentState.THINKING -> "Maggie réfléchit…" to MaterialTheme.colorScheme.primary
         AgentState.ACTING -> "Maggie agit…" to MaterialTheme.colorScheme.tertiary
+        AgentState.RETRYING -> "Maggie réessaie…" to MaterialTheme.colorScheme.primary
     }
     Row(
         modifier = Modifier

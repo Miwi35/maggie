@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.screens.chat.AgentState
 import com.maggie.app.ui.screens.chat.ChatViewModel
 import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.voice.CropRegion
@@ -183,7 +184,7 @@ fun AssistantOverlay(
                     if (uiState.isLoading) {
                         item {
                             Text(
-                                text = "Maggie réfléchit...",
+                                text = if (uiState.agentState == AgentState.RETRYING) "Maggie réessaie..." else "Maggie réfléchit...",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(start = 8.dp),

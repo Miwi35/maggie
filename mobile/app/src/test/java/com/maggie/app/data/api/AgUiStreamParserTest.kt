@@ -103,6 +103,13 @@ class AgUiStreamParserTest {
     }
 
     @Test
+    fun `parse CUSTOM retrying event`() {
+        val payload = """{"type":"CUSTOM","name":"retrying","value":{"attempt":1,"attempts":2,"delaySeconds":2.0}}"""
+        val event = AgUiStreamParser.parseEvent(payload)
+        assertEquals(AgUiEvent.Retrying(attempt = 1, delaySeconds = 2.0), event)
+    }
+
+    @Test
     fun `parse CUSTOM tool_result event`() {
         val payload = """{"type":"CUSTOM","name":"tool_result","value":{"toolCallId":"tool-1","toolName":"grocery_add","status":"success"}}"""
         val event = AgUiStreamParser.parseEvent(payload)

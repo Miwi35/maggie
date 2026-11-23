@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -95,6 +97,10 @@ object AgUiStreamParser {
                 toolCallId = value.str("toolCallId"),
                 toolName = value.str("toolName"),
                 status = value.str("status"),
+            )
+            "retrying" -> AgUiEvent.Retrying(
+                attempt = value["attempt"]?.jsonPrimitive?.intOrNull ?: 1,
+                delaySeconds = value["delaySeconds"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
             )
             else -> {
                 Log.d(TAG, "Unknown custom event: $name")
