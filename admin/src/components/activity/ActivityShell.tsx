@@ -39,6 +39,13 @@ interface ActivityShellProps {
   progress?: ReactNode
   /** The activity's own buttons, drawn between the progress and Maggie (64 px high, like the shell's). */
   actions?: ReactNode
+  /** Where the ✕ sits in the top bar: `end` (default) after the buttons, `start` before the progress (52 px). */
+  closeAt?: 'start' | 'end'
+  /** Draws the shell's Maggie button (default). An activity with its own « Répondre » leaves it out. */
+  maggieButton?: boolean
+  /** The chat's state when the activity drives it; the shell keeps its own otherwise. */
+  chatOpen?: boolean
+  onChatOpenChange?: (open: boolean) => void
   children: ReactNode
 }
 
@@ -49,11 +56,32 @@ interface ActivityShellProps {
  * tap away. The activity itself is its children. The background is the night with the activity's
  * [color] as a radial halo (MAG-617): no activity draws its own.
  */
-export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail, onQuit, progress, actions, children }: ActivityShellProps) => {
+export const ActivityShell = ({
+  color,
+  name,
+  confirmQuit = false,
+  confirmDetail,
+  onQuit,
+  progress,
+  actions,
+  closeAt = 'end',
+  maggieButton = true,
+  chatOpen: controlledChatOpen,
+  onChatOpenChange,
+  children,
+}: ActivityShellProps) => {
   const [frame, setFrame] = useState<HTMLElement | null>(null)
   const frameRef = useRef<HTMLElement | null>(null)
   const [confirming, setConfirming] = useState(false)
-  const [chatOpen, setChatOpen] = useState(false)
+  const [ownChatOpen, setOwnChatOpen] = useState(false)
+  const chatOpen = controlledChatOpen ?? ownChatOpen
+  const setChatOpen = useCallback(
+    (open: boolean) => {
+      setOwnChatOpen(open)
+      onChatOpenChange?.(open)
+    },
+    [onChatOpenChange],
+  )
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chat')
   const [contexts, setContexts] = useState<ContextState[]>([])
   const [toolCalls, setToolCalls] = useState<ToolCallState[]>([])
@@ -117,6 +145,13 @@ export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail,
     return () => window.removeEventListener('keydown', onKey)
   }, [requestQuit])
 
+  const closeSize = closeAt === 'start' ? 52 : TOUCH_TARGET
+  const closeButton = (
+    <IconButton aria-label={`Quitter ${name}`} onClick={requestQuit} sx={{ width: closeSize, height: closeSize }}>
+      <CloseIcon />
+    </IconButton>
+  )
+
   return (
     <ThemeProvider theme={theme}>
       <Box
@@ -137,19 +172,20 @@ export const ActivityShell = ({ color, name, confirmQuit = false, confirmDetail,
         }}
       >
         <Box component="header" sx={{ display: 'flex', alignItems: 'center', gap: 1, px: { xs: 2, md: 4 }, pt: 2, pb: 1 }}>
+          {closeAt === 'start' && closeButton}
           <Box sx={{ flex: 1, minWidth: 0 }}>{progress}</Box>
           {actions}
-          <IconButton
-            aria-label="Maggie"
-            onClick={() => setChatOpen((open) => !open)}
-            color={chatOpen ? 'primary' : 'default'}
-            sx={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
-          >
-            <AutoAwesomeIcon />
-          </IconButton>
-          <IconButton aria-label={`Quitter ${name}`} onClick={requestQuit} sx={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}>
-            <CloseIcon />
-          </IconButton>
+          {maggieButton && (
+            <IconButton
+              aria-label="Maggie"
+              onClick={() => setChatOpen(!chatOpen)}
+              color={chatOpen ? 'primary' : 'default'}
+              sx={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+            >
+              <AutoAwesomeIcon />
+            </IconButton>
+          )}
+          {closeAt === 'end' && closeButton}
         </Box>
 
         <Box component="main" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>

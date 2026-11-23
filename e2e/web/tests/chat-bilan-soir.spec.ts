@@ -1,6 +1,7 @@
 import { test, expect, parisDay } from '../fixtures/index.js'
 import { assistantText, calledTools, parseAgUiStream, toolResults } from '../helpers/agui.js'
 import { HealthJournalPage } from '../pages/HealthJournalPage.js'
+import { BilanActivityPage } from '../pages/BilanActivityPage.js'
 import { HomePage } from '../pages/HomePage.js'
 
 /**
@@ -136,4 +137,39 @@ test('mood and fatigue given at the Santé step are written in the health journa
   await expect(journal.score('Moral', 7)).toHaveAttribute('aria-checked', 'true')
   await expect(journal.score('Fatigue', 4)).toHaveAttribute('aria-checked', 'true')
   await expect(journal.entry.getByTestId('journal-noted-by')).toContainText('avec Maggie')
+})
+
+/**
+ * The review as a full-screen activity — MAG-961 (Bilan du soir, Admin 1, extends MAG-99).
+ *
+ * Given a review at the Journée step, When I open `/activites/bilan`, go to Santé and quit,
+ * Then the activity resumes where it was left and the status is kept until « Bonne nuit ».
+ */
+test('the evening review runs full screen and resumes where it was left', async ({ page, api }) => {
+  const today = parisDay()
+  const put = await api.put('/api/activity-status/bilan', { data: { origin: { kind: 'day', id: today }, state: { step: 'journee' } } })
+  expect(put.status(), await put.text()).toBeLessThan(300)
+
+  const bilan = new BilanActivityPage(page)
+  await bilan.open()
+  await expect(bilan.heading).toHaveText('Votre journée')
+  await expect(bilan.counter).toHaveText('Étape 1 sur 5')
+
+  await bilan.step('Santé').click()
+  await expect(bilan.heading).toHaveText('Votre santé')
+  await expect
+    .poll(async () => ((await (await api.get('/api/activity-status/bilan')).json()) as { state: { step: string } }).state.step, { intervals: [1000], timeout: 15_000 })
+    .toBe('sante')
+
+  await bilan.quit()
+  await bilan.confirmQuit()
+  expect((await api.get('/api/activity-status/bilan')).status()).toBe(200)
+
+  await bilan.open()
+  await expect(bilan.heading).toHaveText('Votre santé')
+
+  await bilan.step('Demain').click()
+  await bilan.next()
+  await expect(bilan.root).toBeHidden()
+  await expect.poll(async () => (await api.get('/api/activity-status/bilan')).status(), { intervals: [1000], timeout: 15_000 }).toBe(404)
 })

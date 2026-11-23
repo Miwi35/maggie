@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { veilleuseDarkTheme } from '../../theme'
@@ -200,6 +200,39 @@ describe('ActivityShell', () => {
 
     await waitFor(() => expect(screen.queryByText("Quitter l'activité ?")).not.toBeInTheDocument())
     expect(onQuit).not.toHaveBeenCalled()
+  })
+
+  test('the close can sit at the start', () => {
+    installBrowser()
+    renderShell({ closeAt: 'start', progress: <p>Progression</p> })
+
+    const [first] = within(screen.getByRole('banner')).getAllByRole('button')
+    expect(first).toHaveAccessibleName('Quitter Cuisine')
+  })
+
+  test('the Maggie button can be left out', () => {
+    installBrowser()
+    renderShell({ maggieButton: false })
+
+    expect(screen.queryByRole('button', { name: 'Maggie' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Quitter Cuisine' })).toBeInTheDocument()
+  })
+
+  test('the chat can be opened by the activity', () => {
+    installBrowser()
+    const onChatOpenChange = vi.fn()
+    const view = renderShell({ maggieButton: false, chatOpen: false, onChatOpenChange })
+    expect(screen.queryByTestId('chat-panel')).not.toBeInTheDocument()
+
+    view.rerender(
+      <ThemeProvider theme={veilleuseDarkTheme}>
+        <ActivityShell color="#F5B57A" name="Cuisine" onQuit={vi.fn()} maggieButton={false} chatOpen onChatOpenChange={onChatOpenChange}>
+          <p>Contenu</p>
+        </ActivityShell>
+      </ThemeProvider>,
+    )
+
+    expect(screen.getByTestId('chat-panel')).toBeInTheDocument()
   })
 
   test('with confirmQuit, « Quitter » leaves', async () => {

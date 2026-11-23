@@ -360,6 +360,8 @@ web:
     paths:
       - 'agent/fixtures/fake-llm/98-bilan-soir-*.yaml'
       - 'agent/app/skills/bilan-soir.md'
+      - 'admin/src/modules/maggie/bilan/**'
+      - 'e2e/web/pages/BilanActivityPage.ts'
   e2e/web/tests/chat-client-leaves.spec.ts:
     areas: [chat, dashboard]
   e2e/web/tests/chat-double-send.spec.ts:
@@ -507,6 +509,8 @@ web:
       - 'agent/fixtures/fake-llm/06-planning-digest.yaml'
       - 'agent/fixtures/fake-llm/98-proaction-digest-*'
       - 'api/modules/notification/src/Push/**'
+      - 'admin/src/modules/maggie/digest/**'
+      - 'admin/src/modules/maggie/resources.tsx'
   e2e/web/tests/task-settings.spec.ts:
     areas: [settings, calendar]
   e2e/web/tests/task-routines.spec.ts:
