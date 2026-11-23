@@ -17,6 +17,8 @@ export interface DayTask {
   criticality: string
   /** Set when the API sends the rule of a repeating task (MAG-870). */
   rrule?: string | null
+  /** `YYYY-MM-DD`: the day it is planned for (MAG-718). */
+  scheduledDate?: string | null
 }
 
 export interface DaySlot {
@@ -40,13 +42,13 @@ export interface DayPlan {
 
 /**
  * What « Aujourd'hui » lists (MAG-644): the day's slots — the five chosen, whatever their due day — then
- * the reserve tasks due today or before. The reserve holds every open task, so one due later or without
- * a day belongs to « À venir » or « Un jour », not here.
+ * the reserve tasks due or planned today or before (decision of 23 Nov.). The reserve holds every open
+ * task, so one due or planned later, or without a day, belongs to « À venir » or « Un jour », not here.
  */
 export function dayTasks(day: DayPlan, today: string): DayTask[] {
-  const due = (task: DayTask): boolean => task.dueDate != null && task.dueDate.slice(0, 10) <= today
+  const onOrBefore = (date?: string | null): boolean => date != null && date.slice(0, 10) <= today
 
-  return [...day.slots.map((slot) => slot.task), ...day.reserve.filter(due)]
+  return [...day.slots.map((slot) => slot.task), ...day.reserve.filter((task) => onOrBefore(task.dueDate) || onOrBefore(task.scheduledDate))]
 }
 
 /** What is left to do of {@link dayTasks}: the number the menu shows next to « Aujourd'hui ». */

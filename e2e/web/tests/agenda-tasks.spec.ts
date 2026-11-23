@@ -175,11 +175,11 @@ test('« Aujourd\'hui » goes by score, each task with its urgency in words', as
 /**
  * The « Tâches » page sorts every task into one of four views — MAG-408 — each a route and a menu entry (MAG-644).
  *
- * Five tasks of this attempt: a late one, a late critical one, one due in five
- * days, one without a date and a done one. The API sorts each into its view; on
+ * Six tasks of this attempt: a late one, a late critical one, one planned six days ago
+ * without a due day (MAG-985), one due in five days, one without a date and a done one. The API sorts each into its view; on
  * the page « Aujourd'hui » is the day the owner chose (MAG-497), so the late ones
  * wait in its list under « En retard » — the ordinary one « reportée depuis … », the critical one
- * with its own mark — and the three others land in their own view. Ticking the
+ * with its own mark, and so does the one planned on a past day — and the three others land in their own view. Ticking the
  * « À venir » one moves it to « Faites ». The seed and the other journeys add
  * tasks of their own, so the menu's numbers are checked to be there and non-zero, and
  * to follow the view's own total, not to equal one.
@@ -187,12 +187,14 @@ test('« Aujourd\'hui » goes by score, each task with its urgency in words', as
 test('« Tâches » puts a late, an upcoming, an undated and a done task in their own views, and ticking moves it to « Faites »', async ({ page, api }) => {
   const late = perAttempt('Relancer le notaire')
   const critical = perAttempt('Payer la taxe foncière')
+  const putOff = perAttempt('Rappeler la mutuelle')
   const upcoming = perAttempt('Réserver le train')
   const someday = perAttempt('Apprendre le piano')
   const finished = perAttempt('Envoyer les voeux')
 
   await createTask(api, { title: late, dueDate: seedDate(-3) })
   await createTask(api, { title: critical, dueDate: seedDate(-3), criticality: 'critical' })
+  await createTask(api, { title: putOff, scheduledDate: seedDate(-6) })
   await createTask(api, { title: upcoming, dueDate: seedDate(5) })
   await createTask(api, { title: someday })
   const doneId = await createTask(api, { title: finished })
@@ -202,6 +204,7 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   for (const [view, title] of [
     ['today', late],
     ['today', critical],
+    ['today', putOff],
     ['upcoming', upcoming],
     ['someday', someday],
     ['done', finished],
@@ -222,6 +225,9 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   await expect(board.slot(late)).toContainText(/reportée depuis \S+/)
   await expect(board.slot(late)).not.toContainText(/retard/i)
   await expect(board.content.getByRole('list', { name: 'En retard' })).toContainText(late)
+  // Planned six days ago, no due day: under « En retard » too, put off.
+  await expect(board.content.getByRole('list', { name: 'En retard' })).toContainText(putOff)
+  await expect(board.slot(putOff)).toContainText(/reportée depuis \S+/)
   // A critical one keeps its word and its icon instead.
   const criticalBadge = board.slot(critical).getByTestId('urgency-badge')
   await expect(criticalBadge).toHaveText('critique')
@@ -233,10 +239,12 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   await board.select('À venir')
   await expect(board.row(upcoming)).toHaveCount(1)
   await expect(board.row(late)).toHaveCount(0)
+  await expect(board.row(putOff)).toHaveCount(0)
 
   await board.select('Un jour')
   await expect(board.row(someday)).toHaveCount(1)
   await expect(board.row(upcoming)).toHaveCount(0)
+  await expect(board.row(putOff)).toHaveCount(0)
 
   await board.select('Faites')
   await expect(board.row(finished)).toHaveCount(1)
@@ -887,7 +895,7 @@ async function completeTask(api: APIRequestContext, taskId: string): Promise<voi
 /** Creates a task through the API and returns its id. */
 async function createTask(
   api: APIRequestContext,
-  data: { title: string; description?: string; dueDate?: string; criticality?: string; estimatedMinutes?: number; firstStep?: string; parent?: string },
+  data: { title: string; description?: string; dueDate?: string; scheduledDate?: string; criticality?: string; estimatedMinutes?: number; firstStep?: string; parent?: string },
 ): Promise<string> {
   const response = await api.post('/api/tasks', {
     headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },

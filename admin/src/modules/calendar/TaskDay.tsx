@@ -103,7 +103,8 @@ export const DayRing = ({ done, total }: { done: number; total: number }) => {
  * The « Aujourd'hui » view (MAG-497, MAG-644): « Maintenant » — the first slot not done — on top,
  * then every task of the day in the full width, « En retard » apart from « Aujourd'hui ». The five
  * slots are the API's (and the morning's) to choose; the list draws them first, then the reserve tasks
- * due today or before — a later or undated one is in « À venir » or « Un jour ».
+ * due or planned today or before — a later or undated one is in « À venir » or « Un jour ». A task
+ * planned on a past day goes under « En retard ».
  */
 export const TaskDay = ({
   day,
@@ -124,8 +125,12 @@ export const TaskDay = ({
   const dayTasks = useMemo(() => listedOnDay(day, today), [day, today])
 
   const groups = useMemo((): TaskGroup[] => {
-    const late = dayTasks.filter((task) => isLate(task, today))
-    const rest = dayTasks.filter((task) => !isLate(task, today))
+    // Planned on a past day and not done: it comes back as a late one, worded « reportée » (decision of 23 Nov.).
+    const putOff = (task: DayTask): boolean =>
+      task.completedAt == null && task.scheduledDate != null && task.scheduledDate.slice(0, 10) < today
+    const isBehind = (task: DayTask): boolean => isLate(task, today) || putOff(task)
+    const late = dayTasks.filter(isBehind)
+    const rest = dayTasks.filter((task) => !isBehind(task))
 
     return [
       ...(late.length > 0 ? [{ label: 'En retard', tasks: late }] : []),
