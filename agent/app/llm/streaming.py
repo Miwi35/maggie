@@ -307,7 +307,11 @@ class StreamingGateway:
                         yield {
                             "type": "CUSTOM",
                             "name": "retrying",
-                            "value": {"attempt": event.attempt, "attempts": event.attempts, "delaySeconds": event.delay_s},
+                            "value": {
+                                "attempt": event.attempt,
+                                "attempts": event.attempts,
+                                "delaySeconds": event.delay_s,
+                            },
                         }
                     elif isinstance(event, ModelFailed):
                         # The phone's chat goes this way: the owner hears of an empty credit from here too (MAG-448).
