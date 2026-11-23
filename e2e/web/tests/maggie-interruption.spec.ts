@@ -497,7 +497,7 @@ test('the evening review arrives as a message notification, never as a proaction
 /**
  * A check is triaged (MAG-886, extends MAG-99 / MAG-103): Maggie gives her verdict — low,
  * on the topic `enveloppe-loisirs` (`98-proaction-check-envelope-due.yaml`) — and the code
- * leaves her message in the thread, with no notification and no interruption. The same
+ * leaves her message in the thread, announced by a `message` notification (owner, 22 Nov.), never a bubble. The same
  * check again, on a topic told minutes ago with nothing changed, says nothing at all.
  */
 test('a check with a low verdict waits in the thread, and the same check again says nothing', async ({ interruptedUser }) => {
@@ -542,24 +542,34 @@ test('a check with a low verdict waits in the thread, and the same check again s
   }
 
   const said = async () =>
-    ((await (await api.get('/agent/messages?limit=20')).json()) as { role: string; content: string }[]).filter(
+    ((await (await api.get('/agent/messages?limit=20')).json()) as { id: string; role: string; content: string }[]).filter(
       (m) => m.role === 'assistant' && m.content === SAID,
     )
 
-  // Given a check whose verdict is low, when it runs: in the thread, once, and nothing more.
+  // Given a check whose verdict is low, when it runs: in the thread, once, announced by one `message` notification.
   const first = await runCheck(30)
   expect({ delivery: first.delivery, topicKey: first.topicKey }).toEqual({ delivery: 'thread', topicKey: 'enveloppe-loisirs' })
   expect(await said()).toHaveLength(1)
-  const notified = (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100')).filter(
-    (n) => n.type === 'message' && n.body === SAID,
-  )
-  expect(notified).toHaveLength(0)
+  const messageId = (await said())[0].id
+  const notifiedOnce = async () => {
+    await expect
+      .poll(
+        async () =>
+          (await getCollection<StoredNotification>(api, '/api/notifications?itemsPerPage=100')).filter(
+            (n) => n.type === 'message' && n.relatedEntityIri === `/chat?message=${messageId}`,
+          ).length,
+        { message: 'the message notification', timeout: 15_000, intervals: [1_000] },
+      )
+      .toBe(1)
+  }
+  await notifiedOnce()
   await expect(page.getByRole('alertdialog')).toBeHidden()
 
   // When the same check runs again, nothing has changed: nothing is said.
   const second = await runCheck(40)
   expect(second.delivery).toBe('none')
   expect(await said()).toHaveLength(1)
+  await notifiedOnce()
   await expect(page.getByRole('alertdialog')).toBeHidden()
 })
 

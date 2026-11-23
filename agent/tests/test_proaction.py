@@ -569,7 +569,7 @@ class TestProactionTriage:
         assert consumed.proactions.record.await_args.kwargs["delivery"] == "interrupt"
         notify.assert_not_awaited()
 
-    async def test_a_check_with_a_low_verdict_goes_to_the_thread_silently(self):
+    async def test_a_check_with_a_low_verdict_goes_to_the_thread_and_notifies_one_message(self):
         notify = AsyncMock()
         result = {
             "response": "Votre enveloppe Loisirs est à 72 %, monsieur.",
@@ -586,7 +586,8 @@ class TestProactionTriage:
         assert kwargs["topic_key"] == "enveloppe-loisirs"
         assert kwargs["verdict"] == {"impact": "low", "evidence": "solid"}
         assert consumed.publisher.publish.await_args.args[1]["silent"] is True
-        notify.assert_not_awaited()
+        notify.assert_awaited_once()
+        assert notify.await_args.args[1] == "msg-1"
 
     async def test_a_check_on_a_topic_told_yesterday_with_nothing_new_stores_nothing(self):
         result = {
@@ -594,15 +595,18 @@ class TestProactionTriage:
             "tool_calls": [_verdict_call(impact="medium", evidence="solid", topic="enveloppe-loisirs")],
         }
         yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        notify = AsyncMock()
 
-        consumed = await _consume(
-            result,
-            kind="check",
-            signaled_topics=[{"topic": "enveloppe-loisirs", "at": yesterday, "delivery": "thread", "notice": "72 %"}],
-        )
+        with patch("app.queue.proaction_consumer.notify_message", notify):
+            consumed = await _consume(
+                result,
+                kind="check",
+                signaled_topics=[{"topic": "enveloppe-loisirs", "at": yesterday, "delivery": "thread", "notice": "72 %"}],
+            )
 
         consumed.messages.create.assert_not_called()
         consumed.gateway.proaction_context.assert_not_awaited()
+        notify.assert_not_awaited()
         kwargs = consumed.proactions.record.await_args.kwargs
         assert (kwargs["delivery"], kwargs["topic_key"]) == ("none", "enveloppe-loisirs")
         assert "message_link" not in kwargs

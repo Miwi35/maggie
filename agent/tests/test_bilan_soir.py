@@ -93,7 +93,7 @@ class TestTheReviewMessage:
 
         await proaction_consumer.execute_proaction(gateway, proaction())
 
-        proaction_consumer.notify_message.assert_awaited_once_with(USER, "m", "On fait le point ?", has_audio=False)
+        proaction_consumer.notify_message.assert_awaited_once_with(USER, "m", "On fait le point ?", has_audio=False, screen=None)
 
     async def test_another_proaction_carries_no_bilan_block(self, run):
         gateway, create = run
