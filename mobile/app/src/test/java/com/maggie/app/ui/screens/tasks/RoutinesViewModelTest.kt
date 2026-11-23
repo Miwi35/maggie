@@ -306,6 +306,7 @@ class RoutinesViewModelTest {
     fun `a routine not due today is ticked for today`() = runTest {
         val notDue = bins.copy(dueToday = false)
         coEvery { repository.getRoutines() } returns Result.success(listOf(water, notDue))
+        coEvery { repository.setChecked(notDue.id, any(), true) } returns Result.success(notDue.copy(checkedToday = true))
         val viewModel = loaded()
         advanceUntilIdle()
 
