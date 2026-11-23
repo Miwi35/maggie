@@ -16,10 +16,12 @@ interface MomentCardProps {
   ariaLabel?: string
   /** The message the card belongs to, for tests and the e2e locator. */
   messageId?: string
+  /** Router state handed to the destination (where « Quitter » goes back to). */
+  state?: unknown
 }
 
 /** The card under a moment message of the chat (digest, bilan): a disc, a title, its moment and the « Ouvrir » pill. */
-export const MomentCard = ({ icon, title, moment, to, openLabel, ariaLabel, messageId }: MomentCardProps) => (
+export const MomentCard = ({ icon, title, moment, to, openLabel, ariaLabel, messageId, state }: MomentCardProps) => (
   <Box
     data-testid="moment-card"
     data-message-id={messageId}
@@ -60,6 +62,7 @@ export const MomentCard = ({ icon, title, moment, to, openLabel, ariaLabel, mess
     <Link
       component={RouterLink}
       to={to}
+      state={state}
       aria-label={ariaLabel}
       underline="none"
       sx={(theme) => ({

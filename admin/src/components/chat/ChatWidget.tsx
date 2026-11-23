@@ -52,6 +52,8 @@ import type { FeedbackRating } from './MessageFeedback'
 import { ThreadsDialog } from './ThreadsDialog'
 import { VoiceOrb } from './VoiceOrb'
 import { MomentCard } from './MomentCard'
+import { BilanMomentCard } from './BilanMomentCard'
+import { bilanBlockOf } from '../../modules/maggie/bilan/bilanBlock'
 import { digestBlockOf, digestMoment } from '../../modules/maggie/digest/digestApi'
 import type { DigestMessage } from '../../modules/maggie/digest/digestApi'
 import { NARROW_QUERY } from '../../breakpoints'
@@ -1507,6 +1509,10 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                                   ariaLabel="Ouvrir le digest du matin"
                                 />
                               ) : null
+                            })()}
+                            {(() => {
+                              const block = bilanBlockOf(msg)
+                              return block ? <BilanMomentCard messageId={msg.id} day={block.day} /> : null
                             })()}
                           </>
                           )}

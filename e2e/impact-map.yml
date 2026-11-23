@@ -416,6 +416,8 @@ web:
       - 'agent/app/skills/bilan-soir.md'
       - 'admin/src/modules/maggie/bilan/**'
       - 'e2e/web/pages/BilanActivityPage.ts'
+      - 'e2e/web/helpers/bilan.ts'
+      - 'admin/src/components/chat/**'
   e2e/web/tests/chat-client-leaves.spec.ts:
     areas: [chat, dashboard]
   e2e/web/tests/chat-double-send.spec.ts:

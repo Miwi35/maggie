@@ -41,4 +41,17 @@ describe('MomentCard', () => {
     renderCard(theme)
     expect(screen.getByTestId('moment-card')).toBeInTheDocument()
   })
+
+  test('the moon card draws its tinted disc', () => {
+    render(
+      <MemoryRouter>
+        <ThemeProvider theme={veilleuseDarkTheme}>
+          <MomentCard icon="moon" title="Bilan de la journée" moment="lun. 26 oct. · 5 étapes" to="/activites/bilan" openLabel="Ouvrir" />
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('moment-card')).toHaveTextContent('Bilan de la journée')
+    expect(screen.getByTestId('BedtimeOutlinedIcon')).toBeInTheDocument()
+    expect(screen.queryByTestId('PlayArrowIcon')).not.toBeInTheDocument()
+  })
 })
