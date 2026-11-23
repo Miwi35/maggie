@@ -9,7 +9,7 @@ const renderCard = (theme = veilleuseLightTheme) =>
   render(
     <MemoryRouter>
       <ThemeProvider theme={theme}>
-        <MomentCard icon="play" title="Digest du matin" moment="mar. 27 oct. · 1:12" to="/digest?message=m-1" openLabel="Ouvrir" ariaLabel="Ouvrir le digest du matin" />
+        <MomentCard icon="play" title="Digest du matin" moment="mar. 27 oct. · 1:12" to="/digest?message=m-1" openLabel="Ouvrir" ariaLabel="Ouvrir le digest du matin" messageId="m-1" />
       </ThemeProvider>
     </MemoryRouter>,
   )
@@ -25,6 +25,13 @@ describe('MomentCard', () => {
   test('Ouvrir goes to its link', () => {
     renderCard()
     expect(screen.getByRole('link', { name: 'Ouvrir le digest du matin' })).toHaveAttribute('href', '/digest?message=m-1')
+  })
+
+  test("carries its message's handle and sits at the start, 88 % wide", () => {
+    renderCard()
+    const card = screen.getByTestId('moment-card')
+    expect(card).toHaveAttribute('data-message-id', 'm-1')
+    expect(card).toHaveStyle({ width: '88%', alignSelf: 'flex-start' })
   })
 
   test.each([
