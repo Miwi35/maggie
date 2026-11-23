@@ -1,6 +1,7 @@
 import Badge from '@mui/material/Badge'
 import ButtonBase from '@mui/material/ButtonBase'
 import { alpha } from '@mui/material/styles'
+import { TOKENS } from '../../design/tokens'
 import { MaggieAvatar } from './MaggieAvatar'
 
 export const PORTRAIT_SIZE = 64
@@ -17,7 +18,8 @@ interface MaggiePortraitProps {
  * Maggie, folded away: her face, 64 px, bottom right. The admin opens with this
  * and nothing else of her; a click brings the conversation and the portrait goes
  * away — closing the chat (✕) brings it back (MAG-624, mockups `Admin-Cible` /
- * `Chat-Tablette`). The layout only renders it while the chat is closed.
+ * `Chat-Tablette`). The badge is the charter's accent with a dark digit and a ring
+ * of the background colour (mockup `Portrait-Pastille-Tablette`, MAG-966). The layout only renders it while the chat is closed.
  */
 export const MaggiePortrait = ({ unread, count = 0, onClick }: MaggiePortraitProps) => (
   <ButtonBase
@@ -40,9 +42,24 @@ export const MaggiePortrait = ({ unread, count = 0, onClick }: MaggiePortraitPro
       variant={count > 0 ? 'standard' : 'dot'}
       badgeContent={count > 0 ? count : undefined}
       max={99}
-      color="error"
       invisible={!unread}
-      sx={{ '& .MuiBadge-badge': { top: 6, right: 6 } }}>
+      sx={(theme) => ({
+        '& .MuiBadge-badge': {
+          top: 2,
+          right: 2,
+          minWidth: 24,
+          height: 24,
+          padding: '0 7px',
+          borderRadius: 999,
+          backgroundColor: TOKENS.brand.primary,
+          color: TOKENS.brand.onPrimary,
+          fontSize: 13,
+          fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          boxShadow: `0 0 0 3px ${theme.palette.background.default}`,
+        },
+        '& .MuiBadge-dot': { minWidth: 12, height: 12, padding: 0 },
+      })}>
       <MaggieAvatar size={PORTRAIT_SIZE} />
     </Badge>
   </ButtonBase>

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ThemeProvider } from '@mui/material/styles'
-import { veilleuseDarkTheme } from '../../theme'
+import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
 import { MaggiePortrait, PORTRAIT_MARGIN, PORTRAIT_SIZE } from './MaggiePortrait'
 
 const renderPortrait = (unread = false) => {
@@ -51,5 +51,48 @@ describe('MaggiePortrait', () => {
       </ThemeProvider>,
     )
     expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  const badgeOf = (container: HTMLElement) => container.querySelector('.MuiBadge-badge') as HTMLElement
+
+  it('the badge wears the accent with a dark digit', () => {
+    const { container } = render(
+      <ThemeProvider theme={veilleuseDarkTheme}>
+        <MaggiePortrait unread count={2} onClick={vi.fn()} />
+      </ThemeProvider>,
+    )
+    const style = getComputedStyle(badgeOf(container))
+    expect(style.backgroundColor).toBe('rgb(166, 139, 255)')
+    expect(style.color).toBe('rgb(15, 14, 23)')
+  })
+
+  it('more than 99 reads 99+', () => {
+    render(
+      <ThemeProvider theme={veilleuseDarkTheme}>
+        <MaggiePortrait unread count={120} onClick={vi.fn()} />
+      </ThemeProvider>,
+    )
+    expect(screen.getByText('99+')).toBeInTheDocument()
+  })
+
+  it('the dot is violet too', () => {
+    const { container } = renderPortrait(true)
+    const dot = container.querySelector('.MuiBadge-dot') as HTMLElement
+    expect(getComputedStyle(dot).backgroundColor).toBe('rgb(166, 139, 255)')
+  })
+
+  it.each([
+    ['dark', veilleuseDarkTheme],
+    ['light', veilleuseLightTheme],
+  ])('keeps the same colours in %s and a ring of the background', (_mode, theme) => {
+    const { container } = render(
+      <ThemeProvider theme={theme}>
+        <MaggiePortrait unread count={2} onClick={vi.fn()} />
+      </ThemeProvider>,
+    )
+    const style = getComputedStyle(badgeOf(container))
+    expect(style.backgroundColor).toBe('rgb(166, 139, 255)')
+    expect(style.color).toBe('rgb(15, 14, 23)')
+    expect(style.boxShadow).toContain(theme.palette.background.default.replace(/\s/g, ''))
   })
 })
