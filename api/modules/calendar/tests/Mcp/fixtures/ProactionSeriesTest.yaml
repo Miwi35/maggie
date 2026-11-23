@@ -26,6 +26,7 @@ Maggie\Calendar\Entity\Proaction:
     startAt: '<(new \DateTimeImmutable("2037-01-09T18:00:00+01:00"))>'
     rrule: 'FREQ=WEEKLY;BYDAY=FR'
     agenda: '@maggie_agenda'
+    origin: { kind: owner_message, ref: 01JM0000000000000000000009 }
   other_series:
     prompt: Série d'un autre
     summary: Autre
