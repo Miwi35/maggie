@@ -43,7 +43,7 @@ test('« Plus tard » closes the interruption and leaves the notification in the
   const { page, api, session } = shortageUser
   const bell = new NotificationBell(page)
   const dashboard = new HomePage(page)
-  await openSubscribed(page, () => dashboard.goto('/'), `/proactions/${session.user.id}`)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 
   const stored = await shortage(api)
@@ -69,7 +69,7 @@ test('« Ajouter à la liste » puts the parmesan on the list, and the notificat
   const { page, api, session } = shortageUser
   const bell = new NotificationBell(page)
   const dashboard = new HomePage(page)
-  await openSubscribed(page, () => dashboard.goto('/'), `/proactions/${session.user.id}`)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 
   const stored = await shortage(api)

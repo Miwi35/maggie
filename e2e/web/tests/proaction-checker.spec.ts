@@ -38,19 +38,7 @@ test('a proaction write no instruction covers waits for « Autoriser / Refuser �
 
   await runDueProaction(interruptedUser.api)
 
-  // Another journey of this account may have an interruption up first: put it off.
   const interruption = page.getByRole('alertdialog')
-  await expect
-    .poll(
-      async () => {
-        const text = (await interruption.textContent({ timeout: 1_000 }).catch(() => null)) ?? ''
-        if (text !== '' && !text.includes('Lait')) await interruption.getByRole('button', { name: 'Plus tard' }).click({ timeout: 2_000 }).catch(() => {})
-
-        return text.includes('Lait')
-      },
-      { timeout: 20_000 },
-    )
-    .toBe(true)
   await expect(interruption).toContainText('Lait', { timeout: 20_000 })
   await expect(interruption).toContainText("Ajouter « Lait » à la liste de courses ? Je n'ai pas retrouvé votre demande.")
   expect(JSON.stringify(await callMcpTool(api, 'get_grocery_list', {}))).not.toContain('Lait')

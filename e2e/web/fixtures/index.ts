@@ -322,11 +322,27 @@ export interface MaggieFixtures {
  * fatal for the Mercure stream, which never ends — every real-time assertion
  * in the suite went silent the first time this was written the easy way.
  */
+const UNREAD_AT_LOAD = /\/api\/notifications\?exists\[readAt\]=false&order\[createdAt\]=asc&itemsPerPage=30/
+const unreadAtLoadAllowed = new WeakSet<BrowserContext>()
+
+/** Lets the admin read the real unread notifications when it loads — the journey of MAG-956. */
+export function allowUnreadAtLoad(page: Page): void {
+  unreadAtLoadAllowed.add(page.context())
+}
+
 async function isolateFromInternet(context: BrowserContext, baseURL: string, journey: string): Promise<void> {
   const host = new URL(baseURL).host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const external = new RegExp(`^https?://(?!${host}(?:[/?#]|$))`)
 
   await context.route(external, (route) => route.abort())
+  // The admin reads the unread notifications when it loads (MAG-956). On the accounts the
+  // journeys share, what other journeys left unread would pop over every one of them, so the
+  // read is answered empty unless the journey asks for it with `allowUnreadAtLoad`.
+  await context.route(UNREAD_AT_LOAD, (route) =>
+    unreadAtLoadAllowed.has(context)
+      ? route.fallback()
+      : route.fulfill({ contentType: 'application/ld+json', body: JSON.stringify({ member: [] }) }),
+  )
   await pinClock(context)
   // The journey identity, on every request the context's pages make: the
   // admin's `fetch` to the API and to the agent, and the Mercure EventSource —

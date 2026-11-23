@@ -1,4 +1,4 @@
-import { test, expect, e2eNow, seedDate } from '../fixtures/index.js'
+import { test, expect, e2eNow, seedDate, allowUnreadAtLoad } from '../fixtures/index.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
@@ -221,6 +221,7 @@ test('an interruption left unread while the admin was closed pops when it opens'
     .poll(async () => (await getCollection<{ title: string }>(api, '/api/notifications?exists[readAt]=false')).some((n) => n.title === title))
     .toBe(true)
 
+  allowUnreadAtLoad(page)
   await new HomePage(page).goto('/')
 
   await expect(page.getByRole('alertdialog')).toContainText(title)
