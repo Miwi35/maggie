@@ -41,6 +41,10 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 // deletes one through `/api/events/{id}`; Maggie reads them through the MCP
 // tools.
 //
+// Its origin is the owner's words it was asked in (MAG-977, part D): set by the
+// agent's code at creation, read only by the MCP tools — never the REST API, the
+// index or Mercure.
+//
 // Comments and not a docblock: see Meal.
 #[ORM\Entity(repositoryClass: ProactionRepository::class)]
 #[ORM\Index(columns: ['execution_status'], name: 'idx_proaction_execution_status')]
@@ -62,6 +66,10 @@ class Proaction extends Event implements MercurePublishable
     public const DISPLAY_MINUTES = 5;
 
     public const RRULE_LENGTH = 500;
+
+    /** What a proaction was asked in: a message of the owner, or one of his instructions. */
+    public const ORIGIN_KINDS = ['owner_message', 'instruction'];
+    public const ORIGIN_REF_LENGTH = 64;
 
     /** How long the label read in the agenda may be. */
     private const SUMMARY_LENGTH = 60;
@@ -112,6 +120,11 @@ class Proaction extends Event implements MercurePublishable
     ])]
     #[ApiProperty(writable: false)]
     private ?array $verdict = null;
+
+    /** @var array{kind: string, ref: string}|null */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    #[Ignore]
+    private ?array $origin = null;
 
     // The sentence of the interruption, and the message it opens.
     #[ORM\Column(type: Types::TEXT, nullable: true)]
@@ -190,6 +203,20 @@ class Proaction extends Event implements MercurePublishable
         if ($this->isAllDay()) {
             $context->buildViolation('A proaction runs at an instant: it cannot be an all-day event.')->atPath('allDay')->addViolation();
         }
+        if (null !== $this->origin && !self::isOrigin($this->origin)) {
+            $context->buildViolation(sprintf('origin is {kind: %s, ref}: given %s', implode('|', self::ORIGIN_KINDS), json_encode($this->origin, JSON_UNESCAPED_UNICODE)))->atPath('origin')->addViolation();
+        }
+    }
+
+    /** @param array<mixed> $origin */
+    private static function isOrigin(array $origin): bool
+    {
+        $keys = array_keys($origin);
+        sort($keys);
+
+        return ['kind', 'ref'] === $keys
+            && in_array($origin['kind'], self::ORIGIN_KINDS, true)
+            && is_string($origin['ref']) && '' !== trim($origin['ref']) && mb_strlen($origin['ref']) <= self::ORIGIN_REF_LENGTH;
     }
 
     private function validateSeriesRule(ExecutionContextInterface $context, string $rrule): void
@@ -297,6 +324,20 @@ class Proaction extends Event implements MercurePublishable
     public function getVerdict(): ?array
     {
         return $this->verdict;
+    }
+
+    /** @return array{kind: string, ref: string}|null */
+    public function getOrigin(): ?array
+    {
+        return $this->origin;
+    }
+
+    /** @param array<mixed>|null $origin */
+    public function setOrigin(?array $origin): static
+    {
+        $this->origin = $origin;
+
+        return $this;
     }
 
     public function getNotice(): ?string

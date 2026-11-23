@@ -95,7 +95,8 @@ class Proactions
         return $at;
     }
 
-    public function schedule(User $user, string $prompt, \DateTimeImmutable $at, ?string $summary = null, ProactionKind $kind = ProactionKind::Reminder, ?string $rrule = null): Proaction
+    /** @param array<mixed>|null $origin */
+    public function schedule(User $user, string $prompt, \DateTimeImmutable $at, ?string $summary = null, ProactionKind $kind = ProactionKind::Reminder, ?string $rrule = null, ?array $origin = null): Proaction
     {
         if ('' === trim($prompt)) {
             throw new \DomainException('prompt is required: what Maggie does when the proaction runs.');
@@ -104,8 +105,8 @@ class Proactions
         $label = Proaction::summaryOf(null !== $summary && '' !== trim($summary) ? $summary : $prompt);
 
         // A planning run again the same day (a restart, the manual trigger) asks for the
-        // same one again: the same prompt or the same summary at the same instant gets
-        // the one already there, not a second (MAG-327, 23 Nov.).
+        // same prompt or the same summary at the same instant gets the one already
+        // there, not a second (MAG-327, 23 Nov.) — with its own origin, untouched.
         $twin = $this->repository->findPendingTwin($user, $at, trim($prompt), $rrule, $label);
         if (null !== $twin) {
             return $twin;
@@ -121,6 +122,7 @@ class Proactions
         $proaction->setTimeZone($agenda->getTimeZone());
         $proaction->scheduleAt($at);
         $proaction->setRrule($rrule);
+        $proaction->setOrigin($origin);
         $agenda->addEvent($proaction);
 
         $violations = $this->validator->validate($proaction);
@@ -215,6 +217,8 @@ class Proactions
         $instance = new Proaction();
         $instance->setPrompt($series->getPrompt());
         $instance->setKind($series->getKind());
+        // A pass of a series was asked in the same words as the series (MAG-977).
+        $instance->setOrigin($series->getOrigin());
         $instance->setSummary($series->getSummary());
         $instance->setTimeZone($series->getTimeZone());
         $instance->scheduleAt($occurrence);
@@ -425,6 +429,7 @@ class Proactions
             'rrule' => $proaction->getRrule(),
             'seriesId' => null !== $proaction->getRecurringEvent() ? (string) $proaction->getRecurringEvent()->getId() : null,
             'occurrence' => $proaction->getOriginalStartAt()?->setTimezone(new \DateTimeZone($proaction->getTimeZone()))->format('c'),
+            'origin' => $proaction->getOrigin(),
             'userId' => (string) $proaction->getAgenda()->getUser()->getId(),
         ];
     }

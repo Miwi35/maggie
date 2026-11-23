@@ -1,0 +1,19 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: proaction-origin@example.com
+    googleId: google-proaction-origin
+    name: Origin User
+
+Maggie\Calendar\Entity\Agenda:
+  maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Proaction:
+  due_with_origin:
+    prompt: Ajoute du lait à la liste de courses
+    summary: Lait
+    startAt: '<(new \DateTimeImmutable("-5 minutes"))>'
+    agenda: '@maggie_agenda'
+    origin: { kind: owner_message, ref: 01JM0000000000000000000001 }

@@ -155,6 +155,26 @@ class ProactionEventApiTest extends WebTestCase
         $this->assertElasticsearchIndexDispatched(Proaction::class);
     }
 
+    /** The origin is read by Maggie's tools alone (MAG-977): no screen shows it, none writes it. */
+    public function testTheAgendaNeitherShowsNorWritesTheOrigin(): void
+    {
+        $origin = ['kind' => 'owner_message', 'ref' => '01JM0000000000000000000001'];
+
+        $this->client->request('GET', '/api/proactions/'.$this->getFixture('proaction')->getId(), [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey('origin', $body);
+        self::assertSame('Rappelle de déposer Tom à l\'école', $body['prompt']);
+
+        $this->patch(['startAt' => '2037-01-15T09:15:00+01:00', 'origin' => ['kind' => 'instruction', 'ref' => 'forged']]);
+
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('origin', json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR));
+        $proaction = $this->reload();
+        self::assertEquals(new \DateTimeImmutable('2037-01-15T09:15:00+01:00'), $proaction->getStartAt());
+        self::assertSame($origin, $proaction->getOrigin());
+    }
+
     public function testAProactionCannotBeMovedOutOfTheMaggieAgenda(): void
     {
         $this->patch(['agenda' => '/api/agendas/'.$this->getFixture('perso')->getId()]);

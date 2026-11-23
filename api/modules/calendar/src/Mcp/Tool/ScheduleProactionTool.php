@@ -11,6 +11,7 @@ use Maggie\Calendar\Service\Proactions;
 use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
@@ -25,8 +26,17 @@ class ScheduleProactionTool
     ) {
     }
 
-    public function __invoke(string $prompt, string $scheduled_at, ?string $summary = null, ?string $kind = null, ?string $rrule = null): string
-    {
+    /** @param array<mixed>|null $origin */
+    public function __invoke(
+        string $prompt,
+        string $scheduled_at,
+        ?string $summary = null,
+        ?string $kind = null,
+        ?string $rrule = null,
+        // The tool's description does not name it: the model never learns it (MAG-977).
+        #[Schema(type: 'object', properties: ['kind' => ['type' => 'string', 'enum' => Proaction::ORIGIN_KINDS], 'ref' => ['type' => 'string', 'maxLength' => Proaction::ORIGIN_REF_LENGTH]], required: ['kind', 'ref'], description: 'Set by the agent code from the owner message, never by the model.')]
+        ?array $origin = null,
+    ): string {
         try {
             $user = $this->userContext->requireUser();
             $envelope = $this->bus->dispatch(new ScheduleProactionCommand(
@@ -36,6 +46,7 @@ class ScheduleProactionTool
                 summary: $summary,
                 kind: ProactionKind::fromInput($kind),
                 rrule: null !== $rrule && '' !== trim($rrule) ? trim($rrule) : null,
+                origin: $origin,
             ));
         } catch (MissingMcpUserException|\DomainException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
