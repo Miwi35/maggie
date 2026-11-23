@@ -97,6 +97,13 @@ message); `97-corrected-action-done.yaml` matches the note the agent appends to 
 whose replaced turn had already acted — on `user_matches`, since `history_contains` leaves the message
 being answered out.
 
+**Overloaded answers.** `overloaded_times: 1` and `overloaded_retry_after_s: 2` at the top level make
+the first call for a question answer a 529 `overloaded_error` with `retry-after: 2`, then answer the
+scenario's text (MAG-971): the loop retries by itself and the chat says « Maggie réessaie... ». Counted
+per question (scenario, message and history), so a second question starts over. Default `0` (never);
+a negative or non-integer value is refused at load. In a stream the error comes when the `async with`
+is entered, as with the real SDK.
+
 ## Beyond chat
 
 Six calls in the agent are not a conversation, and each has its scenario here
@@ -211,6 +218,7 @@ and no `to`, whatever its date.
 `97-health-food-intake.yaml` (MAG-748): « J'ai mangé une salade César à midi » — `manage_food_intakes` create, today at 12:00, 450 kcal and her macros, estimated.
 `97-health-fasting-protocol.yaml` (MAG-770): « Je passe au 18:6 à partir de 13 h » — `update_health_profile` with `fastingProtocol: 18:6` and `fastingWindowStart: 13:00`.
 `97-health-fasting-stop.yaml` (MAG-770): « Arrête le jeûne » — `update_health_profile` with `fastingProtocol: none`.
+`97-model-overloaded-once.yaml` (MAG-971): « Test de surcharge du modèle (réf X) » — a 529 with `retry-after: 2`, then « C'est reparti, monsieur. Je vous écoute. (réf X) ».
 
 The transcript cleanup pairs with the WireMock Whisper stub: that stub returns
 one fixed sentence, and `20-transcription-cleanup.yaml` returns it cleaned. Change
