@@ -384,4 +384,19 @@ describe('Home layout (MAG-625)', () => {
     expect(within(grid).getAllByTestId(/^card-/).map((node) => node.dataset.testid)).toEqual(['card-grocery', 'card-finance'])
     expect(left).not.toBe(grid)
   })
+
+  test('the digest tile heads the page and an empty one leaves no gap', async () => {
+    const Tile = ({ day }: { day: HomeDay }) => {
+      useReportHomeCard('digest', day === 'today' ? 'filled' : 'empty')
+
+      return day === 'today' ? <p data-testid="card-digest">tile</p> : null
+    }
+    renderHome('/', { card: [placed('tasks', 'left')], launch: [{ key: 'digest' }] }, { digest: Tile, tasks: fakeCard('tasks') })
+    const tile = await screen.findByTestId('card-digest')
+    const tasks = screen.getByTestId('card-tasks')
+    expect(tile.compareDocumentPosition(tasks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Demain' }))
+    expect(screen.queryByTestId('card-digest')).not.toBeInTheDocument()
+    expect(screen.queryByText("Rien de prévu aujourd'hui.")).not.toBeInTheDocument()
+  })
 })

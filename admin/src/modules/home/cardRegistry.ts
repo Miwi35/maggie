@@ -5,6 +5,7 @@ import { TasksCard } from './cards/TasksCard'
 import { CuisineHomeCard } from '../cookbook/CuisineHomeCard'
 import { HealthCard } from './cards/HealthCard'
 import { AgendaCard } from './cards/AgendaCard'
+import { DigestTile } from './cards/DigestTile'
 import type { HomeDay } from './homeDay'
 
 /** Which component draws the card of a key; the order and what is shown live in `home.config.ts`. */
@@ -17,4 +18,5 @@ export const cardRegistry: CardRegistry = {
   cuisine: CuisineHomeCard,
   health: HealthCard,
   finance: FinanceHomeCard,
+  digest: DigestTile,
 }
