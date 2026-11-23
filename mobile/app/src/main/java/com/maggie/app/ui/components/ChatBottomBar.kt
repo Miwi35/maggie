@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 
 /**
  * The band under the content, as `charte/Tel-Cible` draws it (MAG-624): the field that opens the
@@ -126,17 +127,23 @@ fun ChatRailActions(
     ChatMicButton(onMicClick)
 }
 
-/** « 3 »: Maggie's messages waiting to be read; 99 and more read « 99+ ». */
+/** « 99+ » above 99, the count otherwise: the bar's badge and the portrait's. */
+internal fun unreadLabel(count: Int): String = if (count > 99) "99+" else count.toString()
+
+/**
+ * « 3 »: Maggie's messages waiting to be read. Maggie's badge wears the charter's violet everywhere,
+ * never a module's hue nor the light theme's accent (mock-up Portrait-Pastille-Tablette, 22 Nov.).
+ */
 @Composable
 internal fun UnreadBadge(count: Int) {
     Badge(
         modifier = Modifier
             .testTag(UiTags.CHAT_UNREAD_BADGE)
             .semantics { contentDescription = "$count messages non lus" },
-        containerColor = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
+        containerColor = MaggieTokens.Brand.primary,
+        contentColor = MaggieTokens.Brand.onPrimary,
     ) {
-        Text(if (count > 99) "99+" else count.toString())
+        Text(unreadLabel(count))
     }
 }
 

@@ -61,6 +61,14 @@ class ChatBottomBarScreenTest {
         compose.onNodeWithText("3", useUnmergedTree = true).assertIsDisplayed()
     }
 
+    // The badge's colour (Brand.primary, never a module's hue) is read in review: a pixel capture is
+    // not reliable under Robolectric. The label rule shared with the portrait is tested here.
+    @Test
+    fun `the label reads 99+ above 99 (MAG-965)`() {
+        assertEquals("99", unreadLabel(99))
+        assertEquals("99+", unreadLabel(100))
+    }
+
     @Test
     fun `no badge when everything is read (MAG-687)`() {
         compose.setContent { ChatBottomBar(unreadCount = 0, onOpenChat = {}) }
