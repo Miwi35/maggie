@@ -1,23 +1,11 @@
-import logging
-import time
 from collections.abc import Callable
 
-import anthropic
-
-from app.config import settings
-from app.llm.claim_guard import ClaimGuard, Verdict
-from app.llm.prompt_cache import cache_tools
-from app.llm.provider_status import note_provider_failure, note_provider_success
 from app.llm.questions import asked_question, blocks_of
-from app.llm.tool_blocks import record
-from app.llm.tool_failures import FailureStreak
-from app.llm.web_search import PAUSE_TURN, answer_text, with_sources
-from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
+from app.runtime.loop import ITERATION_LIMIT_MESSAGE, LoopOptions, TurnEnded, run_loop
 
-logger = logging.getLogger(__name__)
+__all__ = ["DEFAULT_MAX_ITERATIONS", "ITERATION_LIMIT_MESSAGE", "run_tool_loop"]
 
 DEFAULT_MAX_ITERATIONS = 5
-ITERATION_LIMIT_MESSAGE = "Je me suis perdue en route, je n'ai rien enregistré. Vous me redonnez le point de départ ?"
 
 
 async def run_tool_loop(
@@ -62,106 +50,22 @@ async def run_tool_loop(
     message it writes, and the next turn of the thread is sent them back — so a result
     Maggie has already read is not fetched a second time.
     """
-    tool_calls_made: list[dict] = []
-    blocks: list[dict] = []
-    usage = {"input_tokens": 0, "output_tokens": 0}
-    cached_tools = cache_tools(tools)
-    guard = ClaimGuard(tools)
-    reviewed = False
-    streak = FailureStreak()
-    stop_tools = False
-
-    for iteration in range(max_iterations):
-        logger.info(f"Calling Claude with {len(tools or [])} tools, {len(messages)} messages")
-
-        t0 = time.monotonic()
-        try:
-            response = await client.messages.create(
-                model=model,
-                max_tokens=max_tokens or settings.llm_max_tokens,
-                system=system,
-                messages=messages,
-                tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
-                tool_choice={"type": "none"} if stop_tools else anthropic.NOT_GIVEN,
-                **({"output_config": {"effort": effort}} if effort else {}),
-            )
-            await note_provider_success()
-            counts = usage_kwargs(response.usage)
-            record_llm_usage(model=model, call_type=call_type, duration_seconds=time.monotonic() - t0, **counts)
-            usage["input_tokens"] += sum(
-                counts.get(key, 0) for key in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
-            )
-            usage["output_tokens"] += counts.get("output_tokens", 0)
-        except Exception as e:
-            await note_provider_failure(e)
-            record_llm_usage(
-                model=model,
-                call_type=call_type,
-                input_tokens=0,
-                output_tokens=0,
-                duration_seconds=time.monotonic() - t0,
-                status="error",
-            )
-            raise
-
-        logger.info(f"Claude response: stop_reason={response.stop_reason}, blocks={len(response.content)}")
-
-        if response.stop_reason == PAUSE_TURN:
-            # A long web search stopped on the server's own limit: the response goes back as it
-            # is, and the model carries on from where it paused (MAG-384).
-            messages.append({"role": "assistant", "content": response.content})
-            continue
-
-        if response.stop_reason != "tool_use" or stop_tools:
-            text_response = answer_text(response.content)
-            if stop_tools and not text_response:
-                return _outcome(ITERATION_LIMIT_MESSAGE, tool_calls_made, blocks, usage)
-            verdict = guard.review(text_response, can_retry=iteration < max_iterations - 2)
-            if verdict is Verdict.RETRY:
-                logger.warning("Action announced, nothing backs it: sending the model back")
-                guard.send_back(messages, response.content)
-                continue
-            if review is not None and not reviewed and iteration < max_iterations - 1:
-                note = review(text_response, tool_calls_made)
-                if note:
-                    if text_response:
-                        messages.append({"role": "assistant", "content": response.content})
-                    messages.append({"role": "user", "content": [{"type": "text", "text": note}]})
-                    reviewed = True
-                    continue
-            text_response = with_sources(text_response, response.content)
-            return _outcome(text_response, tool_calls_made, blocks, usage)
-
-        messages.append({"role": "assistant", "content": response.content})
-
-        tool_results = []
-        round_calls = []
-        for block in response.content:
-            if block.type == "tool_use":
-                logger.info(f"Tool call: {block.name}({block.input})")
-                TOOL_CALLS.labels(tool_name=block.name, source=source).inc()
-                result = await tool_router.call_tool(
-                    block.name, block.input, user_id=user_id, source=source, context_id=context_id
-                )
-                tool_calls_made.append({"name": block.name, "input": block.input, "result": result})
-                guard.record(block.name, result, block.input)
-                streak.record(block.name, result)
-                tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": result})
-                round_calls.append({"id": block.id, "name": block.name, "input": block.input, "result": result})
-
-        if streak.gave_up():
-            tool_results.append(streak.note(user_id, source))
-            stop_tools = True
-        messages.append({"role": "user", "content": tool_results})
-        # The same round, as plain data this time: `response.content` holds the SDK's own
-        # block objects, which no column can store.
-        blocks.extend(record(round_calls))
-
-        if question := asked_question(tool_calls_made):
-            # The turn ends on the question: the owner's answer is what Maggie waits for (MAG-717).
-            return _outcome(question["text"], tool_calls_made, blocks, usage)
-
-    return _outcome(ITERATION_LIMIT_MESSAGE, tool_calls_made, blocks, usage)
+    options = LoopOptions.blocking(
+        model=model,
+        user_id=user_id,
+        max_iterations=max_iterations,
+        max_tokens=max_tokens,
+        effort=effort,
+        call_type=call_type,
+        source=source,
+        context_id=context_id,
+        review=review,
+        ends_turn=asked_question,
+    )
+    async for event in run_loop(system, messages, tools, client=client, tool_router=tool_router, options=options):
+        if isinstance(event, TurnEnded):
+            outcome = event.outcome
+    return _outcome(outcome.response, outcome.tool_calls, outcome.blocks, outcome.usage)
 
 
 def _outcome(response: str, tool_calls: list[dict], blocks: list[dict], usage: dict) -> dict:
