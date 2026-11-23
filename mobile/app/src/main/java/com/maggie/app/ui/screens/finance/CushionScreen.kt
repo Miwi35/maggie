@@ -50,10 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maggie.app.data.api.CushionConfigRequest
 import com.maggie.app.data.model.CushionStatus
-import com.maggie.app.data.model.cushionShareRuleLabel
 import com.maggie.app.data.model.cushionStateLabel
 import com.maggie.app.data.model.formatCentsRounded
-import com.maggie.app.data.model.rechargePlanLabel
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
@@ -219,14 +217,13 @@ internal fun CushionSavingCard(status: CushionStatus) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(cushionSavingTitle(status), fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(
-                text = cushionShareRuleLabel(status),
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(UiTags.CUSHION_SHARE_RULE),
-            )
-            if (status.deficitCents > 0) {
-                Text(rechargePlanLabel(status), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            cushionSavingLine(status)?.let {
+                Text(
+                    text = it,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(UiTags.CUSHION_SHARE_RULE),
+                )
             }
         }
     }
@@ -433,4 +430,17 @@ internal fun cushionSavingTitle(status: CushionStatus): String = when {
     status.criticalDeficitCents > 0 -> "Sous le seuil critique"
     status.deficitCents > 0 -> "Au-dessus du seuil critique"
     else -> "Rien à faire"
+}
+
+internal fun cushionSavingLine(status: CushionStatus): String? {
+    if (status.deficitCents <= 0) return null
+    val rule = when {
+        status.criticalDeficitCents > 0 -> "Toute l'épargne va au matelas"
+        status.cushionSharePercent >= 100 -> "Matelas d'abord : toute l'épargne va au matelas"
+        else -> "Seuil critique atteint : ${status.cushionSharePercent} % de l'épargne va au matelas"
+    }
+    if (status.monthlyRechargeCents <= 0) return "$rule."
+    val separator = if (status.criticalDeficitCents > 0) " : " else ", "
+
+    return "$rule$separator${formatCentsRounded(status.monthlyRechargeCents)} par mois pendant ${status.rechargeMonths} mois."
 }
