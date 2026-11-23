@@ -138,7 +138,7 @@ class ToolRouter:
             logger.warning(f"Call to an executor-only tool refused: {name}")
             return json.dumps({"error": f"Tool '{name}' is not available"})
 
-        # Before the policy: a held action keeps the origin it was asked with.
+        # Before the policy: a held action is stored without the origin the model wrote.
         arguments = stamp_origin(name, arguments, origin)
 
         if missing := [f for f in self._natives.required_fields(name) if f not in arguments]:
