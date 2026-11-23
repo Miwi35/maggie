@@ -82,6 +82,7 @@ class ToolRouter:
         native = self._natives.names()
         mcp_tools = await mcp_client.list_tools()
         for tool in mcp_tools:
+            schema = tool.get("inputSchema", {"type": "object", "properties": {}})
             if a2a and tool["name"] not in A2A_ALLOWED_TOOLS:
                 continue
             if tool["name"] in native or tool["name"] in EXECUTOR_ONLY_MCP_TOOLS:
@@ -91,7 +92,7 @@ class ToolRouter:
                     "name": tool["name"],
                     "description": tool.get("description", ""),
                     # The origin of a proaction is the code's to set, never the model's (MAG-977).
-                    "input_schema": hide_origin(tool["name"], tool.get("inputSchema", {"type": "object", "properties": {}})),
+                    "input_schema": hide_origin(tool["name"], schema),
                 }
             )
 
