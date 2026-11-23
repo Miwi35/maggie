@@ -140,4 +140,13 @@ class ActivityScreenTest {
 
         compose.onNodeWithText("Aucune session aujourd’hui").assertIsDisplayed()
     }
+
+    @Test
+    fun `without a session the card has no count`() {
+        compose.setContent { ActivityScreen(viewModel(workouts = emptyList())) }
+        waitForRing()
+
+        compose.onNodeWithText("0 faite", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Aucune session aujourd’hui").assertIsDisplayed()
+    }
 }

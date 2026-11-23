@@ -84,6 +84,26 @@ class ActivitySeriesTest {
         assertEquals(0, bars[1].steps)
         assertEquals("auj.", bars.last().label)
         assertTrue(bars.last().reached)
-        assertEquals("D", bars[0].label)
+        assertEquals("dim.", bars[0].label)
+    }
+
+    @Test
+    fun `the week reads abbreviated days then auj`() {
+        val labels = weekBars(emptyList(), 8000, LocalDate.parse("2026-11-20")).map { it.label }
+
+        assertEquals(listOf("sam.", "dim.", "lun.", "mar.", "mer.", "jeu.", "auj."), labels)
+    }
+
+    @Test
+    fun `the count names only what exists - 1 faite, 1 prevue, 1 faite et 1 prevue, 2 faites et 2 prevues`() {
+        assertEquals("1 faite", sessionsCountLabel(1, 0))
+        assertEquals("1 prévue", sessionsCountLabel(0, 1))
+        assertEquals("1 faite · 1 prévue", sessionsCountLabel(1, 1))
+        assertEquals("2 faites · 2 prévues", sessionsCountLabel(2, 2))
+    }
+
+    @Test
+    fun `no session gives no count`() {
+        assertNull(sessionsCountLabel(0, 0))
     }
 }
