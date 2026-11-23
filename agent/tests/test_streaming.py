@@ -596,6 +596,20 @@ class TestTheVoiceStartsFirst:
         assert (await message_repo.get(streamed_id)) is not None
         capture.assert_called_once()
 
+    async def test_a_failing_client_lookup_is_an_answered_error_not_a_crashed_stream(self, chat_db):
+        from app.llm.gateway import API_ERROR_MESSAGE
+
+        with (
+            self._patches(AsyncMock(), AsyncMock()),
+            patch("app.llm.streaming.client_for", AsyncMock(side_effect=RuntimeError("db blip"))),
+        ):
+            gw = TestSummaryTrigger._gateway()
+            events = [event async for event in gw.chat_stream("Bonjour", "user-1", "msg-1")]
+            await asyncio.gather(*gw._background)
+
+        assert events[-1]["type"] == "RUN_FINISHED"
+        assert "".join(e.get("delta", "") for e in events if e["type"] == "TEXT_MESSAGE_CONTENT") == API_ERROR_MESSAGE
+
     async def test_the_conversation_still_reaches_the_memory(self, chat_db):
         record = AsyncMock()
 

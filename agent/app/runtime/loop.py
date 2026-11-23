@@ -11,7 +11,7 @@ Nothing here imports a domain module: what the turn does with a question (`ends_
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -249,6 +249,7 @@ async def run_loop(
     options: LoopOptions,
     state: TurnState | None = None,
     resumed: Sequence[dict] = (),
+    resolve_client: Callable[[], Awaitable[Any]] | None = None,
 ) -> AsyncIterator[LoopEvent]:
     """Call the model, run the tools it asks for, and loop until it answers with text; emit the events of the turn.
 
@@ -259,6 +260,9 @@ async def run_loop(
     An answer announcing a reminder or something learned that no tool backed this turn is sent back to the model
     once with the fact (`app.llm.claim_guard`, MAG-339, MAG-340, MAG-842). A response may carry web searches
     Anthropic ran on its side: the answer is the text after the last one (`app.llm.web_search`, MAG-384).
+
+    `resolve_client`, when given, picks the client at each model call, inside the error handling: a failing
+    lookup is a failed call, not a crashed turn.
 
     `state` is filled as the turn goes: the `tool_use` / `tool_result` rounds in the shape the API takes them
     (MAG-211), the calls of the round in progress, the answer so far. `resumed` is the rounds a lost turn had
@@ -300,8 +304,9 @@ async def run_loop(
                 **({"output_config": {"effort": options.effort}} if options.effort else {}),
             }
             step_text = ""
+            active = await resolve_client() if resolve_client else client
             if streamed:
-                async with client.messages.stream(**request) as stream:
+                async with active.messages.stream(**request) as stream:
                     async for event in stream:
                         if event.type == "content_block_start":
                             block = event.content_block
@@ -319,7 +324,7 @@ async def run_loop(
                             yield TextDelta(event.delta.text)
                     response = await stream.get_final_message()
             else:
-                response = await client.messages.create(**request)
+                response = await active.messages.create(**request)
             await note_provider_success()
             counts = usage_kwargs(response.usage)
             record_llm_usage(
