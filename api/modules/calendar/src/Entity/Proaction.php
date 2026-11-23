@@ -101,13 +101,14 @@ class Proaction extends Event implements MercurePublishable
     #[ApiProperty(writable: false)]
     private ?string $topicKey = null;
 
-    /** @var array{impact?: string, evidence?: string, deadline?: string, changed?: string}|null */
+    /** @var array{impact?: string, evidence?: string, deadline?: string, changed?: string, value?: string}|null */
     #[ORM\Column(type: Types::JSON, nullable: true)]
     #[IndexedField(type: 'object', properties: [
         'impact' => ['type' => 'keyword'],
         'evidence' => ['type' => 'keyword'],
         'deadline' => ['type' => 'date'],
         'changed' => ['type' => 'text'],
+        'value' => ['type' => 'text'],
     ])]
     #[ApiProperty(writable: false)]
     private ?array $verdict = null;

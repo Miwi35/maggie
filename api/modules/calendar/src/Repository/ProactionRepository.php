@@ -166,6 +166,40 @@ class ProactionRepository extends ServiceEntityRepository
         return array_slice(array_values($latest), 0, $limit);
     }
 
+    /**
+     * The last value verified per topic since `$since`, newest first: one proaction
+     * per topic, the latest that carries a value — whatever its delivery, a run
+     * that said nothing still read something (MAG-975).
+     *
+     * @return Proaction[]
+     */
+    public function findCheckedValues(User $user, \DateTimeImmutable $since, int $limit = 20): array
+    {
+        /** @var Proaction[] $checked */
+        $checked = $this->createQueryBuilder('p')
+            ->join('p.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('p.topicKey IS NOT NULL')
+            ->andWhere('p.verdict IS NOT NULL')
+            ->andWhere('p.completedAt >= :since')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('since', $since, Types::DATETIMETZ_IMMUTABLE)
+            ->orderBy('p.completedAt', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        $latest = [];
+        foreach ($checked as $proaction) {
+            $value = $proaction->getVerdict()['value'] ?? null;
+            if (is_string($value) && '' !== $value) {
+                $latest[$proaction->getTopicKey()] ??= $proaction;
+            }
+        }
+
+        return array_slice(array_values($latest), 0, $limit);
+    }
+
     /** The proaction, if it is the user's — or anyone's when no user is named: another user's is not found. */
     public function findOneForUser(string $id, ?User $user): ?Proaction
     {

@@ -36,6 +36,7 @@ class RecordProactionResultHandler
             changed: $command->changed,
             notice: $command->notice,
             messageLink: $command->messageLink,
+            value: $command->value,
         );
 
         return $this->proactions->record($user, $command->proactionId, $command->status, $outcome, $command->error);

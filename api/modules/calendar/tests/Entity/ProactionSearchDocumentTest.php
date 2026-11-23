@@ -74,7 +74,7 @@ class ProactionSearchDocumentTest extends TestCase
     {
         // A check's delivery, topic and verdict are what the next check reads back (MAG-886).
         $proaction = $this->proaction()->setKind(ProactionKind::Check)->markCompleted(
-            ProactionOutcome::fromInput('Loisirs à 72 %.', 'thread', 'enveloppe-loisirs', 'low', 'solid', null, null, 'Loisirs à 72 %.', '/chat?message=01JABC'),
+            ProactionOutcome::fromInput('Loisirs à 72 %.', 'thread', 'enveloppe-loisirs', 'low', 'solid', null, null, 'Loisirs à 72 %.', '/chat?message=01JABC', '72 %'),
             new \DateTimeImmutable('2026-03-17T08:31:00+00:00'),
         );
 
@@ -83,7 +83,7 @@ class ProactionSearchDocumentTest extends TestCase
         self::assertSame(ProactionKind::Check, $hydrated->getKind());
         self::assertSame(ProactionDelivery::Thread, $hydrated->getDelivery());
         self::assertSame('enveloppe-loisirs', $hydrated->getTopicKey());
-        self::assertSame(['impact' => 'low', 'evidence' => 'solid'], $hydrated->getVerdict());
+        self::assertSame(['impact' => 'low', 'evidence' => 'solid', 'value' => '72 %'], $hydrated->getVerdict());
         self::assertSame('Loisirs à 72 %.', $hydrated->getNotice());
         self::assertSame('/chat?message=01JABC', $hydrated->getMessageLink());
     }

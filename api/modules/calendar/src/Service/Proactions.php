@@ -35,6 +35,10 @@ class Proactions
     public const SIGNALED_WINDOW = '-7 days';
     public const SIGNALED_LIMIT = 20;
 
+    // A monthly check finds again the value of the month before (MAG-975).
+    public const CHECKED_VALUE_WINDOW = '-40 days';
+    public const CHECKED_VALUE_LIMIT = 20;
+
     /** The oldest occurrence of a series a claim still runs: a missed day is not replayed (MAG-974). */
     public const SERIES_CATCH_UP = '-1 day';
     /** The occurrences of one series a listing unfolds. */
@@ -373,6 +377,27 @@ class Proactions
             'delivery' => (string) $told->getDelivery()?->value,
             'notice' => $told->getNotice(),
         ], $this->repository->findSignaledTopics($proaction->getAgenda()->getUser(), $since, self::SIGNALED_LIMIT));
+    }
+
+    /**
+     * The last value each topic was verified at these last days, so a check
+     * compares what it reads to what it read (MAG-975). A reminder gets none.
+     *
+     * @return list<array{topic: string, value: string, at: string}>|null
+     */
+    public function checkedValues(Proaction $proaction): ?array
+    {
+        if (ProactionKind::Check !== $proaction->getKind()) {
+            return null;
+        }
+
+        $since = $this->clock->now()->modify(self::CHECKED_VALUE_WINDOW);
+
+        return array_map(static fn (Proaction $checked): array => [
+            'topic' => (string) $checked->getTopicKey(),
+            'value' => (string) ($checked->getVerdict()['value'] ?? ''),
+            'at' => (string) $checked->getCompletedAt()?->format('c'),
+        ], $this->repository->findCheckedValues($proaction->getAgenda()->getUser(), $since, self::CHECKED_VALUE_LIMIT));
     }
 
     /**

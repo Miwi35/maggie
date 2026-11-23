@@ -213,6 +213,7 @@ class ProactionDueTest extends KernelTestCase
             evidence: 'solid',
             deadline: '2037-01-15T08:30:00+01:00',
             changed: 'Passée de 60 % à 72 %.',
+            value: '72 %',
             notice: 'Votre enveloppe Loisirs est à 72 %, monsieur.',
             message_link: '/chat?message=01JABCDEF',
         );
@@ -225,12 +226,20 @@ class ProactionDueTest extends KernelTestCase
         self::assertSame(ProactionStatus::Completed, $stored->getExecutionStatus());
         self::assertSame(ProactionDelivery::Thread, $stored->getDelivery());
         self::assertSame('enveloppe-loisirs', $stored->getTopicKey());
-        self::assertSame(['impact' => 'low', 'evidence' => 'solid', 'deadline' => '2037-01-15T08:30:00+01:00', 'changed' => 'Passée de 60 % à 72 %.'], $stored->getVerdict());
+        self::assertSame(['impact' => 'low', 'evidence' => 'solid', 'deadline' => '2037-01-15T08:30:00+01:00', 'changed' => 'Passée de 60 % à 72 %.', 'value' => '72 %'], $stored->getVerdict());
         self::assertSame('Votre enveloppe Loisirs est à 72 %, monsieur.', $stored->getNotice());
         self::assertSame('/chat?message=01JABCDEF', $stored->getMessageLink());
 
         $this->assertMercureUpdatePublished('/proactions/');
         $this->assertElasticsearchIndexDispatchedFor(Proaction::class, $this->id('already_running'));
+    }
+
+    public function testALongValueIsCutTo120Characters(): void
+    {
+        $data = $this->call(RecordProactionResultTool::class, $this->id('already_running'), 'completed', 'Réponse', topic_key: 'sujet', value: str_repeat('é', 200));
+
+        self::assertTrue($data['success'], json_encode($data, JSON_THROW_ON_ERROR));
+        self::assertSame(str_repeat('é', 120), $this->stored('already_running')->getVerdict()['value']);
     }
 
     /** @return iterable<string, array{array<string, string>}> */
@@ -278,6 +287,36 @@ class ProactionDueTest extends KernelTestCase
         self::assertNotEmpty($topics[0]['at']);
     }
 
+    public function testACheckIsClaimedWithTheLastValuePerTopicItVerified(): void
+    {
+        $check = $this->proaction('maggie_agenda', 'Vérifie l\'enveloppe Loisirs', ProactionKind::Check);
+        $this->told('maggie_agenda', 'enveloppe-loisirs', ProactionDelivery::Thread, '-2 days', 'Loisirs à 60 %.', '60 %');
+        $this->told('maggie_agenda', 'enveloppe-loisirs', ProactionDelivery::None, '-1 day', null, '72 %');
+        $this->told('maggie_agenda', 'colis', ProactionDelivery::None, '-10 days', null, 'en transit');
+        // No value, too old, or another user's: never a checked value.
+        $this->told('maggie_agenda', 'sans-valeur', ProactionDelivery::None, '-1 day', null);
+        $this->told('maggie_agenda', 'ancien', ProactionDelivery::None, '-41 days', null, 'vieux');
+        $this->told('other_maggie_agenda', 'chien', ProactionDelivery::None, '-1 day', null, 'dort');
+
+        $data = $this->call(ClaimDueProactionsTool::class, null, $check);
+
+        $values = $data['proactions'][0]['checkedValues'];
+        self::assertSame(['enveloppe-loisirs', 'colis'], array_column($values, 'topic'));
+        self::assertSame(['72 %', 'en transit'], array_column($values, 'value'));
+        self::assertNotEmpty($values[0]['at']);
+    }
+
+    public function testAPassWithoutValueKeepsThePreviousOne(): void
+    {
+        $check = $this->proaction('maggie_agenda', 'Vérifie le colis', ProactionKind::Check);
+        $this->told('maggie_agenda', 'colis', ProactionDelivery::None, '-3 days', null, 'en transit');
+        $this->told('maggie_agenda', 'colis', ProactionDelivery::None, '-1 day', null);
+
+        $data = $this->call(ClaimDueProactionsTool::class, null, $check);
+
+        self::assertSame(['en transit'], array_column($data['proactions'][0]['checkedValues'], 'value'));
+    }
+
     public function testAReminderIsClaimedWithoutSignaledTopics(): void
     {
         $this->told('maggie_agenda', 'enveloppe-loisirs', ProactionDelivery::Interrupt, '-1 day', 'Loisirs à 72 %.');
@@ -286,6 +325,7 @@ class ProactionDueTest extends KernelTestCase
 
         self::assertSame('reminder', $data['proactions'][0]['kind']);
         self::assertArrayNotHasKey('signaledTopics', $data['proactions'][0]);
+        self::assertArrayNotHasKey('checkedValues', $data['proactions'][0]);
     }
 
     /** A pending proaction due now, its id. */
@@ -302,14 +342,14 @@ class ProactionDueTest extends KernelTestCase
         return (string) $proaction->getId();
     }
 
-    private function told(string $agenda, string $topic, ProactionDelivery $delivery, string $ago, ?string $notice): void
+    private function told(string $agenda, string $topic, ProactionDelivery $delivery, string $ago, ?string $notice, ?string $value = null): void
     {
         $em = self::getContainer()->get('doctrine.orm.entity_manager');
         $proaction = (new Proaction())->setPrompt('Vérifie '.$topic)->setKind(ProactionKind::Check);
         $proaction->setSummary('Vérifie '.$topic);
         $proaction->scheduleAt(new \DateTimeImmutable($ago));
         $em->find(Agenda::class, $this->getFixture($agenda)->getId())->addEvent($proaction);
-        $proaction->markRunning()->markCompleted(new ProactionOutcome(response: $notice, delivery: $delivery, topicKey: $topic, notice: $notice), new \DateTimeImmutable($ago));
+        $proaction->markRunning()->markCompleted(new ProactionOutcome(response: $notice, delivery: $delivery, topicKey: $topic, verdict: null !== $value ? ['value' => $value] : null, notice: $notice), new \DateTimeImmutable($ago));
         $em->persist($proaction);
         $em->flush();
     }
