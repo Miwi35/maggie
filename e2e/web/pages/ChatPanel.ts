@@ -47,12 +47,15 @@ export class ChatPanel {
   readonly stopButton: Locator
   /** Maggie's 64px portrait, bottom right: opens the conversation and is gone while it is open. */
   readonly portrait: Locator
+  /** The unread badge on the portrait (MAG-966). */
+  readonly portraitBadge: Locator
   /** The panel's own way out — the only one once it is a full-screen sheet. */
   readonly closeButton: Locator
 
   constructor(private readonly page: Page) {
     this.panel = page.getByTestId('chat-panel')
     this.portrait = page.getByTestId('maggie-portrait')
+    this.portraitBadge = this.portrait.locator('.MuiBadge-badge')
     this.input = this.panel.getByPlaceholder('Demander à Maggie…')
     this.chatTab = this.panel.getByRole('tab', { name: 'Chat' })
     this.mindTab = this.panel.getByRole('tab', { name: 'Mind' })

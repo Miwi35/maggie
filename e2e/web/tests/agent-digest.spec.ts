@@ -113,6 +113,9 @@ test('the digest instruction said once brings one message, read and heard, and a
   // The unopened digest heads the Accueil.
   await expect(home.digestTile).toBeVisible()
   const chat = new ChatPanel(page)
+  // Folded away, the portrait counts the unread digest in the accent (MAG-966).
+  await expect(chat.portraitBadge).toHaveText('1', { timeout: 15_000 })
+  await expect(chat.portraitBadge).toHaveCSS('background-color', 'rgb(166, 139, 255)', { timeout: 15_000 })
   await chat.open()
   const bubbleMessage = chat.panel.locator('#msg-' + message.id)
   await expect(bubbleMessage).toContainText('Votre digest du matin est disponible.')
