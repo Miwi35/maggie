@@ -4387,7 +4387,11 @@
                     "type": "string"
                 },
                 "step": {
-                    "type": "string"
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 },
                 "answers": {
                     "type": "object",
@@ -4399,14 +4403,21 @@
                         "null"
                     ],
                     "default": null
+                },
+                "tomorrowTasks": {
+                    "type": "array",
+                    "default": null
+                },
+                "tomorrowSpares": {
+                    "type": "array",
+                    "default": null
                 }
             },
             "required": [
-                "day",
-                "step"
+                "day"
             ]
         },
-        "description": "Records the evening review state. day: YYYY-MM-DD. step: journee, finance, sante, consignes, demain. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}."
+        "description": "Records the evening review state. day: YYYY-MM-DD. step (optional): journee, finance, sante, consignes, demain; omitted keeps the stored step, a bilan prepared before it starts has none. tomorrowTasks, tomorrowSpares (optional): [{taskId, title, reason?}], the tasks Maggie plans for tomorrow and the ones she keeps to swap in; omitted keeps them. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}."
     },
     "save_place": {
         "name": "save_place",

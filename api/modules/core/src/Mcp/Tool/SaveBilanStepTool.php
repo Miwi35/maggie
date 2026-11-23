@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'save_bilan_step', description: 'Records the evening review state. day: YYYY-MM-DD. step: journee, finance, sante, consignes, demain. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}.')]
+#[McpTool(name: 'save_bilan_step', description: 'Records the evening review state. day: YYYY-MM-DD. step (optional): journee, finance, sante, consignes, demain; omitted keeps the stored step, a bilan prepared before it starts has none. tomorrowTasks, tomorrowSpares (optional): [{taskId, title, reason?}], the tasks Maggie plans for tomorrow and the ones she keeps to swap in; omitted keeps them. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}.')]
 class SaveBilanStepTool
 {
     public function __construct(
@@ -30,13 +30,19 @@ class SaveBilanStepTool
     /**
      * @param array<string, mixed>|null       $answers
      * @param list<array<string, mixed>>|null $instructions
+     * @param list<array<string, mixed>>|null $tomorrowTasks
+     * @param list<array<string, mixed>>|null $tomorrowSpares
      */
     public function __invoke(
         string $day,
-        string $step,
+        ?string $step = null,
         #[Schema(type: 'object')]
         ?array $answers = null,
         ?array $instructions = null,
+        #[Schema(type: 'array')]
+        ?array $tomorrowTasks = null,
+        #[Schema(type: 'array')]
+        ?array $tomorrowSpares = null,
     ): string {
         try {
             $user = $this->userContext->requireUser();
@@ -57,10 +63,19 @@ class SaveBilanStepTool
         }
 
         $state = [
-            'step' => $step,
             'answers' => $answers,
             'instructions' => $instructions ?? $previous['instructions'] ?? [],
         ];
+        $step ??= $previous['step'] ?? null;
+        if (null !== $step) {
+            $state = ['step' => $step] + $state;
+        }
+        foreach (['tomorrowTasks' => $tomorrowTasks, 'tomorrowSpares' => $tomorrowSpares] as $key => $value) {
+            $value ??= $previous[$key] ?? null;
+            if (null !== $value) {
+                $state[$key] = $value;
+            }
+        }
         $encoded = json_encode($state, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
 
         $error = BilanStateValidator::validate($day, json_decode($encoded, false, 512, JSON_THROW_ON_ERROR));
