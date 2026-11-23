@@ -20,9 +20,10 @@ final readonly class ProactionOutcome
     private const MESSAGE_LINK = '/^\/(chat|digest)\?message=[0-9A-Za-z-]{1,64}$/';
     private const INSTANT = '/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/';
     private const CHANGED_LENGTH = 500;
+    public const VALUE_LENGTH = 120;
 
     /**
-     * @param array{impact?: string, evidence?: string, deadline?: string, changed?: string}|null $verdict
+     * @param array{impact?: string, evidence?: string, deadline?: string, changed?: string, value?: string}|null $verdict
      */
     public function __construct(
         public ?string $response = null,
@@ -49,6 +50,7 @@ final readonly class ProactionOutcome
         ?string $changed = null,
         ?string $notice = null,
         ?string $messageLink = null,
+        ?string $value = null,
     ): self {
         $delivery = self::blankToNull($delivery);
         $topicKey = self::blankToNull($topicKey);
@@ -56,6 +58,7 @@ final readonly class ProactionOutcome
         $evidence = self::blankToNull($evidence);
         $deadline = self::blankToNull($deadline);
         $changed = self::blankToNull($changed);
+        $value = self::blankToNull($value);
         $messageLink = self::blankToNull($messageLink);
 
         if (null !== $topicKey && 1 !== preg_match(self::TOPIC, $topicKey)) {
@@ -70,6 +73,7 @@ final readonly class ProactionOutcome
             'evidence' => null !== $evidence ? (ProactionEvidence::tryFrom($evidence) ?? throw new \DomainException(sprintf('Invalid evidence "%s": use weak or solid.', $evidence)))->value : null,
             'deadline' => null !== $deadline ? self::instant($deadline)->format('c') : null,
             'changed' => null !== $changed ? mb_substr($changed, 0, self::CHANGED_LENGTH) : null,
+            'value' => null !== $value ? mb_substr($value, 0, self::VALUE_LENGTH) : null,
         ], static fn (?string $value): bool => null !== $value);
 
         return new self(

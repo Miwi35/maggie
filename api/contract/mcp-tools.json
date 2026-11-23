@@ -255,7 +255,7 @@
                 }
             }
         },
-        "description": "Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}). A due occurrence of a series is returned as its own proaction, with seriesId and occurrence; the series itself is never claimed. Executor only, never offered to the model."
+        "description": "Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}) and checkedValues, the last value verified per topic these last 40 days ({topic, value, at}). A due occurrence of a series is returned as its own proaction, with seriesId and occurrence; the series itself is never claimed. Executor only, never offered to the model."
     },
     "create_event": {
         "name": "create_event",
@@ -4295,6 +4295,13 @@
                         "string"
                     ],
                     "default": null
+                },
+                "value": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
@@ -4302,7 +4309,7 @@
                 "status"
             ]
         },
-        "description": "Records the outcome of a claimed (running) proaction: completed with response (may be empty), or failed with error. A completed run also keeps delivery (interrupt, thread or none), topic_key, the verdict (impact low|medium|high, evidence weak|solid, deadline ISO 8601, changed), notice (the sentence of the interruption) and message_link (/chat?message=<id>). Executor only, never offered to the model."
+        "description": "Records the outcome of a claimed (running) proaction: completed with response (may be empty), or failed with error. A completed run also keeps delivery (interrupt, thread or none), topic_key, the verdict (impact low|medium|high, evidence weak|solid, deadline ISO 8601, changed, value (the value read this time, 120 characters at most)), notice (the sentence of the interruption) and message_link (/chat?message=<id>). Executor only, never offered to the model."
     },
     "remove_grocery_item": {
         "name": "remove_grocery_item",

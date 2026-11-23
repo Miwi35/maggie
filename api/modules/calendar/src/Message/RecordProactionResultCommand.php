@@ -21,6 +21,7 @@ final readonly class RecordProactionResultCommand
         public ?string $changed = null,
         public ?string $notice = null,
         public ?string $messageLink = null,
+        public ?string $value = null,
     ) {
     }
 }

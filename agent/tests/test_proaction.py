@@ -301,6 +301,7 @@ async def _consume(
     body: bytes | None = None,
     kind: str | None = None,
     signaled_topics: list[dict] | None = None,
+    checked_values: list[dict] | None = None,
 ):
     """Run the queue callback once over a claimed proaction whose gateway returns `result`."""
     from app.queue.proaction_consumer import start_consumer
@@ -319,6 +320,8 @@ async def _consume(
         claimed["kind"] = kind
     if signaled_topics is not None:
         claimed["signaledTopics"] = signaled_topics
+    if checked_values is not None:
+        claimed["checkedValues"] = checked_values
     message = MagicMock()
     message.body = body if body is not None else json.dumps(claimed).encode()
     message.process = MagicMock(return_value=MagicMock(__aenter__=AsyncMock(), __aexit__=AsyncMock()))
@@ -371,7 +374,7 @@ class TestProactionConsumer:
 
         # Verify gateway.proaction called without silent (defaults to False)
         consumed.gateway.proaction.assert_called_once_with(
-            "Rappelle-lui d'appeler le plombier", "user-1", summary="Check calendar", kind="reminder", signaled_topics=()
+            "Rappelle-lui d'appeler le plombier", "user-1", summary="Check calendar", kind="reminder", signaled_topics=(), checked_values=()
         )
 
         consumed.messages.create.assert_called_once_with(
@@ -643,6 +646,52 @@ class TestProactionTriage:
         assert consumed.proactions.record.await_args.kwargs["delivery"] == "none"
 
 
+    async def test_a_silent_check_records_its_value_with_delivery_none(self):
+        notify = AsyncMock()
+        yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+        result = {
+            "response": "",
+            "tool_calls": [_verdict_call(impact="low", evidence="solid", topic="enveloppe-loisirs", value="72 %")],
+        }
+
+        with patch("app.queue.proaction_consumer.notify_message", notify):
+            consumed = await _consume(
+                result,
+                kind="check",
+                signaled_topics=[{"topic": "enveloppe-loisirs", "at": yesterday, "delivery": "thread", "notice": "72 %"}],
+            )
+
+        consumed.messages.create.assert_not_called()
+        notify.assert_not_awaited()
+        kwargs = consumed.proactions.record.await_args.kwargs
+        assert (kwargs["delivery"], kwargs["topic_key"]) == ("none", "enveloppe-loisirs")
+        assert kwargs["verdict"] == {"impact": "low", "evidence": "solid", "value": "72 %"}
+
+    async def test_a_claimed_check_carries_its_checked_values_through_the_queue(self):
+        values = [{"topic": "enveloppe-loisirs", "value": "72 %", "at": "2030-11-12T08:00:00+00:00"}]
+
+        proaction = Proaction.from_api(API_PROACTION | {"kind": "check", "checkedValues": values})
+
+        assert proaction.checked_values == tuple(values)
+        assert Proaction.from_api(proaction.to_dict()).checked_values == tuple(values)
+        assert "checkedValues" not in Proaction.from_api(API_PROACTION).to_dict()
+
+    async def test_the_consumer_passes_the_checked_values_on_both_paths(self):
+        values = [{"topic": "enveloppe-loisirs", "value": "72 %", "at": "2030-11-12T08:00:00+00:00"}]
+
+        consumed = await _consume({"response": "", "tool_calls": []}, kind="check", checked_values=values)
+        assert list(consumed.gateway.proaction.await_args.kwargs["checked_values"]) == values
+
+        from app.queue.proaction_consumer import execute_proaction
+
+        gateway = MagicMock()
+        gateway.proaction = AsyncMock(return_value={"response": "", "tool_calls": []})
+        await execute_proaction(
+            gateway, Proaction.from_api(API_PROACTION | {"kind": "check", "checkedValues": values}), dry_run=True
+        )
+        assert list(gateway.proaction.await_args.kwargs["checked_values"]) == values
+
+
 class TestADueReminderIsDelivered:
     """7 Oct., 19:39 and 19:43: « Rappelle monsieur d'appeler sa mère » came due, and Maggie
     answered « À quel moment souhaitez-vous que je vous le rappelle ? ». She read the stored
@@ -696,14 +745,16 @@ class TestACheckGetsTheVerdictTool:
     """MAG-886: only a check is offered `proaction_verdict`, its rule and the topics already told."""
 
     @staticmethod
-    async def _run(kind: str, signaled_topics: list[dict] | None = None):
+    async def _run(kind: str, signaled_topics: list[dict] | None = None, checked_values: list[dict] | None = None):
         gateway = _gateway()
         gateway.system_prompt = stub_system_prompt([])
         loop = AsyncMock(return_value={"response": "Loisirs à 72 %.", "tool_calls": []})
         resolve = AsyncMock(return_value={"action": "matched", "id": "ctx-1", "label": "Budget"})
         with patch("app.llm.gateway.run_tool_loop", loop), patch("app.llm.gateway.resolve_context", resolve):
             result = await gateway.proaction(
-                "Vérifie l'enveloppe Loisirs", "user-1", kind=kind, signaled_topics=signaled_topics or []
+                "Vérifie l'enveloppe Loisirs", "user-1", kind=kind,
+                signaled_topics=signaled_topics or [],
+                checked_values=checked_values or [],
             )
         tools = loop.await_args.args[2]
         return gateway, result, [t["name"] for t in tools], gateway.system_prompt.build.await_args.kwargs["preamble"]
@@ -733,6 +784,24 @@ class TestACheckGetsTheVerdictTool:
         _, _, _, preamble = await self._run("check")
 
         assert "Sujets déjà signalés (7 jours) : aucun." in preamble
+
+    async def test_a_check_run_gets_the_last_checked_values_beside_the_topics_told(self):
+        values = [{"topic": "enveloppe-loisirs", "value": "60 %", "at": "2030-11-12T08:00:00+00:00"}]
+
+        _, _, _, preamble = await self._run("check", checked_values=values)
+
+        assert "Dernières valeurs vérifiées (40 jours) :\n- enveloppe-loisirs : 60 % (2030-11-12T08:00:00+00:00)" in preamble
+        assert preamble.index("Sujets déjà signalés") < preamble.index("Dernières valeurs vérifiées")
+
+    async def test_a_check_with_no_checked_value_says_so(self):
+        _, _, _, preamble = await self._run("check")
+
+        assert "Dernières valeurs vérifiées (40 jours) : aucune." in preamble
+
+    async def test_the_rule_asks_for_the_verdict_on_every_run(self):
+        _, _, _, preamble = await self._run("check")
+
+        assert "appelle proaction_verdict avant ton texte final, même si tu n'as rien à dire" in preamble
 
 
 TREASURY_ALERT_PROMPT = (

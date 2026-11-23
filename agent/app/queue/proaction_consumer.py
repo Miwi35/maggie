@@ -115,6 +115,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             summary=proaction.summary,
             kind=proaction.kind,
             signaled_topics=proaction.signaled_topics,
+            checked_values=proaction.checked_values,
         )
         return {
             "status": proaction.status,
@@ -172,6 +173,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 summary=proaction.summary,
                 kind=proaction.kind,
                 signaled_topics=proaction.signaled_topics,
+                checked_values=proaction.checked_values,
             )
         # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
         # The digest has its own path and its own notification.

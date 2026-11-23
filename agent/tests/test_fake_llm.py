@@ -2056,6 +2056,7 @@ class TestProactionCheckScenario:
         first = await turn([])
         call = first.content[0]
         assert call.name == "proaction_verdict"
+        assert call.input["value"] == "72 %"
         second = await turn(
             [
                 {"role": "assistant", "content": [{"type": "tool_use", "id": call.id, "name": call.name, "input": call.input}]},
