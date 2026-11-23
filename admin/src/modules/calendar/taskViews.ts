@@ -129,6 +129,18 @@ export async function setTaskDone(id: string, done: boolean): Promise<void> {
   }
 }
 
+/** Moves a task to `day` (`YYYY-MM-DD`), or takes its due day off (`null`) — one merge-patch on `dueDate`. */
+export async function setTaskDueDate(id: string, day: string | null): Promise<void> {
+  const response = await fetch(`${apiUrl}/tasks/${id.split('/').pop()}`, {
+    method: 'PATCH',
+    headers: headers({ 'Content-Type': 'application/merge-patch+json' }),
+    body: JSON.stringify({ dueDate: day }),
+  })
+  if (!response.ok) {
+    throw new Error(`Tâche : ${response.status}`)
+  }
+}
+
 /** The whole task, as the edit form wants it — the day only carries what it draws. */
 export async function fetchTask(id: string): Promise<ViewTask> {
   const response = await fetch(`${apiUrl}/tasks/${id.split('/').pop()}`, { headers: headers() })
