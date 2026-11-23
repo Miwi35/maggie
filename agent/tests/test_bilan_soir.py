@@ -65,11 +65,27 @@ class TestTheReviewMessage:
         monkeypatch.setattr(proaction_consumer, "_record", AsyncMock())
         monkeypatch.setattr(proaction_consumer, "_journal", AsyncMock())
         monkeypatch.setattr(proaction_consumer, "notify_message", AsyncMock())
-        create = AsyncMock(return_value=SimpleNamespace(id="m", content="On fait le point ?"))
+        create = AsyncMock(return_value=SimpleNamespace(id="m", content=bilan.BILAN_AVAILABLE))
         monkeypatch.setattr(proaction_consumer.message_repo, "create", create)
         gateway = AsyncMock()
-        gateway.proaction.return_value = {"response": "On fait le point ?", "tool_calls": [], "context_id": None}
+        gateway.proaction.return_value = {"response": "Rappel", "tool_calls": [], "context_id": None}
+        gateway.proaction_context.return_value = "ctx-1"
         return gateway, create
+
+    async def test_the_review_says_the_owner_s_sentence(self, run):
+        gateway, create = run
+
+        await proaction_consumer.execute_proaction(gateway, proaction())
+
+        assert create.await_args.kwargs["content"] == bilan.BILAN_AVAILABLE
+        assert create.await_args.kwargs["context_id"] == "ctx-1"
+
+    async def test_the_review_wakes_no_model(self, run):
+        gateway, create = run
+
+        await proaction_consumer.execute_proaction(gateway, proaction())
+
+        gateway.proaction.assert_not_awaited()
 
     async def test_the_review_message_carries_a_bilan_block(self, run):
         gateway, create = run
@@ -93,7 +109,9 @@ class TestTheReviewMessage:
 
         await proaction_consumer.execute_proaction(gateway, proaction())
 
-        proaction_consumer.notify_message.assert_awaited_once_with(USER, "m", "On fait le point ?", has_audio=False, screen=None)
+        proaction_consumer.notify_message.assert_awaited_once_with(
+            USER, "m", bilan.BILAN_AVAILABLE, has_audio=False, screen=None
+        )
 
     async def test_another_proaction_carries_no_bilan_block(self, run):
         gateway, create = run

@@ -80,6 +80,9 @@ tags:
 - assertVisible: "Ouvrir"
 - runFlow: ../subflows/open-chat.yaml
 - extendedWaitUntil:
+    visible: "Bonsoir monsieur. Votre bilan de la journée vous attend."
+    timeout: 20000
+- extendedWaitUntil:
     visible:
       id: "chat_bilan_card"
     timeout: 20000
