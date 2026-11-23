@@ -79,7 +79,8 @@ class Proaction:
         `silent` (MAG-680) tells the screens the run is a log, not a message: a trip check or replan —
         or a run whose message waits in the thread, or that said nothing (MAG-886): no bubble, no push.
 
-        `kind`, `signaledTopics`, `checkedValues` and `origin` travel with the claimed proaction through the queue to its run."""
+        `kind`, `signaledTopics`, `checkedValues` and `origin` travel with the claimed proaction through the queue
+        to its run."""
         data = {
             "id": self.id,
             "userId": self.user_id,
