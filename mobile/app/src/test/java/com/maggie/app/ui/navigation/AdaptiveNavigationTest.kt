@@ -262,6 +262,18 @@ class AdaptiveNavigationTest {
     }
 
     @Test
+    fun `Courses › Produits has the frame of Courses`() {
+        val onPhone = chromeFor(phone, Screen.ProductList.route)
+        assertTrue(onPhone.showsChatBar)
+        assertFalse(onPhone.showsRail)
+
+        val onTablet = chromeFor(tabletLandscape, Screen.ProductList.route)
+        assertTrue(onTablet.showsRail)
+        assertTrue(onTablet.showsChatPanel)
+        assertFalse(onTablet.showsChatBar)
+    }
+
+    @Test
     fun `a short wide window keeps the compact bottom bar on finance, no rail and no chat in a rail`() {
         val chrome = chromeFor(phoneLandscape, Screen.FinanceDashboard.route)
 

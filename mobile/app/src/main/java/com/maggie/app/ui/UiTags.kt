@@ -1439,6 +1439,7 @@ object UiTags {
     const val PRODUCT_SHEET_FALLBACK_AISLE = "product_sheet_fallback_aisle"
 
     /** The three filter chips of Courses › Produits (MAG-606): Magasin, Rayon, Trier — each opens a bottom sheet. */
+    const val PRODUCT_LIST_SEARCH = "product_list_search"
     const val PRODUCT_FILTER_STORE = "product_filter_store"
     const val PRODUCT_FILTER_AISLE = "product_filter_aisle"
     const val PRODUCT_FILTER_SORT = "product_filter_sort"

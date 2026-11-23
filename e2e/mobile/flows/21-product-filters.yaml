@@ -74,6 +74,33 @@ tags:
       id: "product_filter_store"
     timeout: 30000
 
+# MAG-980: the search field and Maggie's bar are there; a pick in the full-screen search opens the sheet.
+- assertVisible:
+    id: "product_list_search"
+- assertVisible:
+    id: "chat_open"
+- tapOn:
+    id: "product_list_search"
+- extendedWaitUntil:
+    visible: "Retour"
+    timeout: 20000
+- tapOn:
+    id: "product_search"
+- inputText: "Yaourt MAG-606"
+- extendedWaitUntil:
+    visible: "Yaourt MAG-606"
+    timeout: 20000
+- tapOn: "Yaourt MAG-606"
+- extendedWaitUntil:
+    visible:
+      id: "product_sheet"
+    timeout: 20000
+- pressKey: back
+- extendedWaitUntil:
+    visible:
+      id: "product_filter_store"
+    timeout: 20000
+
 # The shop: both products appear, each under the header of its rayon, the first rayon first.
 - tapOn:
     id: "product_filter_store"

@@ -36,6 +36,12 @@ class ChatNavigationTest {
     }
 
     @Test
+    fun `Courses' Produits and Magasins have Maggie's bar`() {
+        assertTrue(showsChatBottomBar(Screen.ProductList.route))
+        assertTrue(showsChatBottomBar(Screen.StoreList.route))
+    }
+
+    @Test
     fun `the chat bottom bar stays on Agenda › Périodes, not on its form`() {
         assertTrue(showsChatBottomBar(Screen.PeriodList.route))
         assertFalse(showsChatBottomBar(Screen.PeriodForm.route))

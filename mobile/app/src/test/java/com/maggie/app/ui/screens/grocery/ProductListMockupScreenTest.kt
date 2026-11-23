@@ -9,7 +9,10 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -86,6 +89,30 @@ class ProductListMockupScreenTest {
             node.config.getOrNull(SemanticsProperties.Text)?.any { rawWords.containsMatchIn(it.text) } == true
         }
         compose.onAllNodes(raw).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a search field comes before the filters`() {
+        show(ail, beurre)
+
+        compose.onNodeWithTag(UiTags.PRODUCT_LIST_SEARCH).assertIsDisplayed()
+        compose.onNodeWithText("Rechercher un produit").assertIsDisplayed()
+        assertTopToBottom(
+            "search" to compose.onNodeWithTag(UiTags.PRODUCT_LIST_SEARCH),
+            "filters" to compose.onNodeWithTag(UiTags.PRODUCT_FILTER_STORE),
+        )
+    }
+
+    @Test
+    fun `the search opens full screen and a pick opens the product sheet`() {
+        show(ail, beurre)
+
+        compose.onNodeWithTag(UiTags.PRODUCT_LIST_SEARCH).performClick()
+        compose.onNodeWithTag(UiTags.PRODUCT_SEARCH).performTextInput("Ail")
+        compose.onAllNodesWithText("Utiliser", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Ail").onLast().performClick()
+
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET).assertIsDisplayed()
     }
 
     @Test

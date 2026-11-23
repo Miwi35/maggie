@@ -2,19 +2,30 @@ package com.maggie.app.ui.screens.grocery
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.maggieSurface
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +46,24 @@ import com.maggie.app.data.model.ProductSort
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.uiTagRoot
 
+@Composable
+internal fun ProductSearchField(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .height(48.dp)
+            .background(maggieSurface().paper, RoundedCornerShape(12.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp)
+            .testTag(UiTags.PRODUCT_LIST_SEARCH),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.Search, contentDescription = null, tint = maggieSurface().caption, modifier = Modifier.size(18.dp))
+        Text(text = "Rechercher un produit", color = maggieSurface().caption, fontSize = 15.sp, modifier = Modifier.padding(start = 10.dp))
+    }
+}
+
 private enum class FilterSheetKind { STORE, AISLE, SORT }
 
 /** One row of a filter's bottom sheet; a disabled row says it cannot be chosen yet. */
@@ -49,7 +78,6 @@ private data class FilterOption(
  * The filters of the products list (MAG-606): Magasin, Rayon (of that store) and Trier, each a chip that
  * opens its choices in a bottom sheet. Rayon waits for a store, and so does the sort by rayon.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ProductFilterBar(
     state: ProductUiState,
@@ -67,12 +95,14 @@ internal fun ProductFilterBar(
         is AisleFilter.One -> state.storeAisles.firstOrNull { it.id == aisle.id }?.name
     }
 
-    // A row that wraps: on a narrow phone the last filter goes to the next line, whole, rather than off the edge (MAG-675).
-    FlowRow(
+    // One line of pills, as the Produits mockup draws it; it scrolls when the three do not fit.
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         FilterDropChip(
             label = store?.name ?: "Magasin",
@@ -90,7 +120,7 @@ internal fun ProductFilterBar(
         )
         FilterDropChip(
             label = "Trier : ${query.sort.label}",
-            active = query.sort != ProductSort.NAME,
+            active = false,
             enabled = true,
             tag = UiTags.PRODUCT_FILTER_SORT,
             onClick = { open = FilterSheetKind.SORT },
@@ -124,14 +154,24 @@ internal fun ProductFilterBar(
 
 @Composable
 private fun FilterDropChip(label: String, active: Boolean, enabled: Boolean, tag: String, onClick: () -> Unit) {
-    FilterChip(
-        selected = active,
-        onClick = onClick,
-        enabled = enabled,
-        label = { Text(label) },
-        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-        modifier = Modifier.testTag(tag),
-    )
+    val accent = MaterialTheme.colorScheme.primary
+    val color = if (active) accent else maggieSurface().textMuted
+    Row(
+        modifier = Modifier
+            .heightIn(min = 36.dp)
+            .alpha(if (enabled) 1f else 0.38f)
+            .background(
+                if (active) accent.copy(alpha = 0.16f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                RoundedCornerShape(MaggieTokens.Radius.pill),
+            )
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(start = 16.dp, end = 10.dp)
+            .testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = label, color = color, fontWeight = if (active) FontWeight.Medium else FontWeight.Normal, fontSize = 14.sp, maxLines = 1)
+        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
