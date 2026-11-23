@@ -42,19 +42,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends libfaketime \
 USER app
 
 # In dev, the volume mount provides the source code.
-# Dependencies are installed via `task agent:install` after container starts.
-CMD ["sh", "-c", "uv pip install --system -e '.[dev]' && uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"]
+# Dependencies are installed from agent/uv.lock, the versions CI and prod run
+# (MAG-942), on start or via `task agent:install`.
+CMD ["sh", "-c", "uv export --frozen --extra dev --no-emit-project --quiet -o /tmp/agent-requirements.txt && uv pip install --system -r /tmp/agent-requirements.txt && uv pip install --system --no-deps -e . && uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"]
 
 # =============================================================================
 # Production stage
 # =============================================================================
 FROM base AS prod
 
-# Copy application source
-COPY --chown=app:app ./agent .
+# Production dependencies come from agent/uv.lock, the versions CI tests, never
+# from the ranges of pyproject.toml: resolved at build time they pulled
+# anthropic 2.x and sentry-sdk 3.x, and the agent crashed on start (MAG-942).
+# `--locked` fails the build when the lock is out of sync with pyproject.toml.
+COPY --chown=app:app ./agent/pyproject.toml ./agent/uv.lock ./
+COPY .docker/python/check_locked_versions.py /tmp/
+RUN uv export --locked --no-dev --no-emit-project --quiet -o /tmp/requirements.txt \
+    && uv pip install --system --no-cache -r /tmp/requirements.txt \
+    && python /tmp/check_locked_versions.py /tmp/requirements.txt \
+    && rm /tmp/requirements.txt /tmp/check_locked_versions.py
 
-# Install production dependencies only
-RUN uv pip install --system .
+# Copy application source, then the project itself (its dependencies are in)
+COPY --chown=app:app ./agent .
+RUN uv pip install --system --no-cache --no-deps .
 
 USER app
 

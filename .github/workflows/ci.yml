@@ -423,7 +423,9 @@ jobs:
           python-version: '3.12'
           enable-cache: true
           cache-dependency-glob: agent/uv.lock
-      - run: uv sync --frozen --extra dev
+      # `--locked`: a uv.lock out of sync with pyproject.toml fails here, not at
+      # the prod image build after the merge, which installs the lock (MAG-942).
+      - run: uv sync --locked --extra dev
       - run: uv run ruff check app/ evals/
       - run: uv run ruff format --check app/ evals/
 
@@ -548,7 +550,7 @@ jobs:
           python-version: '3.12'
           enable-cache: true
           cache-dependency-glob: agent/uv.lock
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --locked --extra dev
       - run: uv run pytest --cov --cov-report=xml
       - uses: ./.github/actions/coverage
         with:

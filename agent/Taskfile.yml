@@ -8,9 +8,9 @@ tasks:
   # Dependencies
   # ===========================================================================
   install:
-    desc: Install Python dependencies
+    desc: Install Python dependencies from uv.lock
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} exec agent uv pip install --system -e ".[dev]"
+      - docker compose -f {{.COMPOSE_FILE}} exec agent sh -c 'uv export --frozen --extra dev --no-emit-project --quiet -o /tmp/agent-requirements.txt && uv pip install --system -r /tmp/agent-requirements.txt && uv pip install --system --no-deps -e .'
 
   # ===========================================================================
   # Development

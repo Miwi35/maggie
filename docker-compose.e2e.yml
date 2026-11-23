@@ -589,7 +589,10 @@ services:
       - -c
       - |
         set -e
-        uv pip install --system -e '.[dev]'
+        # From agent/uv.lock, the versions prod runs (MAG-942).
+        uv export --frozen --extra dev --no-emit-project --quiet -o /tmp/agent-requirements.txt
+        uv pip install --system -r /tmp/agent-requirements.txt
+        uv pip install --system --no-deps -e .
         # E2E_COVERAGE=1: under coverage.py, one context per journey
         # (agent/app/e2e_coverage), and without --reload, whose worker process
         # coverage would not follow. `task e2e:coverage:collect` reads the data.
