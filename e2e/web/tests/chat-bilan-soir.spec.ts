@@ -1,5 +1,7 @@
 import { test, expect, parisDay, e2eNow } from '../fixtures/index.js'
 import { assistantText, calledTools, parseAgUiStream, toolResults } from '../helpers/agui.js'
+import { playEveningReview } from '../helpers/bilan.js'
+import { ChatPanel } from '../pages/ChatPanel.js'
 import { HealthJournalPage } from '../pages/HealthJournalPage.js'
 import { BilanActivityPage } from '../pages/BilanActivityPage.js'
 import { HomePage } from '../pages/HomePage.js'
@@ -275,4 +277,29 @@ test('the Demain step proposes the prepared task and schedules it for tomorrow o
     .toBe(tomorrow)
   const task = (await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { dueDate?: string | null }
   expect(task.dueDate ?? null).toBeNull()
+})
+
+/**
+ * The evening's message in the chat — MAG-963 (Bilan du soir, admin 3, extends MAG-99).
+ *
+ * Given the evening review due, Then the message says the owner's sentence and carries the `bilan` block;
+ * When I open the chat on the Accueil, Then it holds the sentence and the card « Bilan de la journée »;
+ * When I press « Ouvrir », Then the review opens full screen at its first step.
+ */
+test("the evening's message says the owner's sentence and its card opens the review", async ({ page, api }) => {
+  test.setTimeout(240_000)
+  const message = await playEveningReview(api)
+  expect(message.content).toBe('Bonsoir monsieur. Votre bilan de la journée vous attend.')
+
+  await new HomePage(page).open()
+  const chat = new ChatPanel(page)
+  await chat.open()
+  const bubble = chat.panel.locator('#msg-' + message.id)
+  await expect(bubble).toContainText('Bonsoir monsieur. Votre bilan de la journée vous attend.')
+  await expect(chat.momentTitle(message.id)).toHaveText('Bilan de la journée')
+  await expect(chat.momentText(message.id)).toContainText('· 5 étapes')
+
+  await chat.momentCard(message.id).getByRole('link', { name: 'Ouvrir le bilan de la journée' }).click()
+  await expect(page).toHaveURL(/\/activites\/bilan$/)
+  await expect(new BilanActivityPage(page).counter).toHaveText('Étape 1 sur 5')
 })
