@@ -293,7 +293,7 @@ class Proaction extends Event implements MercurePublishable
         return $this->topicKey;
     }
 
-    /** @return array{impact?: string, evidence?: string, deadline?: string, changed?: string}|null */
+    /** @return array{impact?: string, evidence?: string, deadline?: string, changed?: string, value?: string}|null */
     public function getVerdict(): ?array
     {
         return $this->verdict;
