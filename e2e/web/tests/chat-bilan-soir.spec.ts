@@ -147,13 +147,39 @@ test('mood and fatigue given at the Santé step are written in the health journa
  */
 test('the evening review runs full screen and resumes where it was left', async ({ page, api }) => {
   const today = parisDay()
-  const put = await api.put('/api/activity-status/bilan', { data: { origin: { kind: 'day', id: today }, state: { step: 'journee' } } })
+  const tomorrow = parisDay(new Date(e2eNow().getTime() + 86_400_000))
+  const jsonLd = { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' }
+  const json = { Accept: 'application/json' }
+
+  // Given a debit today, two tasks and a bilan Maggie prepared (no step) with the first, the second in reserve
+  const account = await api.post('/api/accounts', { headers: jsonLd, data: { name: 'Courant MAG-962', type: 'checking', currency: 'EUR', balanceCents: 0 } })
+  expect(account.status(), await account.text()).toBe(201)
+  const accountId = ((await account.json()) as { id: string }).id
+  const debit = await api.post('/api/transactions', {
+    headers: jsonLd,
+    data: { account: `/api/accounts/${accountId}`, label: 'BOULANGERIE MAG962', amountCents: -4280, currency: 'EUR', bookedAt: today, status: 'spent' },
+  })
+  expect(debit.status(), await debit.text()).toBe(201)
+  const chosen = ((await (await api.post('/api/tasks', { headers: jsonLd, data: { title: 'Trier les papiers 962' } })).json()) as { id: string }).id
+  const reserve = ((await (await api.post('/api/tasks', { headers: jsonLd, data: { title: 'Ranger les photos 962' } })).json()) as { id: string }).id
+  const put = await api.put('/api/activity-status/bilan', {
+    data: {
+      origin: { kind: 'day', id: today },
+      state: { tomorrowTasks: [{ taskId: chosen, title: 'Trier les papiers 962' }], tomorrowSpares: [{ taskId: reserve, title: 'Ranger les photos 962' }] },
+    },
+  })
   expect(put.status(), await put.text()).toBeLessThan(300)
 
   const bilan = new BilanActivityPage(page)
   await bilan.open()
   await expect(bilan.heading).toHaveText('Votre journée')
   await expect(bilan.counter).toHaveText('Étape 1 sur 5')
+
+  await bilan.step('Finance').click()
+  await expect(bilan.heading).toHaveText('Vos comptes')
+  await expect(bilan.dayTotal).toContainText('42,80')
+  await expect(bilan.rhythm('Semaine')).toBeVisible()
+  await expect(bilan.rhythm('Mois')).toBeVisible()
 
   await bilan.step('Santé').click()
   await expect(bilan.heading).toHaveText('Votre santé')
@@ -168,10 +194,20 @@ test('the evening review runs full screen and resumes where it was left', async 
   await bilan.open()
   await expect(bilan.heading).toHaveText('Votre santé')
 
+  // The prepared lists survived the opening: swap the chosen task for the reserve one, then Bonne nuit plans it
   await bilan.step('Demain').click()
+  await expect(bilan.plannedTask('Trier les papiers 962')).toBeVisible()
+  await bilan.swap('Trier les papiers 962')
+  await expect(bilan.plannedTask('Ranger les photos 962')).toBeVisible()
+  await expect(bilan.plannedTask('Trier les papiers 962')).toBeHidden()
+
   await bilan.next()
   await expect(bilan.root).toBeHidden()
   await expect.poll(async () => (await api.get('/api/activity-status/bilan')).status(), { intervals: [1000], timeout: 15_000 }).toBe(404)
+  const scheduled = async (id: string) => ((await (await api.get(`/api/tasks/${id}`, { headers: json })).json()) as { scheduledDate?: string | null; dueDate?: string | null })
+  await expect.poll(async () => (await scheduled(reserve)).scheduledDate?.slice(0, 10), { intervals: [1000], timeout: 15_000 }).toBe(tomorrow)
+  expect((await scheduled(reserve)).dueDate ?? null).toBeNull()
+  expect((await scheduled(chosen)).scheduledDate ?? null).toBeNull()
 })
 
 /**
