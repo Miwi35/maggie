@@ -14,8 +14,11 @@ from app.policy.checker import (
     AuthorizedBy,
     CheckedToolRouter,
     OwnerWords,
+    action_amounts,
+    amounts_agree,
     check_authorization,
     needs_check,
+    owner_amounts,
     verify_quote,
 )
 from app.policy.hold import hold_for_approval
@@ -156,3 +159,91 @@ async def test_a_held_write_names_its_object_on_the_card():
 
     assert out["status"] == "pending_approval"
     assert create.await_args.kwargs["summary"] == "Action en attente de validation — « Lait »"
+
+
+LOISIRS = [OwnerWords("instruction", "i-3", "Chaque mois, mets l'enveloppe Loisirs à 150 € pour le mois")]
+LOISIRS_QUOTE = '{"authorized": true, "quote": "mets l\'enveloppe Loisirs à 150 €"}'
+
+
+async def authorize_amounts(arguments, words=LOISIRS, quote=LOISIRS_QUOTE) -> AuthorizedBy:
+    return await authorize(client_answering(quote), words=words, name="manage_envelopes", arguments=arguments)
+
+
+async def test_an_amount_different_from_the_one_the_owner_said_is_held():
+    assert (await authorize_amounts({"action": "set", "amountCents": 1500})).kind == "none"
+
+
+async def test_the_amount_the_owner_said_authorizes():
+    assert (await authorize_amounts({"action": "set", "amountCents": 15000})).kind == "instruction"
+
+
+async def test_a_signed_amount_is_compared_by_its_absolute_value():
+    assert (await authorize_amounts({"amountCents": -15000})).kind == "instruction"
+    assert (await authorize_amounts({"amountCents": -1500})).kind == "none"
+
+
+async def test_an_amount_nested_in_a_list_is_compared():
+    assert (await authorize_amounts({"shares": [{"amountCents": 15000}]})).kind == "instruction"
+    assert (await authorize_amounts({"shares": [{"amountCents": 1500}]})).kind == "none"
+
+
+async def test_every_amount_of_the_action_must_be_said():
+    assert (await authorize_amounts({"amountCents": 15000, "minAmountCents": 100})).kind == "none"
+
+
+async def test_a_short_quote_without_the_amount_is_compared_on_the_whole_instruction():
+    quote = '{"authorized": true, "quote": "mets l\'enveloppe Loisirs"}'
+
+    assert (await authorize_amounts({"amountCents": 1500}, quote=quote)).kind == "none"
+    assert (await authorize_amounts({"amountCents": 15000}, quote=quote)).kind == "instruction"
+
+
+@pytest.mark.parametrize(
+    ("text", "cents"),
+    [
+        ("50 €", 5000),
+        ("50€", 5000),
+        ("50 euros", 5000),
+        ("50 EUR", 5000),
+        ("1 200,50 €", 120050),
+        ("1 200 €", 120000),
+        ("1 200 €", 120000),
+        ("1 200 €", 120000),
+        ("1.200 €", 120000),
+        ("12,5 €", 1250),
+    ],
+)
+def test_owner_amounts_read_french_writings(text, cents):
+    assert owner_amounts(f"Mets {text} de côté") == {cents}
+
+
+@pytest.mark.parametrize("text", ["80 %", "le 15/01/2026", "à 18 h", "2 bouteilles", "3", "50 europeans"])
+def test_percentages_dates_hours_and_bare_numbers_are_not_amounts(text):
+    assert owner_amounts(f"Rappelle {text} sans faute") == frozenset()
+
+
+def test_no_amount_said_leaves_the_decision_to_the_checker():
+    assert amounts_agree("Chaque lundi, ajoute du lait à la liste de courses", {"amountCents": 999})
+
+
+def test_numbers_outside_cents_keys_are_never_compared():
+    arguments = {"quantity": 7, "limit": 20, "label": "Lait 2 €", "flag": True}
+
+    assert action_amounts(arguments) == frozenset()
+    assert amounts_agree("Mets 150 €", arguments)
+
+
+async def test_a_proaction_write_with_another_amount_is_held_on_the_card():
+    checked, inner = router(client_answering(LOISIRS_QUOTE))
+    hold = AsyncMock(return_value="held")
+    with (
+        patch("app.policy.checker.planning_words", new=AsyncMock(return_value=LOISIRS)),
+        patch("app.policy.checker.hold_for_approval", new=hold),
+    ):
+        out = await checked.call_tool(
+            "manage_envelopes", {"action": "set", "amountCents": 1500}, user_id="user-1", source="proaction"
+        )
+
+    assert out == "held"
+    hold.assert_awaited_once()
+    inner.call_tool.assert_not_awaited()
