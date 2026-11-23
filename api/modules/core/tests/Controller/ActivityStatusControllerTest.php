@@ -143,8 +143,6 @@ class ActivityStatusControllerTest extends WebTestCase
         yield 'origin with an empty id' => [['origin' => ['kind' => 'recipe', 'id' => ' '], 'state' => $valid['state']]];
         yield 'origin id not a string' => [['origin' => ['kind' => 'recipe', 'id' => 42], 'state' => $valid['state']]];
         yield 'origin id too long' => [['origin' => ['kind' => 'recipe', 'id' => str_repeat('a', 65)], 'state' => $valid['state']]];
-        yield 'tomorrowTasks not a list' => [['origin' => $valid['origin'], 'state' => ['tomorrowTasks' => 'demain']]];
-        yield 'tomorrow task without taskId' => [['origin' => $valid['origin'], 'state' => ['tomorrowSpares' => [['title' => 'x']]]]];
         yield 'origin kind of another activity' => [['origin' => ['kind' => 'review', 'id' => 'x'], 'state' => $valid['state']]];
         yield 'no state' => [['origin' => $valid['origin']]];
         yield 'state null' => [['origin' => $valid['origin'], 'state' => null]];
@@ -327,6 +325,8 @@ class ActivityStatusControllerTest extends WebTestCase
         yield 'unknown kind' => [['origin' => $valid['origin'], 'state' => ['instructions' => [['id' => 'i', 'text' => 'x', 'kind' => 'order']]]]];
         yield 'instruction without text' => [['origin' => $valid['origin'], 'state' => ['instructions' => [['id' => 'i', 'kind' => 'task']]]]];
         yield 'instructions an object' => [['origin' => $valid['origin'], 'state' => ['instructions' => new \stdClass()]]];
+        yield 'tomorrowTasks not a list' => [['origin' => $valid['origin'], 'state' => ['tomorrowTasks' => 'demain']]];
+        yield 'tomorrow task without taskId' => [['origin' => $valid['origin'], 'state' => ['tomorrowSpares' => [['title' => 'x']]]]];
         yield 'origin kind of another activity' => [['origin' => ['kind' => 'recipe', 'id' => '2026-10-25'], 'state' => $valid['state']]];
         yield 'origin id not a day' => [['origin' => ['kind' => 'day', 'id' => 'hier'], 'state' => $valid['state']]];
         yield 'origin id an impossible day' => [['origin' => ['kind' => 'day', 'id' => '2026-02-30'], 'state' => $valid['state']]];
