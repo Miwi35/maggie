@@ -1498,7 +1498,7 @@ fun NavGraph() {
                 null
             },
             chatPortrait = if (chrome.showsChatPanel && !chatPanelOpen) {
-                { MaggiePortrait(onClick = { chatPanelOpen = true }) }
+                { MaggiePortrait(onClick = { chatPanelOpen = true }, unreadCount = chatUnreadCount) }
             } else {
                 null
             },

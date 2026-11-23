@@ -2,6 +2,7 @@ package com.maggie.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 
 /**
  * The band under the content, as `charte/Tel-Cible` draws it (MAG-624): the field that opens the
@@ -57,31 +59,40 @@ fun ChatBottomBar(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag(UiTags.CHAT_OPEN)
-                    .clickable(onClick = onOpenChat),
-                shape = CircleShape,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                color = MaterialTheme.colorScheme.surface,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            // The badge is a sibling of the clickable field, not inside it: a clickable merges its
+            // descendants, which hides the badge's tag from a journey (MAG-965).
+            Box(modifier = Modifier.weight(1f)) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(UiTags.CHAT_OPEN)
+                        .clickable(onClick = onOpenChat),
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    color = MaterialTheme.colorScheme.surface,
                 ) {
-                    MaggieAvatar(size = 32.dp, modifier = Modifier.testTag(UiTags.CHAT_AVATAR))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(
+                            start = 8.dp,
+                            end = if (unreadCount > 0) 48.dp else 16.dp,
+                            top = 8.dp,
+                            bottom = 8.dp,
+                        ),
+                    ) {
+                        MaggieAvatar(size = 32.dp, modifier = Modifier.testTag(UiTags.CHAT_AVATAR))
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
 
-                    Text(
-                        text = placeholder,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (unreadCount > 0) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (unreadCount > 0) {
+                    Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp)) {
                         UnreadBadge(unreadCount)
                     }
                 }
@@ -126,17 +137,23 @@ fun ChatRailActions(
     ChatMicButton(onMicClick)
 }
 
-/** « 3 »: Maggie's messages waiting to be read; 99 and more read « 99+ ». */
+/** « 99+ » above 99, the count otherwise: the bar's badge and the portrait's. */
+internal fun unreadLabel(count: Int): String = if (count > 99) "99+" else count.toString()
+
+/**
+ * « 3 »: Maggie's messages waiting to be read. Maggie's badge wears the charter's violet everywhere,
+ * never a module's hue nor the light theme's accent (mock-up Portrait-Pastille-Tablette, 22 Nov.).
+ */
 @Composable
 internal fun UnreadBadge(count: Int) {
     Badge(
         modifier = Modifier
             .testTag(UiTags.CHAT_UNREAD_BADGE)
             .semantics { contentDescription = "$count messages non lus" },
-        containerColor = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
+        containerColor = MaggieTokens.Brand.primary,
+        contentColor = MaggieTokens.Brand.onPrimary,
     ) {
-        Text(if (count > 99) "99+" else count.toString())
+        Text(unreadLabel(count))
     }
 }
 

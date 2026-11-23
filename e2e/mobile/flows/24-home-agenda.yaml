@@ -46,8 +46,12 @@ tags:
     direction: DOWN
     centerElement: true
     timeout: 20000
-- extendedWaitUntil:
-    visible: ".*Point du matin.*"
+# The departure card (MAG-866) is tall: centering the 18:30 row pushes the 08:00 row above the fold,
+# so scroll back up to it instead of waiting for it.
+- scrollUntilVisible:
+    element: ".*Point du matin.*"
+    direction: UP
+    centerElement: true
     timeout: 20000
 
 # « ▶ Lancer » (MAG-568): the seed's « Revue d'octobre » (20:00) is an activity, so its line carries

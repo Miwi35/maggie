@@ -78,6 +78,11 @@ tags:
       id: "home_bilan_resume"
     timeout: 30000
 - assertVisible: "Ouvrir"
+# The message is still unread: the bar's pill (phone) or the portrait's (tablet) carries the same tag (MAG-965).
+- extendedWaitUntil:
+    visible:
+      id: "chat_unread_badge"
+    timeout: 20000
 - runFlow: ../subflows/open-chat.yaml
 - extendedWaitUntil:
     visible: "Bonsoir monsieur. Votre bilan de la journée vous attend."
