@@ -2,8 +2,9 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -215,6 +216,11 @@ class CushionScreenTest {
         )
         compose.setContent { CushionScreen(viewModel = screen(status), onBack = {}) }
 
-        compose.onAllNodes(hasText(Regex("""\d,\d\d\s*€"""), substring = true)).assertCountEquals(0)
+        val cents = Regex("""\d,\d\d\s*€""")
+        val withCents = SemanticsMatcher("text with cents") { node ->
+            node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { cents.containsMatchIn(it.text) }
+        }
+
+        compose.onAllNodes(withCents).assertCountEquals(0)
     }
 }
