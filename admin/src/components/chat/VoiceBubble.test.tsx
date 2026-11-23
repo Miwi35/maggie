@@ -146,6 +146,70 @@ describe('VoiceBubble', () => {
   })
 })
 
+describe('VoiceBubble bars', () => {
+  beforeEach(() => {
+    vi.stubGlobal('Audio', FakeAudio)
+    FakeAudio.last = null
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('the bars are the progress and seek with the arrows', async () => {
+    stubFetch()
+    const user = userEvent.setup()
+    bubble()
+    const slider = screen.getByRole('slider', { name: 'Progression' })
+    expect(slider).toHaveAttribute('aria-valuetext', 'Lu 0:00 sur 1:23')
+
+    slider.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(slider).toHaveAttribute('aria-valuetext', 'Lu 0:05 sur 1:23')
+    await user.keyboard('{ArrowLeft}{ArrowLeft}')
+    expect(slider).toHaveAttribute('aria-valuetext', 'Lu 0:00 sur 1:23')
+
+    await user.click(screen.getAllByTestId('voice-bar')[27])
+    expect(screen.getAllByTestId('voice-bar').filter((bar) => bar.getAttribute('data-played') === 'true')).toHaveLength(28)
+  })
+
+  test('the chat size says the length at rest', () => {
+    stubFetch()
+    bubble()
+    expect(screen.getAllByTestId('voice-bar')).toHaveLength(28)
+    expect(screen.getByTestId('voice-duration').textContent).toBe('1:23')
+  })
+
+  test('the large size says position and length', () => {
+    stubFetch()
+    renderWithTheme(<VoiceBubble audio={AUDIO} authHeaders={() => ({})} size="large" />)
+    expect(screen.getAllByTestId('voice-bar')).toHaveLength(34)
+    expect(screen.getByTestId('voice-duration').textContent).toBe('0:00 / 1:23')
+  })
+
+  test('autoPlay plays once', async () => {
+    stubFetch()
+    renderWithTheme(<VoiceBubble audio={AUDIO} authHeaders={() => ({})} autoPlay />)
+    await screen.findByRole('button', { name: 'Pause' })
+    expect(FakeAudio.last?.play).toHaveBeenCalledTimes(1)
+  })
+
+  test('a browser that refuses autoPlay leaves the button, with no error', async () => {
+    stubFetch()
+    class Refusing extends FakeAudio {
+      play = vi.fn(() => Promise.reject(new DOMException('no', 'NotAllowedError')))
+    }
+    vi.stubGlobal('Audio', Refusing)
+    renderWithTheme(<VoiceBubble audio={AUDIO} authHeaders={() => ({})} autoPlay />)
+    await waitFor(() => expect((FakeAudio.last as FakeAudio).play).toHaveBeenCalled())
+    expect(screen.getByRole('button', { name: 'Lecture' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  test('no transcript toggle when the text is beside', () => {
+    stubFetch()
+    renderWithTheme(<VoiceBubble audio={AUDIO} authHeaders={() => ({})} transcriptToggle={false} />)
+    expect(screen.queryByRole('button', { name: 'Transcription' })).not.toBeInTheDocument()
+  })
+})
+
 describe('textBesideVoice', () => {
   test('keeps a text that is not the transcript, without voice tags', () => {
     expect(textBesideVoice('[warmly] Votre digest du matin est disponible. ', AUDIO)).toBe('Votre digest du matin est disponible.')

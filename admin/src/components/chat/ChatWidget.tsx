@@ -1468,7 +1468,11 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                                   return beside ? <Linkified text={beside} /> : null
                                 })()}
                                 <Box sx={{ mt: 1 }}>
-                                  <VoiceBubble audio={msg.audio} authHeaders={getAuthHeaders} />
+                                  <VoiceBubble
+                                    audio={msg.audio}
+                                    authHeaders={getAuthHeaders}
+                                    transcriptToggle={textBesideVoice(saidInMessage(msg.content), msg.audio) === null}
+                                  />
                                 </Box>
                               </>
                             ) : (

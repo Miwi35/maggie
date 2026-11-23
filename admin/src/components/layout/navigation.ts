@@ -357,6 +357,9 @@ export function resolveTrail(pathname: string): TrailCrumb[] {
   if (path === '/search') {
     return [{ label: SEARCH_LABEL, to: path }]
   }
+  if (path === '/digest') {
+    return [{ label: HOME_LABEL, to: '/' }, { label: 'Digest du matin', to: path }]
+  }
 
   // Transactions are reached through their account, not from a list of their own.
   const accountTransactions = /^\/accounts\/([^/]+)\/transactions$/.exec(path)

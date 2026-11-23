@@ -1,6 +1,7 @@
 import { test, expect, e2eNow, parisDay, parisTime } from '../fixtures/index.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
+import { DigestPage } from '../pages/DigestPage.js'
 import { HomePage } from '../pages/HomePage.js'
 
 /**
@@ -14,7 +15,7 @@ import { HomePage } from '../pages/HomePage.js'
  * `digest` block holding the text: it cites the weather (the simulated Open-Meteo) and the appointment with
  * its hour, written by the model after the code's one read-back (turn 4 of `98-proaction-digest-due.yaml`), and
  * the code adds no sentence of its own; a `message` notification opens the digest; the opening route
- * marks the block once and only once; the journal shows the weather read and no `send_voice_message`.
+ * marks the block once and only once (the digest screen opens it, MAG-959); the journal shows the weather read and no `send_voice_message`.
  *
  * An account of its own: the planning reads its instructions, and no other journey's must match.
  */
@@ -128,10 +129,14 @@ test('the digest instruction said once brings one message, read and heard, and a
     const messages = (await (await api.get('/agent/messages?screen=digest&limit=1')).json()) as AgentMessage[]
     return messages[0].blocks!.find((b) => b.type === 'digest')!.openedAt
   }
-  const first = await api.post(`/agent/messages/${message.id}/digest/opened`)
-  expect(first.status(), await first.text()).toBe(200)
+  const digestPage = new DigestPage(page)
+  await digestPage.open(message.id)
+  await expect(digestPage.trail).toContainText('Accueil')
+  await expect(digestPage.word).toContainText('Kiné à 14 h 30')
+  await expect(digestPage.card('weather')).toBeVisible()
+  await expect(digestPage.card('agenda')).toContainText('Kiné')
+  await expect.poll(opened, { message: 'the digest screen never marked the block opened' }).not.toBeNull()
   const openedAt = await opened()
-  expect(openedAt).not.toBeNull()
   const second = await api.post(`/agent/messages/${message.id}/digest/opened`)
   expect(second.status(), await second.text()).toBe(200)
   expect(await opened()).toBe(openedAt)

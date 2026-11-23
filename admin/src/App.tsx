@@ -9,6 +9,7 @@ import { groceryResources } from './modules/grocery'
 import { cookbookResources } from './modules/cookbook'
 import { financeResources } from './modules/finance'
 import { healthResources } from './modules/health'
+import { maggieResources } from './modules/maggie'
 import { searchResources } from './modules/search'
 import {
   authProvider,
@@ -70,6 +71,7 @@ function App() {
       {financeResources}
       {settingsResources}
       {searchResources}
+      {maggieResources}
     </HydraAdmin>
   )
 }
