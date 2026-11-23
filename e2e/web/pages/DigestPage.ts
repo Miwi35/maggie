@@ -11,7 +11,7 @@ export class DigestPage extends AdminShell {
   constructor(page: Page) {
     super(page)
     this.trail = page.getByRole('navigation', { name: "Fil d'Ariane" })
-    this.greeting = this.content.getByText('Bonjour monsieur')
+    this.greeting = this.content.getByText('Bonjour monsieur', { exact: true })
     this.word = this.content.getByTestId('digest-word')
   }
 
