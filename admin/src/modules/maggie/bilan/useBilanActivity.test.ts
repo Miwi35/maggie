@@ -118,7 +118,9 @@ describe('useBilanActivity', () => {
     api = fakeBilanStatusApi({ origin: { kind: 'day', id: TODAY }, state: { step: 'demain' } })
     const { result } = renderHook(() => useBilanActivity(TODAY))
     await waitFor(() => expect(result.current.load).toBe('ready'))
-    act(() => result.current.end())
+    await act(async () => {
+      await result.current.end()
+    })
     await waitFor(() => expect(api.deletes()).toHaveLength(1))
     expect(api.current()).toBeNull()
     expect(result.current.load).toBe('closed')
@@ -131,5 +133,48 @@ describe('useBilanActivity', () => {
     stub()
     act(() => result.current.retry())
     await waitFor(() => expect(result.current.load).toBe('ready'))
+  })
+
+  test('a prepared bilan keeps its tasks when opened', async () => {
+    const state = { tomorrowTasks: [{ taskId: 'A', title: 'A' }], tomorrowSpares: [{ taskId: 'B', title: 'B' }] }
+    api = fakeBilanStatusApi({ origin: { kind: 'day', id: TODAY }, state })
+    const { result } = renderHook(() => useBilanActivity(TODAY))
+    await waitFor(() => expect(result.current.load).toBe('ready'))
+    expect(result.current.session).toMatchObject({ step: 'journee', state })
+    await waitFor(() => expect(api.writes()).toEqual([{ origin: { kind: 'day', id: TODAY }, state: { ...state, step: 'journee' } }]))
+  })
+
+  test('good night closes once the plan is done', async () => {
+    api = fakeBilanStatusApi({ origin: { kind: 'day', id: TODAY }, state: { step: 'demain' } })
+    const { result } = renderHook(() => useBilanActivity(TODAY))
+    await waitFor(() => expect(result.current.load).toBe('ready'))
+    const plan = vi.fn(() => Promise.resolve(true))
+    await act(async () => {
+      await result.current.end(plan)
+    })
+    expect(plan).toHaveBeenCalledOnce()
+    expect(api.deletes()).toHaveLength(1)
+    expect(result.current.load).toBe('closed')
+  })
+
+  test('a refused plan keeps the bilan open', async () => {
+    api = fakeBilanStatusApi({ origin: { kind: 'day', id: TODAY }, state: { step: 'demain' } })
+    const { result } = renderHook(() => useBilanActivity(TODAY))
+    await waitFor(() => expect(result.current.load).toBe('ready'))
+    await act(async () => {
+      await result.current.end(() => Promise.resolve(false))
+    })
+    expect(api.deletes()).toHaveLength(0)
+    expect(result.current.load).toBe('ready')
+    expect(api.current()).not.toBeNull()
+  })
+
+  test('amend rewrites the state without touching the step', async () => {
+    api = fakeBilanStatusApi({ origin: { kind: 'day', id: TODAY }, state: { step: 'demain', tomorrowTasks: [] } })
+    const { result } = renderHook(() => useBilanActivity(TODAY))
+    await waitFor(() => expect(result.current.load).toBe('ready'))
+    act(() => result.current.amend(() => ({ tomorrowSpares: [{ taskId: 'B', title: 'B' }] })))
+    await waitFor(() => expect(api.writes()).toHaveLength(1))
+    expect(api.writes()[0]?.state).toEqual({ step: 'demain', tomorrowTasks: [], tomorrowSpares: [{ taskId: 'B', title: 'B' }] })
   })
 })

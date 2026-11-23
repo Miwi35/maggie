@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import LinearProgress from '@mui/material/LinearProgress'
@@ -14,6 +14,8 @@ import { BILAN_STEPS, DEFAULT_SAY, STEP_HEADINGS, STEP_LABELS, stepIndex } from 
 import type { BilanStep } from './bilanSession'
 import { BilanError } from './steps/BilanCard'
 import { useConsignesSlot } from './steps/ConsignesStep'
+import { useDemainSlot } from './steps/DemainStep'
+import { useFinanceSlot } from './steps/FinanceStep'
 import { useJourneeSlot } from './steps/JourneeStep'
 import { useSanteSlot } from './steps/SanteStep'
 import type { BilanSlot } from './steps/slot'
@@ -130,12 +132,15 @@ const MaggieColumn = ({ say, asks, onReply }: { say: string; asks: NonNullable<B
 
 const Bilan = ({ today, goBack }: { today: string; goBack: () => void }) => {
   const color = useTheme().palette.primary.main
-  const { load, session, retry, moveTo, record, end } = useBilanActivity(today)
+  const { load, session, retry, moveTo, record, amend, end } = useBilanActivity(today)
   const [chatOpen, setChatOpen] = useState(false)
+  const [ending, setEnding] = useState(false)
   const now = useNow()
   const journee = useJourneeSlot(today, session, record)
   const sante = useSanteSlot(today, session, record)
   const consignes = useConsignesSlot(session)
+  const finance = useFinanceSlot(today, session?.step === 'finance')
+  const demain = useDemainSlot(today, session, amend, useCallback(() => setChatOpen(true), []))
 
   useEffect(() => {
     if (load === 'closed') goBack()
@@ -144,11 +149,22 @@ const Bilan = ({ today, goBack }: { today: string; goBack: () => void }) => {
   const step = session?.step
   const slot: BilanSlot | undefined = useMemo(() => {
     if (step === 'journee') return journee
+    if (step === 'finance') return finance
     if (step === 'sante') return sante
     if (step === 'consignes') return consignes
+    if (step === 'demain') return demain
 
     return undefined
-  }, [step, journee, sante, consignes])
+  }, [step, journee, finance, sante, consignes, demain])
+
+  const goodNight = async () => {
+    setEnding(true)
+    try {
+      await end(demain.plan)
+    } finally {
+      setEnding(false)
+    }
+  }
 
   const last = step === BILAN_STEPS[BILAN_STEPS.length - 1]
   const index = step ? stepIndex(step) : 0
@@ -210,7 +226,7 @@ const Bilan = ({ today, goBack }: { today: string; goBack: () => void }) => {
                 {`Ensuite · ${STEP_LABELS[following]}`}
               </Typography>
             )}
-            <Button variant="contained" onClick={() => (following ? moveTo(following) : end())} sx={{ minHeight: 52, borderRadius: 999, px: 4 }}>
+            <Button variant="contained" disabled={ending} onClick={() => (following ? moveTo(following) : void goodNight())} sx={{ minHeight: 52, borderRadius: 999, px: 4 }}>
               {last ? 'Bonne nuit' : 'Suivant'}
             </Button>
           </Box>

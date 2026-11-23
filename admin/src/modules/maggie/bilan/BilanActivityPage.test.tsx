@@ -154,7 +154,7 @@ describe('BilanActivityPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Bonne nuit' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Suivant' })).not.toBeInTheDocument()
-    expect(screen.getByText('Voici ce qui vous attend demain.')).toBeInTheDocument()
+    expect(await screen.findByText(/Kiné à 9 h 30, puis dîner à 21 h\./)).toBeInTheDocument()
   })
 
   test('Journée lists the finished events and the remaining tasks', async () => {
