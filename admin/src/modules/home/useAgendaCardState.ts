@@ -19,7 +19,7 @@ async function members<T>(path: string, label: string): Promise<T[]> {
   return body?.member ?? []
 }
 
-async function read(day: HomeDay): Promise<AgendaHomeState> {
+async function read(day: HomeDay, answeredBefore: boolean): Promise<AgendaHomeState> {
   const now = new Date()
   const date = day === 'today' ? localDay(now) : addDays(localDay(now), 1)
   const period = new URLSearchParams({
@@ -39,8 +39,9 @@ async function read(day: HomeDay): Promise<AgendaHomeState> {
 
     return composeAgendaState(date, day === 'today' ? now.getTime() : null, events, agendas, trips)
   } catch (e) {
-    // A module that is not there answers 404: its card is not drawn, which is not an error.
-    if (e instanceof ApiStatusError && e.status === 404) return composeAgendaState(date, null, [], [])
+    // A module that is not there answers 404 from the first read: its card is not drawn, which is not an error.
+    // A 404 after an answer is an ingress blip (a deploy): an error, the card keeps what it had (MAG-987).
+    if (!answeredBefore && e instanceof ApiStatusError && e.status === 404) return composeAgendaState(date, null, [], [])
     throw e
   }
 }
@@ -54,14 +55,16 @@ export function useAgendaCardState(day: HomeDay) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const latest = useRef(0)
+  const answered = useRef(false)
 
   const load = useCallback(
     async (initial: boolean) => {
       const request = ++latest.current
       if (initial) setLoading(true)
       try {
-        const body = await read(day)
+        const body = await read(day, answered.current)
         if (request === latest.current) {
+          answered.current = true
           setState(body)
           setError(false)
         }
@@ -75,6 +78,7 @@ export function useAgendaCardState(day: HomeDay) {
   )
 
   useEffect(() => {
+    answered.current = false
     void load(true)
     const reads = latest
     return () => {

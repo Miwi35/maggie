@@ -397,6 +397,25 @@ describe('AgendaCard', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  test('a 404 on a read after a filled one keeps the card (MAG-987)', async () => {
+    vi.useRealTimers()
+    let answer: (url: string) => Promise<unknown> = reads([upcoming, evening])
+    vi.stubGlobal('fetch', vi.fn((url: string) => answer(url)))
+
+    renderCard()
+    await screen.findByText('Dentiste')
+
+    answer = () => Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) })
+    await act(async () => {
+      await emitMercure('/api/events/{id}', { '@id': '/api/events/upcoming' })
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Impossible de charger cette carte.')
+    expect(screen.getByTestId('home-card-agenda')).toBeInTheDocument()
+    expect(screen.getByText('Dentiste')).toBeInTheDocument()
+    expect(screen.getByText('Yoga')).toBeInTheDocument()
+  })
+
   test('the title opens the Agenda', async () => {
     vi.stubGlobal('fetch', vi.fn(reads([upcoming])))
     renderCard()
