@@ -360,8 +360,8 @@ tasks:
   # would make two branches with different dependencies overwrite each other.
   # The shared cache is the downloads, so building it is seconds, not minutes.
   #
-  # `--frozen`, matching ci.yml's `uv sync --frozen --extra dev`: use the lock
-  # as it stands, never rewrite it. A verification command that edits a tracked
+  # `--frozen`: use the lock as it stands, never rewrite it (ci.yml's
+  # `uv sync --locked` is the check that the lock matches pyproject.toml). A verification command that edits a tracked
   # lockfile behind the author's back is a bug — this one did, until it was
   # caught in review.
   #
