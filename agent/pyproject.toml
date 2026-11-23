@@ -21,7 +21,9 @@ dependencies = [
     "openai>=1.30.0",
     "edge-tts>=7.0.0",
     "prometheus_client>=0.21.0",
-    "sentry-sdk[fastapi]>=2.20.0",
+    # The prod image installs without the lock: 3.0 refuses `send_default_pii` and the agent
+    # no longer starts (MAG-971 deploy).
+    "sentry-sdk[fastapi]>=2.20.0,<3",
     "aioboto3>=13.0.0",
     "lameenc>=1.7.0",
 ]
