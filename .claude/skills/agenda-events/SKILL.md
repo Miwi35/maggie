@@ -14,5 +14,6 @@ user-invocable: false
 
 - Recurrence is an RFC 5545 RRULE string on the Event, expanded at query time with `simshaun/recurr`: there is no Occurrence table.
 - An exception instance is a separate Event with `recurringEvent` + `originalStartAt`.
+- A proaction series (ADR-012-1): each run is an exception instance created at claim time; a series is never claimed itself.
 - Status is `confirmed`, `tentative` or `cancelled`; reminders are `{useDefault, overrides: [{method, minutes}]}`.
 - The MCP schedule contract (start and end, never a duration; all-day end excluded) is in `agent-os/standards/api/mcp-tools.md`.
