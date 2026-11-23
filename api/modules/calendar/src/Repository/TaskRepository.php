@@ -72,7 +72,7 @@ class TaskRepository extends ServiceEntityRepository
         }
 
         if (null !== $criteria->day) {
-            $qb->andWhere('t.scheduledDate = :day OR (t.completedAt IS NULL AND t.dueDate <= :day)');
+            $qb->andWhere('t.scheduledDate = :day OR (t.completedAt IS NULL AND (t.dueDate <= :day OR t.scheduledDate <= :day))');
         }
         if (null !== $criteria->dueFrom) {
             $qb->andWhere('t.dueDate >= :dueFrom');
@@ -187,19 +187,21 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
-     * The tasks not done planned on $day (MAG-718), whatever their due day.
+     * The tasks not done planned on $day or before (MAG-718, MAG-984),
+     * whatever their due day.
      *
      * @return Task[]
      */
-    public function findOpenScheduledOn(User $user, \DateTimeImmutable $day): array
+    public function findOpenScheduledUntil(User $user, \DateTimeImmutable $day): array
     {
         return $this->createQueryBuilder('t')
             ->where('t.user = :user')
             ->andWhere('t.completedAt IS NULL')
-            ->andWhere('t.scheduledDate = :day')
+            ->andWhere('t.scheduledDate <= :day')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('day', $day, Types::DATE_IMMUTABLE)
-            ->orderBy('t.position', 'ASC')
+            ->orderBy('t.scheduledDate', 'ASC')
+            ->addOrderBy('t.position', 'ASC')
             ->addOrderBy('t.id', 'ASC')
             ->getQuery()
             ->getResult();
@@ -320,7 +322,8 @@ class TaskRepository extends ServiceEntityRepository
     }
 
     /**
-     * The tasks not done with no due day, in their manual order (MAG-408).
+     * The tasks not done with no due day, in their manual order (MAG-408); the
+     * views take out those already in Aujourd'hui or À venir.
      *
      * @return Task[]
      */

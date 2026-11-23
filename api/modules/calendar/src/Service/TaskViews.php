@@ -12,7 +12,7 @@ use Maggie\Core\Entity\User;
 /**
  * The four views of the tasks (MAG-408), each task in exactly one:
  * `today` ({@see TodayTasks}), `upcoming` (not done, due or planned after
- * today — MAG-718), `someday` (not done, no due day nor day planned ahead)
+ * today, and not planned today or before — MAG-718, MAG-984), `someday` (not done, no due day nor day planned ahead)
  * and `done`. A subtask follows its task, right
  * after it in the task's view whatever its own day, and is in no other.
  */

@@ -10,7 +10,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_tasks', description: 'Gets tasks, filters combined with AND. status: pending (default), done, all. day (YYYY-MM-DD): planned that day, or due that day or before and not done. dueFrom/dueTo, scheduledFrom/scheduledTo: inclusive bounds. dated: false = no due nor planned day, true = one of them. parentId: the subtasks of a task. limit: 50, at most 200. Highest orderScore first; done: most recently done first. Returns {tasks, count, total}; a task has urgency (low, normal, high, critical), orderScore and overdueDays (null if not late).')]
+#[McpTool(name: 'get_tasks', description: 'Gets tasks, filters combined with AND. status: pending (default), done, all. day (YYYY-MM-DD): planned that day, or planned or due that day or before and not done. dueFrom/dueTo, scheduledFrom/scheduledTo: inclusive bounds. dated: false = no due nor planned day, true = one of them. parentId: the subtasks of a task. limit: 50, at most 200. Highest orderScore first; done: most recently done first. Returns {tasks, count, total}; a task has urgency (low, normal, high, critical), orderScore and overdueDays (null if not late).')]
 class GetTasksTool
 {
     public function __construct(

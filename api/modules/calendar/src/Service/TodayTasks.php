@@ -10,12 +10,13 @@ use Maggie\Calendar\Repository\TaskRepository;
 use Maggie\Core\Entity\User;
 
 /**
- * « Aujourd'hui » (MAG-405): the tasks not done that are planned today
- * (MAG-718) or due today or late. The planned ones come first, by moment then
- * time — the plan of the day —, then the others in the order of their score
- * (MAG-406, {@see TaskUrgency::sort()}); each task is followed by its own
- * open subtasks in score order. A task neither planned today nor due is never
- * in; a subtask whose task is not listed keeps a row of its own.
+ * « Aujourd'hui » (MAG-405): the tasks not done that are planned today or
+ * before (MAG-718, MAG-984) or due today or late. The ones planned today come
+ * first, by moment then time — the plan of the day —, then the others, the
+ * ones planned in the past among them, in the order of their score (MAG-406,
+ * {@see TaskUrgency::sort()}); each task is followed by its own open subtasks
+ * in score order. A task neither planned today or before nor due is never in;
+ * a subtask whose task is not listed keeps a row of its own.
  */
 final class TodayTasks
 {
@@ -30,7 +31,7 @@ final class TodayTasks
     {
         $today = $this->urgency->today($user);
         $due = [];
-        foreach ([...$this->taskRepository->findOpenScheduledOn($user, $today), ...$this->taskRepository->findOpenDueUntil($user, $today)] as $task) {
+        foreach ([...$this->taskRepository->findOpenScheduledUntil($user, $today), ...$this->taskRepository->findOpenDueUntil($user, $today)] as $task) {
             $due[(string) $task->getId()] ??= $task;
         }
         $due = array_values($due);

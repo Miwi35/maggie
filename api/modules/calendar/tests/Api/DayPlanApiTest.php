@@ -194,6 +194,7 @@ class DayPlanApiTest extends WebTestCase
             'firstStep' => 'Trouver le numéro',
             'completedAt' => null,
             'dueDate' => '2026-10-12',
+            'scheduledDate' => null,
             'postponedSince' => '2026-10-12',
             'urgency' => 'high',
             'criticality' => 'low',
@@ -348,6 +349,18 @@ class DayPlanApiTest extends WebTestCase
         $byTitle = array_column($day['reserve'], null, 'title');
         self::assertSame('2026-10-13', $byTitle['Ranger le garage']['postponedSince']);
         self::assertArrayNotHasKey('Trier le courrier', $byTitle, 'done yesterday, gone');
+    }
+
+    /** The admin keeps a task planned in the past in « Aujourd'hui » from this date (MAG-984). */
+    public function testEachTaskOfTheDayCarriesItsScheduledDate(): void
+    {
+        $this->em()->find(Task::class, $this->id('t1'))->schedule(new \DateTimeImmutable('2026-10-08'), null, null, []);
+        $this->em()->flush();
+
+        $byTitle = array_column($this->get()['reserve'], null, 'title');
+
+        self::assertSame('2026-10-08', $byTitle['Rappeler le garage']['scheduledDate']);
+        self::assertNull($byTitle['Trier le courrier']['scheduledDate']);
     }
 
     /** A day Maggie only proposed (part 2) and the owner never took puts nothing off. */

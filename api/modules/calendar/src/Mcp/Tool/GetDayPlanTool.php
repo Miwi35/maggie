@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_day_plan', description: 'Reads the day: at most 5 slots. date YYYY-MM-DD, today by default. Returns slots [{position, type, task}], now (first slot not done, or null), reserve (other open non-subtasks by orderScore), done, total, confirmedAt (null while proposed). A task has id, title, estimatedMinutes, firstStep, completedAt, dueDate, postponedSince, urgency, criticality, rrule.')]
+#[McpTool(name: 'get_day_plan', description: 'Reads the day: at most 5 slots. date YYYY-MM-DD, today by default. Returns slots [{position, type, task}], now (first slot not done, or null), reserve (other open non-subtasks by orderScore), done, total, confirmedAt (null while proposed). A task has id, title, estimatedMinutes, firstStep, completedAt, dueDate, scheduledDate, postponedSince, urgency, criticality, rrule.')]
 final class GetDayPlanTool
 {
     public function __construct(
