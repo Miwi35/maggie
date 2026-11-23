@@ -25,6 +25,7 @@ import {
   REPLAN_USER_EMAIL,
   VOICE_USER_EMAIL,
   STARS_USER_EMAIL,
+  CHECKER_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
   CUISINE_USER_EMAIL,
@@ -58,6 +59,7 @@ export {
   ADJUST_USER_EMAIL,
   SEED_USER_EMAIL,
   OTHER_USER_EMAIL,
+  CHECKER_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   PACKAGINGS_USER_EMAIL,
   STOCK_USER_EMAIL,
@@ -227,6 +229,8 @@ export interface MaggieFixtures {
   envelopeAlertUser: OtherUser
   /** The bank statement journey's account (MAG-802). */
   bankStatementUser: OtherUser
+  /** The proaction checker journey's (MAG-943): its interruptions stay off the interruptions account. */
+  checkerUser: OtherUser
   /** The seasonality journey's (MAG-494): its grocery list and its chat are its own. */
   seasonUser: OtherUser
   /** The thirteenth seeded account, for the rings and the rhythm curve (MAG-417). */
@@ -535,6 +539,9 @@ export const test = base.extend<MaggieFixtures>({
   },
   bankStatementUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(BANK_STATEMENT_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+  checkerUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(CHECKER_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
   seasonUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(SEASON_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
