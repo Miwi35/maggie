@@ -18,6 +18,7 @@ PROACTION = "proaction"
 UTILITY = "utility"
 APPROVAL_REPLY = "approval_reply"
 CHECKER = "checker"
+RECALL_PLAN = "recall_plan"
 
 MODEL_BY_RUN: dict[str, str] = {
     CHAT: "sonnet",  # conversation, interruption, overlay, validated action
@@ -29,6 +30,7 @@ MODEL_BY_RUN: dict[str, str] = {
     UTILITY: "haiku",  # context summary, transcription, style, encoder
     APPROVAL_REPLY: "sonnet",  # owner's answer to a held action (blocking, irreversible)
     CHECKER: "sonnet",  # blocking check of an autonomous write
+    RECALL_PLAN: "haiku",  # plan of the recall of a written chat turn
 }
 
 
@@ -43,6 +45,7 @@ EFFORT_BY_RUN: dict[str, str] = {
     UTILITY: "low",
     APPROVAL_REPLY: "low",
     CHECKER: "low",
+    RECALL_PLAN: "low",
 }
 
 # Prefixes of the models that refuse `effort`.

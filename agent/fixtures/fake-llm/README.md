@@ -99,16 +99,21 @@ being answered out.
 
 ## Beyond chat
 
-Five calls in the agent are not a conversation, and each has its scenario here
+Six calls in the agent are not a conversation, and each has its scenario here
 because otherwise they would fall through to "no scenario":
 
 | Call | Matched on |
 |---|---|
 | Context routing, before every streamed message and after every proaction | `system_contains: routeur de contexte` |
+| Recall plan, before every written chat message (not spoken, MAG-973) | `system_contains: tu prépares le rappel de la mémoire` |
 | Thread summary, once a thread has grown by `CONTEXT_SUMMARY_EVERY_MESSAGES` | `system_contains: tu résumes un fil de conversation` |
 | Encoding of a thread gone quiet (MAG-15), `MEMORY_ENCODE_AFTER_SECONDS` after its last message | `system_contains: tu écris la mémoire de maggie` |
 | Transcript cleanup, after Whisper | `user_contains: assistant de transcription` |
 | A proaction (`POST /agent/proaction`) | the prompt it was scheduled with |
+
+The recall plan (MAG-973): `00-recall-plan-aggregate-pizzas.yaml` plans the count of pizzas over the month,
+`00-recall-plan-none.yaml` answers `{"plan": "aucun"}` to every other written message, so no chat scenario is
+ever handed to the plan.
 
 The summary is the one whose absence does not show up where it happened: it is
 *stored*, then injected into every later system prompt, so a missing scenario

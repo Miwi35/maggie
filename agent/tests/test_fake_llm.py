@@ -21,6 +21,7 @@ import yaml
 from pydantic import ValidationError
 
 from app.container import Container
+from app.memory.recall_plan import SYSTEM_PROMPT
 from app.config import Settings
 from app.db.context_model import ContextStatus, ConversationContext
 from app.llm import fake as fake_module
@@ -265,6 +266,30 @@ class TestParsing:
 
 
 class TestMatching:
+    async def test_a_count_question_gets_an_aggregate_recall_plan(self):
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+
+        answer = await ask(
+            client,
+            "Aujourd'hui : 2026-11-23.\nDemande : « Combien de fois ce mois-ci ai-je commandé des pizzas ? »",
+            system=SYSTEM_PROMPT,
+        )
+
+        plan = json.loads(text_of(answer))
+        assert plan["plan"] == "agreger" and plan["termes"] == ["pizza"]
+        assert re.fullmatch(r"\d{4}-\d{2}-01", plan["debut"]) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", plan["fin"])
+
+    async def test_any_other_written_message_gets_no_recall_plan(self):
+        client = FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR)
+        message = (
+            "Retiens ce que je t'ai dit sur la salle dans la conversation « Conversations/2026/10/x.md » "
+            "à 2026-10-13 19h05"
+        )
+
+        answer = await ask(client, f"Aujourd'hui : 2026-11-23.\nDemande : « {message} »", system=SYSTEM_PROMPT)
+
+        assert json.loads(text_of(answer)) == {"plan": "aucun"}
+
     async def test_user_contains_is_case_insensitive(self, fixtures_dir):
         write_scenario(fixtures_dir, "10-a.yaml", {"match": {"user_contains": "agenda"}, "turns": [{"text": "vu"}]})
         client = build_client(fixtures_dir)

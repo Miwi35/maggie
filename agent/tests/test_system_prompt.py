@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
+import pytest
+
 import app
 from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H
 from app.runtime.system_prompt import SystemPrompt
@@ -31,7 +33,8 @@ class FakeSources:
     async def timezone(self, user_id):
         return PARIS
 
-    async def memory(self, user_id, about, *, source, context_id, today: date):
+    async def memory(self, user_id, about, *, source, context_id, today: date, planned=False):
+        self.planned = planned
         return SimpleNamespace(notice=self.notice, profile="PROFILE", recalled=self.recalled)
 
     async def directives(self, user_id):
@@ -75,6 +78,25 @@ async def test_the_cached_blocks_are_identical_between_two_turns():
     assert _cached(first) == _cached(second)
     assert [b.get("cache_control") for b in first[:3]] == [EPHEMERAL_1H, EPHEMERAL, EPHEMERAL]
     assert first[3]["text"] == "RECALLED a" and second[3]["text"] == "RECALLED b"
+
+
+@pytest.mark.parametrize(
+    ("options", "planned"),
+    [
+        ({"exclude_message_id": "m-1"}, True),
+        ({"exclude_message_id": "m-1", "spoken": True}, False),
+        ({"exclude_message_id": "m-1", "in_car": True}, False),
+        ({}, False),
+        ({"exclude_message_id": "m-1", "source": "proaction"}, False),
+        ({"exclude_message_id": "m-1", "source": "planning"}, False),
+    ],
+)
+async def test_only_a_written_turn_of_the_owner_plans_its_recall(options, planned):
+    sources = FakeSources()
+
+    await SystemPrompt(sources).build("u", moment="chat", **options)
+
+    assert sources.planned is planned
 
 
 async def test_no_volatile_part_enters_a_cached_block():
