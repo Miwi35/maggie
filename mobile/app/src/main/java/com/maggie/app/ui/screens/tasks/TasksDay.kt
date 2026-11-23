@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowUp
@@ -52,13 +54,13 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
-import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.util.DateRanges
 import java.time.LocalDate
+import java.util.Locale
 
 /** The ring's words, also what a screen reader says of it. */
 internal fun ringLabelOf(done: Int, total: Int): String = "$done sur $total"
@@ -113,7 +115,7 @@ internal fun DayContent(
         if (tasks.isEmpty()) {
             item(key = "empty") {
                 Text(
-                    text = emptyTextOf(TaskView.TODAY),
+                    text = emptyTextOf(TasksSection.TODAY),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -183,7 +185,6 @@ internal fun DayRing(done: Int, total: Int, phrase: String? = null) {
  * the title, the « quand » pill, the urgency pill, the meta, and on the right the timer of a timed task not done.
  * Done, the row is struck and dimmed, without pills.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TodayRow(
     task: Task,
@@ -192,23 +193,49 @@ private fun TodayRow(
     onOpen: (String) -> Unit,
     onTimer: (String) -> Unit,
 ) {
-    val whenChip = TodayRows.whenOf(task, today)
-    val urgency = TodayRows.urgencyOf(task)
-    val meta = TodayRows.metaOf(task, today)
     val timer = TodayRows.timerMinutesOf(task)
+    TaskCardRow(
+        task = task,
+        whenChip = TodayRows.whenOf(task, today),
+        meta = TodayRows.metaOf(task, today),
+        rowTag = UiTags.tasksTodayRow(task.id),
+        checkTag = UiTags.tasksTodayCheck(task.id),
+        onToggle = onToggle,
+        onOpen = { onOpen(task.id) },
+    ) {
+        timer?.let { minutes -> TimerButton(minutes = minutes, title = task.title, onClick = { onTimer(task.id) }, tag = UiTags.tasksTodayTimer(task.id)) }
+    }
+}
+
+/**
+ * A card of the tasks (mock-up `Tac-Main`: `paper`, 20 dp corners, 68 dp at least): the box, the title, the pills and
+ * the meta; [trailing] is what sits on the right of an open task (a timer, « Aujourd'hui »).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun TaskCardRow(
+    task: Task,
+    whenChip: WhenChip?,
+    meta: String?,
+    rowTag: String,
+    checkTag: String,
+    onToggle: (Task) -> Unit,
+    onOpen: () -> Unit,
+    trailing: @Composable RowScope.() -> Unit,
+) {
+    val urgency = TodayRows.urgencyOf(task)
     val done = task.isDone
-    // A card per task (mock-up `Tac-Main`: `paper`, 20 dp corners, 68 dp at least), the timer inside it.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = if (task.isSubtask) CARD_MARGIN + 16.dp else CARD_MARGIN, end = CARD_MARGIN, top = 4.dp, bottom = 4.dp)
             .clip(RoundedCornerShape(TODAY_ROW_RADIUS))
             .background(maggieSurface().paper)
-            .clickable { onOpen(task.id) }
+            .clickable { onOpen() }
             .heightIn(min = 68.dp)
             .padding(start = 4.dp, end = 12.dp)
             .alpha(if (done) 0.6f else 1f)
-            .testTag(UiTags.tasksTodayRow(task.id)),
+            .testTag(rowTag),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -221,7 +248,7 @@ private fun TodayRow(
                 uncheckedColor = outline,
             ),
             modifier = Modifier
-                .testTag(UiTags.tasksTodayCheck(task.id))
+                .testTag(checkTag)
                 .semantics {
                     contentDescription = (if (done) "Rouvrir « " else "Marquer comme faite « ") + task.title + " »"
                 },
@@ -258,7 +285,61 @@ private fun TodayRow(
         }
         // The star a task done earned (MAG-509).
         if (done) TaskStar(modifier = Modifier.padding(end = 8.dp))
-        timer?.let { minutes -> TimerButton(minutes = minutes, title = task.title, onClick = { onTimer(task.id) }, tag = UiTags.tasksTodayTimer(task.id)) }
+        trailing()
+    }
+}
+
+/**
+ * « Tâches » (MAG-934): the groups « CETTE SEMAINE · n », « PLUS TARD · n », « SANS DATE · n », each task a card with
+ * « Aujourd'hui » on its right, which plans it today.
+ */
+@Composable
+internal fun StockContent(
+    groups: List<StockGroup>,
+    today: LocalDate,
+    viewModel: TasksViewModel,
+    onTaskClick: (Task) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = WindowInsets.ime.asPaddingValues(),
+    ) {
+        groups.forEach { group ->
+            item(key = "group_" + group.kind.key) {
+                Text(
+                    text = group.kind.label.uppercase(Locale.FRENCH) + " · " + group.count,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .padding(start = CARD_MARGIN + 4.dp, end = CARD_MARGIN, top = 12.dp, bottom = 4.dp)
+                        .testTag(UiTags.tasksStockGroup(group.kind.key)),
+                )
+            }
+            items(group.tasks, key = { "stock_" + it.id }) { task ->
+                StockRow(task = task, today = today, onToggle = viewModel::toggleDone, onOpen = onTaskClick, onPick = viewModel::planToday)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun StockRow(
+    task: Task,
+    today: LocalDate,
+    onToggle: (Task) -> Unit,
+    onOpen: (Task) -> Unit,
+    onPick: (Task) -> Unit,
+) {
+    TaskCardRow(
+        task = task,
+        whenChip = TasksStock.whenOf(task, today),
+        meta = TodayRows.metaOf(task, today),
+        rowTag = UiTags.tasksStockRow(task.id),
+        checkTag = UiTags.tasksCheck(task.id),
+        onToggle = onToggle,
+        onOpen = { onOpen(task) },
+    ) {
+        if (!task.isSubtask) PickTodayButton(title = task.title, onClick = { onPick(task) }, tag = UiTags.tasksStockPick(task.id))
     }
 }
 
@@ -327,6 +408,31 @@ private fun TimerButton(minutes: Int, title: String, onClick: () -> Unit, tag: S
         ) {
             Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
             Text(text = "$minutes min", style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/** « + Aujourd'hui »: plans the task of the row today. */
+@Composable
+private fun PickTodayButton(title: String, onClick: () -> Unit, tag: String) {
+    val pink = MaggieTokens.Module.taches.second
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = pink.copy(alpha = 0.14f),
+        contentColor = pink,
+        modifier = Modifier
+            .heightIn(min = 44.dp)
+            .testTag(tag)
+            .semantics { contentDescription = "Faire aujourd’hui « $title »" },
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 10.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(text = "Aujourd’hui", style = MaterialTheme.typography.labelLarge)
         }
     }
 }

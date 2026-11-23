@@ -11,7 +11,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Routine
 import com.maggie.app.data.model.RoutineDay
 import com.maggie.app.data.model.RoutineRecurrence
-import com.maggie.app.data.model.TaskView
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
@@ -41,8 +40,8 @@ class RoutinesScreenTest {
 
     @Test
     fun `the Routines entry sits next to Aujourd'hui in the menu, and only when the screen has it`() {
-        assertEquals(listOf(TaskView.TODAY, null, TaskView.UPCOMING, TaskView.SOMEDAY, TaskView.DONE), tabsOf(withRoutines = true))
-        assertEquals(TaskView.entries.toList(), tabsOf(withRoutines = false))
+        assertEquals(listOf(TasksSection.TODAY, TasksSection.STOCK, null, TasksSection.ARCHIVES), tabsOf(withRoutines = true))
+        assertEquals(TasksSection.entries.toList(), tabsOf(withRoutines = false))
     }
 
     @Test

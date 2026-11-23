@@ -21,6 +21,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -134,7 +137,7 @@ class TasksViewModelTest {
     fun `starts in Aujourd'hui, loading`() {
         val state = createViewModel().uiState.value
 
-        assertEquals(TaskView.TODAY, state.view)
+        assertEquals(TasksSection.TODAY, state.section)
         assertTrue(state.isLoading)
         assertNull(state.counts)
     }
@@ -188,15 +191,16 @@ class TasksViewModelTest {
         viewModel.onOpened()
         advanceUntilIdle()
 
-        assertEquals("Aujourd'hui (2)", tabLabelOf(TaskView.TODAY, viewModel.uiState.value))
-        assertEquals("À venir (1)", tabLabelOf(TaskView.UPCOMING, viewModel.uiState.value))
+        assertEquals("Aujourd'hui (2)", tabLabelOf(TasksSection.TODAY, viewModel.uiState.value))
+        assertEquals("Tâches (2)", tabLabelOf(TasksSection.STOCK, viewModel.uiState.value))
+        assertEquals("Archives (1)", tabLabelOf(TasksSection.ARCHIVES, viewModel.uiState.value))
     }
     @Test
     fun `a view with no task is empty, not loading and not in error`() = runTest {
-        serve(TaskView.SOMEDAY)
+        serve(TaskView.DONE)
 
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.SOMEDAY)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.isEmpty)
@@ -259,12 +263,12 @@ class TasksViewModelTest {
     }
     @Test
     fun `a refresh in another tab that fails under its list keeps the list`() = runTest {
-        serve(TaskView.UPCOMING, late, canteen)
+        serve(TaskView.DONE, late, canteen)
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.UPCOMING)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
-        coEvery { taskRepository.getTaskView(TaskView.UPCOMING, null) } returns Result.failure(RuntimeException("Offline"))
+        coEvery { taskRepository.getTaskView(TaskView.DONE, null) } returns Result.failure(RuntimeException("Offline"))
         viewModel.refresh()
         advanceUntilIdle()
 
@@ -275,13 +279,13 @@ class TasksViewModelTest {
     @Test
     fun `changing tab empties the list, reads the new view and keeps the counts`() = runTest {
         val garage = task("t3", "Appeler le garage", dueDate = "2026-10-18")
-        serve(TaskView.UPCOMING, garage)
+        serve(TaskView.DONE, garage)
         val viewModel = createViewModel()
         viewModel.onOpened()
         advanceUntilIdle()
 
-        viewModel.selectView(TaskView.UPCOMING)
-        assertEquals(TaskView.UPCOMING, viewModel.uiState.value.view)
+        viewModel.selectSection(TasksSection.ARCHIVES)
+        assertEquals(TasksSection.ARCHIVES, viewModel.uiState.value.section)
         assertTrue(viewModel.uiState.value.tasks.isEmpty())
         assertTrue(viewModel.uiState.value.isLoading)
 
@@ -295,12 +299,12 @@ class TasksViewModelTest {
     fun `an answer for the tab the user left does not overwrite the one now open`() = runTest {
         val slowToday = CompletableDeferred<Result<TaskViewResponse>>()
         coEvery { taskRepository.getTaskView(TaskView.TODAY, null) } coAnswers { slowToday.await() }
-        serve(TaskView.SOMEDAY, task("t4", "Trier les photos"))
+        serve(TaskView.DONE, task("t4", "Trier les photos"))
         val viewModel = createViewModel()
         viewModel.onOpened()
         runCurrent()
 
-        viewModel.selectView(TaskView.SOMEDAY)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
         slowToday.complete(Result.success(response(late)))
         advanceUntilIdle()
@@ -314,7 +318,7 @@ class TasksViewModelTest {
         viewModel.onOpened()
         advanceUntilIdle()
 
-        viewModel.selectView(TaskView.TODAY)
+        viewModel.selectSection(TasksSection.TODAY)
         advanceUntilIdle()
 
         coVerify(exactly = 1) { taskRepository.getTaskView(TaskView.TODAY, null) }
@@ -323,12 +327,12 @@ class TasksViewModelTest {
     @Test
     fun `ticking a task reads the active view again`() = runTest {
         coEvery { taskRepository.toggleDone("t1", true) } returns Result.success(late.copy(completedAt = "2026-10-15T08:00:00Z"))
-        serve(TaskView.UPCOMING, late, canteen)
+        serve(TaskView.DONE, late, canteen)
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.UPCOMING)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
-        serve(TaskView.UPCOMING, canteen)
+        serve(TaskView.DONE, canteen)
         viewModel.toggleDone(late)
         advanceUntilIdle()
 
@@ -351,9 +355,9 @@ class TasksViewModelTest {
     fun `a task ticked out of the day shows its reward as a banner, which goes away (MAG-508)`() = runTest {
         coEvery { taskRepository.toggleDone("t1", true) } returns Result.success(late.copy(completedAt = "2026-10-15T08:00:00Z"))
         coEvery { taskRepository.getTaskReward("t1") } returns Result.success(reward)
-        serve(TaskView.UPCOMING, late, canteen)
+        serve(TaskView.DONE, late, canteen)
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.UPCOMING)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
         viewModel.toggleDone(late)
@@ -372,7 +376,7 @@ class TasksViewModelTest {
         serve(TaskView.DONE, done)
         coEvery { taskRepository.toggleDone("t5", false) } returns Result.success(done.copy(completedAt = null))
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.DONE)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
         viewModel.toggleDone(done)
@@ -388,7 +392,7 @@ class TasksViewModelTest {
         serve(TaskView.DONE, done)
         coEvery { taskRepository.toggleDone("t5", false) } returns Result.success(done.copy(completedAt = null))
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.DONE)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
         serve(TaskView.DONE)
@@ -402,9 +406,9 @@ class TasksViewModelTest {
     @Test
     fun `a tick that fails leaves the list and says so`() = runTest {
         coEvery { taskRepository.toggleDone("t1", true) } returns Result.failure(RuntimeException("boom"))
-        serve(TaskView.UPCOMING, late, canteen)
+        serve(TaskView.DONE, late, canteen)
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.UPCOMING)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
         viewModel.toggleDone(late)
@@ -416,6 +420,99 @@ class TasksViewModelTest {
         assertNull(viewModel.uiState.value.message)
     }
 
+    private val garage = task("g1", "Appeler le garage", dueDate = "2026-10-16")
+    private val photos = task("g2", "Trier les photos de vacances")
+    private val step = task("g3", "Chercher le numéro", dueDate = "2026-10-16", parent = Task.iriOf("g1"))
+
+    private fun serveStock(upcoming: List<Task>, someday: List<Task>) {
+        coEvery { taskRepository.getTaskView(TaskView.UPCOMING, null) } returns Result.success(response(*upcoming.toTypedArray()))
+        coEvery { taskRepository.getTaskView(TaskView.SOMEDAY, null) } returns Result.success(response(*someday.toTypedArray()))
+    }
+
+    private fun TestScope.openStock(): TasksViewModel {
+        val viewModel = createViewModel()
+        viewModel.selectSection(TasksSection.STOCK)
+        advanceUntilIdle()
+        return viewModel
+    }
+
+    @Test
+    fun `Tâches reads À venir and Un jour and groups them`() = runTest {
+        serveStock(listOf(garage), listOf(photos))
+        val viewModel = openStock()
+
+        val groups = viewModel.uiState.value.stock.orEmpty()
+        assertEquals(listOf(StockGroupKind.THIS_WEEK, StockGroupKind.UNDATED), groups.map { it.kind })
+        assertEquals(listOf("g1"), groups[0].tasks.map { it.id })
+        assertEquals(listOf("g2"), groups[1].tasks.map { it.id })
+        assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `the Tâches count is À venir plus Un jour, Archives is Faites`() = runTest {
+        serveStock(listOf(garage), listOf(photos))
+        val viewModel = openStock()
+
+        assertEquals(2, tabCountOf(TasksSection.STOCK, viewModel.uiState.value))
+        assertEquals(1, tabCountOf(TasksSection.ARCHIVES, viewModel.uiState.value))
+    }
+
+    @Test
+    fun `one of the two reads failing shows the error`() = runTest {
+        coEvery { taskRepository.getTaskView(TaskView.UPCOMING, null) } returns Result.success(response(garage))
+        coEvery { taskRepository.getTaskView(TaskView.SOMEDAY, null) } returns Result.failure(RuntimeException("Offline"))
+        val viewModel = openStock()
+
+        assertEquals("Offline", viewModel.uiState.value.error)
+        assertNull(viewModel.uiState.value.stock)
+    }
+
+    @Test
+    fun `Aujourd'hui on a row sends scheduledDate today, takes the row out at once, then reads again`() = runTest {
+        serveStock(listOf(garage, step), listOf(photos))
+        val sent = slot<JsonObject>()
+        val answer = CompletableDeferred<Result<Task>>()
+        coEvery { taskRepository.updateTask("g1", capture(sent)) } coAnswers { answer.await() }
+        val viewModel = openStock()
+
+        viewModel.planToday(garage)
+        assertEquals(listOf("g2"), viewModel.uiState.value.stock.orEmpty().flatMap { g -> g.tasks.map { it.id } })
+
+        serveStock(emptyList(), listOf(photos))
+        answer.complete(Result.success(garage.copy(scheduledDate = "2026-10-15")))
+        advanceUntilIdle()
+
+        assertEquals("2026-10-15", sent.captured["scheduledDate"]?.jsonPrimitive?.content)
+        assertEquals(1, sent.captured.size)
+        coVerify(atLeast = 2) { taskRepository.getTaskView(TaskView.SOMEDAY, null) }
+        assertEquals(listOf("g2"), viewModel.uiState.value.stock.orEmpty().flatMap { g -> g.tasks.map { it.id } })
+    }
+
+    @Test
+    fun `a refused plan puts the row back and says so`() = runTest {
+        serveStock(listOf(garage), listOf(photos))
+        coEvery { taskRepository.updateTask("g1", any()) } returns Result.failure(RuntimeException("boom"))
+        val viewModel = openStock()
+
+        viewModel.planToday(garage)
+        advanceUntilIdle()
+
+        assertEquals(listOf("g1", "g2"), viewModel.uiState.value.stock.orEmpty().flatMap { g -> g.tasks.map { it.id } })
+        assertEquals("Impossible de programmer la tâche.", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `only Archives is paged`() = runTest {
+        serveStock(listOf(garage), listOf(photos))
+        val viewModel = openStock()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.hasMore)
+        coVerify(exactly = 0) { taskRepository.getTaskView(any(), 2) }
+    }
+
     private fun doneTask(n: Int) = task("d$n", "Faite $n", completedAt = "2026-10-14T20:15:00Z")
 
     @Test
@@ -425,7 +522,7 @@ class TasksViewModelTest {
         serve(TaskView.DONE, *firstPage, total = 35)
         coEvery { taskRepository.getTaskView(TaskView.DONE, 2) } returns Result.success(response(*secondPage, total = 35))
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.DONE)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.hasMore)
 
@@ -448,7 +545,7 @@ class TasksViewModelTest {
         serve(TaskView.DONE, doneTask(1), doneTask(2), total = 3)
         coEvery { taskRepository.getTaskView(TaskView.DONE, 2) } returns Result.success(response(doneTask(2), doneTask(3), total = 3))
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.DONE)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
         viewModel.loadMore()
@@ -475,7 +572,7 @@ class TasksViewModelTest {
         serve(TaskView.DONE, doneTask(1), total = 40)
         coEvery { taskRepository.getTaskView(TaskView.DONE, 2) } returns Result.failure(RuntimeException("boom"))
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.DONE)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         advanceUntilIdle()
 
         viewModel.loadMore()
@@ -488,13 +585,13 @@ class TasksViewModelTest {
 
     @Test
     fun `a task changed elsewhere reads the active view again`() = runTest {
-        serve(TaskView.UPCOMING, late, canteen)
+        serve(TaskView.DONE, late, canteen)
         val viewModel = createViewModel()
-        viewModel.selectView(TaskView.UPCOMING)
+        viewModel.selectSection(TasksSection.ARCHIVES)
         viewModel.onOpened()
         advanceUntilIdle()
 
-        serve(TaskView.UPCOMING, canteen)
+        serve(TaskView.DONE, canteen)
         pushes.emit(MercureEvent())
         advanceUntilIdle()
 
@@ -526,7 +623,7 @@ class TasksViewModelTest {
         viewModel.toggleTodayTask(canteen)
         assertTrue(viewModel.uiState.value.todayTasks!!.first { it.id == "t2" }.isDone)
         assertEquals(1, viewModel.uiState.value.todayDone)
-        assertEquals("Aujourd'hui (1)", tabLabelOf(TaskView.TODAY, viewModel.uiState.value))
+        assertEquals("Aujourd'hui (1)", tabLabelOf(TasksSection.TODAY, viewModel.uiState.value))
         advanceUntilIdle()
 
         coVerify { taskRepository.toggleDone("t2", true) }

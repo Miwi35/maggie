@@ -654,7 +654,7 @@ object UiTags {
      * Tasks screen (MAG-408) — the root, the floating « + » (`tasks_add`), the empty line, and the
      * box that ticks a task, suffixed by the task's id. The header « Tâches › … ▾ » (MAG-626) is the
      * module breadcrumb: `breadcrumb_section` opens the menu, one `breadcrumb_menu_<key>` entry per view
-     * (`today`, `upcoming`, `someday`, `done`, `routines`).
+     * (`today`, `stock`, `routines`, `done`).
      */
     const val TASKS = "tasks"
     const val TASKS_ADD = "tasks_add"
@@ -684,6 +684,20 @@ object UiTags {
     fun tasksTodayUrgency(id: String) = TASKS_TODAY_URGENCY_PREFIX + id
 
     fun tasksTodayTimer(id: String) = TASKS_TODAY_TIMER_PREFIX + id
+
+    /**
+     * « Tâches » (MAG-934): a group's header by key (`this_week`, `later`, `undated`), and each task's row and its
+     * « Aujourd'hui » button by id. The box and the ↻ keep `tasks_check_<id>` and `tasks_repeat_<id>`.
+     */
+    const val TASKS_STOCK_GROUP_PREFIX = "tasks_stock_group_"
+    const val TASKS_STOCK_ROW_PREFIX = "tasks_stock_row_"
+    const val TASKS_STOCK_PICK_PREFIX = "tasks_stock_pick_"
+
+    fun tasksStockGroup(key: String) = TASKS_STOCK_GROUP_PREFIX + key
+
+    fun tasksStockRow(id: String) = TASKS_STOCK_ROW_PREFIX + id
+
+    fun tasksStockPick(id: String) = TASKS_STOCK_PICK_PREFIX + id
 
     /**
      * The Focus (MAG-499): the screen, the timer's ring and its time, the button that starts, pauses,

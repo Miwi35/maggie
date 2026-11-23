@@ -32,32 +32,31 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.maggie.app.data.model.Task
-import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FabModule
 import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.interruption.rememberReducedMotion
 import com.maggie.app.util.DateRanges
 
-/** What a view says when it holds nothing. */
-internal fun emptyTextOf(view: TaskView): String = when (view) {
-    TaskView.TODAY -> "Rien à faire aujourd'hui."
-    TaskView.UPCOMING -> "Aucune tâche à venir."
-    TaskView.SOMEDAY -> "Aucune tâche pour « un jour »."
-    TaskView.DONE -> "Aucune tâche faite pour l'instant."
+/** What a section says when it holds nothing. */
+internal fun emptyTextOf(section: TasksSection): String = when (section) {
+    TasksSection.TODAY -> "Rien à faire aujourd'hui."
+    TasksSection.STOCK -> "Aucune tâche."
+    TasksSection.ARCHIVES -> "Aucune tâche archivée."
 }
 
 /**
  * « Aujourd'hui (3) », a menu entry: the count comes with every read of a view, so the other views stay true.
  * « Aujourd'hui » counts what is left of the tasks of the day (MAG-766), a tick counted at once.
  */
-internal fun tabCountOf(view: TaskView, state: TasksUiState): Int? {
-    if (view != TaskView.TODAY) return state.counts?.get(view)
-    return state.todayTasks?.count { !it.isDone } ?: state.counts?.today
+internal fun tabCountOf(section: TasksSection, state: TasksUiState): Int? = when (section) {
+    TasksSection.TODAY -> state.todayTasks?.count { !it.isDone } ?: state.counts?.today
+    TasksSection.STOCK -> state.counts?.let { it.upcoming + it.someday }
+    TasksSection.ARCHIVES -> state.counts?.done
 }
 
-internal fun tabLabelOf(view: TaskView, state: TasksUiState): String =
-    tabCountOf(view, state)?.let { "${view.label} ($it)" } ?: view.label
+internal fun tabLabelOf(section: TasksSection, state: TasksUiState): String =
+    tabCountOf(section, state)?.let { "${section.label} ($it)" } ?: section.label
 
 /** The key of the « Routines » entry (MAG-511), beside the four views: `breadcrumb_menu_routines`. */
 internal const val ROUTINES_TAB = "routines"
@@ -66,8 +65,8 @@ internal const val ROUTINES_TAB = "routines"
  * The menu entries in their order: « Aujourd'hui », then « Routines » when the screen has them
  * (MAG-511), then the other views. A null entry is « Routines ».
  */
-internal fun tabsOf(withRoutines: Boolean): List<TaskView?> =
-    listOf(TaskView.TODAY) + (if (withRoutines) listOf(null) else emptyList()) + TaskView.entries.drop(1)
+internal fun tabsOf(withRoutines: Boolean): List<TasksSection?> =
+    listOf(TasksSection.TODAY, TasksSection.STOCK) + (if (withRoutines) listOf(null) else emptyList()) + TasksSection.ARCHIVES
 
 /**
  * Tasks in four views (MAG-408), as the admin shows them, chosen from the header (MAG-626). The
@@ -76,7 +75,7 @@ internal fun tabsOf(withRoutines: Boolean): List<TaskView?> =
  * [onTimer] opens the Focus (MAG-499) of a timed task, its timer on; [onBravo] the Bravo (MAG-508) on a task
  * of the day just ticked. A task ticked in another view shows its reward as a banner instead.
  * [routines] draws the « Routines » view (MAG-511), next to « Aujourd'hui »; without it, no such entry.
- * The floating « + » (MAG-721) calls [onCreateTask] with the day the view gives a new task (none for « Aujourd'hui »).
+ * The floating « + » (MAG-721) calls [onCreateTask] with no day: a new task gets no deadline.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,12 +124,12 @@ fun TasksScreen(
     Box(modifier = modifier.fillMaxSize().testTag(UiTags.TASKS)) {
         Column(modifier = Modifier.fillMaxSize()) {
             TasksHeader(
-                current = if (routinesShown) null else state.view,
+                current = if (routinesShown) null else state.section,
                 entries = tabsOf(withRoutines = routines != null),
                 countOf = { view -> view?.let { tabCountOf(it, state) } },
                 onPick = { view ->
                     showRoutines = view == null
-                    if (view != null) viewModel.selectView(view)
+                    if (view != null) viewModel.selectSection(view)
                 },
             )
 
@@ -167,7 +166,7 @@ fun TasksScreen(
                         }
                         state.isEmpty -> Box(Modifier.fillMaxSize().padding(32.dp), Alignment.Center) {
                             Text(
-                                text = emptyTextOf(state.view),
+                                text = emptyTextOf(state.section),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -176,10 +175,13 @@ fun TasksScreen(
                         }
                         else -> {
                             val todayTasks = state.todayTasks
-                            if (state.view == TaskView.TODAY && todayTasks != null) {
-                                DayContent(tasks = todayTasks, state = state, viewModel = viewModel, onTimer = onTimer)
-                            } else {
-                                TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
+                            val stock = state.stock
+                            when {
+                                state.section == TasksSection.TODAY && todayTasks != null ->
+                                    DayContent(tasks = todayTasks, state = state, viewModel = viewModel, onTimer = onTimer)
+                                state.section == TasksSection.STOCK && stock != null ->
+                                    StockContent(groups = stock, today = state.todayDate ?: DateRanges.todayDate(), viewModel = viewModel, onTaskClick = onTaskClick)
+                                else -> TaskList(state = state, viewModel = viewModel, onTaskClick = onTaskClick)
                             }
                         }
                     }
@@ -190,7 +192,7 @@ fun TasksScreen(
             ModuleFab(
                 module = FabModule.TASKS,
                 contentDescription = "Nouvelle tâche",
-                onClick = { onCreateTask(state.view.defaultDueDate(DateRanges.todayDate())) },
+                onClick = { onCreateTask(null) },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 tag = UiTags.TASKS_ADD,
             )
@@ -214,7 +216,7 @@ private fun ErrorState(error: String, onRetry: () -> Unit) {
 private fun TaskList(state: TasksUiState, viewModel: TasksViewModel, onTaskClick: (Task) -> Unit) {
     val listState = rememberLazyListState()
 
-    // « Faites » is paged: the next page is asked for once the end of what is loaded is close.
+    // « Archives » is paged: the next page is asked for once the end of what is loaded is close.
     val nearEnd by remember {
         derivedStateOf {
             val info = listState.layoutInfo

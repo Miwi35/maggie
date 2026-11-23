@@ -2,16 +2,15 @@ package com.maggie.app.ui.screens.tasks
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.maggie.app.data.model.TaskView
 import com.maggie.app.ui.components.BreadcrumbSection
 import com.maggie.app.ui.components.ModuleBreadcrumb
 import com.maggie.app.ui.navigation.LocalModuleBar
 
-/** What the header and the menu call the « Routines » entry, which is not a [TaskView]. */
+/** What the header and the menu call the « Routines » entry, which is not a [TasksSection]. */
 internal const val ROUTINES_LABEL = "Routines"
 
-/** The name of a view in the breadcrumb: a null view is « Routines ». */
-internal fun viewNameOf(view: TaskView?): String = view?.label ?: ROUTINES_LABEL
+/** The name of a section in the breadcrumb: a null section is « Routines ». */
+internal fun viewNameOf(section: TasksSection?): String = section?.label ?: ROUTINES_LABEL
 
 /**
  * The header of the mockup, « Tâches › Aujourd'hui ▾ » (MAG-626), worn in the bar's place (MAG-670): the current
@@ -20,10 +19,10 @@ internal fun viewNameOf(view: TaskView?): String = view?.label ?: ROUTINES_LABEL
  */
 @Composable
 internal fun TasksHeader(
-    current: TaskView?,
-    entries: List<TaskView?>,
-    countOf: (TaskView?) -> Int?,
-    onPick: (TaskView?) -> Unit,
+    current: TasksSection?,
+    entries: List<TasksSection?>,
+    countOf: (TasksSection?) -> Int?,
+    onPick: (TasksSection?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val bar = LocalModuleBar.current

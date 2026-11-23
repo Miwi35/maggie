@@ -110,7 +110,7 @@ tags:
 - runFlow:
     file: ../subflows/open-tasks-view.yaml
     env:
-      VIEW: upcoming
+      VIEW: stock
 - extendedWaitUntil:
     visible:
       id: "tasks_repeat_${output.taskId}"

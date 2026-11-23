@@ -69,7 +69,6 @@ import com.maggie.app.data.model.MODULE_COOKBOOK
 import com.maggie.app.data.model.MODULE_TASKS
 import com.maggie.app.data.model.OPERATION_SERIES
 import com.maggie.app.data.model.Task
-import com.maggie.app.data.model.TaskView
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.repository.EventRepository
 import com.maggie.app.data.repository.RecipeRepository
@@ -265,6 +264,7 @@ import com.maggie.app.ui.screens.tasks.FocusViewModel
 import com.maggie.app.ui.screens.tasks.RoutinesScreen
 import com.maggie.app.ui.screens.tasks.RoutinesViewModel
 import com.maggie.app.ui.screens.tasks.TasksScreen
+import com.maggie.app.ui.screens.tasks.TasksSection
 import com.maggie.app.ui.screens.tasks.TasksViewModel
 import com.maggie.app.ui.screens.login.LoginScreen
 import com.maggie.app.ui.screens.login.LoginViewModel
@@ -1890,7 +1890,7 @@ fun NavGraph() {
                                 viewModel = bravoViewModel,
                                 onBack = {
                                     bravoViewModel.close()
-                                    tasksViewModel.selectView(TaskView.TODAY)
+                                    tasksViewModel.selectSection(TasksSection.TODAY)
                                     navController.popBackStack()
                                 },
                             )

@@ -36,14 +36,18 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 data class TasksUiState(
-    val view: TaskView = TaskView.TODAY,
-    /** The tasks of [view] in the API's order, each subtask after its parent. */
+    val section: TasksSection = TasksSection.TODAY,
+    /** « Archives » (the done tasks) in the API's order, each subtask after its parent. */
     val tasks: List<Task> = emptyList(),
+    /** « Tâches » (MAG-934): « À venir » and « Un jour » grouped by week; `null` until read. */
+    val stock: List<StockGroup>? = null,
     /** What each tab holds, refreshed by every read; `null` until the first one answered. */
     val counts: TaskViewCounts? = null,
-    /** Size of the whole [view]: « Faites » is paged, so [tasks] can hold less. */
+    /** Size of the whole « Archives »: it is paged, so [tasks] can hold less. */
     val totalItems: Int = 0,
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
@@ -51,7 +55,7 @@ data class TasksUiState(
     val error: String? = null,
     /** An action (tick, add) failed; the list is left as it was. */
     val message: String? = null,
-    /** The last page of « Faites » read. */
+    /** The last page of « Archives » read. */
     val page: Int = 1,
     /**
      * « Aujourd'hui » (MAG-766): the tasks of the day, to tick in any order — the open ones as the today view orders
@@ -78,22 +82,32 @@ data class TasksUiState(
     val routinesTabRequested: Boolean = false,
 ) {
     /** What the open tab draws has arrived: the tasks of the day in « Aujourd'hui », the list elsewhere. */
-    val hasContent: Boolean get() = if (view == TaskView.TODAY) todayTasks != null else tasks.isNotEmpty()
+    val hasContent: Boolean
+        get() = when (section) {
+            TasksSection.TODAY -> todayTasks != null
+            TasksSection.STOCK -> !stock.isNullOrEmpty()
+            TasksSection.ARCHIVES -> tasks.isNotEmpty()
+        }
 
     /** « Aujourd'hui » says so itself when it holds nothing: its routines may be there. */
-    val isEmpty: Boolean get() = !isLoading && error == null && view != TaskView.TODAY && tasks.isEmpty()
+    val isEmpty: Boolean
+        get() = !isLoading && error == null && when (section) {
+            TasksSection.TODAY -> false
+            TasksSection.STOCK -> stock?.isEmpty() == true
+            TasksSection.ARCHIVES -> tasks.isEmpty()
+        }
 
     /** The ring, « n sur N »: the tasks of the day ticked, out of all of them. */
     val todayDone: Int get() = todayTasks.orEmpty().count { it.isDone }
 
     val todayTotal: Int get() = todayTasks.orEmpty().size
 
-    /** Only « Faites » is paged: more is out there when the page held back some of the view. */
-    val hasMore: Boolean get() = view == TaskView.DONE && tasks.size < totalItems
+    /** Only « Archives » is paged: more is out there when the page held back some of the view. */
+    val hasMore: Boolean get() = section == TasksSection.ARCHIVES && tasks.size < totalItems
 }
 
 /**
- * The tasks screen (MAG-408): one of four views at a time, read from `/api/tasks/view/{view}`.
+ * The tasks screen (MAG-408): one of three sections at a time (« Tâches » reads two views), read from `/api/tasks/view/{view}`.
  * The API decides which view a task is in and in which order; this class only asks again after
  * anything that can move a task (a tick, an add, a push).
  *
@@ -220,7 +234,7 @@ class TasksViewModel(
     }
 
     private fun reloadRoutines() {
-        if (_uiState.value.view != TaskView.TODAY) return
+        if (_uiState.value.section != TasksSection.TODAY) return
         routinesJob?.cancel()
         routinesJob = viewModelScope.launch { loadRoutines() }
     }
@@ -232,10 +246,10 @@ class TasksViewModel(
         }
     }
 
-    fun selectView(view: TaskView) {
-        if (view == _uiState.value.view) return
+    fun selectSection(section: TasksSection) {
+        if (section == _uiState.value.section) return
         // The other tab's tasks must not stay under this one's label while the read is in flight.
-        _uiState.update { it.copy(view = view, tasks = emptyList(), totalItems = 0, message = null, page = 1) }
+        _uiState.update { it.copy(section = section, tasks = emptyList(), stock = null, totalItems = 0, message = null, page = 1) }
         load(spinner = true)
     }
 
@@ -312,15 +326,14 @@ class TasksViewModel(
         _uiState.update { it.copy(opened = null) }
     }
 
-    /** The next page of « Faites », when the user scrolled to the end of what is loaded. */
+    /** The next page of « Archives », when the user scrolled to the end of what is loaded. */
     fun loadMore() {
         val state = _uiState.value
         if (!state.hasMore || state.isLoading || state.isLoadingMore) return
-        val view = state.view
         val page = state.page + 1
         _uiState.update { it.copy(isLoadingMore = true) }
         moreJob = viewModelScope.launch {
-            taskRepository.getTaskView(view, page)
+            taskRepository.getTaskView(TaskView.DONE, page)
                 .onSuccess { response ->
                     _uiState.update { current ->
                         val known = current.tasks.map { it.id }.toSet()
@@ -348,10 +361,14 @@ class TasksViewModel(
     private fun load(spinner: Boolean) {
         loadJob?.cancel()
         moreJob?.cancel()
-        val view = _uiState.value.view
+        val section = _uiState.value.section
         _uiState.update { it.copy(isLoading = spinner || it.isLoading, isLoadingMore = false, error = null) }
         loadJob = viewModelScope.launch {
-            if (view == TaskView.TODAY) loadDay() else loadView(view)
+            when (section) {
+                TasksSection.TODAY -> loadDay()
+                TasksSection.STOCK -> loadStock()
+                TasksSection.ARCHIVES -> loadView(TaskView.DONE)
+            }
         }
     }
 
@@ -365,6 +382,41 @@ class TasksViewModel(
             }
             .onFailure { e -> failed(e, "Impossible de charger les tâches du jour.") }
         routines.await()
+    }
+
+    /** « Tâches »: « À venir » and « Un jour », read together and grouped here. */
+    private suspend fun loadStock(): Unit = coroutineScope {
+        val date = today()
+        val upcoming = async { taskRepository.getTaskView(TaskView.UPCOMING) }
+        val someday = async { taskRepository.getTaskView(TaskView.SOMEDAY) }
+        val up = upcoming.await()
+        val some = someday.await()
+        val failure = up.exceptionOrNull() ?: some.exceptionOrNull()
+        if (failure != null) {
+            failed(failure, "Impossible de charger les tâches.")
+        } else {
+            val groups = TasksStock.group(up.getOrThrow().member, some.getOrThrow().member, date)
+            _uiState.update { it.copy(stock = groups, todayDate = date, counts = some.getOrThrow().counts, isLoading = false) }
+        }
+    }
+
+    /**
+     * « Aujourd'hui » on a row of « Tâches »: the task is planned today, moment and hour kept. The row leaves at once
+     * with its subtasks, and the section is read again once the server took it; a refusal puts them back.
+     */
+    fun planToday(task: Task) {
+        val before = _uiState.value.stock ?: return
+        _uiState.update { s ->
+            val left = s.stock.orEmpty()
+                .map { g -> g.copy(tasks = g.tasks.filter { it.id != task.id && it.parent != task.iri }) }
+                .filter { it.tasks.isNotEmpty() }
+            s.copy(stock = left, message = null)
+        }
+        viewModelScope.launch {
+            taskRepository.updateTask(task.id, buildJsonObject { put("scheduledDate", today().toString()) })
+                .onSuccess { reload() }
+                .onFailure { _uiState.update { it.copy(stock = before, message = "Impossible de programmer la tâche.") } }
+        }
     }
 
     private suspend fun loadView(view: TaskView) {

@@ -1,7 +1,7 @@
 appId: com.maggie.app.e2e
 name: pick a view of the Tâches screen from its header
 ---
-# `VIEW` is the key of the view: today, routines, upcoming, someday, done (MAG-626). The tabs are
+# `VIEW` is the key of the view: today, stock, routines, done (MAG-626). The tabs are
 # gone: « Tâches › … ▾ » is the module breadcrumb in the top bar (MAG-670), whose menu entries are
 # the `breadcrumb_menu_<key>` ids.
 - tapOn:
