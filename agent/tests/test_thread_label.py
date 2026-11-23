@@ -20,6 +20,7 @@ from app.llm.gateway import LLMGateway
 from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.streaming import StreamingGateway
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 
 COPIED = "[fil « Où noter l'information »] Ah, d'accord monsieur, je le note dans vos directives."
 CLEAN = "Ah, d'accord monsieur, je le note dans vos directives."
@@ -84,11 +85,12 @@ def _streaming_gateway(answer: str) -> StreamingGateway:
             usage=FakeUsage(input_tokens=10, output_tokens=5),
         )
     )
-    gw.personality = MagicMock()
-    gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gw.agent_memory = MagicMock()
-    gw.agent_memory.get_memory_context = AsyncMock(return_value="")
-    gw.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    personality = MagicMock()
+    personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+    agent_memory = MagicMock()
+    agent_memory.get_memory_context = AsyncMock(return_value="")
+    agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    gw.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
     gw.tool_router = MagicMock()
     gw.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     gw._resolve_context = AsyncMock(
@@ -102,7 +104,7 @@ async def _stream(answer: str) -> tuple[list[dict], AsyncMock]:
         patch("app.llm.contexts.context_repo") as contexts,
         patch("app.llm.streaming.message_repo") as messages,
         patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Où ?"}])),
-        patch("app.llm.streaming.skill_index") as skills,
+        patch("app.prompt_sources.skill_index") as skills,
         patch("app.llm.streaming.context_summarizer") as summarizer,
     ):
         contexts.find_active = AsyncMock(return_value=[])
@@ -147,11 +149,12 @@ class TestThePlainChatCarriesNoLabel:
     async def test_a_copied_label_is_not_returned(self):
         gateway = Container().llm_gateway
         gateway.client = MagicMock()
-        gateway.personality = MagicMock()
-        gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-        gateway.agent_memory = MagicMock()
-        gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-        gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        personality = MagicMock()
+        personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+        agent_memory = MagicMock()
+        agent_memory.get_memory_context = AsyncMock(return_value="")
+        agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        gateway.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
         gateway.tool_router = MagicMock()
         gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
 
@@ -159,8 +162,8 @@ class TestThePlainChatCarriesNoLabel:
             patch("app.llm.gateway.run_tool_loop", AsyncMock(return_value={"response": COPIED, "tool_calls": []})),
             patch("app.llm.gateway.route_message", AsyncMock(return_value=None)),
             patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "Où ?"}])),
-            patch("app.llm.gateway.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index", MagicMock(get_skills_index=MagicMock(return_value=""), skills_for_moment=MagicMock(return_value=""), refresh=AsyncMock())),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
         ):
             result = await gateway.chat("Où ?", "user-1", exclude_message_id="msg-1")

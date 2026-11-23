@@ -14,6 +14,8 @@ from app.db.context_model import ContextStatus
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
 from app.llm.streaming import StreamingGateway, tool_result_status
 from app.memory.agent_memory import MemoryBlocks
+from app.skills.index import MOMENT_CHAT
+from tests.prompt_helpers import stub_system_prompt, system_prompt_with
 
 
 class TestStreamingGateway:
@@ -194,20 +196,21 @@ async def _system_blocks(contexts: list, current_context_id: str | None = None) 
     """The system blocks the gateway would send, with everything but the contexts emptied."""
     with (
         patch("app.llm.contexts.context_repo") as repo,
-        patch("app.llm.streaming.skill_index") as skills,
-        patch("app.llm.streaming.behavior_directives_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.skill_index") as skills,
+        patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
     ):
         repo.find_active = AsyncMock(return_value=contexts)
         skills.get_skills_index.return_value = ""
         skills.skills_for_moment.return_value = ""
         skills.refresh = AsyncMock()
         gw = Container().streaming_gateway
-        gw.personality = MagicMock()
-        gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-        gw.agent_memory = MagicMock()
-        gw.agent_memory.get_memory_context = AsyncMock(return_value="")
-        gw.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
-        return await gw._build_system_prompt("user-1", current_context_id=current_context_id)
+        personality = MagicMock()
+        personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+        agent_memory = MagicMock()
+        agent_memory.get_memory_context = AsyncMock(return_value="")
+        agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        gw.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
+        return await gw.system_prompt.build("user-1", current_context_id=current_context_id, moment=MOMENT_CHAT)
 
 
 class TestSystemPromptSummaries:
@@ -270,11 +273,12 @@ class TestSummaryTrigger:
                 usage=FakeUsage(input_tokens=10, output_tokens=5),
             )
         )
-        gw.personality = MagicMock()
-        gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-        gw.agent_memory = MagicMock()
-        gw.agent_memory.get_memory_context = AsyncMock(return_value="")
-        gw.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        personality = MagicMock()
+        personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+        agent_memory = MagicMock()
+        agent_memory.get_memory_context = AsyncMock(return_value="")
+        agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        gw.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
         gw.tool_router = MagicMock()
         gw.tool_router.get_tool_definitions = AsyncMock(return_value=[])
         gw._resolve_context = AsyncMock(
@@ -294,7 +298,7 @@ class TestSummaryTrigger:
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -321,7 +325,7 @@ class TestSummaryTrigger:
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -356,7 +360,7 @@ class TestSummaryTrigger:
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.build_history", history),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -368,7 +372,7 @@ class TestSummaryTrigger:
 
             gw = self._gateway()
             gw._resolve_context = route
-            gw._build_system_prompt = AsyncMock(return_value=[{"type": "text", "text": "Tu es Maggie."}])
+            gw.system_prompt = stub_system_prompt([{"type": "text", "text": "Tu es Maggie."}])
             async for _ in gw.chat_stream("Il me faut de la farine", "user-1", "msg-1"):
                 pass
             await asyncio.gather(*gw._background)
@@ -378,7 +382,7 @@ class TestSummaryTrigger:
         assert calls == ["route", "history:ctx-1"]
         # The same thread reaches the system prompt, so the open-threads list can mark the
         # one whose messages the history is made of.
-        assert gw._build_system_prompt.await_args.kwargs["current_context_id"] == "ctx-1"
+        assert gw.system_prompt.build.await_args.kwargs["current_context_id"] == "ctx-1"
         # And the message being answered is named, so a tag that could not be written does
         # not have Maggie reading the question as a neighbour thread's.
         # The user's timezone dates the days of the history (MAG-349).
@@ -403,7 +407,7 @@ class TestSummaryTrigger:
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.build_history", history),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -425,7 +429,7 @@ class TestSummaryTrigger:
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -474,7 +478,7 @@ class TestWhatTheToolsSaidIsStored:
             patch("app.llm.streaming.context_repo") as thread,
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Ma liste ?"}])),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
         ):
             contexts.find_active = AsyncMock(return_value=[])
@@ -532,7 +536,7 @@ class TestTheVoiceStartsFirst:
         stack.enter_context(
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Bonjour"}]))
         )
-        skills = stack.enter_context(patch("app.llm.streaming.skill_index"))
+        skills = stack.enter_context(patch("app.prompt_sources.skill_index"))
         summarizer = stack.enter_context(patch("app.llm.streaming.context_summarizer"))
         stack.enter_context(patch("app.db.message_repository.message_repo.publisher.publish", new=publish))
         stack.enter_context(patch("app.memory.conversations.record", new=record))
@@ -613,7 +617,7 @@ class TestStreamedExchangeReachesOtherDevices:
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Bonjour"}])),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
             patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
         ):
@@ -755,9 +759,10 @@ class TestWebSearchStreamed:
             patch("app.llm.streaming.context_repo"),
             patch("app.llm.streaming.message_repo") as messages,
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Toussaint ?"}])),
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
             patch("app.llm.streaming.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
+            patch("app.prompt_sources.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""

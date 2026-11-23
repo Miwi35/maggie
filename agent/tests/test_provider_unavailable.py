@@ -21,6 +21,7 @@ from app.db.models import Message
 from app.llm.gateway import API_ERROR_MESSAGE, LLMGateway
 from app.llm.provider_status import PROVIDER_UNAVAILABLE, alert_owner, provider_reason
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 
 CREDIT_MESSAGE = (
     "Your credit balance is too low to access the Anthropic API. "
@@ -46,11 +47,10 @@ def _gateway_with_failing_client(error: Exception) -> LLMGateway:
     gateway = Container().llm_gateway
     gateway.client = MagicMock()
     gateway.client.messages.create = AsyncMock(side_effect=error)
-    gateway.personality = MagicMock()
-    gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gateway.agent_memory = MagicMock()
-    gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    gateway.system_prompt = system_prompt_with(
+        personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+        agent_memory=MagicMock(get_memory_context=AsyncMock(return_value=""), blocks=AsyncMock(return_value=MemoryBlocks())),
+    )
     gateway.tool_router = MagicMock()
     gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
     return gateway
@@ -68,17 +68,18 @@ def collaborators():
         patch("app.llm.gateway.route_message", AsyncMock(return_value=None)),
         patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "Bonjour"}])),
         patch(
-            "app.llm.gateway.skill_index",
+            "app.prompt_sources.skill_index",
             MagicMock(
                 get_skills_index=MagicMock(return_value=""),
                 skills_for_moment=MagicMock(return_value=""),
                 refresh=AsyncMock(),
             ),
         ),
-        patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
-        patch("app.llm.gateway.active_contexts_section", AsyncMock(return_value="")),
-        patch("app.llm.gateway.last_exchange_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.active_contexts_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.last_exchange_section", AsyncMock(return_value="")),
         patch("app.llm.gateway.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
+        patch("app.prompt_sources.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
         patch("app.llm.gateway.alert_owner", alert),
     ):
         yield alert

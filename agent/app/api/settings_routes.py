@@ -2,14 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.auth import get_current_user_id
-from app.container import container
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
 from app.db.style_proposal_model import StyleProposalStatus
 from app.db.style_proposal_repository import style_proposal_repo
 from app.llm.style_synthesis import style_synthesizer
+from app.personality.engine import PersonalityEngine
 
 router = APIRouter()
+personality = PersonalityEngine()
 
 
 class PersonalityUpdate(BaseModel):
@@ -33,14 +34,14 @@ class StyleProposalAccept(BaseModel):
 @router.get("/personality")
 async def get_personality(user_id: str = Depends(get_current_user_id)):
     """Return current personality configuration."""
-    return await container.llm_gateway.personality.get_config(user_id)
+    return await personality.get_config(user_id)
 
 
 @router.put("/personality")
 async def update_personality(data: PersonalityUpdate, user_id: str = Depends(get_current_user_id)):
     """Update personality configuration and reload."""
     updates = data.model_dump(exclude_none=True)
-    return await container.llm_gateway.personality.update_config(user_id, updates)
+    return await personality.update_config(user_id, updates)
 
 
 @router.get("/instructions")

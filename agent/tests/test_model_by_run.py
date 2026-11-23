@@ -17,6 +17,7 @@ from app.llm.gateway import LLMGateway
 from app.llm.models import EFFORT_BY_RUN, MODEL_BY_RUN, effort_for, effort_kwargs, model_for
 from app.metrics import PRICING
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 from app.trips import REPLAN_SUMMARY
 
 APP = Path(__file__).resolve().parents[1] / "app"
@@ -107,8 +108,7 @@ def test_no_call_reads_a_model_setting_directly():
 def _gateway() -> LLMGateway:
     gateway = Container().llm_gateway
     gateway.client = MagicMock()
-    gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
+    gateway.system_prompt = system_prompt_with(personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")), agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())))
     gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]))
     gateway._resolve_proaction_context = AsyncMock(return_value=None)
     return gateway
@@ -119,7 +119,7 @@ async def _proaction_call(prompt: str, **options) -> tuple[dict, dict]:
     with (
         patch("app.llm.gateway.run_tool_loop", loop),
         patch("app.llm.contexts.context_repo") as contexts,
-        patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
     ):
         contexts.find_active = AsyncMock(return_value=[])
         result = await _gateway().proaction(prompt, "user-1", **options)

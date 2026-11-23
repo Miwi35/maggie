@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.prompt_helpers import system_prompt_with
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
 from app.skills.index import SUPERSEDED_BUILTIN_BODIES, SkillEntry, SkillIndex
@@ -394,11 +395,13 @@ class TestSystemPromptSkills:
         await index.create("recipe-grocery-link", "Lier recette et courses", [], "Corps secret", user_id="u")
 
         gateway = LLMGateway.__new__(LLMGateway)
-        gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="BASE"))
-        gateway.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
+        gateway.system_prompt = system_prompt_with(
+            personality=MagicMock(get_system_prompt=AsyncMock(return_value="BASE")),
+            agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())),
+        )
 
-        with patch("app.llm.gateway.skill_index", index):
-            prompt = await gateway._build_system_prompt("user-1")
+        with patch("app.prompt_sources.skill_index", index):
+            prompt = await gateway.system_prompt.build("user-1")
 
         text = "".join(block["text"] for block in prompt)
         assert "- recipe-grocery-link: Lier recette et courses" in text

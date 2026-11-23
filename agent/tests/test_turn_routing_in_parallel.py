@@ -19,6 +19,7 @@ from app.llm import history as history_module
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeUsage
 from app.llm.streaming import StreamingGateway
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 
 ROUTED = {"action": "matched", "id": "ctx-1", "label": "Courses", "status": "active", "summary": None}
 
@@ -42,10 +43,11 @@ def _gateway(calls: list[str]) -> StreamingGateway:
         calls.append("tools")
         return []
 
-    gw.personality = MagicMock()
-    gw.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gw.agent_memory = MagicMock()
-    gw.agent_memory.blocks = blocks
+    personality = MagicMock()
+    personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+    agent_memory = MagicMock()
+    agent_memory.blocks = blocks
+    gw.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
     gw.tool_router = MagicMock()
     gw.tool_router.get_tool_definitions = tools
     gw._resolve_context = AsyncMock(return_value=ROUTED)
@@ -54,7 +56,7 @@ def _gateway(calls: list[str]) -> StreamingGateway:
 
 def _turn_environment(stack: ExitStack, calls: list[str]) -> MagicMock:
     """Everything a turn reads that is not under test; returns the patched timezone resolver."""
-    skills = stack.enter_context(patch("app.llm.streaming.skill_index"))
+    skills = stack.enter_context(patch("app.prompt_sources.skill_index"))
     skills.get_skills_index.return_value = ""
     skills.skills_for_moment.return_value = ""
     skills.refresh = AsyncMock()
@@ -62,11 +64,14 @@ def _turn_environment(stack: ExitStack, calls: list[str]) -> MagicMock:
     messages.create = AsyncMock()
     summarizer = stack.enter_context(patch("app.llm.streaming.context_summarizer"))
     summarizer.maybe_summarize = AsyncMock(return_value=None)
-    stack.enter_context(patch("app.llm.streaming.behavior_directives_section", AsyncMock(return_value="")))
-    stack.enter_context(patch("app.llm.streaming.last_exchange_section", AsyncMock(return_value="")))
-    stack.enter_context(patch("app.llm.streaming.resolve_work_hours", AsyncMock(return_value=None)))
-    stack.enter_context(patch("app.llm.streaming.work_hours_line", return_value=""))
-    stack.enter_context(patch("app.llm.streaming.resolve_day_context", AsyncMock(return_value=None)))
+    stack.enter_context(patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")))
+    stack.enter_context(patch("app.prompt_sources.last_exchange_section", AsyncMock(return_value="")))
+    stack.enter_context(patch("app.prompt_sources.resolve_work_hours", AsyncMock(return_value=None)))
+    stack.enter_context(patch("app.prompt_sources.work_hours_line", return_value=""))
+    stack.enter_context(patch("app.prompt_sources.resolve_day_context", AsyncMock(return_value=None)))
+    stack.enter_context(
+        patch("app.prompt_sources.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris")))
+    )
     return stack.enter_context(
         patch("app.llm.streaming.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris")))
     )
@@ -88,7 +93,7 @@ def around():
     with ExitStack() as stack:
         _turn_environment(stack, calls)
         stack.enter_context(patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])))
-        stack.enter_context(patch("app.llm.streaming.active_contexts_section", section))
+        stack.enter_context(patch("app.prompt_sources.active_contexts_section", section))
         stack.enter_context(patch("app.llm.streaming.build_history", history))
         yield calls
 
@@ -115,7 +120,7 @@ async def test_tools_and_personality_load_while_the_router_runs(around):
         calls.append("route:end")
         return ROUTED
 
-    gw.personality.get_system_prompt = personality
+    gw.system_prompt.sources.personality.get_system_prompt = personality
     gw._resolve_context = route
 
     await asyncio.wait_for(_drain(gw), 2)
@@ -240,7 +245,7 @@ async def test_the_timezone_is_resolved_once_per_turn():
         resolver = _turn_environment(stack, calls)
         stack.enter_context(patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])))
         stack.enter_context(patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "x"}])))
-        stack.enter_context(patch("app.llm.streaming.active_contexts_section", AsyncMock(return_value="")))
+        stack.enter_context(patch("app.prompt_sources.active_contexts_section", AsyncMock(return_value="")))
 
         await asyncio.wait_for(_drain(gw), 2)
 

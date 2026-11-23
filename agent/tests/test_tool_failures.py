@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.prompt_helpers import stub_system_prompt
 from app.container import Container
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient, FakeMessage, FakeStream, FakeToolUseBlock, FakeUsage
 from app.llm.prompt_cache import build_system
@@ -148,9 +149,9 @@ class TestChatStream:
                 get_tool_definitions=AsyncMock(return_value=[{"name": "a"}]),
                 call_tool=AsyncMock(return_value=FAILED),
             )
-            gateway._build_system_prompt = AsyncMock(return_value=build_system("S", "V"))
+            gateway.system_prompt = stub_system_prompt(build_system("S", "V"))
             gateway._resolve_context = AsyncMock(return_value=None)
-            gateway._thread_free_parts = AsyncMock(return_value=None)
+            gateway.system_prompt.thread_free = AsyncMock(return_value=None)
             with patch("app.llm.streaming.record_llm_usage"):
                 async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
                     pass

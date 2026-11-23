@@ -18,13 +18,10 @@ from app.auth import get_current_user_id
 def no_last_exchange_lookup():
     """Keep the « last conversation » lookup (MAG-10) off the database in tests that only build a prompt.
 
-    The gateways import the function by name, so that is where it is replaced; the tests of the
+    The prompt sources import the function by name, so that is where it is replaced; the tests of the
     lookup itself call `app.llm.last_exchange` directly and are not affected.
     """
-    with (
-        patch("app.llm.streaming.last_exchange_section", AsyncMock(return_value="")),
-        patch("app.llm.gateway.last_exchange_section", AsyncMock(return_value="")),
-    ):
+    with patch("app.prompt_sources.last_exchange_section", AsyncMock(return_value="")):
         yield
 
 
@@ -79,10 +76,9 @@ def paris_user_timezone():
     with (
         patch("app.llm.streaming.resolve_user_timezone", paris),
         patch("app.llm.gateway.resolve_user_timezone", paris),
-        patch("app.llm.streaming.resolve_work_hours", no_work_hours),
-        patch("app.llm.gateway.resolve_work_hours", no_work_hours),
-        patch("app.llm.streaming.resolve_day_context", no_day_context),
-        patch("app.llm.gateway.resolve_day_context", no_day_context),
+        patch("app.prompt_sources.resolve_user_timezone", paris),
+        patch("app.prompt_sources.resolve_work_hours", no_work_hours),
+        patch("app.prompt_sources.resolve_day_context", no_day_context),
     ):
         yield
 

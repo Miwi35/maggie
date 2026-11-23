@@ -36,6 +36,29 @@ def test_gateways_and_tool_router_are_built_only_by_the_container(name):
     assert _files_calling(name) == {"container.py"}
 
 
+@pytest.mark.parametrize("name", ["SystemPrompt", "MaggiePromptSources"])
+def test_the_system_prompt_is_built_only_by_the_container(name):
+    assert _files_calling(name) == {"container.py"}
+
+
+def test_overriding_the_system_prompt_rebuilds_the_gateways_and_approvals():
+    with patch.object(settings, "llm_provider", "fake"):
+        c = Container()
+        gateway, streaming, approvals = c.llm_gateway, c.streaming_gateway, c.approvals
+        builder = MagicMock()
+        with c.override(system_prompt=builder):
+            assert c.llm_gateway is not gateway and c.llm_gateway.system_prompt is builder
+            assert c.streaming_gateway is not streaming and c.streaming_gateway.system_prompt is builder
+            assert c.approvals is not approvals and c.approvals.system_prompt is builder
+        assert c.llm_gateway is gateway and c.approvals is approvals
+
+
+def test_every_gateway_shares_one_system_prompt():
+    with patch.object(settings, "llm_provider", "fake"):
+        c = Container()
+        assert c.llm_gateway.system_prompt is c.streaming_gateway.system_prompt is c.approvals.system_prompt
+
+
 def test_the_anthropic_client_is_built_only_by_the_factory():
     assert _files_calling("AsyncAnthropic") == {"llm/client.py"}
 

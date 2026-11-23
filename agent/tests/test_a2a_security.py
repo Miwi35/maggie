@@ -5,6 +5,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.prompt_helpers import stub_system_prompt
 from app.container import Container, container
 from app.a2a import setup_a2a
 from app.config import settings
@@ -166,8 +167,10 @@ class TestA2AToolRestriction:
         assert {"create_event", "memory_write_fiche", "schedule_proaction"} <= names
 
     async def test_gateway_chat_asks_for_a2a_tools_only_when_called_from_a2a(self):
-        gateway = LLMGateway(client=object(), tool_router=ToolRouter(natives=build_native_registry()))
-        gateway._build_system_prompt = AsyncMock(return_value=[])
+        gateway = LLMGateway(
+            client=object(), tool_router=ToolRouter(natives=build_native_registry()), system_prompt=stub_system_prompt([])
+        )
+        gateway.system_prompt = stub_system_prompt([])
 
         with (
             patch.object(ToolRouter, "get_tool_definitions", AsyncMock(return_value=[])) as definitions,

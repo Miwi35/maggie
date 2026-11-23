@@ -9,6 +9,7 @@ import pytest
 from app.container import Container
 from app.llm.gateway import LLMGateway
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 from app.policy.checker import OwnerWords
 from app.trips import REPLAN_SUMMARY
 
@@ -36,8 +37,7 @@ class Calls:
 def gateway(calls: Calls) -> LLMGateway:
     gw = Container().llm_gateway
     gw.client = MagicMock(messages=calls.checker)
-    gw.personality = MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie."))
-    gw.agent_memory = MagicMock(blocks=AsyncMock(return_value=MemoryBlocks()))
+    gw.system_prompt = system_prompt_with(personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")), agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())))
     gw.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[]), call_tool=calls.mcp)
     gw._resolve_proaction_context = AsyncMock(return_value=None)
     return gw
@@ -54,7 +54,7 @@ async def run_proaction(calls: Calls, words: list[OwnerWords], **options) -> lis
     with (
         patch("app.llm.gateway.run_tool_loop", new=loop),
         patch("app.llm.contexts.context_repo") as contexts,
-        patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+        patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
         patch("app.policy.checker.client_for", new=AsyncMock(side_effect=lambda _u, c: c)),
         patch("app.policy.checker.planning_words", new=AsyncMock(return_value=words)),
     ):

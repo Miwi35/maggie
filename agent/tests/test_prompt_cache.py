@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.prompt_helpers import stub_system_prompt, system_prompt_with
+from app.skills.index import MOMENT_CHAT
 from app.container import Container
 from app.llm.gateway import LLMGateway
 from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H, build_system, cache_tools
@@ -79,21 +81,21 @@ class TestGatewayPrefix:
     def _gateway(memory: str = "", profile: str = "", recalled: str = "") -> LLMGateway:
         index = SkillIndex()
         gateway = LLMGateway.__new__(LLMGateway)
-        gateway.personality = PersonalityEngine()
         gateway.agent_memory = MagicMock(
             blocks=AsyncMock(return_value=MemoryBlocks(notice=memory, profile=profile, recalled=recalled))
         )
+        gateway.system_prompt = system_prompt_with(personality=PersonalityEngine(), agent_memory=gateway.agent_memory)
         gateway._index = index
         return gateway
 
     async def _build(self, gateway, datetime_line: str, **kwargs) -> list[dict]:
         with (
-            patch("app.llm.gateway.skill_index", gateway._index),
-            patch("app.llm.gateway.current_datetime_line", return_value=datetime_line),
+            patch("app.prompt_sources.skill_index", gateway._index),
+            patch("app.prompt_sources.current_datetime_line", return_value=datetime_line),
             patch("app.personality.engine.personality_repo") as repo,
         ):
             repo.get = AsyncMock(return_value=None)
-            return await gateway._build_system_prompt("user-1", tools=[{"name": "list_events"}], **kwargs)
+            return await gateway.system_prompt.build("user-1", tools=[{"name": "list_events"}], **kwargs)
 
     async def test_prefix_is_identical_when_date_and_memory_change(self):
         first = await self._build(
@@ -289,9 +291,9 @@ class TestStreamingPrefix:
             gateway.client = MagicMock()
             gateway.client.messages.stream = MagicMock(return_value=FakeStream())
             gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[{"name": "a"}, {"name": "b"}]))
-            gateway._build_system_prompt = AsyncMock(return_value=build_system("STABLE", "VOLATILE"))
+            gateway.system_prompt = stub_system_prompt(build_system("STABLE", "VOLATILE"))
             gateway._resolve_context = AsyncMock(return_value=None)
-            gateway._thread_free_parts = AsyncMock(return_value=None)
+            gateway.system_prompt.thread_free = AsyncMock(return_value=None)
 
             with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
                 "app.llm.streaming.record_llm_usage"
@@ -334,11 +336,9 @@ class TestStreamingPrefix:
             gateway.client = MagicMock()
             gateway.client.messages.stream = MagicMock(return_value=FakeStream())
             gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=[{"name": "a"}, {"name": "b"}]))
-            gateway._build_system_prompt = AsyncMock(
-                return_value=build_system("STABLE", "VOLATILE", "MOMENT", "PROFILE")
-            )
+            gateway.system_prompt = stub_system_prompt(build_system("STABLE", "VOLATILE", "MOMENT", "PROFILE"))
             gateway._resolve_context = AsyncMock(return_value=None)
-            gateway._thread_free_parts = AsyncMock(return_value=None)
+            gateway.system_prompt.thread_free = AsyncMock(return_value=None)
 
             with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
                 "app.llm.streaming.record_llm_usage"
@@ -389,9 +389,9 @@ class TestSharedToolPrefix:
             chat.client = MagicMock()
             chat.client.messages.stream = MagicMock(return_value=FakeStream())
             chat.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))
-            chat._build_system_prompt = AsyncMock(return_value=build_system("STABLE"))
+            chat.system_prompt = stub_system_prompt(build_system("STABLE"))
             chat._resolve_context = AsyncMock(return_value=None)
-            chat._thread_free_parts = AsyncMock(return_value=None)
+            chat.system_prompt.thread_free = AsyncMock(return_value=None)
             with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
                 "app.llm.streaming.record_llm_usage"
             ):
@@ -407,10 +407,10 @@ class TestSharedToolPrefix:
             gateway.client = MagicMock()
             gateway.client.messages.create = AsyncMock(return_value=response)
             gateway.tool_router = MagicMock(get_tool_definitions=AsyncMock(return_value=tools))
-            gateway._build_system_prompt = AsyncMock(return_value=build_system("STABLE"))
+            gateway.system_prompt = stub_system_prompt(build_system("STABLE"))
             gateway._resolve_proaction_context = AsyncMock(return_value=None)
             with (
-                patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
+                patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
                 patch("app.llm.contexts.context_repo") as contexts,
                 patch("app.llm.runner.note_provider_success", AsyncMock()),
             ):
@@ -432,18 +432,18 @@ class TestStreamingSystemPrompt:
         context = MagicMock(label="Courses", status=ContextStatus.ACTIVE)
 
         with (
-            patch("app.llm.streaming.skill_index", index),
+            patch("app.prompt_sources.skill_index", index),
             patch("app.llm.contexts.context_repo") as context_repo,
-            patch("app.llm.streaming.current_datetime_line", return_value="Nous sommes lundi, il est 9h."),
+            patch("app.prompt_sources.current_datetime_line", return_value="Nous sommes lundi, il est 9h."),
         ):
             context_repo.find_active = AsyncMock(return_value=[context])
             gateway = StreamingGateway.__new__(StreamingGateway)
-            gateway.personality = MagicMock(get_system_prompt=AsyncMock(return_value="BASE"))
-            gateway.agent_memory = MagicMock(
-                blocks=AsyncMock(return_value=MemoryBlocks(notice="\n\nAllergie : noix"))
+            gateway.system_prompt = system_prompt_with(
+                personality=MagicMock(get_system_prompt=AsyncMock(return_value="BASE")),
+                agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks(notice="\n\nAllergie : noix"))),
             )
 
-            blocks = await gateway._build_system_prompt("user-1")
+            blocks = await gateway.system_prompt.build("user-1", moment=MOMENT_CHAT)
 
         assert blocks[0] == {"type": "text", "text": "BASE", "cache_control": EPHEMERAL_1H}
         assert "Courses" in blocks[1]["text"]

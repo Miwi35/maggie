@@ -3,7 +3,7 @@
 # Same trick as 71-context-summary-recall.yaml, on the other gateway: a proaction
 # used to run with no history at all, so Maggie spoke first without knowing what
 # the conversation she was interrupting was about. `system_contains` is matched
-# on the system prompt `LLMGateway._build_system_prompt` actually sends, so this
+# on the system prompt `SystemPrompt.build` actually sends, so this
 # file can only answer once the thread summaries are in it — and the journey
 # fails on the `[fake-llm] aucun scénario…` sentence rather than on a plausible
 # reminder if they are not.

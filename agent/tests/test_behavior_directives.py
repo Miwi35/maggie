@@ -9,6 +9,8 @@ stated mid-conversation has to hold on the very next message.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from tests.prompt_helpers import system_prompt_with, stub_system_prompt
+from app.skills.index import MOMENT_CHAT
 from app.container import Container
 from app.db.instruction_model import InstructionKind
 from app.db.instruction_repository import instruction_repo
@@ -54,21 +56,19 @@ class TestBehaviorDirectivesSection:
 
 def _streaming_gateway() -> StreamingGateway:
     gateway = Container().streaming_gateway
-    gateway.personality = MagicMock()
-    gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gateway.agent_memory = MagicMock()
-    gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    gateway.system_prompt = system_prompt_with(
+        personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+        agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())),
+    )
     return gateway
 
 
 def _llm_gateway() -> LLMGateway:
     gateway = Container().llm_gateway
-    gateway.personality = MagicMock()
-    gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-    gateway.agent_memory = MagicMock()
-    gateway.agent_memory.get_memory_context = AsyncMock(return_value="")
-    gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+    gateway.system_prompt = system_prompt_with(
+        personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+        agent_memory=MagicMock(blocks=AsyncMock(return_value=MemoryBlocks())),
+    )
     return gateway
 
 
@@ -80,13 +80,13 @@ class TestChatSystemPrompt:
 
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _streaming_gateway()._build_system_prompt("user-1")
+            blocks = await _streaming_gateway().system_prompt.build("user-1", moment=MOMENT_CHAT)
 
         assert TUTOIE in blocks[1]["text"]
 
@@ -95,13 +95,13 @@ class TestChatSystemPrompt:
 
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _streaming_gateway()._build_system_prompt("user-1")
+            blocks = await _streaming_gateway().system_prompt.build("user-1", moment=MOMENT_CHAT)
 
         assert PLANNING_RULE not in "".join(block["text"] for block in blocks)
 
@@ -111,13 +111,13 @@ class TestChatSystemPrompt:
 
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _streaming_gateway()._build_system_prompt("user-1")
+            blocks = await _streaming_gateway().system_prompt.build("user-1", moment=MOMENT_CHAT)
 
         assert blocks[0]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
         assert TUTOIE not in blocks[0]["text"]
@@ -131,13 +131,13 @@ class TestProactionSystemPrompt:
 
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.gateway.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _llm_gateway()._build_system_prompt("user-1", preamble="\n\nTu es en mode proaction.")
+            blocks = await _llm_gateway().system_prompt.build("user-1", preamble="\n\nTu es en mode proaction.")
 
         assert TUTOIE in blocks[1]["text"]
         assert "Tu es en mode proaction." in blocks[1]["text"]
@@ -145,12 +145,12 @@ class TestProactionSystemPrompt:
     async def test_nothing_stored_leaves_the_prompt_as_it_was(self, agent_db):
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.gateway.skill_index") as skills,
+            patch("app.prompt_sources.skill_index") as skills,
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await _llm_gateway()._build_system_prompt("user-1")
+            blocks = await _llm_gateway().system_prompt.build("user-1")
 
         assert "Préférences de l'utilisateur" not in blocks[1]["text"]

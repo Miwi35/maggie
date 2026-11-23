@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from tests.prompt_helpers import system_prompt_with, stub_system_prompt
+from app.skills.index import MOMENT_CHAT
 from app.container import Container
 from app.work_hours import IN_WORK_HOURS_LINE, OUT_OF_WORK_HOURS_LINE, in_work_hours, work_hours_line
 
@@ -85,21 +87,22 @@ class TestTheStreamedChatSaysIt:
         from app.memory.agent_memory import MemoryBlocks
 
         gateway = Container().streaming_gateway
-        gateway.personality = MagicMock()
-        gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-        gateway.agent_memory = MagicMock()
-        gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        personality = MagicMock()
+        personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
+        agent_memory = MagicMock()
+        agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        gateway.system_prompt = system_prompt_with(personality=personality, agent_memory=agent_memory)
         clock = MagicMock(wraps=datetime)
         clock.now = MagicMock(return_value=datetime(2026, 11, 14, 10, 0, tzinfo=PARIS))
         with (
             patch("app.llm.contexts.context_repo", MagicMock(find_active=AsyncMock(return_value=[]))),
-            patch("app.llm.streaming.skill_index") as skills,
-            patch("app.llm.streaming.datetime", clock),
+            patch("app.prompt_sources.skill_index") as skills,
+            patch("app.runtime.system_prompt.datetime", clock),
         ):
             skills.get_skills_index.return_value = ""
             skills.skills_for_moment.return_value = ""
             skills.refresh = AsyncMock()
-            blocks = await gateway._build_system_prompt("user-1")
+            blocks = await gateway.system_prompt.build("user-1", moment=MOMENT_CHAT)
 
         assert OUT_OF_WORK_HOURS_LINE in blocks[-1]["text"]
         assert "Horaires de travail" not in blocks[0]["text"]

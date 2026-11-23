@@ -2,7 +2,7 @@
 #
 # The only assertion a journey can make about the injection: `system_contains` is
 # matched on the system prompt Maggie is actually sent, so this scenario can only
-# answer once `_build_system_prompt` has put the « Dernière conversation : … » line
+# answer once `SystemPrompt.build` has put the « Dernière conversation : … » line
 # there. A line computed but never injected leaves this file unmatched, and the
 # journey fails on the `[fake-llm] aucun scénario…` sentence instead of on a
 # plausible answer.

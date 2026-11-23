@@ -10,6 +10,7 @@ from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.gateway import LLMGateway
 from app.llm.runner import run_tool_loop
 from app.memory.agent_memory import MemoryBlocks
+from tests.prompt_helpers import system_prompt_with
 from app import user_timezone
 
 SMOKE_QUESTION = (
@@ -64,10 +65,10 @@ class TestNoAnthropicCallForATechnicalAccount:
     def _gateway(self) -> LLMGateway:
         gateway = Container().llm_gateway
         gateway.client = _anthropic()
-        gateway.personality = MagicMock()
-        gateway.personality.get_system_prompt = AsyncMock(return_value="Tu es Maggie.")
-        gateway.agent_memory = MagicMock()
-        gateway.agent_memory.blocks = AsyncMock(return_value=MemoryBlocks())
+        gateway.system_prompt = system_prompt_with(
+            personality=MagicMock(get_system_prompt=AsyncMock(return_value="Tu es Maggie.")),
+            agent_memory=MagicMock(get_memory_context=AsyncMock(return_value=""), blocks=AsyncMock(return_value=MemoryBlocks())),
+        )
         gateway.tool_router = MagicMock()
         gateway.tool_router.get_tool_definitions = AsyncMock(return_value=[])
         return gateway
@@ -78,10 +79,11 @@ class TestNoAnthropicCallForATechnicalAccount:
         )
         return [
             patch("app.llm.gateway.run_tool_loop", run),
-            patch("app.llm.gateway.skill_index", skills),
-            patch("app.llm.gateway.behavior_directives_section", AsyncMock(return_value="")),
-            patch("app.llm.gateway.active_contexts_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.skill_index", skills),
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
+            patch("app.prompt_sources.active_contexts_section", AsyncMock(return_value="")),
             patch("app.llm.gateway.resolve_user_timezone", AsyncMock(return_value=__import__("zoneinfo").ZoneInfo("Europe/Paris"))),
+            patch("app.prompt_sources.resolve_user_timezone", AsyncMock(return_value=__import__("zoneinfo").ZoneInfo("Europe/Paris"))),
         ]
 
     async def _clients_used(self, call, technical: bool) -> list:

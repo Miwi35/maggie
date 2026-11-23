@@ -11,7 +11,7 @@ from functools import cached_property
 
 from app.llm.client import create_llm_client, llm_configured
 
-_PARTS = ("llm_client", "tool_router", "llm_gateway", "streaming_gateway", "approvals")
+_PARTS = ("llm_client", "tool_router", "system_prompt", "llm_gateway", "streaming_gateway", "approvals")
 
 
 class Container:
@@ -29,22 +29,29 @@ class Container:
         return ToolRouter(natives=build_native_registry())
 
     @cached_property
+    def system_prompt(self):
+        from app.prompt_sources import MaggiePromptSources
+        from app.runtime.system_prompt import SystemPrompt
+
+        return SystemPrompt(MaggiePromptSources())
+
+    @cached_property
     def llm_gateway(self):
         from app.llm.gateway import LLMGateway
 
-        return LLMGateway(client=self.llm_client, tool_router=self.tool_router)
+        return LLMGateway(client=self.llm_client, tool_router=self.tool_router, system_prompt=self.system_prompt)
 
     @cached_property
     def streaming_gateway(self):
         from app.llm.streaming import StreamingGateway
 
-        return StreamingGateway(client=self.llm_client, tool_router=self.tool_router)
+        return StreamingGateway(client=self.llm_client, tool_router=self.tool_router, system_prompt=self.system_prompt)
 
     @cached_property
     def approvals(self):
         from app.domain.approvals.service import ApprovalService
 
-        return ApprovalService(gateway=self.llm_gateway)
+        return ApprovalService(gateway=self.llm_gateway, system_prompt=self.system_prompt)
 
     @contextmanager
     def override(self, **parts) -> Iterator["Container"]:
@@ -53,7 +60,7 @@ class Container:
             raise TypeError(f"Unknown container part(s): {sorted(unknown)}")
         saved = dict(self.__dict__)
         stale = []
-        if "llm_client" in parts or "tool_router" in parts:
+        if "llm_client" in parts or "tool_router" in parts or "system_prompt" in parts:
             stale += ["llm_gateway", "streaming_gateway"]
         if stale or "llm_gateway" in parts:
             stale.append("approvals")
