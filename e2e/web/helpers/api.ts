@@ -28,23 +28,6 @@ export async function getCollection<T = Record<string, unknown>>(
 }
 
 /**
- * Reads every notification the account left unread, so a journey starts from a
- * clean bell: the admin shows what is unread when it loads (MAG-956), and an
- * account shared by several journeys would pop their leftovers over this one.
- */
-export async function markNotificationsRead(api: APIRequestContext): Promise<void> {
-  const unread = await getCollection<{ '@id'?: string }>(api, '/api/notifications?exists[readAt]=false&itemsPerPage=100')
-  const readAt = new Date().toISOString()
-  await Promise.all(
-    unread
-      .filter((n) => n['@id'])
-      .map((n) =>
-        api.patch(n['@id'] as string, { headers: { 'Content-Type': 'application/merge-patch+json' }, data: { readAt } }),
-      ),
-  )
-}
-
-/**
  * Polls a collection until a member matches.
  *
  * Every indexable entity is written through Doctrine, dispatched to RabbitMQ

@@ -1,5 +1,4 @@
 import { test as base, expect } from '@playwright/test'
-import { markNotificationsRead } from '../helpers/api.js'
 import type {
   APIRequestContext,
   Browser,
@@ -399,7 +398,6 @@ async function useSignedInUser(
     return windows[0]
   }
 
-  await markNotificationsRead(api)
   await use({ session, context, page, api, secondWindow })
 
   await api.dispose()
@@ -457,8 +455,7 @@ export const test = base.extend<MaggieFixtures>({
 
   // Playwright's own page, recorded from before its first navigation, and read
   // before Playwright closes it.
-  page: async ({ page, adminCoverage, api }, use) => {
-    await markNotificationsRead(api)
+  page: async ({ page, adminCoverage }, use) => {
     await adminCoverage.watch(page)
     await use(page)
     await adminCoverage.collect(page)
