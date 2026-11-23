@@ -93,20 +93,26 @@ class ProactionRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** The user's pending proaction with this prompt at this very instant, if there is one. */
-    public function findPendingTwin(User $user, \DateTimeImmutable $at, string $prompt, ?string $rrule = null): ?Proaction
+    /** The user's pending proaction with the same prompt or the same summary (case and spaces ignored) at this very instant, if there is one. */
+    public function findPendingTwin(User $user, \DateTimeImmutable $at, string $prompt, ?string $rrule = null, ?string $summary = null): ?Proaction
     {
         $qb = $this->createQueryBuilder('p')
             ->join('p.agenda', 'a')
             ->where('a.user = :user')
             ->andWhere('p.startAt = :at')
-            ->andWhere('p.prompt = :prompt')
             ->andWhere('p.executionStatus = :pending')
             ->setParameter('user', $user->getId(), 'ulid')
             ->setParameter('at', $at, Types::DATETIMETZ_IMMUTABLE)
-            ->setParameter('prompt', $prompt)
             ->setParameter('pending', ProactionStatus::Pending->value)
             ->setMaxResults(1);
+
+        if (null === $summary || '' === trim($summary)) {
+            $qb->andWhere('p.prompt = :prompt')->setParameter('prompt', $prompt);
+        } else {
+            $qb->andWhere('(p.prompt = :prompt OR LOWER(p.summary) = :summary)')
+                ->setParameter('prompt', $prompt)
+                ->setParameter('summary', mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $summary))));
+        }
 
         if (null === $rrule) {
             $qb->andWhere('p.rrule IS NULL');

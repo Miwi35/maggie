@@ -103,3 +103,27 @@ test('the web agenda draws the proaction at its time, shows what Maggie was aske
 
   expect((await api.get(`/api/events/${id}`)).status(), 'the cancelled proaction should leave the agenda').toBe(404)
 })
+
+test('a reminder scheduled twice with two prompts and one summary shows once in the agenda', async ({ api, page }) => {
+  const args = { scheduled_at: `${tomorrowInParis()}T08:30:00`, summary: 'Sac e2e' }
+
+  const first = await callMcpTool(api, 'schedule_proaction', { ...args, prompt: `${promptOfThisAttempt()} premier prompt` })
+  const second = await callMcpTool(api, 'schedule_proaction', { ...args, prompt: `${promptOfThisAttempt()} second prompt` })
+  expect(first.error, JSON.stringify(first)).toBeUndefined()
+  const id = String((first.proaction as { id: string }).id)
+  expect(String((second.proaction as { id: string }).id)).toBe(id)
+
+  const listed = await callMcpTool(api, 'list_proactions', {})
+  expect((listed.proactions as { summary: string }[]).filter((p) => p.summary === 'Sac e2e')).toHaveLength(1)
+
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+  await calendar.chooseView('Jour')
+  await calendar.goForward()
+  await expect(calendar.chip('Sac e2e')).toHaveCount(1)
+  await expect(calendar.eventBar('Sac e2e')).toContainText('08:30')
+
+  await calendar.openChip('Sac e2e')
+  await calendar.deleteFromPopover()
+  await expect(calendar.chip('Sac e2e')).toHaveCount(0)
+})
