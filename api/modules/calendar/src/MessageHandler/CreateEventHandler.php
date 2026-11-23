@@ -2,15 +2,19 @@
 
 namespace Maggie\Calendar\MessageHandler;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Agenda;
 use Maggie\Calendar\Entity\Event;
+use Maggie\Calendar\Entity\Proaction;
 use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Message\CreateEventCommand;
 use Maggie\Calendar\Message\PushEventToGoogleCommand;
 use Maggie\Calendar\Repository\AgendaRepository;
 use Maggie\Calendar\Repository\EventRepository;
+use Maggie\Calendar\Service\Proactions;
 use Maggie\Calendar\UseCase\CreateEvent;
 use Maggie\Core\Repository\UserRepository;
+use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -26,6 +30,9 @@ class CreateEventHandler
         private readonly UserRepository $userRepository,
         private readonly MessageBusInterface $messageBus,
         private readonly LoggerInterface $logger,
+        private readonly Proactions $proactions,
+        private readonly EntityManagerInterface $em,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -37,6 +44,11 @@ class CreateEventHandler
 
         if (null === $agenda && null === $command->agendaId) {
             throw new \DomainException('No default agenda is set: ask which agenda to use, or pass agenda_id (ids come from manage_agendas with action list).');
+        }
+
+        $series = null !== $command->recurringEventId ? $this->eventRepository->find($command->recurringEventId) : null;
+        if ($series instanceof Proaction && $series->isRecurring() && null !== $command->userId && (string) $series->getAgenda()->getUser()->getId() === $command->userId) {
+            return $this->moveOccurrence($series, $command);
         }
 
         // An agenda a module keeps for itself holds what that module files in it, nothing else (MAG-324).
@@ -101,6 +113,25 @@ class CreateEventHandler
         }
 
         return $event;
+    }
+
+    /** The agenda's « this occurrence only » on a proaction series: an instance, not an event. */
+    private function moveOccurrence(Proaction $series, CreateEventCommand $command): Proaction
+    {
+        $user = $series->getAgenda()->getUser();
+        $instance = $this->proactions->detach($user, $series, $command->originalStartAt ?? throw new \DomainException('originalStartAt names the occurrence.'));
+        if (null !== $command->startAt) {
+            if ($command->startAt <= $this->clock->now()) {
+                throw new \DomainException('startAt has already passed: a proaction runs in the future.');
+            }
+            $instance->setStartAt($command->startAt);
+        }
+        if (null !== $command->status) {
+            $instance->setStatus(EventStatus::from($command->status));
+        }
+        $this->em->flush();
+
+        return $instance;
     }
 
     private function findDefaultAgenda(?string $userId): ?Agenda

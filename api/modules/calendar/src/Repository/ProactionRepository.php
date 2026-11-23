@@ -10,6 +10,7 @@ use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Maggie\Calendar\Entity\Proaction;
+use Maggie\Calendar\Enum\EventStatus;
 use Maggie\Calendar\Enum\ProactionDelivery;
 use Maggie\Calendar\Enum\ProactionStatus;
 use Maggie\Core\Entity\User;
@@ -33,6 +34,7 @@ class ProactionRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('p')
             ->join('p.agenda', 'a')
             ->where('a.user = :user')
+            ->andWhere('p.rrule IS NULL')
             ->setParameter('user', $user->getId(), 'ulid')
             ->orderBy('p.startAt', 'ASC');
 
@@ -49,10 +51,52 @@ class ProactionRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
-    /** The user's pending proaction with this prompt at this very instant, if there is one. */
-    public function findPendingTwin(User $user, \DateTimeImmutable $at, string $prompt): ?Proaction
+    /**
+     * The user's series, by first start.
+     *
+     * @return Proaction[]
+     */
+    public function findSeriesForUser(User $user): array
     {
         return $this->createQueryBuilder('p')
+            ->join('p.agenda', 'a')
+            ->where('a.user = :user')
+            ->andWhere('p.rrule IS NOT NULL')
+            ->andWhere('p.status <> :cancelled')
+            ->setParameter('user', $user->getId(), 'ulid')
+            ->setParameter('cancelled', EventStatus::Cancelled->value)
+            ->orderBy('p.startAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return Proaction[] */
+    public function findInstancesOf(Proaction $series): array
+    {
+        return $this->createQueryBuilder('p')
+            ->where('p.recurringEvent = :series')
+            ->setParameter('series', $series->getId(), 'ulid')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** The instance that holds this occurrence of the series, cancelled or not. */
+    public function findInstanceAt(Proaction $series, \DateTimeImmutable $occurrence): ?Proaction
+    {
+        return $this->createQueryBuilder('p')
+            ->where('p.recurringEvent = :series')
+            ->andWhere('p.originalStartAt = :at')
+            ->setParameter('series', $series->getId(), 'ulid')
+            ->setParameter('at', $occurrence, Types::DATETIMETZ_IMMUTABLE)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The user's pending proaction with this prompt at this very instant, if there is one. */
+    public function findPendingTwin(User $user, \DateTimeImmutable $at, string $prompt, ?string $rrule = null): ?Proaction
+    {
+        $qb = $this->createQueryBuilder('p')
             ->join('p.agenda', 'a')
             ->where('a.user = :user')
             ->andWhere('p.startAt = :at')
@@ -62,9 +106,15 @@ class ProactionRepository extends ServiceEntityRepository
             ->setParameter('at', $at, Types::DATETIMETZ_IMMUTABLE)
             ->setParameter('prompt', $prompt)
             ->setParameter('pending', ProactionStatus::Pending->value)
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setMaxResults(1);
+
+        if (null === $rrule) {
+            $qb->andWhere('p.rrule IS NULL');
+        } else {
+            $qb->andWhere('p.rrule = :rrule')->setParameter('rrule', $rrule);
+        }
+
+        return $qb->getQuery()->getOneOrNullResult();
     }
 
     /** Whether the user has a proaction with this summary still waiting for its run. */
@@ -153,7 +203,7 @@ class ProactionRepository extends ServiceEntityRepository
         $sql = 'SELECT p.id FROM proaction p'
             .' JOIN event e ON e.id = p.id'
             .' JOIN agenda a ON a.id = e.agenda_id'
-            .' WHERE p.execution_status = :pending'
+            .' WHERE p.execution_status = :pending AND e.rrule IS NULL AND e.status <> \'cancelled\''
             .(null !== $id ? ' AND p.id = :id' : ' AND e.start_at <= :now')
             .(null !== $user ? ' AND a.user_id = :user' : '')
             .' ORDER BY e.start_at ASC, p.id ASC'
@@ -169,6 +219,42 @@ class ProactionRepository extends ServiceEntityRepository
             $params['now'] = $now;
             $types['now'] = Types::DATETIMETZ_IMMUTABLE;
         }
+        if (null !== $user) {
+            $params['user'] = $user->getId();
+            $types['user'] = 'ulid';
+        }
+
+        $ulid = Type::getType('ulid');
+        $platform = $connection->getDatabasePlatform();
+
+        return array_map(
+            static fn (mixed $id): Ulid => $ulid->convertToPHPValue($id, $platform),
+            $connection->fetchFirstColumn($sql, $params, $types),
+        );
+    }
+
+    /**
+     * Locks and returns the ids of the series with a first start already come.
+     * Same lock as `lockDueIds`, taken on the series: two claims queue on it, and
+     * the one that comes second finds the instance of the first.
+     *
+     * @return Ulid[]
+     */
+    public function lockDueSeriesIds(\DateTimeImmutable $now, ?User $user, int $limit): array
+    {
+        $connection = $this->getEntityManager()->getConnection();
+
+        $sql = 'SELECT p.id FROM proaction p'
+            .' JOIN event e ON e.id = p.id'
+            .' JOIN agenda a ON a.id = e.agenda_id'
+            .' WHERE e.rrule IS NOT NULL AND e.start_at <= :now AND e.status <> \'cancelled\''
+            .(null !== $user ? ' AND a.user_id = :user' : '')
+            .' ORDER BY e.start_at ASC, p.id ASC'
+            .' LIMIT :limit'
+            .' FOR UPDATE OF p SKIP LOCKED';
+
+        $params = ['now' => $now, 'limit' => $limit];
+        $types = ['now' => Types::DATETIMETZ_IMMUTABLE, 'limit' => ParameterType::INTEGER];
         if (null !== $user) {
             $params['user'] = $user->getId();
             $types['user'] = 'ulid';

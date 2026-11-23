@@ -12,11 +12,12 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'list_proactions', description: 'Lists the proactions scheduled for the user, by time, each with its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters.')]
+#[McpTool(name: 'list_proactions', description: 'Lists the proactions scheduled for the user, by time, in three keys: proactions (one-off runs and the occurrences of a series that have their own run), series (the repeating ones, with their rrule) and, only when from and to are both given, occurrences (the coming runs of the series in the window with no run of their own yet: seriesId, occurrence, scheduledAt, prompt, summary, kind). Each proaction has its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters proactions only.')]
 class ListProactionsTool
 {
     public function __construct(
         private readonly ProactionRepository $repository,
+        private readonly Proactions $proactions,
         private readonly McpUserContext $userContext,
     ) {
     }
@@ -25,20 +26,29 @@ class ListProactionsTool
     {
         try {
             $user = $this->userContext->requireUser();
-            $proactions = $this->repository->findForUser(
-                $user,
-                self::bound($from, 'from', false),
-                self::bound($to, 'to', true),
-                ProactionStatus::fromFilter($status),
-            );
+            $start = self::bound($from, 'from', false);
+            $end = self::bound($to, 'to', true);
+            $proactions = $this->repository->findForUser($user, $start, $end, ProactionStatus::fromFilter($status));
+            $series = $this->repository->findSeriesForUser($user);
         } catch (MissingMcpUserException|\DomainException $e) {
             return json_encode(['error' => $e->getMessage()], JSON_THROW_ON_ERROR);
         }
 
-        return json_encode([
+        $listing = [
             'proactions' => array_map(static fn (Proaction $p) => Proactions::describe($p), $proactions),
+            'series' => array_map(static fn (Proaction $p) => Proactions::describe($p), $series),
             'count' => count($proactions),
-        ], JSON_THROW_ON_ERROR);
+        ];
+        if (null !== $start && null !== $end) {
+            $occurrences = [];
+            foreach ($series as $one) {
+                array_push($occurrences, ...$this->proactions->occurrencesOf($one, $start, $end));
+            }
+            usort($occurrences, static fn (array $a, array $b): int => strcmp($a['scheduledAt'], $b['scheduledAt']));
+            $listing['occurrences'] = $occurrences;
+        }
+
+        return json_encode($listing, JSON_THROW_ON_ERROR);
     }
 
     /** A bare day as `to` reaches the end of that day: « to 2037-01-15 » includes the 15th. */

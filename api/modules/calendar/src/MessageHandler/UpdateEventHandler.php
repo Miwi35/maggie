@@ -35,10 +35,10 @@ class UpdateEventHandler
             throw new \DomainException("Event not found: {$command->eventId}");
         }
 
-        // A proaction is one run at one instant (ADR-012): moving it is fine,
-        // making it repeat or last a whole day is not.
-        if ($event instanceof Proaction && null !== $command->rrule) {
-            throw new \DomainException('A proaction never repeats: a lasting rule is an instruction for Maggie, not an RRULE.');
+        // A proaction is one run at one instant, or a series of them (ADR-012-1): an
+        // occurrence of a series takes no rule, and none lasts a whole day.
+        if ($event instanceof Proaction && $event->isException() && null !== $command->rrule) {
+            throw new \DomainException('An occurrence of a series takes no rrule: the rule belongs to the series.');
         }
         if ($event instanceof Proaction && (true === $command->allDay || null !== $command->startDate)) {
             throw new \DomainException('A proaction runs at an instant: it cannot be an all-day event.');

@@ -14,6 +14,7 @@ final readonly class ScheduleProactionCommand
         public \DateTimeImmutable $scheduledAt,
         public ?string $summary = null,
         public ProactionKind $kind = ProactionKind::Reminder,
+        public ?string $rrule = null,
     ) {
     }
 }

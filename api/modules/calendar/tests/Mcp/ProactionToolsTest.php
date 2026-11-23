@@ -55,6 +55,7 @@ class ProactionToolsTest extends KernelTestCase
         foreach ([
             [ScheduleProactionTool::class, ['Rappelle le pain', $this->tomorrowAt('08:30')]],
             [ScheduleProactionTool::class, ['Vérifie les comptes', $this->tomorrowAt('08:30'), null, 'check']],
+            [ScheduleProactionTool::class, ['Fais le point', $this->tomorrowAt('08:30'), null, null, 'FREQ=DAILY']],
             [ListProactionsTool::class, []],
             [CancelProactionTool::class, [$id]],
         ] as [$tool, $args]) {
