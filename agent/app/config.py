@@ -195,6 +195,9 @@ class Settings(BaseSettings):
     memory_recall_timeout_seconds: float = 0.8
     memory_recall_max: int = 3
     memory_recall_threshold: float = 2.5
+    # Written chat only: the plan and the search of the kept conversations, side by side with the profile;
+    # past it, the lexical recall alone.
+    memory_recall_plan_timeout_seconds: float = 2.0
     # Level 1: the facts of the permanent profile, ranked by use, always in the prompt.
     memory_profile_max: int = 80
     # The night (MAG-159): once a day, at this hour of each owner's own clock, Maggie goes through the
