@@ -40,12 +40,12 @@ JOBS=(
   "api-lint|API Lint (PHPStan)|api $COVERAGE $CI_YML"
   "agent-lint|Agent Lint (Ruff)|agent $COVERAGE $CI_YML"
   "ciqual-lint|Ciqual Lint (Ruff)|ciqual $COVERAGE $CI_YML"
-  "admin-lint|Admin Lint (ESLint + TypeScript)|admin $COVERAGE api/contract agent/contract design $CI_YML"
+  "admin-lint|Admin Lint (ESLint + TypeScript)|admin $COVERAGE api/contract/openapi.json api/contract/query-parameters.json api/contract/mercure-topics.json api/contract/responses/activity_status.collection.json api/contract/responses/accounts.collection.json agent/contract design $CI_YML"
   "api-test|API Tests (PHPUnit)|api $COVERAGE $CI_YML"
   "agent-test|Agent Tests (pytest)|agent $COVERAGE $CI_YML"
   "ciqual-test|Ciqual Tests (pytest)|ciqual $COVERAGE $CI_YML"
-  "admin-test|Admin Tests (Vitest)|admin $COVERAGE api/contract agent/contract design $CI_YML"
-  "mobile-unit|Mobile Unit Tests (release)|mobile api/contract agent/contract design $COVERAGE $CI_YML"
+  "admin-test|Admin Tests (Vitest)|admin $COVERAGE api/contract/openapi.json api/contract/query-parameters.json api/contract/mercure-topics.json api/contract/responses/activity_status.collection.json api/contract/responses/accounts.collection.json agent/contract design $CI_YML"
+  "mobile-unit|Mobile Unit Tests (release)|mobile api/contract/openapi.json api/contract/query-parameters.json api/contract/push-channels.json api/contract/mercure-topics.json api/contract/responses agent/contract design $COVERAGE $CI_YML"
 )
 
 reuse='[]'

@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 
-/** A response recorded in `api/contract/responses/`, found from wherever the suite runs (the checkout, or `task wt:test:admin`). */
+/** A response recorded in `api/contract/responses/`; one read here goes in the `admin` filter of ci.yml and in green-jobs.sh. Found from wherever the suite runs (the checkout, or `task wt:test:admin`). */
 export const recordedResponse = <T>(name: string): T => {
   let candidate = resolve(process.cwd())
   for (;;) {
