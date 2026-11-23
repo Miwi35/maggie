@@ -25,7 +25,7 @@ const homeConfig: HomeConfig = {
     { key: 'finance', column: 'grid' },
     { key: 'leisure', column: 'grid' },
   ],
-  launch: [],
+  launch: [{ key: 'digest' }],
 }
 
 export default homeConfig

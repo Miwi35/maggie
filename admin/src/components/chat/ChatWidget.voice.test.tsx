@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, screen, within } from '@testing-library/react'
 import { renderWithTheme } from '../../test/renderWithTheme'
+import { MemoryRouter } from 'react-router-dom'
 import { ChatWidget } from './ChatWidget'
 
 /** A voice message reaches the thread over Mercure, without a reload (MAG-686). */
@@ -107,6 +108,7 @@ describe('a voice message in the chat', () => {
 
   const renderChat = () =>
     renderWithTheme(
+      <MemoryRouter>
       <ChatWidget
         open
         sidebarTab="chat"
@@ -119,7 +121,8 @@ describe('a voice message in the chat', () => {
         onContextsChange={noop}
         toolCalls={[]}
         onToolCallsChange={noop}
-      />,
+      />
+      </MemoryRouter>,
     )
 
   const digest = {
@@ -128,7 +131,7 @@ describe('a voice message in the chat', () => {
     content: 'Votre digest du matin est disponible.',
     createdAt: '2026-11-21T07:00:00Z',
     audio: { type: 'audio/mpeg', durationMs: 5000, size: 10, url: '/agent/messages/m-d/audio', transcript: 'Il fait beau.' },
-    ui_blocks: [{ type: 'digest' }],
+    blocks: [{ type: 'digest', day: '2026-10-27', text: 'Il fait beau.', expiresAt: '2026-10-27T14:00:00+01:00', openedAt: null }],
   }
 
   const stubHistory = (messages: unknown[]) =>
@@ -161,6 +164,36 @@ describe('a voice message in the chat', () => {
     const bubble = await screen.findByTestId('voice-bubble')
     const message = bubble.closest('#msg-m-d') as HTMLElement
     expect(within(message).getByText('Votre digest du matin est disponible.')).toBeInTheDocument()
+  })
+
+  test('a digest message shows its card under the voice, Ouvrir opens the digest', async () => {
+    stubHistory([{ ...digest, audio: { ...digest.audio, durationMs: 72000 } }])
+    renderChat()
+    const message = (await screen.findByTestId('voice-bubble')).closest('#msg-m-d') as HTMLElement
+    const card = within(message).getByTestId('moment-card')
+    expect(card).toHaveTextContent('Digest du matin')
+    expect(card).toHaveTextContent('mar. 27 oct. · 1:12')
+    expect(within(card).getByRole('link', { name: 'Ouvrir le digest du matin' })).toHaveAttribute('href', '/digest?message=m-d')
+  })
+
+  test('the card comes with the message over Mercure', async () => {
+    renderChat()
+    await screen.findByText('Un vocal ?')
+    const chat = MockEventSource.instances.find((es) =>
+      new URL(es.url, 'http://x').searchParams.getAll('match').includes('/chat/user-1'),
+    )!
+    act(() => {
+      chat.onmessage?.({ data: JSON.stringify(digest) } as MessageEvent)
+    })
+    const message = (await screen.findByTestId('voice-bubble')).closest('#msg-m-d') as HTMLElement
+    expect(within(message).getByTestId('moment-card')).toBeInTheDocument()
+  })
+
+  test('a message without a digest block has no card', async () => {
+    stubHistory([{ ...digest, blocks: [] }])
+    renderChat()
+    await screen.findByTestId('voice-bubble')
+    expect(screen.queryByTestId('moment-card')).not.toBeInTheDocument()
   })
 
   test('a voice message whose text is its transcript shows the bubble alone', async () => {

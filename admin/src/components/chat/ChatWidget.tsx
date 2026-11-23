@@ -51,6 +51,9 @@ import { MessageFeedback } from './MessageFeedback'
 import type { FeedbackRating } from './MessageFeedback'
 import { ThreadsDialog } from './ThreadsDialog'
 import { VoiceOrb } from './VoiceOrb'
+import { MomentCard } from './MomentCard'
+import { digestBlockOf, digestMoment } from '../../modules/maggie/digest/digestApi'
+import type { DigestMessage } from '../../modules/maggie/digest/digestApi'
 import { NARROW_QUERY } from '../../breakpoints'
 import type { SxProps, Theme } from '@mui/material/styles'
 import type { SidebarTab } from '../layout/ChatContext'
@@ -72,6 +75,8 @@ interface ChatMessage {
   feedback?: FeedbackRating | null
   /** Maggie's voice message: the audio to play, its transcript (MAG-686). */
   audio?: VoiceAttachment | null
+  /** Typed blocks the message carries (the `digest` one draws a card, MAG-960). */
+  blocks?: DigestMessage['blocks']
 }
 
 /** A deletion the owner can still take back: nothing is sent to the server before the delay is over. */
@@ -751,6 +756,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                   contextId: data.contextId ?? null,
                   decision: data.decision ?? null,
                   audio: data.audio ?? null,
+                  blocks: data.blocks ?? null,
                 },
               ]
             })
@@ -1478,6 +1484,19 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             ) : (
                               <Linkified text={msg.role === 'assistant' ? stripDeliveryTags(saidInMessage(msg.content)) : saidInMessage(msg.content)} />
                             )}
+                            {(() => {
+                              const block = digestBlockOf(msg)
+                              return block ? (
+                                <MomentCard
+                                  icon="play"
+                                  title="Digest du matin"
+                                  moment={msg.audio ? digestMoment(block.day, msg.audio.durationMs, 'short') : digestMoment(block.day, 0, 'short').replace(/ · .*$/, '')}
+                                  to={`/digest?message=${encodeURIComponent(msg.id)}`}
+                                  openLabel="Ouvrir"
+                                  ariaLabel="Ouvrir le digest du matin"
+                                />
+                              ) : null
+                            })()}
                           </ChatBubble>
                           )}
                           {msg.role === 'assistant' && !msg.id.startsWith('tmp-') && !msg.id.startsWith('err-') && (

@@ -11,6 +11,8 @@ export class HomePage extends AdminShell {
   /** The ring of the Tâches card, named by what it reads: « 1 sur 3 ». */
   readonly tasksRing: Locator
   readonly financeCard: Locator
+  /** The tile of the unopened morning digest, at the head of the page. */
+  readonly digestTile: Locator
   /** The one calm sentence the page says when every card is empty. */
   readonly calmSentence: Locator
 
@@ -21,6 +23,7 @@ export class HomePage extends AdminShell {
     this.groceryCard = this.content.getByTestId('home-card-grocery')
     this.tasksRing = this.content.getByTestId('home-tasks-ring')
     this.financeCard = this.content.getByTestId('home-card-finance')
+    this.digestTile = this.content.getByRole('link', { name: /^Digest du matin/ })
     this.calmSentence = this.content.getByTestId('home-empty')
   }
 
