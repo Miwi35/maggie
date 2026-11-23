@@ -185,6 +185,11 @@ proaction at all.
 `98-proaction-check-envelope-due.yaml` (MAG-886) is a `check` come due: `proaction_verdict` (low, solid,
 topic `enveloppe-loisirs`) then one sentence — the triage journey's message left in the thread, then not told again.
 
+`98-bilan-soir-prepare.yaml` (MAG-958) is the proaction's preparation of the evening review: it reads tomorrow and the
+stock, then writes `save_bilan_step` with `tomorrowTasks` and no `step`, the task id coming from its own `get_tasks`.
+`98-bilan-soir-demain.yaml` reads the bilan back at the Demain step and proposes those tasks without writing;
+`98-bilan-soir-demain-garde.yaml` (« oui, je garde ») schedules the kept one for tomorrow, by the `taskId` of the bilan in the history.
+
 `92-day-context-line.yaml` (MAG-811) declares the `Contexte du jour :` line and the seeded « Garde » as its
 `system_contains`, and answers « Contexte lu. » only when the day context really reaches the prompt.
 

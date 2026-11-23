@@ -12,6 +12,21 @@ BILAN_PROMPT = (
 BILAN_AVAILABLE = "Bonsoir monsieur. Votre bilan de la journée vous attend."
 """The announcement the owner validated (22 Nov.), written by the code as the digest's."""
 BILAN_ROUTE = "maggie://activity/bilan"
+BILAN_PREPARE_PROMPT = (
+    "Prépare l'étape Demain du bilan de la journée du {day} (compétence bilan-soir, section Préparer demain). "
+    "Tu n'écris rien d'autre que save_bilan_step."
+)
+PREPARE_BLOCKED_TOOLS = frozenset(
+    {
+        "update_task",
+        "create_task",
+        "delete_task",
+        "add_bilan_consigne",
+        "schedule_proaction",
+        "send_voice_message",
+        "manage_notifications",
+    }
+)
 
 
 def is_bilan(summary: str | None) -> bool:
@@ -25,3 +40,16 @@ def is_retired_relance(summary: str | None) -> bool:
 def bilan_block(day: date) -> dict:
     """The block that lets a client draw the review card, with the route that opens the activity."""
     return {"type": "bilan", "day": day.isoformat(), "route": BILAN_ROUTE}
+
+
+async def prepare_bilan(gateway, user_id: str, day: date) -> dict:
+    """One pass of the model that chooses tomorrow's tasks and writes them with `save_bilan_step` (MAG-958).
+
+    Its text is never shown, only the bilan's state counts (owner, 22 Nov.): the message stays `BILAN_AVAILABLE`.
+    """
+    return await gateway.proaction(
+        BILAN_PREPARE_PROMPT.format(day=day.isoformat()),
+        user_id,
+        summary=BILAN_SUMMARY,
+        blocked_tools=PREPARE_BLOCKED_TOOLS,
+    )

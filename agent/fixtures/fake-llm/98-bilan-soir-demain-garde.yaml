@@ -1,0 +1,14 @@
+# « Oui, je garde » after the Demain step proposed « Trier les papiers » (MAG-958): the task is scheduled for
+# tomorrow by the taskId the bilan gave, read back from the replayed tool result. `dueDate` is never touched.
+name: bilan-soir-demain-garde
+description: Schedule the kept task for tomorrow once the owner agrees.
+
+match:
+  user_contains: "oui, je garde"
+  history_matches: 'taskId\W+([0-9A-HJKMNP-TV-Z]{26})\W+title\W+Trier les papiers'
+
+turns:
+  - tools:
+      - name: update_task
+        input: {id: '\1', scheduledDate: '${tomorrow}'}
+  - text: "Trier les papiers est prévu pour demain."

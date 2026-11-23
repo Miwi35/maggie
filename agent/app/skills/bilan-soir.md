@@ -23,11 +23,19 @@ Appelle `get_activity_status` avec `activity: "bilan"`.
 - Résultat `null`, ou `origin.id` d'un autre jour que le jour courant (YYYY-MM-DD ; le jour que dit la proaction, même passé minuit, sinon le jour courant dans le fuseau de l'utilisateur) : un nouveau bilan, on commence à l'étape Journée.
 - `origin.id` égal au jour courant : le bilan est déjà commencé. Reprends à `state.step`, avec `state.answers` et `state.instructions` déjà recueillis. Dis-le en une phrase (« on reprenait aux finances »), sans refaire les étapes passées.
 
-**Proaction.** Le rendez-vous du soir est annoncé par le code (« Bonsoir monsieur. Votre bilan de la journée vous attend. ») avec sa carte « Ouvrir » : tu n'es pas réveillée pour lui. S'il répond à ce message, mène le bilan comme à la demande.
+**Proaction.** Le rendez-vous du soir est annoncé par le code (« Bonsoir monsieur. Votre bilan de la journée vous attend. ») avec sa carte « Ouvrir » : tu n'es pas réveillée pour lui. Juste après l'annonce, le code te réveille une fois pour préparer demain (section Préparer demain). S'il répond à ce message, mène le bilan comme à la demande.
 
-**À la demande.** Écris tout de suite le statut : `save_bilan_step` avec `day` et `step: "journee"`.
+**À la demande.** Prépare demain (section Préparer demain), puis écris le statut : `save_bilan_step` avec `day`, `step: "journee"`, `tomorrowTasks` et `tomorrowSpares`. Si `state.tomorrowTasks` existe déjà ce jour-là, garde-le.
 
 À **chaque passage** d'une étape à la suivante, et à chaque réponse qui change `answers`, appelle `save_bilan_step` (`day`, `step`, et `answers` complets seulement s'ils ont changé : ce qui est omis est conservé ; `answers.tasks` est une liste d'objets `{taskId, choice}` dans un objet `answers`, pas une liste seule). Les `instructions` sont écrites par `add_bilan_consigne` : ne les passe jamais toi-même.
+
+## Préparer demain
+
+Lis demain : `get_events` (`from` et `to` : demain), `get_tasks` avec `day` = demain (programmées demain, dues demain ou avant et pas faites ; `overdueDays` dit le retard), puis le stock : `get_tasks` avec `dated: false` et, si c'est utile, `dueFrom`/`dueTo` sur les jours qui suivent. La ligne « Contexte du jour » dit à quoi ressemble demain.
+
+Choisis toi-même, comme une assistante qui connaît sa journée, les tâches qui ont du sens pour demain : d'abord celles programmées, dues ou en retard, puis ce qui te paraît utile vu la place que laisse l'agenda, l'urgence (`urgency`) et la priorité (`orderScore`). Pas de nombre fixe : une journée chargée en garde peu. Mets aussi de côté, dans l'ordre où tu les proposerais, quelques tâches du stock pour un échange.
+
+Écris ton choix avec `save_bilan_step` : `day`, `tomorrowTasks` (les tâches prévues) et `tomorrowSpares` (la réserve), chacune `{taskId, title, reason}`. `reason` est facultative, en peu de mots (« reportée hier », « limite ven. 30 »). Sans `step` à la création par le rendez-vous. Rien d'autre n'est écrit : aucune tâche n'est programmée avant sa réponse.
 
 ## 2. Journée (`journee`)
 
@@ -66,7 +74,7 @@ Tu choisis `kind` :
 
 ## 6. Demain (`demain`)
 
-Lis `get_events` (`from` et `to` : demain) et `get_tasks` avec `day` = demain : dis en deux phrases à quoi ressemble demain (premier rendez-vous, ce qui a été reporté à demain). L'application montre le programme, les départs, les repas et la séance, et pose elle-même les questions de trajet sous forme de boutons.
+Relis le bilan (`get_activity_status`). Dis en deux phrases à quoi ressemble demain (premier rendez-vous), puis les tâches prévues : celles laissées « Demain » à l'étape Journée (`answers.tasks`, `choice: tomorrow`), puis `state.tomorrowTasks`, en peu de mots. Demande s'il les garde. Il en échange une : prends la première de `tomorrowSpares` (ou celle qu'il nomme), la tâche sortie passe en dernier dans la réserve, et réécris les deux listes par `save_bilan_step`. **Rien n'est écrit avant sa réponse.** Il garde : `update_task` avec `scheduledDate` = demain pour chaque tâche retenue qui n'est pas déjà programmée demain. Ne touche jamais `dueDate`. Une tâche sortie qui était programmée demain : `update_task` avec `clear: ["scheduledDate"]`. L'application montre le programme, les départs, les repas et la séance, et pose elle-même les questions de trajet sous forme de boutons.
 
 **Les réponses de trajet.** Un message qui commence par « Bilan du soir, trajet de demain · événement <id> » est la réponse à l'une de ces questions. Enregistre-la avec `set_trip` (`eventId`, `decidedBy: "user"`) :
 

@@ -1,0 +1,26 @@
+# The preparation the proaction runs once after the announcement (MAG-958): Maggie reads tomorrow and the
+# stock, chooses, and writes her choice in the bilan without a step. The task id is the one her own
+# `get_tasks` result gave (`results_matches`, see README.md).
+name: bilan-soir-prepare
+description: Prepare tomorrow's tasks of the evening review and keep them in the bilan.
+
+match:
+  user_contains: "prépare l'étape demain du bilan"
+
+results_matches: 'id\W+([0-9A-HJKMNP-TV-Z]{26})\W+title\W+Trier les papiers'
+
+turns:
+  - tools:
+      - name: get_events
+        input: {from: '${tomorrow}', to: '${tomorrow}'}
+      - name: get_tasks
+        input: {day: '${tomorrow}'}
+      - name: get_tasks
+        input: {dated: false}
+  - tools:
+      - name: save_bilan_step
+        input:
+          day: '${today}'
+          tomorrowTasks: [{taskId: '\1', title: 'Trier les papiers', reason: 'sans date'}]
+          tomorrowSpares: []
+  - text: "Demain est prêt."
