@@ -237,11 +237,7 @@ private fun SessionsCard(state: ActivityUiState, viewModel: ActivityViewModel, o
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Text("Sessions actives", fontSize = 14.sp, color = surface.textMuted)
-                Text(
-                    "$done ${if (done > 1) "faites" else "faite"} · $planned ${if (planned > 1) "prévues" else "prévue"}",
-                    fontSize = 12.sp,
-                    color = surface.caption,
-                )
+                sessionsCountLabel(done, planned)?.let { Text(it, fontSize = 12.sp, color = surface.caption) }
             }
             if (state.sessions.isEmpty() && state.cited.isEmpty()) {
                 Text("Aucune session aujourd’hui", fontSize = 14.sp, color = surface.textMuted, modifier = Modifier.testTag(UiTags.ACTIVITY_SESSIONS_EMPTY))

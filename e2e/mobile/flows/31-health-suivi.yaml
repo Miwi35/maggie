@@ -18,7 +18,7 @@ tags:
 # Health Connect), with a profile complete enough for a basal metabolism.
 #
 # Santé › Activité is opened from the breadcrumb's menu at the end (MAG-898); its projection, sessions and
-# week are `ActivitySeriesTest`, `ActivityViewModelTest` and `ActivityScreenTest`.
+# week (abbreviated days, « auj. », no « 0 faite · 0 prévue ») are `ActivitySeriesTest`, `ActivityViewModelTest` and `ActivityScreenTest`.
 #
 # What is not here: the trend's arithmetic, the 90 j and 1 an buckets, the labels and the axis
 # (`WeightChartTest`), the column tapped, « Écarter », the Mercure refresh, the tablet's layout
@@ -119,3 +119,6 @@ tags:
       text: "8 000"
     timeout: 20000
 - assertVisible: "Pas · aujourd’hui.*"
+- assertVisible: "auj."
+- assertVisible: "(lun|mar|mer|jeu|ven|sam|dim)\\."
+- assertNotVisible: "0 faite · 0 prévue"

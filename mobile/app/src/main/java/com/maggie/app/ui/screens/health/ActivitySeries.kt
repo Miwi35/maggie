@@ -56,9 +56,16 @@ fun gapToGoal(projection: Int?, goal: Int): Int? =
 
 /** One bar of « 7 jours »: the day, its steps (0 without data), and whether it reached the goal. */
 data class WeekBar(val date: LocalDate, val steps: Int, val reached: Boolean, val isToday: Boolean) {
-    /** « L », or « auj. » for today. */
-    val label: String get() = if (isToday) "auj." else weekdayInitial(date.toString())
+    /** « sam. », or « auj. » for today. */
+    val label: String get() = weekdayShort(date.toString(), today = if (isToday) date.toString() else "")
 }
+
+/** « 1 faite · 2 prévues »: names only what exists; `null` without any session. */
+fun sessionsCountLabel(done: Int, planned: Int): String? =
+    listOfNotNull(
+        done.takeIf { it > 0 }?.let { "$it ${if (it > 1) "faites" else "faite"}" },
+        planned.takeIf { it > 0 }?.let { "$it ${if (it > 1) "prévues" else "prévue"}" },
+    ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
 
 /** The seven days ending [today], J-6 first: a day the API did not send has no steps. */
 fun weekBars(days: List<DailyEnergy>, goal: Int, today: LocalDate): List<WeekBar> {
