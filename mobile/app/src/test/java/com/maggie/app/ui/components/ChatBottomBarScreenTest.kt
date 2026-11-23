@@ -61,6 +61,13 @@ class ChatBottomBarScreenTest {
         compose.onNodeWithText("3", useUnmergedTree = true).assertIsDisplayed()
     }
 
+    @Test
+    fun `the badge is a node of its own, outside the clickable field, so a journey finds it (MAG-965)`() {
+        compose.setContent { ChatBottomBar(unreadCount = 3, onOpenChat = {}) }
+
+        compose.onNodeWithTag(UiTags.CHAT_UNREAD_BADGE).assertIsDisplayed()
+    }
+
     // The badge's colour (Brand.primary, never a module's hue) is read in review: a pixel capture is
     // not reliable under Robolectric. The label rule shared with the portrait is tested here.
     @Test

@@ -2,6 +2,7 @@ package com.maggie.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,31 +59,40 @@ fun ChatBottomBar(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag(UiTags.CHAT_OPEN)
-                    .clickable(onClick = onOpenChat),
-                shape = CircleShape,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                color = MaterialTheme.colorScheme.surface,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            // The badge is a sibling of the clickable field, not inside it: a clickable merges its
+            // descendants, which hides the badge's tag from a journey (MAG-965).
+            Box(modifier = Modifier.weight(1f)) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(UiTags.CHAT_OPEN)
+                        .clickable(onClick = onOpenChat),
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    color = MaterialTheme.colorScheme.surface,
                 ) {
-                    MaggieAvatar(size = 32.dp, modifier = Modifier.testTag(UiTags.CHAT_AVATAR))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(
+                            start = 8.dp,
+                            end = if (unreadCount > 0) 48.dp else 16.dp,
+                            top = 8.dp,
+                            bottom = 8.dp,
+                        ),
+                    ) {
+                        MaggieAvatar(size = 32.dp, modifier = Modifier.testTag(UiTags.CHAT_AVATAR))
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
 
-                    Text(
-                        text = placeholder,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (unreadCount > 0) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = placeholder,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (unreadCount > 0) {
+                    Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp)) {
                         UnreadBadge(unreadCount)
                     }
                 }
