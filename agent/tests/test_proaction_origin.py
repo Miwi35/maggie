@@ -131,7 +131,7 @@ async def test_a_warn_me_message_authorizes_no_write(pending_db):
     pending_db.published.assert_awaited_once()
     topic, payload = pending_db.published.await_args.args
     assert "approvals" in topic
-    assert payload["summary"] == "Action en attente de validation — « Lait »"
+    assert payload["summary"] == "Ajouter « Lait » à la liste de courses ? Je n'ai pas retrouvé votre demande."
 
 
 @pytest.mark.parametrize(
