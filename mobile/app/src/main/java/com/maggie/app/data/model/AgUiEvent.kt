@@ -19,5 +19,7 @@ sealed class AgUiEvent {
         val toolName: String,
         val status: String,
     ) : AgUiEvent()
+    /** The model failed in a way that clears by itself: the step goes again after `delaySeconds` (MAG-971). */
+    data class Retrying(val attempt: Int, val delaySeconds: Double) : AgUiEvent()
     data class Error(val message: String) : AgUiEvent()
 }

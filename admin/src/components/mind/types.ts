@@ -18,4 +18,4 @@ export interface ToolCallState {
   status: 'running' | 'success' | 'error' | 'pending_approval'
 }
 
-export type AgentState = 'idle' | 'thinking' | 'acting'
+export type AgentState = 'idle' | 'thinking' | 'acting' | 'retrying'

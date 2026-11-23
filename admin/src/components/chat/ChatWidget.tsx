@@ -118,7 +118,12 @@ const pillFieldSx = (theme: Theme) => ({
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: theme.palette.primary.main, borderWidth: 1 },
 })
 
-const STATE_LABELS = { idle: 'En ligne', thinking: 'Réfléchit…', acting: 'Agit…' } as const
+const STATE_LABELS = { idle: 'En ligne', thinking: 'Réfléchit…', acting: 'Agit…', retrying: 'Réessaie…' } as const
+const INDICATOR_LABELS = {
+  thinking: 'Maggie réfléchit...',
+  acting: 'Maggie agit...',
+  retrying: 'Maggie réessaie...',
+} as const
 
 // Round, quiet buttons for the header and the input row; 44px under `md` for a finger.
 const roundButtonSx = (raised: boolean) => (theme: Theme) => ({
@@ -343,6 +348,9 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
       },
       onRunFinished: () => {
         onAgentStateChange('idle')
+      },
+      onRetrying: () => {
+        onAgentStateChange('retrying')
       },
       onTextStart: (messageId) => {
         answerIdRef.current = messageId
@@ -1536,7 +1544,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                       >
                         <ActivityPulse state={agentState} />
                         <Typography variant="body2">
-                          {agentState === 'acting' ? 'Maggie agit...' : 'Maggie réfléchit...'}
+                          {INDICATOR_LABELS[agentState]}
                         </Typography>
                       </Box>
                     )}
@@ -1655,7 +1663,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5 }}>
                   <ActivityPulse state={agentState} />
                   <Typography variant="body2" color="text.secondary">
-                    {agentState === 'acting' ? 'Maggie agit...' : 'Maggie réfléchit...'}
+                    {INDICATOR_LABELS[agentState]}
                   </Typography>
                 </Box>
               )}

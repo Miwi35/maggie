@@ -690,6 +690,16 @@ describe('ChatWidget', () => {
       expect(defaultProps.onAgentStateChange).toHaveBeenLastCalledWith('idle')
     })
 
+    test('a retrying event makes Maggie retry, the next text brings her back to thinking', async () => {
+      await sendHello()
+
+      act(() => stream.callbacks.onRetrying('1', '2'))
+      expect(defaultProps.onAgentStateChange).toHaveBeenLastCalledWith('retrying')
+
+      act(() => stream.callbacks.onTextStart('m1'))
+      expect(defaultProps.onAgentStateChange).toHaveBeenLastCalledWith('thinking')
+    })
+
     test('« Réessayer » sends the same text under the same key, without a second bubble', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
       const user = await sendHello()
@@ -930,6 +940,15 @@ describe('ChatWidget', () => {
       renderWithTheme(<ChatWidget {...defaultProps} agentState="acting" />, theme)
 
       expect(screen.getByText('Agit…')).toBeInTheDocument()
+    })
+
+    test('says « Maggie réessaie... » under the messages and « Réessaie… » in the header', () => {
+      vi.stubGlobal('fetch', mockFetch({ '/agent/messages': [] }))
+      renderWithTheme(<ChatWidget {...defaultProps} agentState="retrying" />, theme)
+
+      expect(screen.getByText('Réessaie…')).toBeInTheDocument()
+      expect(screen.getByText('Maggie réessaie...')).toBeInTheDocument()
+      expect(screen.queryByText('Maggie réfléchit...')).not.toBeInTheDocument()
     })
   })
 })

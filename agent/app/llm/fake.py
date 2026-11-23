@@ -31,6 +31,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import anthropic
+import httpx
 import yaml
 
 from app.config import settings
@@ -181,6 +183,9 @@ class Scenario:
     results_matches: str | None = None
     stream_delay_ms: int = 0
     stall_after_deltas: int = 0
+    # The first `overloaded_times` calls for one question answer 529 with `retry-after`, then the text (MAG-971).
+    overloaded_times: int = 0
+    overloaded_retry_after_s: int = 0
     # The question came with a picture (MAG-214) — the model sees it, a journey cannot.
     user_has_image: bool = False
     is_default: bool = False
@@ -383,6 +388,13 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
     if isinstance(stall_after_deltas, bool) or not isinstance(stall_after_deltas, int) or stall_after_deltas < 0:
         raise ValueError(f"{source}: 'stall_after_deltas' must be a non-negative integer")
 
+    overload = {}
+    for key in ("overloaded_times", "overloaded_retry_after_s"):
+        value = raw.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"{source}: {key!r} must be a non-negative integer")
+        overload[key] = value
+
     return Scenario(
         name=str(name),
         turns=tuple(turns),
@@ -394,6 +406,7 @@ def parse_scenario(raw: Any, source: str) -> Scenario:
         results_matches=str(results_matches) if results_matches is not None else None,
         stream_delay_ms=stream_delay_ms,
         stall_after_deltas=stall_after_deltas,
+        **overload,
         user_has_image=bool(match.get("user_has_image")),
         is_default=bool(raw.get("default")),
         source=source,
@@ -657,10 +670,14 @@ class _Event:
 class FakeStream:
     """What `async with client.messages.stream(...)` yields: the events, then the final message."""
 
-    def __init__(self, message: FakeMessage):
+    def __init__(self, message: FakeMessage | None, error: Exception | None = None):
         self._message = message
+        self._error = error
 
     async def __aenter__(self) -> "FakeStream":
+        # The real SDK sends the request when the `async with` is entered, so that is where it fails.
+        if self._error is not None:
+            raise self._error
         return self
 
     async def __aexit__(self, *_exc_info) -> bool:
@@ -701,9 +718,24 @@ class FakeStream:
 # ---------------------------------------------------------------------------
 
 
+_MAX_OVERLOAD_KEYS = 256
+
+
+def _overloaded(retry_after_s: int) -> anthropic.APIStatusError:
+    body = {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}
+    response = httpx.Response(
+        529,
+        headers={"retry-after": str(retry_after_s)},
+        request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"),
+        json=body,
+    )
+    return anthropic.APIStatusError("Overloaded", response=response, body=body)
+
+
 class FakeMessages:
     def __init__(self, library: ScenarioLibrary):
         self._library = library
+        self._overloads: dict[tuple, int] = {}
 
     def _build(
         self,
@@ -731,6 +763,13 @@ class FakeMessages:
             scenario_name = "none"
         else:
             scenario_name = scenario.name
+            if index == 0 and scenario.overloaded_times:
+                key = (scenario.name, user_text, history)
+                if self._overloads.get(key, 0) < scenario.overloaded_times:
+                    self._overloads[key] = self._overloads.get(key, 0) + 1
+                    while len(self._overloads) > _MAX_OVERLOAD_KEYS:
+                        del self._overloads[next(iter(self._overloads))]
+                    raise _overloaded(scenario.overloaded_retry_after_s)
             found = scenario.turn(index)
             if found is None:
                 logger.error(f"[fake-llm] scenario {scenario.name!r} ran out of turns at round {index + 1}")
@@ -823,9 +862,11 @@ class FakeMessages:
     ) -> FakeStream:
         # Not a coroutine: the real client's `stream()` returns the context
         # manager itself, and the gateway relies on that.
-        return FakeStream(
-            self._build(model=model, system=system, messages=messages, tools=tools, tool_choice=tool_choice)
-        )
+        try:
+            message = self._build(model=model, system=system, messages=messages, tools=tools, tool_choice=tool_choice)
+        except anthropic.APIStatusError as error:
+            return FakeStream(None, error)
+        return FakeStream(message)
 
 
 class FakeAnthropicClient:

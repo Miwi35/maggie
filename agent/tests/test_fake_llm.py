@@ -228,6 +228,12 @@ class TestParsing:
     def test_stall_defaults_to_never(self):
         assert parse_scenario({"turns": [{"text": "ok"}]}, source="x.yaml").stall_after_deltas == 0
 
+    @pytest.mark.parametrize("key", ["overloaded_times", "overloaded_retry_after_s"])
+    @pytest.mark.parametrize("value", [-1, "3", 1.5, True, None])
+    def test_overloaded_times_must_be_a_non_negative_integer(self, key, value):
+        with pytest.raises(ValueError, match=key):
+            parse_scenario({key: value, "turns": [{"text": "ok"}]}, source="x.yaml")
+
     @pytest.mark.parametrize("value", [-1, "3", 1.5, True, None])
     def test_a_bad_stall_is_refused_at_load(self, value):
         with pytest.raises(ValueError, match="stall_after_deltas"):
@@ -906,6 +912,46 @@ class TestMatching:
 
 
 class TestTurns:
+    def _overloaded_client(self, fixtures_dir):
+        write_scenario(
+            fixtures_dir,
+            "10-overloaded.yaml",
+            {
+                "match": {"user_contains": "surcharge"},
+                "overloaded_times": 1,
+                "overloaded_retry_after_s": 2,
+                "turns": [{"text": "Reparti."}],
+            },
+        )
+        return build_client(fixtures_dir)
+
+    async def test_an_overloaded_scenario_answers_529_then_its_text(self, fixtures_dir):
+        client = self._overloaded_client(fixtures_dir)
+
+        with pytest.raises(anthropic.APIStatusError) as raised:
+            await ask(client, "surcharge ?")
+        assert raised.value.status_code == 529
+        assert raised.value.response.headers["retry-after"] == "2"
+        assert (await ask(client, "surcharge ?")).content[0].text == "Reparti."
+
+        streamed = self._overloaded_client(fixtures_dir)
+        request = {"model": "fake", "system": "s", "messages": [{"role": "user", "content": "surcharge ?"}]}
+        stream = streamed.messages.stream(**request)
+        with pytest.raises(anthropic.APIStatusError):
+            async with stream:
+                pass
+        async with streamed.messages.stream(**request) as again:
+            message = await again.get_final_message()
+        assert message.content[0].text == "Reparti."
+
+    async def test_the_overload_is_counted_per_question(self, fixtures_dir):
+        client = self._overloaded_client(fixtures_dir)
+
+        for question in ("surcharge un", "surcharge deux"):
+            with pytest.raises(anthropic.APIStatusError):
+                await ask(client, question)
+            assert (await ask(client, question)).content[0].text == "Reparti."
+
     async def test_a_tool_turn_asks_for_its_tools(self, fixtures_dir):
         write_scenario(
             fixtures_dir,
@@ -1415,6 +1461,17 @@ class TestTheShippedFixtures:
         files = sorted(DEFAULT_FIXTURES_DIR.glob("*.yaml"))
         assert files, "the e2e stack has no scenario to run on"
         assert len(library.scenarios) == len(files)
+
+    def test_the_overloaded_once_scenario_loads(self):
+        library = ScenarioLibrary(directory=DEFAULT_FIXTURES_DIR)
+        library.load()
+
+        scenario = library.resolve("Test de surcharge du modèle (réf ab12)", "Tu es Maggie.", "")
+
+        assert (scenario.overloaded_times, scenario.overloaded_retry_after_s) == (1, 2)
+        assert scenario.render(scenario.turn(0).text, "Test de surcharge du modèle (réf ab12)", "", "").endswith(
+            "(réf ab12)"
+        )
 
     def test_no_catch_all_ships(self):
         # A default here would turn "nobody scripted this" into a plausible

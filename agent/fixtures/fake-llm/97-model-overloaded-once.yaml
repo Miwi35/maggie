@@ -1,0 +1,14 @@
+# « Test de surcharge du modèle (réf X) » (MAG-971): the model answers 529 once, with retry-after 2.
+# The loop retries by itself and the chat says « Maggie réessaie... » until the answer, which is what
+# the journey chat-model-retry proves.
+name: model-overloaded-once
+description: The first call answers 529 overloaded_error, the retry gets the answer.
+
+match:
+  user_matches: 'test de surcharge du mod[eè]le \(r[ée]f (\w+)\)'
+
+overloaded_times: 1
+overloaded_retry_after_s: 2
+
+turns:
+  - text: "C'est reparti, monsieur. Je vous écoute. (réf \\1)"

@@ -1,11 +1,14 @@
+import logging
 from collections.abc import Callable
 
 from app.llm.questions import asked_question, blocks_of
-from app.runtime.loop import ITERATION_LIMIT_MESSAGE, LoopOptions, TurnEnded, run_loop
+from app.runtime.loop import ITERATION_LIMIT_MESSAGE, LoopOptions, ModelRetrying, TurnEnded, run_loop
 
 __all__ = ["DEFAULT_MAX_ITERATIONS", "ITERATION_LIMIT_MESSAGE", "run_tool_loop"]
 
 DEFAULT_MAX_ITERATIONS = 5
+
+logger = logging.getLogger(__name__)
 
 
 async def run_tool_loop(
@@ -65,6 +68,8 @@ async def run_tool_loop(
     async for event in run_loop(system, messages, tools, client=client, tool_router=tool_router, options=options):
         if isinstance(event, TurnEnded):
             outcome = event.outcome
+        elif isinstance(event, ModelRetrying):
+            logger.info(f"Model retrying ({event.reason}) in {event.delay_s}s")
     return _outcome(outcome.response, outcome.tool_calls, outcome.blocks, outcome.usage)
 
 

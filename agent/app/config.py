@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     chat_max_iterations: int = 5
     # Anthropic client timeout: the SDK's implicit 10 min made explicit; a non-streamed 16000-token call must fit.
     llm_timeout_seconds: float = 600.0
+    # Retries of one step of the loop, visible to the owner (MAG-971); the SDK makes none for the loop.
+    llm_retries: int = 2
+    llm_retry_base_seconds: float = 1.0
     # Empty means agent/fixtures/fake-llm/. Only the tests move it.
     fake_llm_fixtures_dir: str = ""
     openai_api_key: str = ""

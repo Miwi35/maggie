@@ -13,6 +13,7 @@ from datetime import datetime
 
 import anthropic
 
+from app.config import settings
 from app.db.provider_state_repository import provider_state_repo
 from app.mcp.client import mcp_client
 from app.user_timezone import resolve_user_timezone
@@ -50,6 +51,35 @@ def provider_reason(error: BaseException) -> str | None:
     if status == 429:
         return "rate_limited"
     return None
+
+
+_MAX_RETRY_DELAY_S = 30.0
+
+
+def retryable(error: BaseException) -> bool:
+    """What the SDK used to retry on its own: a lost connection, 408, 409, 429 and any 5xx (MAG-971)."""
+    if isinstance(error, anthropic.APIConnectionError):
+        return True
+    return isinstance(error, anthropic.APIStatusError) and (
+        error.status_code in (408, 409, 429) or error.status_code >= 500
+    )
+
+
+def retry_delay(error: BaseException, attempt: int) -> float:
+    """The provider's `retry-after` (capped), else the base delay doubled at each attempt."""
+    response = getattr(error, "response", None)
+    raw = response.headers.get("retry-after") if response is not None else None
+    try:
+        asked = float(raw) if raw is not None else None
+    except ValueError:
+        asked = None
+    if asked is not None and asked >= 0:
+        return min(asked, _MAX_RETRY_DELAY_S)
+    return settings.llm_retry_base_seconds * 2 ** (attempt - 1)
+
+
+def retry_reason(error: BaseException) -> str:
+    return provider_reason(error) or "server"
 
 
 def is_context_overflow(error: BaseException) -> bool:

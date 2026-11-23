@@ -19,6 +19,7 @@ interface AgUiCallbacks {
   onToolCallStart?: (toolCallId: string, toolName: string) => void
   onToolCallEnd?: (toolCallId: string, toolName: string) => void
   onToolResult?: (toolCallId: string, toolName: string, status: string) => void
+  onRetrying?: (attempt: number, delaySeconds: number) => void
   onContextUpdate?: (value: Record<string, unknown>) => void
   onError?: (message: string) => void
 }
@@ -173,6 +174,9 @@ function dispatchEvent(event: Record<string, unknown>, cb: AgUiCallbacks): void 
     case 'CUSTOM':
       if (event.name === 'context_update') {
         cb.onContextUpdate?.(event.value as Record<string, unknown>)
+      } else if (event.name === 'retrying') {
+        const val = event.value as { attempt: number; delaySeconds: number }
+        cb.onRetrying?.(val.attempt, val.delaySeconds)
       } else if (event.name === 'tool_result') {
         const val = event.value as Record<string, string>
         cb.onToolResult?.(val.toolCallId, val.toolName, val.status)

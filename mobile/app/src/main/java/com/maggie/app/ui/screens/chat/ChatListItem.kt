@@ -12,6 +12,6 @@ sealed class ChatListItem {
         val thumbnail: ByteArray? = null,
     ) : ChatListItem()
     data class StreamingMessage(val text: String) : ChatListItem()
-    data object LoadingIndicator : ChatListItem()
+    data class LoadingIndicator(val retrying: Boolean = false) : ChatListItem()
     data class Failure(val text: String) : ChatListItem()
 }

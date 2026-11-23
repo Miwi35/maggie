@@ -704,6 +704,10 @@ class ChatViewModel(
                 _contextUpdates.tryEmit(event)
                 fileRunUnder(event.id)
             }
+            is AgUiEvent.Retrying -> {
+                _uiState.value = _uiState.value.copy(agentState = AgentState.RETRYING)
+                rebuildDisplayItems()
+            }
             is AgUiEvent.Error -> {
                 // Not the end of the request: the answer may be stored, see [recoverReply].
                 Log.w(TAG, "Stream error: ${event.message}")
@@ -1045,7 +1049,7 @@ class ChatViewModel(
         if (state.streamingText.isNotEmpty()) {
             items.add(ChatListItem.StreamingMessage(state.streamingText))
         } else if (state.isLoading) {
-            items.add(ChatListItem.LoadingIndicator)
+            items.add(ChatListItem.LoadingIndicator(retrying = state.agentState == AgentState.RETRYING))
         }
         state.failure?.let { items.add(ChatListItem.Failure(it)) }
 

@@ -119,6 +119,29 @@ describe('useAgUiStream', () => {
     expect(onToolResult).toHaveBeenCalledWith('tc1', 'add_item', 'success')
   })
 
+  test('dispatches a retrying event to onRetrying', async () => {
+    const onRetrying = vi.fn()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        createMockResponse([
+          { type: 'RUN_STARTED', runId: 'r1' },
+          { type: 'CUSTOM', name: 'retrying', value: { attempt: 1, attempts: 2, delaySeconds: 2.0 } },
+          { type: 'RUN_FINISHED', runId: 'r1' },
+        ]),
+      ),
+    )
+
+    const { result } = renderHook(() => useAgUiStream({ onRetrying }))
+
+    await act(async () => {
+      await result.current.send('hello')
+    })
+
+    expect(onRetrying).toHaveBeenCalledWith(1, 2)
+  })
+
   test('dispatches context update events', async () => {
     const onContextUpdate = vi.fn()
 
