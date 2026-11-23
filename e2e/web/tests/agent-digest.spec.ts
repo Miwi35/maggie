@@ -121,7 +121,13 @@ test('the digest instruction said once brings one message, read and heard, and a
   await expect(bubbleMessage.getByTestId('voice-bubble').getByTestId('voice-duration')).toBeVisible()
 
   // The chat gives its card, whose « Ouvrir » leads to the digest.
+  await expect(bubbleMessage.getByTestId('moment-card')).toHaveCount(0)
   await expect(chat.momentCard(message.id)).toContainText('Digest du matin')
+  const cardBox = await chat.momentCard(message.id).boundingBox()
+  const panelBox = await chat.panel.boundingBox()
+  expect(cardBox!.width / panelBox!.width).toBeGreaterThanOrEqual(0.8)
+  expect((await chat.momentTitle(message.id).boundingBox())!.height).toBeLessThanOrEqual(22)
+  expect(await chat.momentText(message.id).evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
   await chat.momentCard(message.id).getByRole('link', { name: 'Ouvrir le digest du matin' }).click()
   await expect(page).toHaveURL(new RegExp(`/digest\\?message=${message.id}$`))
 

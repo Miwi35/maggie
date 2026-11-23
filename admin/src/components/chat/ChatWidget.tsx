@@ -1455,6 +1455,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                           {msg.role === 'decision' ? (
                             <DecisionLine id={`msg-${msg.id}`} actionId={msg.decision?.actionId}>{msg.content}</DecisionLine>
                           ) : (
+                          <>
                           <ChatBubble
                             id={`msg-${msg.id}`}
                             role={msg.role}
@@ -1492,10 +1493,12 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                             ) : (
                               <Linkified text={msg.role === 'assistant' ? stripDeliveryTags(saidInMessage(msg.content)) : saidInMessage(msg.content)} />
                             )}
+                          </ChatBubble>
                             {(() => {
                               const block = digestBlockOf(msg)
                               return block ? (
                                 <MomentCard
+                                  messageId={msg.id}
                                   icon="play"
                                   title="Digest du matin"
                                   moment={msg.audio ? digestMoment(block.day, msg.audio.durationMs, 'short') : digestMoment(block.day, 0, 'short').replace(/ · .*$/, '')}
@@ -1505,7 +1508,7 @@ export const ChatWidget = forwardRef<ChatWidgetRef, ChatWidgetProps>(
                                 />
                               ) : null
                             })()}
-                          </ChatBubble>
+                          </>
                           )}
                           {msg.role === 'assistant' && !msg.id.startsWith('tmp-') && !msg.id.startsWith('err-') && (
                             <MessageFeedback

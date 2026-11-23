@@ -170,7 +170,9 @@ describe('a voice message in the chat', () => {
     stubHistory([{ ...digest, audio: { ...digest.audio, durationMs: 72000 } }])
     renderChat()
     const message = (await screen.findByTestId('voice-bubble')).closest('#msg-m-d') as HTMLElement
-    const card = within(message).getByTestId('moment-card')
+    const card = screen.getByTestId('moment-card')
+    expect(card).toHaveAttribute('data-message-id', 'm-d')
+    expect(within(message).queryByTestId('moment-card')).not.toBeInTheDocument()
     expect(card).toHaveTextContent('Digest du matin')
     expect(card).toHaveTextContent('mar. 27 oct. · 1:12')
     expect(within(card).getByRole('link', { name: 'Ouvrir le digest du matin' })).toHaveAttribute('href', '/digest?message=m-d')
@@ -185,8 +187,8 @@ describe('a voice message in the chat', () => {
     act(() => {
       chat.onmessage?.({ data: JSON.stringify(digest) } as MessageEvent)
     })
-    const message = (await screen.findByTestId('voice-bubble')).closest('#msg-m-d') as HTMLElement
-    expect(within(message).getByTestId('moment-card')).toBeInTheDocument()
+    await screen.findByTestId('voice-bubble')
+    expect(screen.getByTestId('moment-card')).toHaveAttribute('data-message-id', 'm-d')
   })
 
   test('a message without a digest block has no card', async () => {

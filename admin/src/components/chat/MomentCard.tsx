@@ -14,14 +14,17 @@ interface MomentCardProps {
   openLabel: string
   /** What a screen reader says of the pill; defaults to its text. */
   ariaLabel?: string
+  /** The message the card belongs to, for tests and the e2e locator. */
+  messageId?: string
 }
 
 /** The card under a moment message of the chat (digest, bilan): a disc, a title, its moment and the « Ouvrir » pill. */
-export const MomentCard = ({ icon, title, moment, to, openLabel, ariaLabel }: MomentCardProps) => (
+export const MomentCard = ({ icon, title, moment, to, openLabel, ariaLabel, messageId }: MomentCardProps) => (
   <Box
     data-testid="moment-card"
+    data-message-id={messageId}
     sx={(theme) => ({
-      mt: 1,
+      alignSelf: 'flex-start',
       width: '88%',
       display: 'flex',
       alignItems: 'center',
@@ -49,8 +52,8 @@ export const MomentCard = ({ icon, title, moment, to, openLabel, ariaLabel }: Mo
       {icon === 'play' ? <PlayArrowIcon fontSize="small" /> : <BedtimeOutlinedIcon fontSize="small" />}
     </Box>
     <Box sx={{ minWidth: 0, flex: 1 }}>
-      <Typography sx={{ fontSize: 14, fontWeight: 500 }}>{title}</Typography>
-      <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary' }}>
+      <Typography data-testid="moment-card-title" sx={{ fontSize: 14, fontWeight: 500 }}>{title}</Typography>
+      <Typography noWrap data-testid="moment-card-moment" sx={{ fontSize: 12, color: 'text.secondary' }}>
         {moment}
       </Typography>
     </Box>
