@@ -1,0 +1,19 @@
+# Named 07f so it is read before 45-grocery-list, which also matches « la liste de courses ».
+# « Dans 30 minutes, ajoute du lait à la liste de courses » asked in the chat (MAG-977): the proaction keeps
+# that message as its origin. Its run is played by 07e, its checker by 07d, whose quote the message holds.
+#
+# The fake cannot compute « dans 30 minutes »: the journey writes the instant into its own sentence.
+name: origin-milk-asked
+description: Schedule adding milk to the grocery list, at the instant the journey names.
+
+match:
+  user_matches: 'ajoute du lait à la liste de courses \(origine e2e, pour (\S+)\)'
+
+turns:
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Ajoute du lait à la liste de courses (checker e2e)"
+          scheduled_at: '\1'
+          summary: "Lait"
+  - text: "C'est programmé : j'ajouterai le lait à la liste de courses dans 30 minutes, monsieur."
