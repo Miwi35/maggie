@@ -1,0 +1,7154 @@
+{
+  "blocking": {
+    "api_error": {
+      "outcome": {
+        "raised": "boom"
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {},
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {},
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "budget_exhausted": {
+      "outcome": {
+        "blocks": [
+          {
+            "content": [
+              {
+                "id": "t0",
+                "input": {
+                  "n": 0
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"events\": []}",
+                "tool_use_id": "t0",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "id": "t1",
+                "input": {
+                  "n": 1
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"events\": []}",
+                "tool_use_id": "t1",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "id": "t2",
+                "input": {
+                  "n": 2
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"events\": []}",
+                "tool_use_id": "t2",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "id": "t3",
+                "input": {
+                  "n": 3
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"events\": []}",
+                "tool_use_id": "t3",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "id": "t4",
+                "input": {
+                  "n": 4
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"events\": []}",
+                "tool_use_id": "t4",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          }
+        ],
+        "response": "Je me suis perdue en route, je n'ai rien enregistré. Vous me redonnez le point de départ ?",
+        "tool_calls": [
+          {
+            "input": {
+              "n": 0
+            },
+            "name": "get_events",
+            "result": "{\"events\": []}"
+          },
+          {
+            "input": {
+              "n": 1
+            },
+            "name": "get_events",
+            "result": "{\"events\": []}"
+          },
+          {
+            "input": {
+              "n": 2
+            },
+            "name": "get_events",
+            "result": "{\"events\": []}"
+          },
+          {
+            "input": {
+              "n": 3
+            },
+            "name": "get_events",
+            "result": "{\"events\": []}"
+          },
+          {
+            "input": {
+              "n": 4
+            },
+            "name": "get_events",
+            "result": "{\"events\": []}"
+          }
+        ],
+        "ui_blocks": [],
+        "usage": {
+          "input_tokens": 75,
+          "output_tokens": 25
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t3",
+                  "input": {
+                    "n": 3
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 0
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 1
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 2
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 3
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 4
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "claim_guard": {
+      "outcome": {
+        "blocks": [],
+        "response": "Pardon, rien n'est programmé.",
+        "tool_calls": [],
+        "ui_blocks": [],
+        "usage": {
+          "input_tokens": 30,
+          "output_tokens": 10
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je vous rappellerai à 16h05.",
+                  "type": "text"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "text": "[Contrôle automatique] Ta réponse annonce un rappel, mais rien n'a été programmé pendant ce tour.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": []
+    },
+    "question": {
+      "outcome": {
+        "blocks": [
+          {
+            "content": [
+              {
+                "id": "q1",
+                "input": {
+                  "text": "Quelle liste ?"
+                },
+                "name": "ask_owner",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"asked\": true, \"question\": {\"type\": \"question\", \"id\": \"q1\", \"text\": \"Quelle liste ?\", \"options\": [\"Courses\", \"T\\u00e2ches\"], \"multiple\": false, \"answered\": null}}",
+                "tool_use_id": "q1",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          }
+        ],
+        "response": "Quelle liste ?",
+        "tool_calls": [
+          {
+            "input": {
+              "text": "Quelle liste ?"
+            },
+            "name": "ask_owner",
+            "result": "{\"asked\": true, \"question\": {\"type\": \"question\", \"id\": \"q1\", \"text\": \"Quelle liste ?\", \"options\": [\"Courses\", \"T\\u00e2ches\"], \"multiple\": false, \"answered\": null}}"
+          }
+        ],
+        "ui_blocks": [
+          {
+            "answered": null,
+            "id": "q1",
+            "multiple": false,
+            "options": [
+              "Courses",
+              "Tâches"
+            ],
+            "text": "Quelle liste ?",
+            "type": "question"
+          }
+        ],
+        "usage": {
+          "input_tokens": 15,
+          "output_tokens": 5
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "text": "Quelle liste ?"
+          },
+          "name": "ask_owner",
+          "source": "chat",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "review": {
+      "outcome": {
+        "blocks": [],
+        "response": "Voici le résumé, avec le fait oublié.",
+        "tool_calls": [],
+        "ui_blocks": [],
+        "usage": {
+          "input_tokens": 30,
+          "output_tokens": 10
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Voici le résumé.",
+                  "type": "text"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "text": "Un fait a été oublié.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [
+        "Voici le résumé."
+      ],
+      "tool_calls": []
+    },
+    "text_only": {
+      "outcome": {
+        "blocks": [],
+        "response": "Bonjour.",
+        "tool_calls": [],
+        "ui_blocks": [],
+        "usage": {
+          "input_tokens": 15,
+          "output_tokens": 5
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": []
+    },
+    "three_failures_no_text": {
+      "outcome": {
+        "blocks": [
+          {
+            "content": [
+              {
+                "id": "f1",
+                "input": {
+                  "day": "a"
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"error\": \"boom\"}",
+                "tool_use_id": "f1",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "id": "f2",
+                "input": {
+                  "day": "b"
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"error\": \"boom\"}",
+                "tool_use_id": "f2",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": [
+              {
+                "id": "f3",
+                "input": {
+                  "day": "c"
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"error\": \"boom\"}",
+                "tool_use_id": "f3",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          }
+        ],
+        "response": "Je me suis perdue en route, je n'ai rien enregistré. Vous me redonnez le point de départ ?",
+        "tool_calls": [
+          {
+            "input": {
+              "day": "a"
+            },
+            "name": "get_events",
+            "result": "{\"error\": \"boom\"}"
+          },
+          {
+            "input": {
+              "day": "b"
+            },
+            "name": "get_events",
+            "result": "{\"error\": \"boom\"}"
+          },
+          {
+            "input": {
+              "day": "c"
+            },
+            "name": "get_events",
+            "result": "{\"error\": \"boom\"}"
+          }
+        ],
+        "ui_blocks": [],
+        "usage": {
+          "input_tokens": 60,
+          "output_tokens": 20
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f3",
+                  "input": {
+                    "day": "c"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f3",
+                  "type": "tool_result"
+                },
+                {
+                  "text": "L'outil get_events a échoué 3 fois de suite dans ce tour. Dernière erreur : boom. Ne l'appelle plus. Réponds maintenant au propriétaire, avec tes mots et sans détail technique : ce qui n'a pas pu être fait, et pourquoi.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": {
+            "type": "none"
+          },
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "a"
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "b"
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "c"
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "tool_round": {
+      "outcome": {
+        "blocks": [
+          {
+            "content": [
+              {
+                "id": "t1",
+                "input": {
+                  "day": "today"
+                },
+                "name": "get_events",
+                "type": "tool_use"
+              }
+            ],
+            "role": "assistant"
+          },
+          {
+            "content": [
+              {
+                "content": "{\"events\": []}",
+                "tool_use_id": "t1",
+                "type": "tool_result"
+              }
+            ],
+            "role": "user"
+          }
+        ],
+        "response": "Rien.",
+        "tool_calls": [
+          {
+            "input": {
+              "day": "today"
+            },
+            "name": "get_events",
+            "result": "{\"events\": []}"
+          }
+        ],
+        "ui_blocks": [],
+        "usage": {
+          "input_tokens": 30,
+          "output_tokens": 10
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t1",
+                  "input": {
+                    "day": "today"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "today"
+          },
+          "name": "get_events",
+          "source": "chat",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "web_search": {
+      "outcome": {
+        "blocks": [],
+        "response": "Il pleut.\n\nSource : example.com — https://www.example.com/page",
+        "tool_calls": [],
+        "ui_blocks": [],
+        "usage": {
+          "input_tokens": 30,
+          "output_tokens": 10
+        }
+      },
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je cherche.",
+                  "type": "text"
+                },
+                {
+                  "id": "s1",
+                  "input": {
+                    "query": "météo"
+                  },
+                  "name": "web_search",
+                  "type": "server_tool_use"
+                },
+                {
+                  "content": [],
+                  "tool_use_id": "s1",
+                  "type": "web_search_tool_result"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "model": "test-model",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            }
+          ]
+        }
+      ],
+      "reviewed": [],
+      "tool_calls": []
+    }
+  },
+  "streamed": {
+    "api_error_second_step": {
+      "checkpoints": [
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {},
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {},
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ]
+      ],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {},
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "content": "Pardon, je n'y arrive pas pour l'instant. Je réessaie dans un instant.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "t1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "t1",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Pardon, je n'y arrive pas pour l'instant. Je réessaie dans un instant.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t1",
+                  "input": {},
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "success"
+        }
+      ],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {},
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "budget_exhausted": {
+      "checkpoints": [
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t3",
+                  "input": {
+                    "n": 3
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t3",
+                  "input": {
+                    "n": 3
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t3",
+                  "input": {
+                    "n": 3
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t4",
+                  "input": {
+                    "n": 4
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t3",
+                  "input": {
+                    "n": 3
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t4",
+                  "input": {
+                    "n": 4
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t4",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ]
+      ],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [
+            {
+              "content": [
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t3",
+                  "input": {
+                    "n": 3
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "t4",
+                  "input": {
+                    "n": 4
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t4",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "content": "Je regarde.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t0",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "t0",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "t0",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "t1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "t1",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t2",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "t2",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "t2",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t3",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "t3",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "t3",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t4",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "t4",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "t4",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t0",
+                  "input": {
+                    "n": 0
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t0",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t1",
+                  "input": {
+                    "n": 1
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t2",
+                  "input": {
+                    "n": 2
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t3",
+                  "input": {
+                    "n": 3
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "success"
+        },
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "success"
+        },
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "success"
+        },
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "success"
+        },
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "success"
+        }
+      ],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 0
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 1
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 2
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 3
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "n": 4
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "claim_guard": {
+      "checkpoints": [],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [],
+          "content": "Pardon, rien n'est programmé.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je vous rappellerai à 16h05.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Pardon, rien n'est programmé.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je vous rappellerai à 16h05.",
+                  "type": "text"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "text": "[Contrôle automatique] Ta réponse annonce un rappel, mais rien n'a été programmé pendant ce tour.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": []
+    },
+    "question": {
+      "checkpoints": [
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "q1",
+                  "input": {
+                    "text": "Quelle liste ?"
+                  },
+                  "name": "ask_owner",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "q1",
+                  "input": {
+                    "text": "Quelle liste ?"
+                  },
+                  "name": "ask_owner",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"asked\": true, \"question\": {\"type\": \"question\", \"id\": \"q1\", \"text\": \"Quelle liste ?\", \"options\": [\"Courses\", \"T\\u00e2ches\"], \"multiple\": false, \"answered\": null}}",
+                  "tool_use_id": "q1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ]
+      ],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [
+            {
+              "content": [
+                {
+                  "id": "q1",
+                  "input": {
+                    "text": "Quelle liste ?"
+                  },
+                  "name": "ask_owner",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"asked\": true, \"question\": {\"type\": \"question\", \"id\": \"q1\", \"text\": \"Quelle liste ?\", \"options\": [\"Courses\", \"T\\u00e2ches\"], \"multiple\": false, \"answered\": null}}",
+                  "tool_use_id": "q1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "content": "Quelle liste ?",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [
+            {
+              "answered": null,
+              "id": "q1",
+              "multiple": false,
+              "options": [
+                "Courses",
+                "Tâches"
+              ],
+              "text": "Quelle liste ?",
+              "type": "question"
+            }
+          ],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Une seconde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "q1",
+          "toolName": "ask_owner",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "q1",
+          "toolName": "ask_owner",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "q1",
+            "toolName": "ask_owner"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Quelle liste ?",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [
+        {
+          "context_id": "ctx-1",
+          "name": "ask_owner",
+          "status": "success"
+        }
+      ],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "text": "Quelle liste ?"
+          },
+          "name": "ask_owner",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "resumed_with_interrupted_call": {
+      "checkpoints": [],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [
+            {
+              "content": [
+                {
+                  "id": "old1",
+                  "input": {
+                    "day": "monday"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                },
+                {
+                  "id": "old2",
+                  "input": {
+                    "day": "tuesday"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "old1",
+                  "type": "tool_result"
+                },
+                {
+                  "content": "{\"error\": \"interrupted\", \"detail\": \"Appel interrompu avant sa réponse : issue inconnue. Vérifier son effet avant de le refaire.\"}",
+                  "tool_use_id": "old2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "content": "Reprenons.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Reprenons.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "old1",
+                  "input": {
+                    "day": "monday"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                },
+                {
+                  "id": "old2",
+                  "input": {
+                    "day": "tuesday"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "old1",
+                  "type": "tool_result"
+                },
+                {
+                  "content": "{\"error\": \"interrupted\", \"detail\": \"Appel interrompu avant sa réponse : issue inconnue. Vérifier son effet avant de le refaire.\"}",
+                  "tool_use_id": "old2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": []
+    },
+    "short_label": {
+      "checkpoints": [],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [],
+          "content": "Ok",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Ok",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": []
+    },
+    "stopped_during_tool": {
+      "checkpoints": [
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {},
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ]
+      ],
+      "created": [
+        {
+          "blocks": [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {},
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "content": "Je regarde.",
+          "context_id": "ctx-1",
+          "interrupted": true,
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {},
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "text_only": {
+      "checkpoints": [],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [],
+          "content": "Bonjour Meven.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Bon",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "delta": "jour ",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "delta": "Meven.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": []
+    },
+    "thread_label": {
+      "checkpoints": [],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [],
+          "content": "Salut",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Salut",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": []
+    },
+    "three_failures": {
+      "checkpoints": [
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f3",
+                  "input": {
+                    "day": "c"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f3",
+                  "input": {
+                    "day": "c"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ]
+      ],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f3",
+                  "input": {
+                    "day": "c"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f3",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "content": "Je n'ai pas pu.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "toolCallId": "f1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "f1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "error",
+            "toolCallId": "f1",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "toolCallId": "f2",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "f2",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "error",
+            "toolCallId": "f2",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "toolCallId": "f3",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "f3",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "error",
+            "toolCallId": "f3",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je n'ai pas pu.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f1",
+                  "input": {
+                    "day": "a"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f2",
+                  "input": {
+                    "day": "b"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f2",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "id": "f3",
+                  "input": {
+                    "day": "c"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"error\": \"boom\"}",
+                  "tool_use_id": "f3",
+                  "type": "tool_result"
+                },
+                {
+                  "text": "L'outil get_events a échoué 3 fois de suite dans ce tour. Dernière erreur : boom. Ne l'appelle plus. Réponds maintenant au propriétaire, avec tes mots et sans détail technique : ce qui n'a pas pu être fait, et pourquoi.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": {
+            "type": "none"
+          },
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "error"
+        },
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "error"
+        },
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "error"
+        }
+      ],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "a"
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "b"
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        },
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "c"
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "tool_round": {
+      "checkpoints": [
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "day": "today"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            }
+          ]
+        ],
+        [
+          "msg-1",
+          [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "day": "today"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ]
+        ]
+      ],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [
+            {
+              "content": [
+                {
+                  "id": "t1",
+                  "input": {
+                    "day": "today"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "content": "Rien aujourd'hui.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je regarde.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "t1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "t1",
+          "toolName": "get_events",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "t1",
+            "toolName": "get_events"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Rien ",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "delta": "aujourd'hui.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je regarde.",
+                  "type": "text"
+                },
+                {
+                  "id": "t1",
+                  "input": {
+                    "day": "today"
+                  },
+                  "name": "get_events",
+                  "type": "tool_use"
+                }
+              ],
+              "role": "assistant"
+            },
+            {
+              "content": [
+                {
+                  "content": "{\"events\": []}",
+                  "tool_use_id": "t1",
+                  "type": "tool_result"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [
+        {
+          "context_id": "ctx-1",
+          "name": "get_events",
+          "status": "success"
+        }
+      ],
+      "tool_calls": [
+        {
+          "context_id": "ctx-1",
+          "input": {
+            "day": "today"
+          },
+          "name": "get_events",
+          "source": "chat_stream",
+          "user_id": "user-1"
+        }
+      ]
+    },
+    "web_search": {
+      "checkpoints": [],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [],
+          "content": "Il pleut.\n\nSource : example.com — https://www.example.com/page",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je cherche.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "s1",
+          "toolName": "web_search",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "s1",
+          "toolName": "web_search",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "s1",
+            "toolName": "web_search"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Il fera beau.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "s2",
+          "toolName": "web_search",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "s2",
+          "toolName": "web_search",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "error",
+            "toolCallId": "s2",
+            "toolName": "web_search"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Il ",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "delta": "pleut.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "delta": "\n\nSource : example.com — https://www.example.com/page",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        },
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            },
+            {
+              "content": [
+                {
+                  "citations": null,
+                  "text": "Je cherche.",
+                  "type": "text"
+                },
+                {
+                  "id": "s1",
+                  "input": {
+                    "query": "météo"
+                  },
+                  "name": "web_search",
+                  "type": "server_tool_use"
+                },
+                {
+                  "content": [],
+                  "tool_use_id": "s1",
+                  "type": "web_search_tool_result"
+                }
+              ],
+              "role": "assistant"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": []
+    },
+    "web_search_spoken": {
+      "checkpoints": [],
+      "created": [
+        {
+          "announce": false,
+          "blocks": [],
+          "content": "Il pleut.",
+          "context_id": "ctx-1",
+          "message_id": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "ui_blocks": [],
+          "user_id": "user-1"
+        }
+      ],
+      "events": [
+        {
+          "runId": "RUN",
+          "type": "RUN_STARTED"
+        },
+        {
+          "name": "context_update",
+          "type": "CUSTOM",
+          "value": {
+            "action": "matched",
+            "id": "ctx-1",
+            "label": "Courses"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Je cherche.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "toolCallId": "s1",
+          "toolName": "web_search",
+          "type": "TOOL_CALL_START"
+        },
+        {
+          "toolCallId": "s1",
+          "toolName": "web_search",
+          "type": "TOOL_CALL_END"
+        },
+        {
+          "name": "tool_result",
+          "type": "CUSTOM",
+          "value": {
+            "status": "success",
+            "toolCallId": "s1",
+            "toolName": "web_search"
+          }
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "role": "assistant",
+          "type": "TEXT_MESSAGE_START"
+        },
+        {
+          "delta": "Il ",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "delta": "pleut.",
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_CONTENT"
+        },
+        {
+          "messageId": "95cbf7ae03f1fc19c4dc198047",
+          "type": "TEXT_MESSAGE_END"
+        },
+        {
+          "runId": "RUN",
+          "type": "RUN_FINISHED"
+        }
+      ],
+      "requests": [
+        {
+          "max_tokens": 16000,
+          "messages": [
+            {
+              "content": "salut",
+              "role": "user"
+            }
+          ],
+          "model": "claude-sonnet-5-5",
+          "output_config": {
+            "effort": "medium"
+          },
+          "system": [
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "text": "STABLE",
+              "type": "text"
+            },
+            {
+              "text": "VOLATILE",
+              "type": "text"
+            }
+          ],
+          "tool_choice": "NOT_GIVEN",
+          "tools": [
+            {
+              "description": "Events",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "get_events"
+            },
+            {
+              "description": "Schedule",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "schedule_proaction"
+            },
+            {
+              "cache_control": {
+                "ttl": "1h",
+                "type": "ephemeral"
+              },
+              "description": "Ask",
+              "input_schema": {
+                "properties": {},
+                "type": "object"
+              },
+              "name": "ask_owner"
+            },
+            {
+              "max_uses": 5,
+              "name": "web_search",
+              "type": "web_search_20250305",
+              "user_location": {
+                "country": "FR",
+                "timezone": "Europe/Paris",
+                "type": "approximate"
+              }
+            }
+          ]
+        }
+      ],
+      "thread_log": [],
+      "tool_calls": []
+    }
+  }
+}
