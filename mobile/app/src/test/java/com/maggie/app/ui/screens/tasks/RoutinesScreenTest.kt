@@ -67,9 +67,24 @@ class RoutinesScreenTest {
     }
 
     @Test
-    fun `a card not due today has no round`() {
+    fun `a card not due today has its round too`() {
         compose.setContent {
             RoutineCard(routine = routine(due = false), pending = false, animate = false, onToggle = {}, onOpen = {})
+        }
+
+        compose.onNodeWithTag(UiTags.routineCheck("r2")).assertIsOff()
+    }
+
+    @Test
+    fun `an inactive card has no round`() {
+        compose.setContent {
+            RoutineCard(
+                routine = routine(due = false).copy(active = false),
+                pending = false,
+                animate = false,
+                onToggle = {},
+                onOpen = {},
+            )
         }
 
         compose.onNodeWithTag(UiTags.routineCheck("r2")).assertDoesNotExist()
