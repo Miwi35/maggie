@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # Ceiling of the streamed chat and of `run_tool_loop`; adaptive thinking counts in it, and 16000 stays
     # under the SDK's HTTP timeout for a call that is not streamed.
     llm_max_tokens: int = 16000
+    # Model calls a chat turn may make, streamed or not (MAG-953); the proactions have their own ceiling.
+    chat_max_iterations: int = 5
     # Anthropic client timeout: the SDK's implicit 10 min made explicit; a non-streamed 16000-token call must fit.
     llm_timeout_seconds: float = 600.0
     # Empty means agent/fixtures/fake-llm/. Only the tests move it.

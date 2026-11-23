@@ -31,7 +31,7 @@ def _wired(env):
     with (
         patch.object(tools, "memory_service", env.service),
         patch.object(tools, "resolve_user_timezone", AsyncMock(return_value=PARIS)),
-        patch("app.llm.runner.record_llm_usage"),
+        patch("app.runtime.loop.record_llm_usage"),
     ):
         yield
     conversations._files.clear()

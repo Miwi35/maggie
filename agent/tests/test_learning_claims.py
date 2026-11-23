@@ -67,7 +67,7 @@ def skills(agent_db):
 
 async def run_turn(client, question: str) -> tuple[dict, list]:
     messages = [{"role": "user", "content": question}]
-    with patch("app.llm.runner.record_llm_usage"):
+    with patch("app.runtime.loop.record_llm_usage"):
         result = await run_tool_loop(
             "Tu es Maggie.",
             messages,

@@ -296,7 +296,7 @@ class TestStreamingPrefix:
             gateway.system_prompt.thread_free = AsyncMock(return_value=None)
 
             with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
-                "app.llm.streaming.record_llm_usage"
+                "app.runtime.loop.record_llm_usage"
             ) as usage:
                 async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
                     pass
@@ -341,7 +341,7 @@ class TestStreamingPrefix:
             gateway.system_prompt.thread_free = AsyncMock(return_value=None)
 
             with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
-                "app.llm.streaming.record_llm_usage"
+                "app.runtime.loop.record_llm_usage"
             ):
                 async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
                     pass
@@ -393,7 +393,7 @@ class TestSharedToolPrefix:
             chat._resolve_context = AsyncMock(return_value=None)
             chat.system_prompt.thread_free = AsyncMock(return_value=None)
             with patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])), patch(
-                "app.llm.streaming.record_llm_usage"
+                "app.runtime.loop.record_llm_usage"
             ):
                 async for _ in chat.chat_stream("salut", "user-1", "msg-1"):
                     pass
@@ -412,7 +412,7 @@ class TestSharedToolPrefix:
             with (
                 patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
                 patch("app.llm.contexts.context_repo") as contexts,
-                patch("app.llm.runner.note_provider_success", AsyncMock()),
+                patch("app.runtime.loop.note_provider_success", AsyncMock()),
             ):
                 contexts.find_active = AsyncMock(return_value=[])
                 await gateway.proaction("Fais-le", "user-1", silent=silent)

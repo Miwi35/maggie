@@ -3,6 +3,7 @@ from collections.abc import Callable
 
 import anthropic
 
+from app.config import settings
 from app.llm.blocked_tools import BlockedToolsRouter
 from app.llm.client import client_for
 from app.llm.contexts import resolve_context, route_message
@@ -324,6 +325,7 @@ class LLMGateway:
                 call_type="chat",
                 source=source,
                 context_id=context_id,
+                max_iterations=settings.chat_max_iterations,
             )
             # A thread label copied from the history is bookkeeping, not an answer (MAG-341).
             result["response"] = strip_thread_label(result["response"])

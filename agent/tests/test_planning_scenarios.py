@@ -60,7 +60,7 @@ def api():
 
 
 async def plan(day: date) -> dict:
-    with patch("app.llm.runner.record_llm_usage"):
+    with patch("app.runtime.loop.record_llm_usage"):
         return await run_tool_loop(
             "Tu es Maggie.\n\nTu es en mode planification autonome.",
             [{"role": "user", "content": daily_planning_prompt(day)}],
@@ -131,7 +131,7 @@ def trip_api(api):
 
 
 async def replan(day: date) -> dict:
-    with patch("app.llm.runner.record_llm_usage"):
+    with patch("app.runtime.loop.record_llm_usage"):
         return await run_tool_loop(
             "Tu es Maggie.",
             [{"role": "user", "content": f"Replanifier les trajets du {day.isoformat()}. Raison : un événement a bougé."}],
@@ -208,7 +208,7 @@ class TestAStayInWholeDay:
             {"role": "user", "content": "16 h"},
         ]
 
-        with patch("app.llm.runner.record_llm_usage"):
+        with patch("app.runtime.loop.record_llm_usage"):
             result = await run_tool_loop(
                 "Tu es Maggie.",
                 history,
@@ -260,7 +260,7 @@ class TestTheReturnOfAStay:
             {"role": "user", "content": "11 h"},
         ]
 
-        with patch("app.llm.runner.record_llm_usage"):
+        with patch("app.runtime.loop.record_llm_usage"):
             result = await run_tool_loop(
                 "Tu es Maggie.",
                 history,

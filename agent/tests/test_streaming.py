@@ -12,7 +12,8 @@ from app.container import Container, container
 from app.config import settings
 from app.db.context_model import ContextStatus
 from app.llm.fake import FakeMessage, FakeStream, FakeTextBlock, FakeToolUseBlock, FakeUsage
-from app.llm.streaming import StreamingGateway, tool_result_status
+from app.llm.streaming import StreamingGateway
+from app.llm.tool_failures import tool_result_status
 from app.memory.agent_memory import MemoryBlocks
 from app.skills.index import MOMENT_CHAT
 from tests.prompt_helpers import stub_system_prompt, system_prompt_with

@@ -44,7 +44,7 @@ def api():
 
 async def ask(message: str, address: str) -> dict:
     content = f"{message}\n\n[Contexte de l'écran]\nApplication : Chrome (com.android.chrome)\nPage : {address}"
-    with patch("app.llm.runner.record_llm_usage"):
+    with patch("app.runtime.loop.record_llm_usage"):
         return await run_tool_loop(
             "Tu es Maggie.",
             [{"role": "user", "content": content}],

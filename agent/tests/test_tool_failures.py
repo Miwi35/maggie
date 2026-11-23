@@ -76,7 +76,7 @@ class TestRunToolLoop:
         router.call_tool = AsyncMock(return_value=FAILED)
         messages = [{"role": "user", "content": "hello"}]
 
-        with patch("app.llm.runner.record_llm_usage"), patch("app.llm.tool_failures.capture_signal"):
+        with patch("app.runtime.loop.record_llm_usage"), patch("app.llm.tool_failures.capture_signal"):
             result = await run_tool_loop(
                 "system", messages, [{"name": "add_grocery_item"}], client=client, tool_router=router,
                 user_id="user-1", model="m",
@@ -99,7 +99,7 @@ class TestRunToolLoop:
         router = MagicMock()
         router.call_tool = AsyncMock(return_value=FAILED)
 
-        with patch("app.llm.runner.record_llm_usage"), patch("app.llm.tool_failures.capture_signal"):
+        with patch("app.runtime.loop.record_llm_usage"), patch("app.llm.tool_failures.capture_signal"):
             await run_tool_loop(
                 "system", [{"role": "user", "content": "hi"}], [{"name": "a"}], client=client, tool_router=router,
                 user_id="user-1", model="m",
@@ -152,7 +152,7 @@ class TestChatStream:
             gateway.system_prompt = stub_system_prompt(build_system("S", "V"))
             gateway._resolve_context = AsyncMock(return_value=None)
             gateway.system_prompt.thread_free = AsyncMock(return_value=None)
-            with patch("app.llm.streaming.record_llm_usage"):
+            with patch("app.runtime.loop.record_llm_usage"):
                 async for _ in gateway.chat_stream("salut", "user-1", "msg-1"):
                     pass
 
@@ -168,7 +168,7 @@ class TestOnTheFakeModel:
         mcp.call_tool = AsyncMock(return_value=FAILED)
         offered = [{"name": "add_grocery_item", "input_schema": {}}]
 
-        with patch("app.llm.tools.mcp_client", mcp), patch("app.llm.runner.record_llm_usage"):
+        with patch("app.llm.tools.mcp_client", mcp), patch("app.runtime.loop.record_llm_usage"):
             result = await run_tool_loop(
                 "system",
                 [{"role": "user", "content": "ajoute du pain chez le boulanger fantôme"}],

@@ -92,7 +92,7 @@ def api():
 
 
 async def run(prompt: str, review=None) -> dict:
-    with patch("app.llm.runner.record_llm_usage"):
+    with patch("app.runtime.loop.record_llm_usage"):
         return await run_tool_loop(
             "Tu es Maggie.\n\nTu es en mode proaction autonome.",
             [{"role": "user", "content": prompt}],
@@ -191,7 +191,7 @@ def storage():
         patch("app.digest.message_repo", thread),
         patch("app.digest.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
         patch("app.digest.datetime", _Frozen),
-        patch("app.llm.runner.record_llm_usage"),
+        patch("app.runtime.loop.record_llm_usage"),
     ):
         yield SimpleNamespace(voice=voice, thread=thread)
 

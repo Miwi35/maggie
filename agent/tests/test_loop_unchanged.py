@@ -299,9 +299,8 @@ def _normalised(event: dict) -> dict:
     return {**event, "runId": "RUN"} if "runId" in event else event
 
 
-@pytest.mark.parametrize("name", STREAMED)
-async def test_a_streamed_turn_is_unchanged(name):
-    steps, results, options = STREAMED[name]
+async def stream_turn(steps, results, options) -> dict:
+    """One streamed chat turn through `chat_stream`, as a transcript."""
     gate = asyncio.Event() if options.get("stopped") else None
     client = ScriptedClient(steps)
     router = ScriptedRouter(results, gate)
@@ -362,18 +361,20 @@ async def test_a_streamed_turn_is_unchanged(name):
         else:
             await consume(gateway)
 
-    _record(
-        "streamed",
-        name,
-        {
-            "events": events,
-            "requests": client.requests,
-            "tool_calls": router.calls,
-            "created": created,
-            "checkpoints": checkpoints,
-            "thread_log": thread_log,
-        },
-    )
+    return {
+        "events": events,
+        "requests": client.requests,
+        "tool_calls": router.calls,
+        "created": created,
+        "checkpoints": checkpoints,
+        "thread_log": thread_log,
+    }
+
+
+@pytest.mark.parametrize("name", STREAMED)
+async def test_a_streamed_turn_is_unchanged(name):
+    steps, results, options = STREAMED[name]
+    _record("streamed", name, await stream_turn(steps, results, options))
 
 
 @pytest.mark.parametrize("name", BLOCKING)

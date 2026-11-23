@@ -131,7 +131,7 @@ async def maggie_turn(message: str, api: FakeHealthApi, delegated: list[dict]) -
 
     with (
         patch("app.llm.tools.mcp_client", api),
-        patch("app.llm.runner.record_llm_usage"),
+        patch("app.runtime.loop.record_llm_usage"),
     ):
         return await run_tool_loop(
             "Tu es Maggie.",
@@ -174,7 +174,7 @@ async def test_the_coach_run_reads_the_method_and_prescribes_without_writing():
     definition = coach()
     offered = [{"name": n, "input_schema": {}} for n in definition.tools]
 
-    with patch("app.llm.tools.mcp_client", api), patch("app.llm.runner.record_llm_usage"):
+    with patch("app.llm.tools.mcp_client", api), patch("app.runtime.loop.record_llm_usage"):
         result = await run_tool_loop(
             definition.prompt,
             [{"role": "user", "content": "Prépare la semaine du lundi prochain."}],

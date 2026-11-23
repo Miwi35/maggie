@@ -53,7 +53,7 @@ def tool_router():
 
 @pytest.fixture()
 def usage():
-    with patch("app.llm.runner.record_llm_usage") as mock_usage:
+    with patch("app.runtime.loop.record_llm_usage") as mock_usage:
         yield mock_usage
 
 
