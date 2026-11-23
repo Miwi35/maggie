@@ -17,9 +17,12 @@ A single malformed round would therefore cost the user her answer, not just her 
 left with the text it has always had.
 """
 
+import copy
 import json
 import logging
 from typing import Any
+
+from app.llm.envelope import wrap_data
 
 logger = logging.getLogger(__name__)
 
@@ -196,3 +199,62 @@ def _capped(result: Any) -> str:
     if len(text) <= TOOL_RESULT_MAX_CHARS:
         return text
     return text[:TOOL_RESULT_MAX_CHARS] + TRUNCATION_MARK
+
+
+TOOL_RESULT_SOURCE = "outil"
+TRUNCATED_NOTE = "[Résultat tronqué : seul le début est montré. Affinez la requête pour obtenir le reste.]"
+OMITTED_RESULT = (
+    "[Résultat retiré pour tenir dans la fenêtre : l'appel a bien eu lieu. "
+    "Relis-le avec un outil de lecture si tu en as besoin ; ne refais pas une écriture.]"
+)
+
+
+def for_model(result: Any, limit: int) -> str:
+    """A tool result as the model reads it: inside the data envelope, cut at `limit`, the cut announced."""
+    text = result if isinstance(result, str) else str(result)
+    if len(text) > limit:
+        return wrap_data(text[:limit], TOOL_RESULT_SOURCE) + "\n" + TRUNCATED_NOTE
+    return wrap_data(text, TOOL_RESULT_SOURCE)
+
+
+def model_turns(turns: list[dict]) -> list[dict]:
+    """A copy of recorded turns with every `tool_result` as the model reads it; the code keeps the raw ones."""
+    out = copy.deepcopy(turns)
+    for turn in out:
+        if turn.get("role") != "user" or not isinstance(turn.get("content"), list):
+            continue
+        for block in turn["content"]:
+            if not isinstance(block, dict) or block.get("type") != "tool_result":
+                continue
+            content = block.get("content")
+            if content == INTERRUPTED_RESULT:
+                continue
+            if isinstance(content, str) and content.endswith(TRUNCATION_MARK):
+                head = wrap_data(content[: -len(TRUNCATION_MARK)], TOOL_RESULT_SOURCE)
+                block["content"] = head + "\n" + TRUNCATED_NOTE
+            else:
+                block["content"] = for_model(content, TOOL_RESULT_MAX_CHARS)
+    return out
+
+
+def without_old_results(messages: list) -> bool:
+    """Replace, in place, the results of every round but the last by `OMITTED_RESULT`; whether anything changed."""
+    rounds = [
+        i
+        for i, turn in enumerate(messages)
+        if isinstance(turn, dict)
+        and turn.get("role") == "user"
+        and isinstance(turn.get("content"), list)
+        and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in turn["content"])
+    ]
+    changed = False
+    for i in rounds[:-1]:
+        blocks = []
+        for block in messages[i]["content"]:
+            is_result = isinstance(block, dict) and block.get("type") == "tool_result"
+            if is_result and block.get("content") != OMITTED_RESULT:
+                block = {**block, "content": OMITTED_RESULT}
+                changed = True
+            blocks.append(block)
+        messages[i] = {**messages[i], "content": blocks}
+    return changed

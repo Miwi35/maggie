@@ -1,6 +1,6 @@
 """The « data » envelope: text that comes from outside the prompt's author reaches the model wrapped as data.
 
-Memory (profile, recalled cartes) uses it first; tool results, web pages and bank data take `wrap_data` as is.
+Memory (MAG-874) and tool results (MAG-970) use it: web pages and bank data reach the model through tools.
 """
 
 import re

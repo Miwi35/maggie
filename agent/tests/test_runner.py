@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from app.config import settings
+from app.llm.tool_blocks import for_model
 from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 
 
@@ -141,7 +142,8 @@ class TestRunToolLoop:
             "list_events", {"day": "2026-09-30"}, user_id="user-1", source="proaction", context_id=None
         )
         assert [m["role"] for m in messages] == ["user", "assistant", "user"]
-        assert messages[-1]["content"] == [{"type": "tool_result", "tool_use_id": "tu-1", "content": '{"events": []}'}]
+        assert messages[-1]["content"] == [{"type": "tool_result", "tool_use_id": "tu-1", "content": for_model('{"events": []}', 20000)}
+        ]
         assert client.messages.create.await_count == 2
 
     async def test_the_tokens_of_every_call_of_the_run_are_summed_up_cache_included(self, client, tool_router, usage):

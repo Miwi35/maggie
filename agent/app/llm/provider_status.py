@@ -52,6 +52,15 @@ def provider_reason(error: BaseException) -> str | None:
     return None
 
 
+def is_context_overflow(error: BaseException) -> bool:
+    """The prompt does not fit the model's window: 413, or 400 « prompt is too long » (MAG-970)."""
+    if not isinstance(error, anthropic.APIStatusError):
+        return False
+    if error.status_code == 413:
+        return True
+    return error.status_code == 400 and "prompt is too long" in _error_detail(error)["message"]
+
+
 def _error_detail(error: anthropic.APIStatusError) -> dict[str, str]:
     body = error.body if isinstance(error.body, dict) else {}
     inner = body.get("error") if isinstance(body.get("error"), dict) else {}

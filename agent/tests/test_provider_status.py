@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import anthropic
 import pytest
 
-from app.llm.provider_status import note_provider_failure, note_provider_success
+from app.llm.provider_status import is_context_overflow, note_provider_failure, note_provider_success
 from app.llm.runner import run_tool_loop
 from tests.test_provider_unavailable import _credit_error, _status_error
 
@@ -67,3 +67,14 @@ class TestProviderStatus:
         await note_provider_failure(_credit_error())
 
         assert _status(authed_client)["since"] == first
+
+
+class TestContextOverflow:
+    def test_a_prompt_too_long_is_a_context_overflow(self):
+        too_long = "prompt is too long: 250000 tokens > 200000 maximum"
+        assert is_context_overflow(_status_error(400, too_long))
+        assert is_context_overflow(_status_error(413, "Request too large", "request_too_large"))
+
+    def test_a_credit_error_is_not_a_context_overflow(self):
+        assert not is_context_overflow(_credit_error())
+        assert not is_context_overflow(RuntimeError("boom"))
