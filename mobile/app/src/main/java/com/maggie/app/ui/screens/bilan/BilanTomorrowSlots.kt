@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -167,7 +166,7 @@ internal fun TasksCard(rows: List<PlannedRow>, canSwap: Boolean, onSwap: (Planne
                         modifier = Modifier
                             .size(44.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White.copy(alpha = 0.06f))
+                            .background(surface.text.copy(alpha = 0.06f))
                             .clickable(role = Role.Button) { onSwap(row) }
                             .semantics { contentDescription = "Échanger « ${row.title} » contre une autre tâche" }
                             .testTag(UiTags.BILAN_TOMORROW_SWAP_PREFIX + row.taskId),
