@@ -1,8 +1,9 @@
 // The tasks of « Aujourd'hui », over HTTP (MAG-766).
 //
 // `create` gives the journey's own user two tasks planned today: « Garage TAG » at 10:00, critical
-// enough to be « Haute » (high, due in two days), and « Méditer TAG », this evening, timed, 20 min.
-// It sets output.garageId and output.meditateId. `expect-done` polls the garage task until the API
+// enough to be « Haute » (high, due in two days), and « Méditer TAG », this evening, timed, 20 min;
+// and a third planned six days ago, undated, not done: « Mutuelle TAG », put off (MAG-984).
+// It sets output.garageId, output.meditateId and output.putOffId. `expect-done` polls the garage task until the API
 // holds it done — polled, never read once.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
@@ -67,6 +68,10 @@ if (ACTION === 'create') {
     scheduledMoment: 'evening',
     estimatedMinutes: 20,
     timed: true,
+  })
+  output.putOffId = create({
+    title: 'Mutuelle ' + TAG,
+    scheduledDate: shift(TODAY, -6),
   })
 } else if (ACTION === 'expect-done') {
   let last = null

@@ -5,16 +5,20 @@ tags:
 ---
 # « Aujourd'hui » as the tasks of the day (MAG-766, extends the tasks journey MAG-98).
 #
-# Étant donné une tâche à 10:00 en urgence Haute, et « Méditer » chronométrée de 20 min
+# Étant donné une tâche à 10:00 en urgence Haute, « Méditer » chronométrée de 20 min,
+#   et « Mutuelle » programmée il y a 6 jours, sans échéance, non faite (MAG-984)
 # Quand j'ouvre Tâches › Aujourd'hui
-# Alors « à 10:00 » et « Haute » sont affichés, et seule « Méditer » porte « 20 min »
+# Alors « à 10:00 » et « Haute » sont affichés, seule « Méditer » porte « 20 min »,
+#   et « Mutuelle » est là avec « reportée depuis … », l'anneau dit « 0 sur 3 »
 # Quand je coche la première
-# Alors l'anneau passe à « 1 sur 2 »
+# Alors l'anneau passe à « 1 sur 3 »
+# Quand j'ouvre Tâches › Tâches
+# Alors « Mutuelle » n'y est pas
 #
 # À toute heure (MAG-825) : le soir ne remplace plus la journée — ni « Qu'est-ce qui t'a aidé ? »
 # ni « Bonne nuit » sur Tâches ; le bilan du soir est l'activité « Bilan de la journée » (`33-bilan-soir`).
 #
-# A new user: the two tasks are its only ones, written by `scripts/today-tasks-api.js`. The tick
+# A new user: the three tasks are its only ones, written by `scripts/today-tasks-api.js`. The tick
 # opens the Bravo (MAG-508); « Retour à ma journée » brings the day back, the ring moved, and the
 # script reads the task done in the database.
 #
@@ -53,14 +57,14 @@ tags:
       id: "tasks"
     timeout: 20000
 
-# The day: both tasks with their box, the ring at « 0 sur 2 », no « C'est parti ».
+# The day: the tasks with their box, the ring at « 0 sur 3 », no « C'est parti ».
 - extendedWaitUntil:
     visible:
       id: "tasks_today_check_${output.garageId}"
     timeout: 30000
 - assertVisible:
     id: "tasks_ring"
-- assertVisible: ".*0 sur 2.*"
+- assertVisible: ".*0 sur 3.*"
 - assertNotVisible: ".*Qu'est-ce qui t'a aidé.*"
 - assertNotVisible: "Bonne nuit"
 - assertNotVisible: ".*C'est parti.*"
@@ -89,7 +93,19 @@ tags:
         id: "tasks_today_timer_${output.meditateId}"
     timeout: 10000
 
-# Ticked from the list: the Bravo, then back to the day, the ring at « 1 sur 2 ».
+# Planned six days ago, never done: back in the day, put off since that day (MAG-984).
+- scrollUntilVisible:
+    element:
+      id: "tasks_today_row_${output.putOffId}"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      text: "reportée depuis .*"
+      childOf:
+        id: "tasks_today_row_${output.putOffId}"
+    timeout: 10000
+
+# Ticked from the list: the Bravo, then back to the day, the ring at « 1 sur 3 ».
 - runFlow: ../subflows/scroll-list-top.yaml
 - tapOn:
     id: "tasks_today_check_${output.garageId}"
@@ -104,7 +120,7 @@ tags:
       id: "tasks_ring"
     timeout: 20000
 - extendedWaitUntil:
-    visible: ".*1 sur 2.*"
+    visible: ".*1 sur 3.*"
     timeout: 20000
 - runScript:
     file: ../scripts/today-tasks-api.js
@@ -114,3 +130,15 @@ tags:
       TAG: ${output.tag}
       TODAY: ${TODAY}
       TASK_ID: ${output.garageId}
+
+# And it is not in the stock any more: not under « Sans date », not in a dated group.
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: stock
+- extendedWaitUntil:
+    visible:
+      id: "tasks"
+    timeout: 20000
+- assertNotVisible:
+    id: "tasks_stock_row_${output.putOffId}"
