@@ -148,6 +148,26 @@ describe('dayTasks, openOnDay — what « Aujourd\'hui » lists and counts (MAG-
     expect(dayTasks(plan, '2026-10-15').map((t) => t.id)).toEqual(['S1', 'S2', 'LATE', 'TODAY'])
   })
 
+  test('keeps the reserve tasks planned today or before, not those planned later', () => {
+    const plan = day(
+      [],
+      [
+        task('PAST', { scheduledDate: '2026-10-09' }),
+        task('TODAY', { scheduledDate: '2026-10-15' }),
+        task('TOMORROW', { scheduledDate: '2026-10-16' }),
+        task('NONE'),
+      ],
+    )
+
+    expect(dayTasks(plan, '2026-10-15').map((t) => t.id)).toEqual(['PAST', 'TODAY'])
+  })
+
+  test('counts a reserve task planned on a past day in openOnDay', () => {
+    const plan = day([task('S1')], [task('PAST', { scheduledDate: '2026-10-09' }), task('NONE')])
+
+    expect(openOnDay(plan, '2026-10-15')).toBe(2)
+  })
+
   test('reads a due day sent with its time', () => {
     const plan = day([], [task('TODAY', { dueDate: '2026-10-15T00:00:00+00:00' }), task('TOMORROW', { dueDate: '2026-10-16T00:00:00+00:00' })])
 

@@ -403,6 +403,28 @@ describe('TaskBoard', () => {
       expect(screen.getByRole('heading', { name: "Aujourd'hui · 4" })).toBeInTheDocument()
     })
 
+    test('a task planned on a past day is under « En retard », « reportée », never red', async () => {
+      const mutuelle = dayTask('01MUT', 'Rappeler la mutuelle', { scheduledDate: '2026-10-09', postponedSince: '2026-10-09' })
+      state = { slots: [BANK, CANTEEN, WATER], reserve: [mutuelle] }
+      render(<TaskBoard />)
+
+      const late = await screen.findByRole('list', { name: 'En retard' })
+      const row = within(late).getByText('Rappeler la mutuelle').closest('li')!
+      expect(row).toHaveTextContent(/reportée depuis/)
+      expect(row).not.toHaveTextContent(/retard/i)
+      expect(screen.getByRole('heading', { name: 'En retard · 1' })).toBeInTheDocument()
+    })
+
+    test("a reserve task planned today is under « Aujourd'hui »", async () => {
+      const today = dayTask('01TODAY', 'Ranger le garage', { scheduledDate: '2026-10-15' })
+      state = { slots: [BANK, CANTEEN, WATER], reserve: [today] }
+      render(<TaskBoard />)
+
+      const list = await screen.findByRole('list', { name: "Aujourd'hui" })
+      expect(within(list).getByText('Ranger le garage')).toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: 'En retard' })).toBeNull()
+    })
+
     test('a repeating task of the day shows Répétée on its row (MAG-888)', async () => {
       state = { slots: [BANK, CANTEEN, WATER], reserve: [{ ...BOOK, rrule: 'FREQ=DAILY' }] }
       render(<TaskBoard />)
