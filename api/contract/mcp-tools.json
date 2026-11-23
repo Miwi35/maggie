@@ -132,13 +132,20 @@
             "properties": {
                 "id": {
                     "type": "string"
+                },
+                "occurrence": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
                 "id"
             ]
         },
-        "description": "Cancels a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. Affects this occurrence only; a lasting habit is stopped by changing the instruction."
+        "description": "Cancels a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. The id of a series (rrule in list_proactions) without occurrence deletes the series: no run is left, the ones already done stay. With occurrence (ISO 8601, as listed in occurrences) it cancels that occurrence only."
     },
     "check_conflicts": {
         "name": "check_conflicts",
@@ -248,7 +255,7 @@
                 }
             }
         },
-        "description": "Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}). Executor only, never offered to the model."
+        "description": "Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}). A due occurrence of a series is returned as its own proaction, with seriesId and occurrence; the series itself is never claimed. Executor only, never offered to the model."
     },
     "create_event": {
         "name": "create_event",
@@ -1203,7 +1210,7 @@
                 }
             }
         },
-        "description": "Lists the proactions scheduled for the user, by time, each with its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters."
+        "description": "Lists the proactions scheduled for the user, by time, in three keys: proactions (one-off runs and the occurrences of a series that have their own run), series (the repeating ones, with their rrule) and, only when from and to are both given, occurrences (the coming runs of the series in the window with no run of their own yet: seriesId, occurrence, scheduledAt, prompt, summary, kind). Each proaction has its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters proactions only."
     },
     "list_routines": {
         "name": "list_routines",
@@ -4609,6 +4616,13 @@
                         "string"
                     ],
                     "default": null
+                },
+                "rrule": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "default": null
                 }
             },
             "required": [
@@ -4616,7 +4630,7 @@
                 "scheduled_at"
             ]
         },
-        "description": "Schedules ONE run of Maggie: at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). Single occurrence; no RRULE. scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. kind: reminder (default — the owner asked to be told at that time; always interrupts) or check (verifies or watches; speaks only when useful, triaged). Returns the proaction (proaction.scheduledAt)."
+        "description": "Schedules a run of Maggie, or a series of runs with rrule (RFC 5545 without RRULE:, FREQ HOURLY to YEARLY, 500 characters at most; scheduled_at must be its first occurrence, else an error names it): at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. kind: reminder (default — the owner asked to be told at that time; always interrupts) or check (verifies or watches; speaks only when useful, triaged). Returns the proaction (proaction.scheduledAt)."
     },
     "search": {
         "name": "search",

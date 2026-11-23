@@ -1,0 +1,44 @@
+Maggie\Core\Entity\User:
+  test_user:
+    email: proaction-series-api@example.com
+    googleId: google-proaction-series-api
+    name: Proaction Api User
+  other_user:
+    email: proaction-series-api-other@example.com
+    googleId: google-proaction-series-api-other
+    name: Other Api User
+
+Maggie\Calendar\Entity\Agenda:
+  maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@test_user'
+  other_maggie_agenda:
+    name: Maggie
+    module: agent
+    user: '@other_user'
+  perso:
+    name: Perso
+    isDefault: true
+    user: '@test_user'
+
+Maggie\Calendar\Entity\Proaction:
+  series:
+    prompt: Fais le point
+    summary: Point
+    startAt: '<(new \DateTimeImmutable("2037-01-09T18:00:00+01:00"))>'
+    rrule: 'FREQ=WEEKLY;BYDAY=FR'
+    agenda: '@maggie_agenda'
+  series_instance:
+    prompt: Fais le point
+    summary: Point
+    startAt: '<(new \DateTimeImmutable("2037-01-23T18:00:00+01:00"))>'
+    originalStartAt: '<(new \DateTimeImmutable("2037-01-23T18:00:00+01:00"))>'
+    recurringEvent: '@series'
+    agenda: '@maggie_agenda'
+  other_series:
+    prompt: Série d'un autre
+    summary: Autre
+    startAt: '<(new \DateTimeImmutable("2037-01-09T18:00:00+01:00"))>'
+    rrule: 'FREQ=WEEKLY;BYDAY=FR'
+    agenda: '@other_maggie_agenda'

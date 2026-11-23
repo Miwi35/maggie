@@ -6,6 +6,8 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Maggie\Calendar\Entity\Event;
 use Maggie\Calendar\Message\CreateEventCommand;
+use Maggie\Core\Entity\User;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
@@ -14,6 +16,7 @@ class CreateEventProcessor implements ProcessorInterface
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
+        private readonly Security $security,
     ) {
     }
 
@@ -29,7 +32,8 @@ class CreateEventProcessor implements ProcessorInterface
             timeZone: $data->getTimeZone(),
             allDay: $data->isAllDay(),
             rrule: $data->getRrule(),
-            recurringEventId: (string) $data->getRecurringEvent()?->getId(),
+            recurringEventId: null !== $data->getRecurringEvent() ? (string) $data->getRecurringEvent()->getId() : null,
+            userId: $this->security->getUser() instanceof User ? (string) $this->security->getUser()->getId() : null,
             originalStartAt: $data->getOriginalStartAt(),
             status: $data->getStatus()->value,
             reminders: $data->getReminders(),

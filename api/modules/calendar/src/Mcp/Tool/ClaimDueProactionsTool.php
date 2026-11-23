@@ -18,7 +18,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * one user at a time through X-Maggie-User-Id. A caller acting for a user only
  * ever claims that user's.
  */
-#[McpTool(name: 'claim_due_proactions', description: 'Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}). Executor only, never offered to the model.')]
+#[McpTool(name: 'claim_due_proactions', description: 'Atomically claims the pending proactions whose time has come (or the one given by id, due or not) and marks them running, each returned with its userId, prompt and kind; a check also carries signaledTopics, the topics delivered to its user these last 7 days ({topic, at, delivery, notice}). A due occurrence of a series is returned as its own proaction, with seriesId and occurrence; the series itself is never claimed. Executor only, never offered to the model.')]
 class ClaimDueProactionsTool
 {
     public function __construct(

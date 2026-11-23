@@ -162,9 +162,9 @@ class ProactionEventApiTest extends WebTestCase
         self::assertSame('agent', $this->reload()->getAgenda()->getModule());
     }
 
-    public function testAnRruleIsRefused(): void
+    public function testABrokenRruleIsRefused(): void
     {
-        $this->patch(['rrule' => 'FREQ=DAILY']);
+        $this->patch(['rrule' => 'FREQ=NEVER']);
 
         self::assertResponseStatusCodeSame(422);
         self::assertNull($this->reload()->getRrule());

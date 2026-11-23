@@ -21,15 +21,17 @@ use Maggie\Core\Elasticsearch\Attribute\Indexed;
 use Maggie\Core\Elasticsearch\Attribute\IndexedField;
 use Maggie\Core\Elasticsearch\State\ElasticsearchCollectionProvider;
 use Maggie\Core\Elasticsearch\State\ElasticsearchItemProvider;
+use Recurr\Rule;
 use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 // One run of Maggie at a given time, filed in the user's internal « Maggie »
 // agenda (ADR-012, MAG-326): the start of the event is when the agent runs the
-// prompt. The lasting rule lives in the agent's instructions; a proaction is
-// one occurrence of it, so it never repeats (no RRULE) and never reaches
-// Google — its agenda is a module agenda.
+// prompt. A proaction is one run, or a series with an RRULE (ADR-012-1, MAG-974):
+// each pass of a series becomes an exception instance (recurringEvent and
+// originalStartAt) that keeps its own status, answer and error. It never
+// reaches Google — its agenda is a module agenda.
 //
 // Its run status is `executionStatus` and not `status`: the inherited event
 // status (confirmed, tentative) keeps that name on the wire.
@@ -58,6 +60,8 @@ class Proaction extends Event implements MercurePublishable
 
     /** An instant, not a span: the agenda shows it five minutes long. */
     public const DISPLAY_MINUTES = 5;
+
+    public const RRULE_LENGTH = 500;
 
     /** How long the label read in the agenda may be. */
     private const SUMMARY_LENGTH = 60;
@@ -174,15 +178,41 @@ class Proaction extends Event implements MercurePublishable
         return parent::setEndAt($this->getStartAt()?->modify(sprintf('+%d minutes', self::DISPLAY_MINUTES)));
     }
 
-    /** A proaction never repeats: the repetition is the agent's instruction (ADR-012). */
+    /** A series repeats at most hourly; an instance of a series takes no rule. */
     #[Assert\Callback]
     public function validateProaction(ExecutionContextInterface $context): void
     {
-        if (null !== $this->getRrule()) {
-            $context->buildViolation('A proaction never repeats: a lasting rule is an instruction for Maggie, not an RRULE.')->atPath('rrule')->addViolation();
+        $rrule = $this->getRrule();
+        if (null !== $rrule) {
+            $this->validateSeriesRule($context, $rrule);
         }
         if ($this->isAllDay()) {
             $context->buildViolation('A proaction runs at an instant: it cannot be an all-day event.')->atPath('allDay')->addViolation();
+        }
+    }
+
+    private function validateSeriesRule(ExecutionContextInterface $context, string $rrule): void
+    {
+        if ($this->isException()) {
+            $context->buildViolation('An occurrence of a series takes no rrule: the rule belongs to the series.')->atPath('rrule')->addViolation();
+
+            return;
+        }
+        if (strlen($rrule) > self::RRULE_LENGTH || str_starts_with(strtoupper(ltrim($rrule)), 'RRULE:')) {
+            $context->buildViolation(sprintf('rrule is an RFC 5545 rule without the RRULE: prefix, at most %d characters.', self::RRULE_LENGTH))->atPath('rrule')->addViolation();
+
+            return;
+        }
+
+        try {
+            $rule = new Rule($rrule, $this->getStartInstant());
+        } catch (\Throwable) {
+            $context->buildViolation('rrule is an RFC 5545 rule without the RRULE: prefix, e.g. FREQ=WEEKLY;BYDAY=FR.')->atPath('rrule')->addViolation();
+
+            return;
+        }
+        if (!in_array($rule->getFreqAsText(), ['HOURLY', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'], true)) {
+            $context->buildViolation('A proaction repeats at most hourly: FREQ is HOURLY, DAILY, WEEKLY, MONTHLY or YEARLY.')->atPath('rrule')->addViolation();
         }
     }
 
@@ -313,6 +343,7 @@ class Proaction extends Event implements MercurePublishable
             'summary' => $this->getSummary(),
             'startAt' => $this->getStartAt()?->format('c'),
             'endAt' => $this->getEndAt()?->format('c'),
+            'status' => $this->getStatus()->value,
             'executionStatus' => $this->executionStatus->value,
             'kind' => $this->kind->value,
             'delivery' => $this->delivery?->value,
