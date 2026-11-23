@@ -6,9 +6,10 @@
 // app sent: weekly, on today's weekday, after dinner. `expect-checked` reads it back after the tick:
 // ticked today, once in all. `find-wake` and `expect-wake-checked` do the same for the daily
 // routine « au réveil » of the band and the home widget: `output.wakeId`, ticked today.
+// `seed-not-due` creates a weekly routine on yesterday's weekday, so not due today: `output.notDueId`.
 //
 // Parameters (flow `env:`, plus E2E_BASE_URL and E2E_LOGIN_TOKEN from `run.sh`):
-//   ACTION   cleanup | find | expect-checked | find-wake | expect-wake-checked
+//   ACTION   cleanup | find | expect-checked | find-wake | expect-wake-checked | seed-not-due
 //   TODAY    the seed's anchor day, YYYY-MM-DD: the day the phone opens on
 //   EMAIL    the account, default the one the app signs in as (e2e@maggie.local)
 
@@ -16,6 +17,7 @@
 const base = E2E_BASE_URL
 const title = 'Sortir les poubelles'
 const wakeTitle = 'Prendre mes vitamines'
+const notDueTitle = 'Routine pas due aujourd\'hui'
 const email = typeof EMAIL !== 'undefined' && EMAIL ? EMAIL : 'e2e@maggie.local'
 
 function fail(message) {
@@ -55,7 +57,7 @@ function weekdayOf(day) {
 }
 
 if (ACTION === 'cleanup') {
-  named([title, wakeTitle]).forEach(function (routine) {
+  named([title, wakeTitle, notDueTitle]).forEach(function (routine) {
     const response = http.request(base + '/api/routines/' + routine.id, { method: 'DELETE', headers: HEADERS })
     if (!response.ok && response.status !== 404) {
       fail('DELETE /api/routines/' + routine.id + ' answered ' + response.status + ': ' + response.body)
@@ -93,6 +95,16 @@ if (ACTION === 'cleanup') {
   if (found.length !== 1 || !found[0].checkedToday) {
     fail('expected the routine ticked today; read ' + JSON.stringify(found))
   }
+} else if (ACTION === 'seed-not-due') {
+  const yesterday = (weekdayOf(TODAY) + 5) % 7 + 1
+  const response = http.post(base + '/api/routines', {
+    headers: Object.assign({ 'Content-Type': 'application/json' }, HEADERS),
+    body: JSON.stringify({ title: notDueTitle, anchor: 'afterDinner', recurrence: { kind: 'weekly', weekday: yesterday } }),
+  })
+  if (!response.ok) {
+    fail('POST /api/routines answered ' + response.status + ': ' + response.body)
+  }
+  output.notDueId = JSON.parse(response.body).id
 } else {
   fail('unknown ACTION')
 }

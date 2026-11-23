@@ -211,7 +211,7 @@ class RoutinesViewModel(
         val state = _uiState.value
         if (routine.id in state.pending) return
         val current = state.routines.firstOrNull { it.id == routine.id } ?: routine
-        if (!current.dueToday) return
+        if (!current.active) return
         val checked = !current.checkedToday
         _uiState.update { s ->
             s.copy(

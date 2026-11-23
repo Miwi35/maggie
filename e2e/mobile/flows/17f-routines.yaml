@@ -22,8 +22,9 @@ onFlowComplete:
 # comes of it: `TasksViewModelTest`'s.
 #
 # The spec says « chaque mardi ». The stack's clock is not frozen on a weekday (`TODAY` is the
-# seed's anchor day), and the round only shows on a routine due today, so the journey keeps the
-# weekday the sheet starts on — today's — rather than tapping Tuesday: « Chaque {today} ».
+# seed's anchor day), so the journey keeps the weekday the sheet starts on — today's — rather than
+# tapping Tuesday: « Chaque {today} ». Every active routine has its round, due today or not
+# (MAG-979): the last step ticks one seeded on yesterday's weekday.
 # `routines-api.js find` checks that the routine sent is weekly on TODAY's weekday, after dinner.
 #
 # The other moments, the hour, the monthly day, « Active », « Supprimer », the dots of the last
@@ -189,3 +190,25 @@ onFlowComplete:
     env:
       ACTION: expect-checked
       TODAY: ${TODAY}
+
+# Given a routine not due today, its round is there too, and ticking it counts for today (MAG-979).
+- runScript:
+    file: ../scripts/routines-api.js
+    env:
+      ACTION: seed-not-due
+      TODAY: ${TODAY}
+- runFlow:
+    file: ../subflows/open-tasks-view.yaml
+    env:
+      VIEW: routines
+- extendedWaitUntil:
+    visible:
+      id: "routine_check_${output.notDueId}"
+    timeout: 20000
+- tapOn:
+    id: "routine_check_${output.notDueId}"
+- extendedWaitUntil:
+    visible:
+      id: "routine_total_${output.notDueId}"
+      text: ".*: 1 fois"
+    timeout: 20000
