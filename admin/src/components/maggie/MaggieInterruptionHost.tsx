@@ -8,6 +8,7 @@ import { chooseWorkoutMakeup, fetchWorkoutMakeup, makeupLabel, type MakeupOption
 
 interface MaggieInterruptionHostProps {
   chatOpen: boolean
+  chatFocused?: boolean
   onOpenChat: () => void
 }
 
@@ -37,8 +38,8 @@ async function addShortageToList(shortageId: string): Promise<boolean> {
   return response.ok || [404, 409].includes(response.status)
 }
 
-export const MaggieInterruptionHost = ({ chatOpen, onOpenChat }: MaggieInterruptionHostProps) => {
-  const { current, dismiss, openChat, withdraw } = useMaggieInterruption({ chatOpen, onOpenChat })
+export const MaggieInterruptionHost = ({ chatOpen, chatFocused, onOpenChat }: MaggieInterruptionHostProps) => {
+  const { current, dismiss, openChat, withdraw } = useMaggieInterruption({ chatOpen, chatFocused, onOpenChat })
   const dataProvider = useDataProvider()
   const navigate = useNavigate()
   const notify = useNotify()

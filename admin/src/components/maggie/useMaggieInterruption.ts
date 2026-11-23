@@ -15,6 +15,8 @@ const MAX_TIMEOUT_MS = 2 ** 31 - 1
 
 interface Options {
   chatOpen: boolean
+  /** The chat is in front, under the user's eyes: defaults to `chatOpen`. */
+  chatFocused?: boolean
   onOpenChat: () => void
 }
 
@@ -32,9 +34,25 @@ interface Options {
  * with the question still unanswered. Nothing else is in the chat: a notification
  * interrupts over it too.
  *
- * A message of Maggie (`message`, MAG-923) never interrupts: it rings, the portrait counts it unread.
+ * A message of Maggie (`message`, MAG-923) never interrupts: it rings, the portrait counts it unread,
+ * unless the chat is in front, where it is marked read at once. The notifications left unread
+ * are read again when the admin loads (owner, 22 Nov.).
  */
-export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/** The chat shows this message already: it is read, the bell keeps no entry for it. */
+function markRead(ref: string) {
+  fetch(ref, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/merge-patch+json', Accept: 'application/ld+json', ...authHeaders() },
+    body: JSON.stringify({ readAt: new Date().toISOString() }),
+  }).catch(() => {})
+}
+
+export function useMaggieInterruption({ chatOpen, chatFocused = chatOpen, onOpenChat }: Options) {
   const [queue, setQueue] = useState<Interruption[]>([])
   const seen = useRef(new Set<string>())
   const timers = useRef(new Map<number, Interruption>())
@@ -45,6 +63,10 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
   useEffect(() => {
     chatOpenRef.current = chatOpen
   }, [chatOpen])
+  const chatFocusedRef = useRef(chatFocused)
+  useEffect(() => {
+    chatFocusedRef.current = chatFocused
+  }, [chatFocused])
 
   const clearTimers = useCallback((only?: (item: Interruption) => boolean) => {
     timers.current.forEach((item, timer) => {
@@ -84,9 +106,13 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
     [withdraw],
   )
 
-  const ring = useCallback((message: { id: string; createdAt: number | null }) => {
+  const ring = useCallback((message: { id: string; ref: string; createdAt: number | null }) => {
     if (seen.current.has(message.id)) return
     seen.current.add(message.id)
+    if (chatFocusedRef.current) {
+      markRead(message.ref)
+      return
+    }
     if (message.createdAt !== null && Date.now() - message.createdAt > MESSAGE_CHIME_WINDOW_MS) return
     playChime()
   }, [])
@@ -108,17 +134,31 @@ export function useMaggieInterruption({ chatOpen, onOpenChat }: Options) {
   useEffect(() => {
     if (!getStoredUserId()) return
     const controller = new AbortController()
-    const token = localStorage.getItem('token')
 
-    fetch('/agent/approvals?status=pending', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: controller.signal,
-    })
+    fetch('/agent/approvals?status=pending', { headers: authHeaders(), signal: controller.signal })
       .then((response) => (response.ok ? response.json() : []))
       .then((actions: unknown) => {
         if (!Array.isArray(actions)) return
         for (const action of actions) {
           const event = readFeedMessage(JSON.stringify(action))
+          if (event?.kind === 'interrupt') enqueue(event.interruption)
+        }
+      })
+      .catch(() => {
+        // Offline or signed out: the feed will bring the next ones.
+      })
+
+    // The notifications left unread while the admin was closed: Mercure does not replay them.
+    fetch('/api/notifications?exists[readAt]=false&order[createdAt]=asc&itemsPerPage=30', {
+      headers: { Accept: 'application/ld+json', ...authHeaders() },
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: unknown) => {
+        const member = (body as { member?: unknown } | null)?.member
+        if (!Array.isArray(member)) return
+        for (const item of member) {
+          const event = readFeedMessage(JSON.stringify(item))
           if (event?.kind === 'interrupt') enqueue(event.interruption)
         }
       })

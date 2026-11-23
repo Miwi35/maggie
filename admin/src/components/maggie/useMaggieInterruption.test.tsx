@@ -52,10 +52,10 @@ const stream = () => FakeEventSource.instances[0]
 
 const fetchPending = vi.fn()
 
-function setup(chatOpen = false) {
+function setup(chatOpen = false, chatFocused?: boolean) {
   const onOpenChat = vi.fn()
-  const hook = renderHook((props: { chatOpen: boolean }) => useMaggieInterruption({ ...props, onOpenChat }), {
-    initialProps: { chatOpen },
+  const hook = renderHook((props: { chatOpen: boolean; chatFocused?: boolean }) => useMaggieInterruption({ ...props, onOpenChat }), {
+    initialProps: { chatOpen, chatFocused } as { chatOpen: boolean; chatFocused?: boolean },
   })
   return { ...hook, onOpenChat }
 }
@@ -280,6 +280,62 @@ describe('useMaggieInterruption', () => {
       },
     )
 
+    describe('at load', () => {
+      const unread = (overrides: Record<string, unknown> = {}) => notification({ createdAt: new Date().toISOString(), ...overrides })
+      const serve = (member: unknown[] | 'fail') =>
+        fetchPending.mockImplementation(async (url: string) => {
+          if (String(url).startsWith('/api/notifications?')) {
+            if (member === 'fail') throw new Error('offline')
+            return { ok: true, json: async () => ({ member }) }
+          }
+          return { ok: true, json: async () => [] }
+        })
+      const flush = () => act(async () => {})
+
+      beforeEach(() => vi.mocked(playChime).mockClear())
+
+      test('an unread reminder is shown', async () => {
+        serve([unread()])
+        const { result } = setup()
+        await flush()
+
+        expect(result.current.current).toMatchObject({ source: 'notification', ref: '/api/notifications/n1' })
+        expect(fetchPending.mock.calls.some(([url]) => String(url).includes('exists[readAt]=false'))).toBe(true)
+      })
+
+      test('an unread message, a read or an expired notification is not queued and nothing rings', async () => {
+        serve([
+          unread({ '@id': '/api/notifications/m', type: 'message' }),
+          unread({ '@id': '/api/notifications/r', readAt: '2026-10-07T10:01:00+00:00' }),
+          unread({ '@id': '/api/notifications/e', expiresAt: '2020-01-01T00:00:00+00:00' }),
+        ])
+        const { result } = setup()
+        await flush()
+
+        expect(result.current.current).toBeNull()
+        expect(playChime).not.toHaveBeenCalled()
+      })
+
+      test('a notification read at load and then received by Mercure is shown once', async () => {
+        serve([unread()])
+        const { result } = setup()
+        await flush()
+        stream().emit(unread())
+        act(() => result.current.dismiss(false))
+
+        expect(result.current.current).toBeNull()
+      })
+
+      test('a failing notifications request leaves the approvals and the feed working', async () => {
+        serve('fail')
+        const { result } = setup()
+        await flush()
+        stream().emit(notification())
+
+        expect(result.current.current?.source).toBe('notification')
+      })
+    })
+
     describe('a message of Maggie', () => {
       const message = (overrides: Record<string, unknown> = {}) =>
         notification({ type: 'message', body: 'Votre digest du matin est disponible.', createdAt: new Date().toISOString(), ...overrides })
@@ -312,13 +368,26 @@ describe('useMaggieInterruption', () => {
         expect(playChime).not.toHaveBeenCalled()
       })
 
-      test('a message rings with the chat open too', () => {
-        const { result } = setup(true)
+      test('a message with the chat in front does not ring and is marked read', () => {
+        const { result } = setup(true, true)
 
         stream().emit(message())
 
         expect(result.current.current).toBeNull()
+        expect(playChime).not.toHaveBeenCalled()
+        const patch = fetchPending.mock.calls.find(([, init]) => init?.method === 'PATCH')
+        expect(patch?.[0]).toBe('/api/notifications/n1')
+        expect(patch?.[1].headers['Content-Type']).toBe('application/merge-patch+json')
+        expect(JSON.parse(patch?.[1].body)).toHaveProperty('readAt')
+      })
+
+      test('a message with the chat open on another tab still rings, unmarked', () => {
+        setup(true, false)
+
+        stream().emit(message())
+
         expect(playChime).toHaveBeenCalledTimes(1)
+        expect(fetchPending.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
       })
 
       test('a proaction notification still interrupts', () => {
