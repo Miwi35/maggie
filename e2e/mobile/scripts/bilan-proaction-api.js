@@ -59,6 +59,13 @@ if (!preferences.ok) {
   fail('PATCH /api/user_preferences/me answered ' + preferences.status + ': ' + preferences.body)
 }
 
+// The read position starts at the latest message the first time it is read: pin it now, before the review's message
+// exists, so that message is unread when the app opens (MAG-965).
+const unread = http.get(base + '/agent/chat/unread', { headers: { Authorization: 'Bearer ' + token } })
+if (!unread.ok) {
+  fail('GET /agent/chat/unread answered ' + unread.status + ': ' + unread.body)
+}
+
 const mcp = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: 'Bearer ' + token }
 const init = http.post(base + '/_mcp', {
   headers: mcp,
