@@ -4,8 +4,10 @@ import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
+import com.maggie.app.data.model.Notification
 import com.maggie.app.data.model.PendingApproval
 import com.maggie.app.data.repository.ApprovalRepository
+import com.maggie.app.data.repository.NotificationRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -19,6 +21,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.Instant
 
 /** While the app is open, the notifications and held actions Maggie raises reach the queue (MAG-314). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -37,11 +40,17 @@ class InterruptionFeedTest {
     }
 
     private val approvals = mockk<ApprovalRepository>()
+    private val notificationRepository = mockk<NotificationRepository> {
+        coEvery { getNotifications(unreadOnly = true) } returns Result.success(emptyList())
+    }
     private val auth = mockk<AuthRepository> { coEvery { getUserId() } returns "u-1" }
 
     private fun kotlinx.coroutines.test.TestScope.start() {
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { InterruptionFeed(center, mercure, approvals, auth, clearSystem = { cleared += it }).run() }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { InterruptionFeed(center, mercure, approvals, auth, notificationRepository, clearSystem = { cleared += it }, now = { NOW }).run() }
     }
+
+    private fun unread(id: String, type: String = "proaction", createdAt: String = "2026-11-22T10:00:00+00:00", expiresAt: String? = null) =
+        Notification(id = id, type = type, title = "Idée $id", createdAt = createdAt, expiresAt = expiresAt)
 
     private fun notification(id: String, extra: String = "") =
         MercureEvent(data = """{"@id":"/api/notifications/$id","id":"$id","type":"proaction","title":"Idée $id"$extra}""")
@@ -144,7 +153,7 @@ class InterruptionFeedTest {
         coEvery { approvals.getPending() } returns Result.success(emptyList())
         val signedIn = MutableSharedFlow<Boolean>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            InterruptionFeed(center, mercure, approvals, auth, clearSystem = { cleared += it }).runWhileSignedIn(signedIn)
+            InterruptionFeed(center, mercure, approvals, auth, notificationRepository, clearSystem = { cleared += it }).runWhileSignedIn(signedIn)
         }
 
         signedIn.emit(true)
@@ -161,7 +170,7 @@ class InterruptionFeedTest {
         coEvery { approvals.getPending() } returns Result.success(emptyList())
         val signedIn = MutableStateFlow(true)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            InterruptionFeed(center, mercure, approvals, auth, clearSystem = { cleared += it }).runWhileSignedIn(signedIn)
+            InterruptionFeed(center, mercure, approvals, auth, notificationRepository, clearSystem = { cleared += it }).runWhileSignedIn(signedIn)
         }
         signedIn.value = false
         signedIn.value = true
@@ -178,5 +187,84 @@ class InterruptionFeedTest {
         timerEvents.emit(MercureEvent(data = """{"@id":"/api/cooking/timers/t-1","id":"t-1","status":"dismissed"}"""))
 
         assertEquals(listOf("cooking-timer-t-1"), cleared)
+    }
+
+    @Test
+    fun `an interruption left unread while the app was away pops when it opens`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { notificationRepository.getNotifications(unreadOnly = true) } returns Result.success(listOf(unread("n-1")))
+        start()
+
+        assertEquals("n-1", center.current.value?.notificationId)
+    }
+
+    @Test
+    fun `a message left unread is never offered when the app opens`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { notificationRepository.getNotifications(unreadOnly = true) } returns Result.success(listOf(unread("m-1", type = "message")))
+        start()
+
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `an expired notification left unread is not offered`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { notificationRepository.getNotifications(unreadOnly = true) } returns
+            Result.success(listOf(unread("n-1", expiresAt = "2026-11-22T10:20:00+00:00")))
+        start()
+
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `a notification already read is not offered`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { notificationRepository.getNotifications(unreadOnly = true) } returns
+            Result.success(listOf(unread("n-1").copy(readAt = "2026-11-22T10:30:00+00:00")))
+        start()
+
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `an unread notification read again and then received by Mercure is shown once`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { notificationRepository.getNotifications(unreadOnly = true) } returns Result.success(listOf(unread("n-1")))
+        start()
+
+        notifications.emit(notification("n-1"))
+        center.close("n-1")
+
+        assertNull(center.current.value)
+    }
+
+    @Test
+    fun `the oldest unread notification comes first, the next one waits`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(emptyList())
+        coEvery { notificationRepository.getNotifications(unreadOnly = true) } returns Result.success(
+            listOf(unread("n-2", createdAt = "2026-11-22T10:05:00+00:00"), unread("n-1", createdAt = "2026-11-22T10:00:00+00:00")),
+        )
+        start()
+
+        assertEquals("n-1", center.current.value?.notificationId)
+        center.close("n-1")
+        assertEquals("n-2", center.current.value?.notificationId)
+    }
+
+    @Test
+    fun `a failing notifications request does not stop Mercure nor the held actions`() = runTest {
+        coEvery { approvals.getPending() } returns Result.success(listOf(PendingApproval(id = "ap-1", toolName = "t")))
+        coEvery { notificationRepository.getNotifications(unreadOnly = true) } returns Result.failure(RuntimeException("offline"))
+        start()
+
+        notifications.emit(notification("n-1"))
+        approvalEvents.emit(MercureEvent(data = """{"id":"ap-1","toolName":"t","status":"approved"}"""))
+
+        assertEquals("n-1", center.current.value?.notificationId)
+    }
+
+    private companion object {
+        val NOW: Instant = Instant.parse("2026-11-22T10:30:00Z")
     }
 }

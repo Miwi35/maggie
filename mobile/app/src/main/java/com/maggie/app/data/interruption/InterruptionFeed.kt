@@ -1,29 +1,36 @@
 package com.maggie.app.data.interruption
 
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.fcm.PushPayload
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.repository.ApprovalRepository
+import com.maggie.app.data.repository.NotificationRepository
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 /**
  * What reaches the owner while the app is open without a push: the notifications Maggie
  * raises (the same ones FCM announces — the center dedupes them) and the actions she holds
- * for an answer. Run it for as long as the app is in the foreground and signed in.
+ * for an answer, plus the notifications left unread while the app was away: an interruption
+ * ignored in the tray pops once the app is in front again (owner, 22 Nov.). Run it for as long
+ * as the app is in the foreground and signed in.
  */
 class InterruptionFeed(
     private val center: InterruptionCenter,
     private val mercure: MercureService,
     private val approvals: ApprovalRepository,
     private val auth: AuthRepository,
+    private val notificationRepository: NotificationRepository,
     /** Takes a system notification down by its tag: one read or acknowledged on another device. */
     private val clearSystem: (String) -> Unit = {},
+    private val now: () -> Instant = Instant::now,
 ) {
 
     // The sign-in flow re-emits `true` on every token refresh: without the dedupe each refresh
@@ -38,6 +45,14 @@ class InterruptionFeed(
             // Nothing is published for the questions already waiting when the app opens.
             launch {
                 approvals.getPending().getOrNull().orEmpty()
+                    .mapNotNull { Interruptions.of(it) }
+                    .forEach(center::offer)
+            }
+            // Mercure does not replay: what was raised while the app was away is read from the unread ones.
+            launch {
+                notificationRepository.getNotifications(unreadOnly = true).getOrNull().orEmpty()
+                    .filter { PushPayload.parseInstant(it.expiresAt)?.isAfter(now()) != false }
+                    .sortedBy { it.createdAt }
                     .mapNotNull { Interruptions.of(it) }
                     .forEach(center::offer)
             }

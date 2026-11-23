@@ -422,7 +422,7 @@ class MaggieApp : Application() {
             single<RewardFeedback> { AndroidRewardFeedback(androidContext()) }
             single { TaskRewards(get(), get()) }
             single { PushDelivery(get(), { PushNotifier(androidContext()) }, get()) }
-            single { InterruptionFeed(get(), get(), get(), get(), clearSystem = { PushNotifier(androidContext()).close(it) }) }
+            single { InterruptionFeed(get(), get(), get(), get(), get(), clearSystem = { PushNotifier(androidContext()).close(it) }) }
 
             // Repositories
             single { EventRepository(get(), get()) }
@@ -655,7 +655,7 @@ class MaggieApp : Application() {
     }
 
     // The feeds only run while the app is open: in the background the push is what speaks, and the
-    // held actions still waiting are picked up again when the app opens.
+    // held actions and the notifications still unread are picked up again when the app opens.
     private fun keepInterruptionsFed(feed: InterruptionFeed, center: InterruptionCenter, auth: AuthRepository) {
         ProcessLifecycleOwner.get().lifecycleScope.launch {
             // Whatever was said to one account is not said to the next.

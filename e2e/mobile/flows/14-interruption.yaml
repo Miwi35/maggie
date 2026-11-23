@@ -98,6 +98,27 @@ tags:
       id: "interruption"
     timeout: 20000
 
+# An interruption raised while the app is away pops when it comes back to the front (owner,
+# 22 Nov.): read from the unread notifications, never from Mercure, which does not replay.
+- pressKey: Home
+- runScript:
+    file: ../scripts/interruption-api.js
+- launchApp:
+    stopApp: false
+    arguments:
+      e2e_journey: e2e/mobile/flows/14-interruption.yaml
+- extendedWaitUntil:
+    visible:
+      id: "interruption"
+    timeout: 40000
+- assertVisible: "Un point sur vos comptes ?"
+- tapOn:
+    id: "interruption_later"
+- extendedWaitUntil:
+    notVisible:
+      id: "interruption"
+    timeout: 20000
+
 # The envelope alert (MAG-49, extends MAG-102): a bank sync — Enable Banking simulated by
 # WireMock — brings a 40 € cinema ticket to a « Loisirs » at 70 % of its 300 €. Maggie
 # interrupts with where it stands, « C'est noté » and « Voir les enveloppes », which opens
