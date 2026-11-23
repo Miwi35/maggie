@@ -174,6 +174,8 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
                 kind=proaction.kind,
                 signaled_topics=proaction.signaled_topics,
                 checked_values=proaction.checked_values,
+                # The owner's words it was asked in, for the checker (MAG-977); none for those scheduled before.
+                **({"origin": proaction.origin} if proaction.origin is not None else {}),
             )
         # A trip check or replan (MAG-657) is a log, not a message: the departure alert is the API's.
         # The digest has its own path and its own notification.
