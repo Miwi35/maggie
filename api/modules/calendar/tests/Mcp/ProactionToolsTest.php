@@ -176,6 +176,89 @@ class ProactionToolsTest extends KernelTestCase
         self::assertCount(4, $this->proactions());
     }
 
+    public function testTheSameSummaryAtTheSameTimeIsOneProactionWhateverThePrompt(): void
+    {
+        $this->loginFixtureUser();
+
+        $first = $this->call(ScheduleProactionTool::class, 'Rappelle de préparer le sac de piscine.', $this->tomorrowAt('17:00'), 'Préparer le sac de piscine');
+        $again = $this->call(ScheduleProactionTool::class, 'Rappel à délivrer : préparer le sac de piscine', $this->tomorrowAt('17:00'), 'Préparer le sac de piscine');
+
+        self::assertTrue($again['success'], json_encode($again, JSON_THROW_ON_ERROR));
+        self::assertSame($first['proaction']['id'], $again['proaction']['id']);
+        self::assertSame('Rappelle de préparer le sac de piscine.', $again['proaction']['prompt']);
+        // Whatever Mercure carries is about the first proaction: the second call published nothing of its own.
+        foreach ($this->getMercureHub()->getUpdates() as $update) {
+            foreach ($update->getTopics() as $topic) {
+                if (str_contains($topic, '/proactions/') || str_contains($topic, '/events/')) {
+                    self::assertStringEndsWith($first['proaction']['id'], $topic);
+                }
+            }
+        }
+        self::assertCount(3, $this->proactions());
+    }
+
+    public function testTheSameSummaryIsRecognisedWhateverItsCaseAndSpaces(): void
+    {
+        $this->loginFixtureUser();
+
+        $first = $this->call(ScheduleProactionTool::class, 'Premier prompt', $this->tomorrowAt('17:00'), 'Sac de piscine');
+        $again = $this->call(ScheduleProactionTool::class, 'Autre prompt', $this->tomorrowAt('17:00'), '  SAC  de   piscine ');
+
+        self::assertSame($first['proaction']['id'], $again['proaction']['id']);
+        self::assertCount(3, $this->proactions());
+    }
+
+    public function testTheSameSummaryAtAnotherTimeIsASecondProaction(): void
+    {
+        $this->loginFixtureUser();
+
+        $first = $this->call(ScheduleProactionTool::class, 'Premier prompt', $this->tomorrowAt('17:00'), 'Sac de piscine');
+        $later = $this->call(ScheduleProactionTool::class, 'Autre prompt', $this->tomorrowAt('17:15'), 'Sac de piscine');
+
+        self::assertNotSame($first['proaction']['id'], $later['proaction']['id']);
+        self::assertCount(4, $this->proactions());
+    }
+
+    public function testTwoSummariesAtTheSameTimeAreTwoProactions(): void
+    {
+        $this->loginFixtureUser();
+
+        $first = $this->call(ScheduleProactionTool::class, 'Premier prompt', $this->tomorrowAt('17:00'), 'Sac de piscine');
+        $other = $this->call(ScheduleProactionTool::class, 'Autre prompt', $this->tomorrowAt('17:00'), 'Goûter');
+
+        self::assertNotSame($first['proaction']['id'], $other['proaction']['id']);
+        self::assertCount(4, $this->proactions());
+    }
+
+    public function testARunProactionIsNotATwin(): void
+    {
+        $this->loginFixtureUser();
+
+        $first = $this->call(ScheduleProactionTool::class, 'Premier prompt', $this->tomorrowAt('17:00'), 'Sac de piscine');
+        $em = self::getContainer()->get('doctrine.orm.entity_manager');
+        $em->clear();
+        $em->find(Proaction::class, $first['proaction']['id'])->markFailed('boom', new \DateTimeImmutable());
+        $em->flush();
+
+        $again = $this->call(ScheduleProactionTool::class, 'Autre prompt', $this->tomorrowAt('17:00'), 'Sac de piscine');
+
+        self::assertNotSame($first['proaction']['id'], $again['proaction']['id']);
+        self::assertCount(4, $this->proactions());
+    }
+
+    public function testASeriesAndASingleProactionAreNotTwins(): void
+    {
+        $this->loginFixtureUser();
+        $at = $this->tomorrowAt('17:00');
+
+        $single = $this->call(ScheduleProactionTool::class, 'Premier prompt', $at, 'Sac de piscine');
+        $series = $this->call(ScheduleProactionTool::class, 'Autre prompt', $at, 'Sac de piscine', null, 'FREQ=DAILY');
+
+        self::assertTrue($series['success'], json_encode($series, JSON_THROW_ON_ERROR));
+        self::assertNotSame($single['proaction']['id'], $series['proaction']['id']);
+        self::assertCount(4, $this->proactions());
+    }
+
     public function testALongPromptIsShortenedForTheAgendaLabel(): void
     {
         $this->loginFixtureUser();

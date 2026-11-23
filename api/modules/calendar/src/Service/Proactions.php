@@ -101,9 +101,12 @@ class Proactions
             throw new \DomainException('prompt is required: what Maggie does when the proaction runs.');
         }
 
+        $label = Proaction::summaryOf(null !== $summary && '' !== trim($summary) ? $summary : $prompt);
+
         // A planning run again the same day (a restart, the manual trigger) asks for the
-        // same one again: it gets the one already there, not a second (MAG-327).
-        $twin = $this->repository->findPendingTwin($user, $at, trim($prompt), $rrule);
+        // same one again: the same prompt or the same summary at the same instant gets
+        // the one already there, not a second (MAG-327, 23 Nov.).
+        $twin = $this->repository->findPendingTwin($user, $at, trim($prompt), $rrule, $label);
         if (null !== $twin) {
             return $twin;
         }
@@ -114,7 +117,7 @@ class Proactions
         $proaction = new Proaction();
         $proaction->setPrompt(trim($prompt));
         $proaction->setKind($kind);
-        $proaction->setSummary(null !== $summary && '' !== trim($summary) ? Proaction::summaryOf($summary) : Proaction::summaryOf($prompt));
+        $proaction->setSummary($label);
         $proaction->setTimeZone($agenda->getTimeZone());
         $proaction->scheduleAt($at);
         $proaction->setRrule($rrule);
