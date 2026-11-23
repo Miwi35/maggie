@@ -1041,7 +1041,7 @@ class TestTheRealToolLoop:
         handler = AsyncMock(return_value='{"enregistre": true}')
 
         with (
-            patch("app.llm.runner.record_llm_usage"),
+            patch("app.runtime.loop.record_llm_usage"),
         ):
             result = await run_tool_loop(
                 "Tu es Maggie.",
@@ -1079,7 +1079,7 @@ class TestTheRealStreamingGateway:
             patch("app.llm.history.context_repo") as history_contexts,
             patch("app.llm.contexts.message_repo") as routing_repo,
             patch("app.llm.contexts.context_repo") as context_repo,
-            patch("app.llm.streaming.record_llm_usage"),
+            patch("app.runtime.loop.record_llm_usage"),
         ):
             # The route persists the user message before streaming, so history
             # is where `chat_stream` finds it — returning an empty history here

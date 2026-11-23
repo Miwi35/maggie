@@ -100,7 +100,7 @@ async def test_the_advisor_run_simulates_then_files_one_draft_and_nothing_else()
     definition = advisor()
     offered = [{"name": n, "input_schema": {}} for n in definition.tools if n.startswith("manage_")]
 
-    with patch("app.llm.tools.mcp_client", api), patch("app.llm.runner.record_llm_usage"):
+    with patch("app.llm.tools.mcp_client", api), patch("app.runtime.loop.record_llm_usage"):
         result = await run_tool_loop(
             definition.prompt,
             [{"role": "user", "content": "Et si je remboursais le prêt auto plus tôt ?"}],
@@ -137,7 +137,7 @@ async def test_maggie_hands_a_trajectory_question_to_the_advisor():
 
     with (
         patch("app.llm.tools.mcp_client", api),
-        patch("app.llm.runner.record_llm_usage"),
+        patch("app.runtime.loop.record_llm_usage"),
     ):
         result = await run_tool_loop(
             "Tu es Maggie.",

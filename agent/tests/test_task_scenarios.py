@@ -55,7 +55,7 @@ def api():
 
 
 async def ask(messages: list[dict]) -> dict:
-    with patch("app.llm.runner.record_llm_usage"):
+    with patch("app.runtime.loop.record_llm_usage"):
         return await run_tool_loop(
             "Tu es Maggie.",
             messages,

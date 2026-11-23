@@ -150,7 +150,7 @@ def frozen():
         patch("app.llm.gateway.build_history", AsyncMock(return_value=[{"role": "user", "content": "salut"}])),
         patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "salut"}])),
         patch("app.llm.streaming.message_repo", AsyncMock()),
-        patch("app.llm.streaming.record_llm_usage"),
+        patch("app.runtime.loop.record_llm_usage"),
         patch("app.domain.approvals.service.message_repo", AsyncMock()),
         patch("app.domain.approvals.service.context_summarizer", MagicMock(maybe_summarize=AsyncMock())),
     ]

@@ -282,7 +282,7 @@ class TestTheToolLoop:
 
     async def _run(self, client, question: str) -> tuple[dict, list]:
         messages = [{"role": "user", "content": question}]
-        with patch("app.llm.runner.record_llm_usage"):
+        with patch("app.runtime.loop.record_llm_usage"):
             result = await run_tool_loop(
                 "Tu es Maggie.",
                 messages,
@@ -338,7 +338,7 @@ class TestTheToolLoop:
         answer.content = [MagicMock(text="Je vous rappellerai de boire de l'eau à 16h05.")]
         client.messages.create = AsyncMock(side_effect=[tool_turn, answer])
 
-        with patch("app.llm.runner.usage_kwargs", return_value={}):
+        with patch("app.runtime.loop.usage_kwargs", return_value={}):
             result, _ = await self._run(client, WATER)
 
         assert client.messages.create.await_count == 2
@@ -369,7 +369,7 @@ async def stream_turn(client, question: str, offered: list[dict] = OFFERED) -> t
         patch("app.llm.contexts.message_repo") as routing_repo,
         patch("app.llm.contexts.context_repo") as context_repo,
         patch("app.llm.streaming.context_repo") as tool_log,
-        patch("app.llm.streaming.record_llm_usage"),
+        patch("app.runtime.loop.record_llm_usage"),
         patch("app.prompt_sources.skill_index") as prompt_skills,
     ):
         # The prompt's skill index, not the one `create_skill` writes to (`app.llm.tools`).

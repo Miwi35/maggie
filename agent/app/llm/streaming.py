@@ -3,12 +3,11 @@
 import asyncio
 import hashlib
 import logging
-import time
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine
+from contextlib import aclosing
 from datetime import UTC, datetime
 
-import anthropic
 from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
@@ -16,30 +15,35 @@ from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID, Message
 from app.error_tracking import capture_error
-from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.client import client_for
 from app.llm.context_summary import context_summarizer
 from app.llm.contexts import open_threads, route_message, with_routed
 from app.llm.gateway import API_ERROR_MESSAGE
 from app.llm.history import build_history, label_settled, strip_thread_label
 from app.llm.image import ChatImage
-from app.llm.models import CHAT, effort_kwargs, model_for
-from app.llm.prompt_cache import cache_tools
-from app.llm.provider_status import alert_owner, note_provider_failure, note_provider_success, provider_reason
+from app.llm.models import CHAT, effort_for, model_for
+from app.llm.provider_status import alert_owner, provider_reason
 from app.llm.questions import asked_question, blocks_of
-from app.llm.tool_blocks import INTERRUPTED_RESULT, close_interrupted, record, record_partial
-from app.llm.tool_failures import FailureStreak, tool_result_status
+from app.llm.tool_blocks import close_interrupted, record, record_partial
 from app.llm.tools import ToolRouter
-from app.llm.web_search import (
-    PAUSE_TURN,
-    SERVER_TOOL_USE,
-    WEB_SEARCH_RESULT,
-    WEB_SEARCH_TOOL,
-    missing_sources,
-    search_failed,
-    with_web_search,
+from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
+from app.runtime.loop import (
+    LoopOptions,
+    ModelFailed,
+    QuestionAsked,
+    RoundEnded,
+    SourcesAdded,
+    StepEnded,
+    StepStarted,
+    TextDelta,
+    ToolCallEnded,
+    ToolCallsPlanned,
+    ToolUseStarted,
+    TurnEnded,
+    TurnState,
+    WebSearchEnded,
+    run_loop,
 )
-from app.metrics import TOOL_CALLS, record_llm_usage, usage_kwargs
 from app.runtime.system_prompt import SystemPrompt
 from app.skills.index import MOMENT_CHAT
 from app.user_timezone import resolve_user_timezone
@@ -180,304 +184,141 @@ class StreamingGateway:
                 tz=tz,
             ),
         )
-        cached_tools = cache_tools(tools)
-
-        # A reminder announced has to be a reminder scheduled (MAG-339), and « c'est noté »
-        # something stored (MAG-340). The answer streams as it is written, so a false
-        # announcement may already be on screen when the guard reads it: it is corrected
-        # rather than held back. A relaunch replaces it with the next step's text, like any
-        # intermediate step (MAG-229), and a second failure goes out as the model wrote it,
-        # signalled (MAG-842).
-        guard = ClaimGuard(tools)
-
-        # What is stored, shown and read aloud is the last step's text alone: the steps
-        # before a tool call are the model thinking out loud (announcements, errors, retries),
-        # and glued together they read as one broken sentence (MAG-229). Only a step with no
-        # text of its own leaves the previous one standing, so the answer is never empty.
-        answer = ""
-        max_iterations = 5
-        streak = FailureStreak()
-        stop_tools = False
-
-        # The `tool_use` / `tool_result` rounds of this run, stored on the answer so the
-        # next message of the thread is sent them back (MAG-211). Not the same thing as
-        # the context's `tool_calls_log` below, which is a list of names for the Mind
-        # panel: this is what the calls said.
+        # What is stored, shown and read aloud is the last step's text alone: the steps before a tool call
+        # are the model thinking out loud (announcements, errors, retries), and glued together they read as
+        # one broken sentence (MAG-229). The loop (`app.runtime.loop`) decides it; this translates its events.
+        state = TurnState()
+        # The `tool_use` / `tool_result` rounds of this run, stored on the answer so the next message of the
+        # thread is sent them back (MAG-211): `state.blocks`, not the context's `tool_calls_log` below, which is
+        # a list of names for the Mind panel.
         resumed = close_interrupted(checkpoint)
-        messages.extend(resumed)
-        blocks: list[dict] = list(resumed)
         ui_blocks: list[dict] = []
-        self._back_the_guard(guard, resumed)
+        answer = ""
+        options = LoopOptions.streaming(
+            model=model_for(CHAT),
+            effort=effort_for(CHAT),
+            max_iterations=settings.chat_max_iterations,
+            context_id=current_context_id,
+            ends_turn=asked_question,
+            clean_text=strip_thread_label,
+            stopped=stopped,
+            spoken=spoken or in_car,
+            user_id=user_id,
+        )
 
         # Single message ID across all iterations so the frontend sees one message bubble
         msg_id = answer_message_id(user_msg_id)
         text_started = False
+        step_text = ""
+        step_shown = False
+        planned: list[dict] = []
 
-        for iteration in range(max_iterations):
-            logger.info(f"Stream iteration {iteration + 1}, {len(tools)} tools, {len(messages)} messages")
-            round_calls: list[dict] = []
-
-            t0 = time.monotonic()
-            try:
-                # Use streaming API
-                stream = (await client_for(user_id, self.client)).messages.stream(
-                    model=model_for(CHAT),
-                    max_tokens=settings.llm_max_tokens,
-                    system=system_prompt,
-                    messages=messages,
-                    tools=cached_tools if cached_tools else anthropic.NOT_GIVEN,
-                    tool_choice={"type": "none"} if stop_tools else anthropic.NOT_GIVEN,
-                    **effort_kwargs(CHAT),
-                )
-
-                tool_use_blocks = []
-                response_content = []
-                stop_reason = None
-                step_text = ""
-                step_shown = False
-
-                async with stream as s:
-                    async for event in s:
-                        if event.type == "content_block_start":
-                            if hasattr(event.content_block, "name"):
-                                # Tool use block starting
-                                tool_name = event.content_block.name
-                                tool_id = event.content_block.id
-                                yield {
-                                    "type": "TOOL_CALL_START",
-                                    "toolCallId": tool_id,
-                                    "toolName": tool_name,
-                                }
-                                if event.content_block.type == SERVER_TOOL_USE:
-                                    # What was said so far was the model announcing its search:
-                                    # the answer is the text written after the last one (MAG-384).
-                                    step_text = ""
-                                    step_shown = False
-                            elif event.content_block.type == WEB_SEARCH_RESULT:
-                                # The search ran on Anthropic's side: its result block is the only
-                                # sign it ended, and the Mind panel gets it like any tool's.
-                                yield {
-                                    "type": "TOOL_CALL_END",
-                                    "toolCallId": event.content_block.tool_use_id,
-                                    "toolName": WEB_SEARCH_TOOL,
-                                }
-                                yield {
-                                    "type": "CUSTOM",
-                                    "name": "tool_result",
-                                    "value": {
-                                        "toolCallId": event.content_block.tool_use_id,
-                                        "toolName": WEB_SEARCH_TOOL,
-                                        "status": "error" if search_failed(event.content_block) else "success",
-                                    },
-                                }
-
-                        elif event.type == "content_block_delta":
-                            if hasattr(event.delta, "text"):
-                                delta = event.delta.text
-                                step_text += delta
-                                # Held back until its head is known not to be a thread label:
-                                # once shown, a delta cannot be taken out of the bubble (MAG-341).
-                                if not step_shown and label_settled(step_text):
-                                    # A new TEXT_MESSAGE_START on the same id empties the bubble on
-                                    # both clients: whatever an earlier step showed gives way to this
-                                    # one, so the intermediate text is only ever a passing state.
-                                    yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
-                                    text_started = True
-                                    step_shown = True
-                                    delta = strip_thread_label(step_text).lstrip()
-                                if step_shown:
-                                    yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": delta}
-
-                        elif event.type == "content_block_stop":
-                            pass  # Handled after stream ends
-
-                    # Get the final message
-                    response = await s.get_final_message()
-                    stop_reason = response.stop_reason
-                    response_content = response.content
-
-                    duration = time.monotonic() - t0
-                    await note_provider_success()
-                    record_llm_usage(
-                        model=model_for(CHAT),
-                        call_type="chat_stream",
-                        duration_seconds=duration,
-                        **usage_kwargs(response.usage),
-                    )
-
-                step_text = strip_thread_label(step_text)
-                if step_text.strip():
-                    answer = step_text.strip()
-                    if not step_shown:
-                        # A step too short to settle its head (a label and a word) is shown whole now.
-                        yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
-                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
-                        text_started = True
-
-                if stop_reason == PAUSE_TURN:
-                    # A long search stopped on the server's own limit: the response goes back
-                    # as it is and the model carries on (MAG-384).
-                    messages.append({"role": "assistant", "content": response_content})
-                    continue
-
-                # Process tool calls if stop_reason is tool_use
-                if stop_reason == "tool_use" and not stop_tools:
-                    messages.append({"role": "assistant", "content": response_content})
-                    uses = [
-                        {"id": b.id, "name": b.name, "input": b.input} for b in response_content if b.type == "tool_use"
-                    ]
-                    await self._checkpoint(user_msg_id, blocks, uses, round_calls)
-
-                    tool_results = []
-                    for block in response_content:
-                        if block.type == "tool_use":
-                            tool_name = block.name
-                            tool_input = block.input
-
-                            # Regular tool call
-                            logger.info(f"Tool call: {tool_name}({tool_input})")
-                            TOOL_CALLS.labels(tool_name=tool_name, source="chat_stream").inc()
-
-                            call = asyncio.ensure_future(
-                                self.tool_router.call_tool(
-                                    tool_name,
-                                    tool_input,
-                                    user_id=user_id,
-                                    source="chat_stream",
-                                    context_id=current_context_id,
-                                )
-                            )
+        try:
+            loop = run_loop(
+                system_prompt,
+                messages,
+                tools,
+                client=None,
+                resolve_client=lambda: client_for(user_id, self.client),
+                tool_router=self.tool_router,
+                options=options,
+                state=state,
+                resumed=resumed,
+            )
+            async with aclosing(loop) as events:
+                async for event in events:
+                    if isinstance(event, StepStarted):
+                        step_text = ""
+                        step_shown = False
+                    elif isinstance(event, ToolUseStarted):
+                        yield {"type": "TOOL_CALL_START", "toolCallId": event.id, "toolName": event.name}
+                        if event.server:
+                            step_text = ""
+                            step_shown = False
+                    elif isinstance(event, WebSearchEnded):
+                        # The search ran on Anthropic's side: its result block is the only sign it ended,
+                        # and the Mind panel gets it like any tool's.
+                        yield {"type": "TOOL_CALL_END", "toolCallId": event.tool_use_id, "toolName": WEB_SEARCH_TOOL}
+                        yield {
+                            "type": "CUSTOM",
+                            "name": "tool_result",
+                            "value": {
+                                "toolCallId": event.tool_use_id,
+                                "toolName": WEB_SEARCH_TOOL,
+                                "status": "error" if event.failed else "success",
+                            },
+                        }
+                    elif isinstance(event, TextDelta):
+                        delta = event.text
+                        step_text += delta
+                        # Held back until its head is known not to be a thread label:
+                        # once shown, a delta cannot be taken out of the bubble (MAG-341).
+                        if not step_shown and label_settled(step_text):
+                            # A new TEXT_MESSAGE_START on the same id empties the bubble on both clients:
+                            # whatever an earlier step showed gives way to this one, so the intermediate
+                            # text is only ever a passing state.
+                            yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                            text_started = True
+                            step_shown = True
+                            delta = strip_thread_label(step_text).lstrip()
+                        if step_shown:
+                            yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": delta}
+                    elif isinstance(event, StepEnded):
+                        if event.text and not step_shown:
+                            # A step too short to settle its head (a label and a word) is shown whole now.
+                            yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                            yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": event.text}
+                            text_started = True
+                    elif isinstance(event, ToolCallsPlanned):
+                        planned = event.uses
+                        await self._checkpoint(user_msg_id, state.blocks, planned, state.round_calls)
+                    elif isinstance(event, ToolCallEnded):
+                        await self._checkpoint(user_msg_id, state.blocks, planned, state.round_calls)
+                        if current_context_id:
                             try:
-                                result = await asyncio.shield(call)
-                            except asyncio.CancelledError:
-                                # A tool that may already be acting is let finish: what it did is
-                                # what the next turn is told, and what is not known is not undone.
-                                if stopped is not None and stopped():
-                                    result = await call
-                                    round_calls.append(
-                                        {"id": block.id, "name": tool_name, "input": tool_input, "result": result}
-                                    )
-                                else:
-                                    call.cancel()
-                                raise
-                            round_calls.append(
-                                {"id": block.id, "name": tool_name, "input": tool_input, "result": result}
-                            )
-                            await self._checkpoint(user_msg_id, blocks, uses, round_calls)
-                            tool_use_blocks.append(
-                                {
-                                    "name": tool_name,
-                                    "input": tool_input,
-                                    "result": result,
-                                }
-                            )
-                            guard.record(tool_name, result, tool_input)
-                            streak.record(tool_name, result)
-
-                            # Log to context if we have one
-                            if current_context_id:
-                                try:
-                                    status = tool_result_status(result)
-                                    await context_repo.append_tool_call(
-                                        current_context_id,
-                                        {
-                                            "name": tool_name,
-                                            "status": status,
-                                            "timestamp": datetime.now(UTC).isoformat(),
-                                        },
-                                    )
-                                except Exception as e:
-                                    logger.warning(f"Failed to log tool call to context: {e}")
-
-                            yield {
-                                "type": "TOOL_CALL_END",
-                                "toolCallId": block.id,
-                                "toolName": tool_name,
-                            }
-
-                            # Emit tool result for Mind Panel
-                            status = tool_result_status(result)
-
-                            yield {
-                                "type": "CUSTOM",
-                                "name": "tool_result",
-                                "value": {
-                                    "toolCallId": block.id,
-                                    "toolName": tool_name,
-                                    "status": status,
-                                },
-                            }
-
-                            tool_results.append(
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": block.id,
-                                    "content": result,
-                                }
-                            )
-
-                    if streak.gave_up():
-                        tool_results.append(streak.note(user_id, "chat_stream"))
-                        stop_tools = True
-                    messages.append({"role": "user", "content": tool_results})
-                    # The same round as plain data, which is what a column can hold:
-                    # `response_content` is the SDK's own block objects.
-                    blocks.extend(record(round_calls))
-                    ui_blocks.extend(blocks_of(tool_use_blocks))
-                    if question := asked_question(tool_use_blocks):
+                                await context_repo.append_tool_call(
+                                    current_context_id,
+                                    {
+                                        "name": event.name,
+                                        "status": event.status,
+                                        "timestamp": datetime.now(UTC).isoformat(),
+                                    },
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to log tool call to context: {e}")
+                        yield {"type": "TOOL_CALL_END", "toolCallId": event.id, "toolName": event.name}
+                        # Tool result for the Mind panel
+                        yield {
+                            "type": "CUSTOM",
+                            "name": "tool_result",
+                            "value": {"toolCallId": event.id, "toolName": event.name, "status": event.status},
+                        }
+                    elif isinstance(event, RoundEnded):
+                        ui_blocks.extend(blocks_of(event.calls))
+                    elif isinstance(event, QuestionAsked):
                         # The turn ends on the question; what was streamed before gives way to it (MAG-717).
-                        answer = question["text"]
                         yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
                         text_started = True
-                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
-                        break
-                    # Continue loop for more iterations
-                    continue
-
-                verdict = guard.review(answer, can_retry=iteration < max_iterations - 2)
-                if verdict is Verdict.RETRY:
-                    logger.warning("Action announced, nothing backs it: sending the model back")
-                    guard.send_back(messages, response_content)
-                    continue
-                # The pages the answer cites, as one last line: text is what the clients
-                # show, store and send back to the model at the next turn (MAG-384).
-                sources = missing_sources(answer, response_content)
-                if sources and step_text.strip() and not (spoken or in_car):
-                    answer = f"{answer}\n\n{sources}"
-                    yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{sources}"}
-                break
-
-            except asyncio.CancelledError:
-                if stopped is not None and stopped():
-                    blocks.extend(record(round_calls))
-                    await self._keep_what_was_done(user_id, msg_id, answer, current_context_id, blocks)
-                raise
-            except Exception as e:
-                duration = time.monotonic() - t0
-                record_llm_usage(
-                    model=model_for(CHAT),
-                    call_type="chat_stream",
-                    input_tokens=0,
-                    output_tokens=0,
-                    duration_seconds=duration,
-                    status="error",
-                )
-                logger.error(f"Streaming error: {e}")
-                await note_provider_failure(e)
-                # The phone's chat goes this way: the owner hears of an empty credit from here too (MAG-448).
-                if (reason := provider_reason(e)) is not None:
-                    await alert_owner(user_id, reason)
-                # Restarted, not appended: the bubble must hold what is stored, and
-                # an earlier step's text is not part of that.
-                yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
-                text_started = True
-                answer = API_ERROR_MESSAGE
-                yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": answer}
-                break
-        else:
-            # The budget ran out on a tool call, so the answer is an earlier step's text that
-            # nobody reviewed: an action it announces is signalled here, with no relaunch left.
-            guard.review(answer, can_retry=False)
+                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": event.text}
+                    elif isinstance(event, SourcesAdded):
+                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": f"\n\n{event.line}"}
+                    elif isinstance(event, ModelFailed):
+                        # The phone's chat goes this way: the owner hears of an empty credit from here too (MAG-448).
+                        if (reason := provider_reason(event.error)) is not None:
+                            await alert_owner(user_id, reason)
+                        # Restarted, not appended: the bubble must hold what is stored, and
+                        # an earlier step's text is not part of that.
+                        yield {"type": "TEXT_MESSAGE_START", "messageId": msg_id, "role": "assistant"}
+                        text_started = True
+                        yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": API_ERROR_MESSAGE}
+                    elif isinstance(event, TurnEnded):
+                        answer = API_ERROR_MESSAGE if event.outcome.failed else event.outcome.response
+        except asyncio.CancelledError:
+            if stopped is not None and stopped():
+                state.blocks.extend(record(state.round_calls))
+                await self._keep_what_was_done(user_id, msg_id, state.answer, current_context_id, state.blocks)
+            raise
+        blocks = state.blocks
 
         # End the single text message of the run
         if text_started:
@@ -519,16 +360,6 @@ class StreamingGateway:
         # memory write may delay that. Still in the turn's task, which drains this generator.
         if answer:
             await self._announce_answer(msg, user_id, msg_id)
-
-    @staticmethod
-    def _back_the_guard(guard: ClaimGuard, resumed: list[dict]) -> None:
-        """The calls a resumed turn had made count for the claim guard like any other of the turn."""
-        asked = {use["id"]: use for turn in resumed[::2] for use in turn["content"]}
-        for turn in resumed[1::2]:
-            for result in turn["content"]:
-                if result["content"] != INTERRUPTED_RESULT:
-                    use = asked[result["tool_use_id"]]
-                    guard.record(use["name"], result["content"], use["input"])
 
     @staticmethod
     async def _checkpoint(user_msg_id: str, blocks: list[dict], uses: list[dict], done: list[dict]) -> None:

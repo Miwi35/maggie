@@ -147,7 +147,7 @@ class TestTheToolLoop:
     async def _run(self, responses, tools=None):
         client = MagicMock()
         client.messages.create = AsyncMock(side_effect=responses)
-        with patch("app.llm.runner.record_llm_usage"):
+        with patch("app.runtime.loop.record_llm_usage"):
             result = await run_tool_loop(
                 "system",
                 [{"role": "user", "content": "Toussaint ?"}],
@@ -253,7 +253,7 @@ class TestTheFake:
 
     async def test_the_shipped_scenario_drives_the_real_loop_to_an_answer_with_its_source(self):
         client = FakeAnthropicClient()
-        with patch("app.llm.runner.record_llm_usage"):
+        with patch("app.runtime.loop.record_llm_usage"):
             result = await run_tool_loop(
                 "system",
                 [{"role": "user", "content": "Quelles sont les dates des vacances de la Toussaint 2026 à Rennes ?"}],
@@ -269,7 +269,7 @@ class TestTheFake:
 
     async def test_a_search_that_finds_nothing_says_so_without_a_source(self):
         client = FakeAnthropicClient()
-        with patch("app.llm.runner.record_llm_usage"):
+        with patch("app.runtime.loop.record_llm_usage"):
             result = await run_tool_loop(
                 "system",
                 [{"role": "user", "content": "horaires de la fanfare introuvable ?"}],

@@ -18,7 +18,7 @@ Python FastAPI service. Separate from Symfony — consumes the API via MCP like 
 
 ## LLM Gateway
 - Anthropic Claude via `anthropic` SDK
-- Agentic tool loop in `app/llm/runner.py` (`run_tool_loop`): max 5 iterations per request by default, `tools=None` gives a plain answer. Shared by chat, proactions, sub-agents and the announcement of an approved action. `streaming.py` keeps its own loop because it emits SSE events
+- One tool loop, `app/runtime/loop.py` (`run_loop`): the only place that calls the model for a turn. It emits the turn's events (`StepStarted`, `ToolCallEnded`, `TurnEnded`…); `run_tool_loop` (`app/llm/runner.py`: chat, proactions, sub-agents, the announcement of an approved action) aggregates them into a dict, `streaming.py` translates them into AG-UI. Chat budget: `settings.chat_max_iterations` (5); `tools=None` gives a plain answer.
 - Both loops stop a tool at its 3rd failure in a row (`app/llm/tool_failures.py`): the model gets a note and one last call with `tool_choice: none`, so the answer is its own. A call with invalid arguments returns `invalid_input` (the faulty fields and the tool's schema: MCP `-32602`, missing required fields for native tools). A streamed turn keeps its calls on the user's message (`turn_blocks`); a turn taken up again closes a call that never answered with `INTERRUPTED_RESULT` and does not run it again
 - MCP tool schemas converted to Anthropic format
 - Every tool call goes through `ToolRouter.call_tool(name, arguments, user_id, source)` — the single place where the policy applies (see Policy and approvals). `source` is one of `chat`, `chat_stream`, `proaction`, `subagent:<name>`, `a2a`, `approval`
