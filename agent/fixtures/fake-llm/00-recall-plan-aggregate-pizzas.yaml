@@ -1,0 +1,10 @@
+# The recall plan of a written chat turn (MAG-973): a count question is planned as an aggregate.
+name: recall-plan-aggregate-pizzas
+description: « Combien de fois ce mois-ci … pizzas » is planned as an aggregate over the month.
+
+match:
+  system_contains: "tu prépares le rappel de la mémoire"
+  user_matches: 'Demande : « Combien de fois ce mois-ci .*pizzas?'
+
+turns:
+  - text: '{"plan": "agreger", "termes": ["pizza"], "debut": "${month}-01", "fin": "${today}"}'

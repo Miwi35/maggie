@@ -1,0 +1,9 @@
+# The recall plan of a written chat turn (MAG-973): every other written message gets no plan.
+name: recall-plan-none
+description: Any other written message is planned as aucun, so a chat scenario is never given to the plan.
+
+match:
+  system_contains: "tu prépares le rappel de la mémoire"
+
+turns:
+  - text: '{"plan": "aucun"}'

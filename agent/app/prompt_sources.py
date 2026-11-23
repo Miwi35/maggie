@@ -37,9 +37,11 @@ class MaggiePromptSources:
         return await resolve_user_timezone(user_id)
 
     async def memory(
-        self, user_id: str, about: str, *, source: str, context_id: str | None, today: date
+        self, user_id: str, about: str, *, source: str, context_id: str | None, today: date, planned: bool = False
     ) -> MemoryBlocks:
-        return await self.agent_memory.blocks(user_id, about, source=source, context_id=context_id, today=today)
+        return await self.agent_memory.blocks(
+            user_id, about, source=source, context_id=context_id, today=today, planned=planned
+        )
 
     async def directives(self, user_id: str) -> str:
         return await behavior_directives_section(user_id)

@@ -41,7 +41,7 @@ class PromptSources(Protocol):
     async def timezone(self, user_id: str): ...
 
     async def memory(
-        self, user_id: str, about: str, *, source: str, context_id: str | None, today: date
+        self, user_id: str, about: str, *, source: str, context_id: str | None, today: date, planned: bool = False
     ) -> MemoryParts: ...
 
     async def directives(self, user_id: str) -> str: ...
@@ -150,6 +150,8 @@ class SystemPrompt:
         `spoken`: the reply will be read aloud (live voice, voice message, car), so it is asked for as a
         spoken text (ADR-014), in the volatile part, never in the cached prefix.
         `in_car`: the owner is driving (MAG-684): short answers for the ear, same place.
+        The recall is planned by the fast model only for a written turn of the owner (his message stored,
+        neither spoken nor driving).
         `parts` is what does not depend on the thread, when the caller loaded it already;
         `open_threads` the threads it already read (the section is built from them).
         """
@@ -157,8 +159,16 @@ class SystemPrompt:
         if parts is None:
             parts = await self.thread_free(user_id, tools, moment=moment, exclude_message_id=exclude_message_id, tz=tz)
         tz = parts.tz
+        planned = source == "chat" and exclude_message_id is not None and not (spoken or in_car)
         memory, context_section = await asyncio.gather(
-            sources.memory(user_id, about, source=source, context_id=current_context_id, today=datetime.now(tz).date()),
+            sources.memory(
+                user_id,
+                about,
+                source=source,
+                context_id=current_context_id,
+                today=datetime.now(tz).date(),
+                planned=planned,
+            ),
             sources.contexts(user_id, current_context_id, open_threads),
         )
         day_context_block = f"\n{parts.day_context}" if parts.day_context else ""

@@ -2,11 +2,13 @@
 
 import asyncio
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.config import settings
+from app.container import container
 from app.db.memory_index_repository import CardView, memory_index_repo
 from app.memory import recall as recall_module
 from app.memory.agent_memory import AgentMemory, render_profile, render_recalled
@@ -241,6 +243,50 @@ class TestDays:
 
     def test_an_impossible_date_is_ignored(self):
         assert resolve_days("le 31 février", TODAY) == set()
+
+
+def scripted_client():
+    response = SimpleNamespace(
+        content=[SimpleNamespace(text='{"plan": "aucun"}')], usage=SimpleNamespace(input_tokens=1, output_tokens=1)
+    )
+    client = AsyncMock()
+    client.messages.create = AsyncMock(return_value=response)
+    return client
+
+
+class TestPlannedRecall:
+    @pytest.fixture(autouse=True)
+    def passthrough_client(self):
+        with patch("app.memory.recall_plan.client_for", new=AsyncMock(side_effect=lambda _u, c: c)):
+            yield
+
+    async def test_a_written_turn_plans_its_recall_once(self, env, memory):
+        client = scripted_client()
+
+        with container.override(llm_client=client):
+            await memory.blocks(USER_A, "Un bouquet pour la fête des mères", planned=True, today=TODAY)
+
+        client.messages.create.assert_awaited_once()
+
+    async def test_a_spoken_turn_never_calls_a_model_for_the_recall(self, env, memory):
+        client = scripted_client()
+
+        with container.override(llm_client=client):
+            await memory.blocks(USER_A, "Un bouquet pour la fête des mères", planned=False, today=TODAY)
+
+        client.messages.create.assert_not_awaited()
+
+    async def test_the_lexical_recall_still_comes_back_beside_the_plan(self, env, memory):
+        await env.service.write(
+            USER_A,
+            "Famille/Françoise n'aime pas les roses.md",
+            carte(resume="Françoise n'aime pas les roses", evoque=["fête des mères"]),
+        )
+
+        with container.override(llm_client=scripted_client()):
+            blocks = await memory.blocks(USER_A, "Un bouquet pour la fête des mères", planned=True, today=TODAY)
+
+        assert "Françoise n'aime pas les roses" in blocks.recalled
 
 
 class TestProfile:
