@@ -225,18 +225,18 @@ test('the Demain step proposes the prepared task and schedules it for tomorrow o
     .toBe('demain')
   const status = (await (await api.get('/api/activity-status/bilan')).json()) as { state: { tomorrowTasks: { taskId: string }[] } }
   expect(status.state.tomorrowTasks.map((task) => task.taskId)).toEqual([taskId])
-  const untouched = (await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { scheduledDate: string | null }
-  expect(untouched.scheduledDate).toBeNull()
+  const untouched = (await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { scheduledDate?: string | null }
+  expect(untouched.scheduledDate ?? null).toBeNull()
 
   const kept = parseAgUiStream(await say('Oui, je garde'))
   expect(calledTools(kept)).toEqual(['update_task'])
 
   await expect
-    .poll(async () => ((await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { scheduledDate: string | null }).scheduledDate?.slice(0, 10), {
+    .poll(async () => ((await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { scheduledDate?: string | null }).scheduledDate?.slice(0, 10), {
       intervals: [1_000],
       timeout: 15_000,
     })
     .toBe(tomorrow)
-  const task = (await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { dueDate: string | null }
-  expect(task.dueDate).toBeNull()
+  const task = (await (await api.get(`/api/tasks/${taskId}`, { headers: { Accept: 'application/json' } })).json()) as { dueDate?: string | null }
+  expect(task.dueDate ?? null).toBeNull()
 })
