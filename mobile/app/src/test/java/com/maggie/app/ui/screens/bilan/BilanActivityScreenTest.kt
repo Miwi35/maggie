@@ -5,6 +5,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onNodeWithTag
@@ -154,4 +155,40 @@ class BilanActivityScreenTest {
     }
 
     private val tasksSlot: @Composable ColumnScope.(BilanLayout) -> Unit = { Text("Tâches restantes") }
+
+    private val rows = listOf(PlannedRow("a", "", "Trier les papiers", null, null, "reportée hier"))
+
+    @Test
+    fun `the Demain step shows Tâches prévues with its count`() {
+        compose.setContent { TasksCard(rows, canSwap = true, onSwap = {}) }
+
+        compose.onNodeWithTag(UiTags.BILAN_TOMORROW_TASKS).assertIsDisplayed()
+        compose.onNodeWithText("Tâches prévues").assertIsDisplayed()
+        compose.onNodeWithText("1 tâche").assertIsDisplayed()
+        compose.onNodeWithText("Trier les papiers").assertIsDisplayed()
+        compose.onNodeWithText("reportée hier").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the swap button says what it swaps`() {
+        val swapped = mutableListOf<String>()
+        compose.setContent { TasksCard(rows, canSwap = true, onSwap = { swapped += it.taskId }) }
+
+        compose.onNodeWithContentDescription("Échanger « Trier les papiers » contre une autre tâche").tap()
+        assertEquals(listOf("a"), swapped)
+    }
+
+    @Test
+    fun `no spare, no swap button`() {
+        compose.setContent { TasksCard(rows, canSwap = false, onSwap = {}) }
+
+        compose.onNodeWithTag(UiTags.BILAN_TOMORROW_SWAP_PREFIX + "a").assertDoesNotExist()
+    }
+
+    @Test
+    fun `no task, no card`() {
+        compose.setContent { TasksCard(emptyList(), canSwap = true, onSwap = {}) }
+
+        compose.onNodeWithTag(UiTags.BILAN_TOMORROW_TASKS).assertDoesNotExist()
+    }
 }

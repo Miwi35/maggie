@@ -349,7 +349,7 @@ private fun urgencyColorOf(chip: UrgencyChip): Color = when (chip) {
 }
 
 @Composable
-private fun WhenPill(chip: WhenChip, modifier: Modifier = Modifier) {
+internal fun WhenPill(chip: WhenChip, modifier: Modifier = Modifier) {
     val icon = when (chip.kind) {
         WhenKind.AT -> Icons.Default.Schedule
         WhenKind.MOMENT -> Icons.Default.WbSunny
@@ -363,7 +363,7 @@ private fun WhenPill(chip: WhenChip, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun UrgencyPill(chip: UrgencyChip, modifier: Modifier = Modifier) {
+internal fun UrgencyPill(chip: UrgencyChip, modifier: Modifier = Modifier) {
     val color = urgencyColorOf(chip)
     val icon = when (chip) {
         UrgencyChip.CRITICAL -> Icons.Default.KeyboardDoubleArrowUp

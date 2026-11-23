@@ -604,7 +604,7 @@ class MaggieApp : Application() {
             viewModel { BilanActivityViewModel(get(), get(), get(), get(), get()) }
             viewModel { BilanJourneeViewModel(get(), get()) }
             viewModel { BilanSanteViewModel(get(), get(), get()) }
-            viewModel { BilanTomorrowViewModel(get(), get(), get(), get(), get()) }
+            viewModel { BilanTomorrowViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { BilanResumeViewModel(get(), get(), get(), get(), get()) }
             viewModel { DigestTileViewModel(get(), get(), get()) }
             viewModel { GroceryRunViewModel(get(), get(), get(), get(), get()) }
