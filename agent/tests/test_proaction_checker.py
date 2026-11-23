@@ -87,6 +87,7 @@ async def test_an_uncovered_write_in_a_proaction_is_held_and_never_runs(pending_
     ],
 )
 async def test_a_reminder_notifying_the_owner_is_never_held(pending_db, tool, arguments):
+    """Reproduction of MAG-988: a reminder's own notification was held for « Autoriser »."""
     calls = Calls()
 
     answers = await run_proaction(calls, [], arguments, tool=tool, kind="reminder")

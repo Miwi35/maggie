@@ -5,7 +5,7 @@ import { callMcpTool } from '../helpers/mcp.js'
 import { openSubscribed } from '../helpers/mercure.js'
 
 /**
- * A proaction writes only what an instruction says (MAG-943, extends MAG-103).
+ * A proaction writes only what an instruction says (MAG-943, MAG-988, extends MAG-103).
  *
  * The proaction « Ajoute du lait à la liste de courses (checker e2e) » makes Maggie call
  * `add_grocery_item` (`07e-proaction-checker-milk-due.yaml`). The checker reads the action against the
@@ -72,6 +72,7 @@ test('a proaction write an instruction covers word for word runs without a valid
   expect(await (await api.get('/agent/approvals?status=pending')).json()).toEqual([])
 })
 
+// Reproduction of MAG-988: talking to the owner is never held for approval (owner, 23 Nov.).
 test('a due reminder notifies the owner without asking to authorise it', async ({ interruptedUser }) => {
   test.setTimeout(240_000)
   const { page, api, session } = interruptedUser
