@@ -240,7 +240,7 @@ class ProactionRepository extends ServiceEntityRepository
      *
      * @return Ulid[]
      */
-    public function lockDueSeriesIds(\DateTimeImmutable $now, ?User $user, int $limit): array
+    public function lockDueSeriesIds(\DateTimeImmutable $now, ?User $user): array
     {
         $connection = $this->getEntityManager()->getConnection();
 
@@ -250,11 +250,10 @@ class ProactionRepository extends ServiceEntityRepository
             .' WHERE e.rrule IS NOT NULL AND e.start_at <= :now AND e.status <> \'cancelled\''
             .(null !== $user ? ' AND a.user_id = :user' : '')
             .' ORDER BY e.start_at ASC, p.id ASC'
-            .' LIMIT :limit'
             .' FOR UPDATE OF p SKIP LOCKED';
 
-        $params = ['now' => $now, 'limit' => $limit];
-        $types = ['now' => Types::DATETIMETZ_IMMUTABLE, 'limit' => ParameterType::INTEGER];
+        $params = ['now' => $now];
+        $types = ['now' => Types::DATETIMETZ_IMMUTABLE];
         if (null !== $user) {
             $params['user'] = $user->getId();
             $types['user'] = 'ulid';

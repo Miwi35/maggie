@@ -283,7 +283,7 @@ class Proactions
             // A series is never claimed itself: the lock on it is what makes one pass
             // of it one instance, however many executors ask at once.
             if (null === $id) {
-                foreach ($this->repository->lockDueSeriesIds($now, $user, $limit) as $seriesId) {
+                foreach ($this->repository->lockDueSeriesIds($now, $user) as $seriesId) {
                     if (count($claimed) >= $limit) {
                         break;
                     }
