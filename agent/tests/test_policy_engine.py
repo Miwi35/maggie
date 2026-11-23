@@ -181,6 +181,23 @@ class TestTheShippedPolicy:
         # the whole agent into a confirmation prompt would be the worse failure.
         assert policy_engine.evaluate(tool, {}, "chat") is Mode.ALLOW
 
+    @pytest.mark.parametrize("tool", ["memory_write_fiche", "memory_log_miss"])
+    @pytest.mark.parametrize("source", ["chat", "chat_stream"])
+    def test_only_a_turn_the_owner_started_writes_the_memory(self, tool, source):
+        assert policy_engine.evaluate(tool, {}, source) is Mode.ALLOW
+
+    @pytest.mark.parametrize("tool", ["memory_write_fiche", "memory_log_miss"])
+    @pytest.mark.parametrize(
+        "source", ["proaction", "subagent:researcher", "subagent:advisor", "subagent:un_nouveau", "a2a"]
+    )
+    def test_no_other_turn_writes_the_memory(self, tool, source):
+        assert policy_engine.evaluate(tool, {}, source) is Mode.DENY
+
+    @pytest.mark.parametrize("tool", ["memory_search", "memory_open"])
+    @pytest.mark.parametrize("source", ["proaction", "subagent:researcher"])
+    def test_every_turn_still_reads_the_memory(self, tool, source):
+        assert policy_engine.evaluate(tool, {}, source) is Mode.ALLOW
+
     def test_advisor_may_preview_but_not_create_a_project(self):
         source = "subagent:advisor"
         assert policy_engine.evaluate("manage_projects", {"action": "preview"}, source) is Mode.ALLOW
