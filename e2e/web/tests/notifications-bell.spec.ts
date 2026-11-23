@@ -35,6 +35,10 @@ test('the open bell follows what Maggie and the other clients do to notification
   const latest = await getCollection<{ readAt: string | null }>(api, '/api/notifications?itemsPerPage=20&order[createdAt]=desc')
   const before = latest.filter((n) => !n.readAt).length
   await bell.expectUnreadCount(before, LIVE)
+  // The unread reminder pops when the admin loads (MAG-956): put it off to reach the bell.
+  const loaded = page.getByRole('alertdialog').filter({ hasText: listedTitle })
+  await loaded.getByRole('button', { name: 'Plus tard' }).click()
+  await expect(loaded).toBeHidden()
   await bell.open()
   await expect(bell.item(listedTitle)).toBeVisible()
 
@@ -137,6 +141,10 @@ test.describe('a task reminder', () => {
     // Given the nudge on « Appeler le garagiste », with its first step…
     await openSubscribed(page, () => bell.goto('/'))
     await bell.expectUnreadCount(1, LIVE)
+    // The unread nudge pops when the admin loads (MAG-956): put it off to reach the bell.
+    const popped = page.getByRole('alertdialog').filter({ hasText: title })
+    await popped.getByRole('button', { name: 'Plus tard' }).click()
+    await expect(popped).toBeHidden()
     await bell.open()
     await expect(bell.item(title)).toBeVisible()
     await expect(bell.item(title)).toContainText('Premier pas : Trouver le numéro')

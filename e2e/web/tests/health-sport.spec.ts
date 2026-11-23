@@ -187,7 +187,7 @@ test.describe('Maggie proposes to make up the missed session — MAG-772', () =>
   test('the interruption stacks three choices, « Demain » plans the session tomorrow and closes it', async ({ makeupUser }) => {
     const { page, api, session } = makeupUser
     const dashboard = new HomePage(page)
-    await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+    await openSubscribed(page, () => dashboard.goto('/'), `/proactions/${session.user.id}`)
     await new ChatPanel(page).ensureClosed()
 
     // Given the notification Maggie sent, delivered on the hub.

@@ -221,7 +221,7 @@ test('an interruption left unread while the admin was closed pops when it opens'
     .poll(async () => (await getCollection<{ title: string }>(api, '/api/notifications?exists[readAt]=false')).some((n) => n.title === title))
     .toBe(true)
 
-  await new HomePage(page).open()
+  await new HomePage(page).goto('/')
 
   await expect(page.getByRole('alertdialog')).toContainText(title)
 })

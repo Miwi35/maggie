@@ -1,10 +1,12 @@
 # One read and one unread notification, for the MAG-103 journey: the badge
-# count has to be 1, and "mark as read" has something to mark.
+# count has to be 1, and "mark as read" has something to mark. The unread one is a
+# message, which the admin counts without popping it at load (MAG-956) over every
+# journey of the shared account.
 
 Maggie\Notification\Entity\Notification:
   e2e_notification_unread:
     user: '@e2e_user'
-    type: '<(Maggie\Notification\Enum\NotificationType::Reminder)>'
+    type: '<(Maggie\Notification\Enum\NotificationType::Message)>'
     title: 'Rendez-vous dentiste dans 30 minutes'
     body: 'Rendez-vous dentiste commence bientôt.'
     readAt: null
