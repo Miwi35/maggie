@@ -81,7 +81,9 @@ test('a due reminder notifies the owner without asking to authorise it', async (
 
   await runDueProaction(api, REMINDER_PROMPT)
 
-  await expect(page.getByRole('alertdialog')).toContainText("C'est l'heure de fermer les volets, monsieur.", { timeout: 20_000 })
+  // The reminder's own notification surfaces first (« Fermer les volets », « Compris »), then its run's message:
+  // either way it says the reminder and never asks to authorise it.
+  await expect(page.getByRole('alertdialog')).toContainText("C'est l'heure de fermer les volets", { timeout: 20_000 })
   await expect(page.getByRole('button', { name: 'Autoriser' })).toHaveCount(0)
   expect(await (await api.get('/agent/approvals?status=pending')).json()).toEqual([])
   expect(JSON.stringify(await callMcpTool(api, 'manage_notifications', { action: 'list' }))).toContain('Fermer les volets')
