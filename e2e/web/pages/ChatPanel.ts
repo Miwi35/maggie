@@ -161,6 +161,11 @@ export class ChatPanel {
   }
 
   /** Back to the conversation. */
+  /** The « Digest du matin · Ouvrir » card of a message. */
+  momentCard(messageId: string): Locator {
+    return this.panel.locator(`#msg-${messageId}`).getByTestId('moment-card')
+  }
+
   async openChat(): Promise<void> {
     await this.chatTab.click()
     await expect(this.input).toBeVisible()

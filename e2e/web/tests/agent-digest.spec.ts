@@ -108,12 +108,20 @@ test('the digest instruction said once brings one message, read and heard, and a
   expect(block.text.indexOf('degrés')).toBeLessThan(block.text.indexOf('Kiné à 14 h 30'))
 
   // The chat shows the announcement and the voice bubble in the same message (MAG-925).
-  await new HomePage(page).open()
+  const home = new HomePage(page)
+  await home.open()
+  // The unopened digest heads the Accueil.
+  await expect(home.digestTile).toBeVisible()
   const chat = new ChatPanel(page)
   await chat.open()
   const bubbleMessage = chat.panel.locator('#msg-' + message.id)
   await expect(bubbleMessage).toContainText('Votre digest du matin est disponible.')
   await expect(bubbleMessage.getByTestId('voice-bubble').getByTestId('voice-duration')).toBeVisible()
+
+  // The chat gives its card, whose « Ouvrir » leads to the digest.
+  await expect(chat.momentCard(message.id)).toContainText('Digest du matin')
+  await chat.momentCard(message.id).getByRole('link', { name: 'Ouvrir le digest du matin' }).click()
+  await expect(page).toHaveURL(new RegExp(`/digest\\?message=${message.id}$`))
 
   // The notification of the message opens the digest, not the thread.
   const notification = await waitForIndexed<{ type: string; relatedEntityIri: string | null }>(
@@ -136,6 +144,9 @@ test('the digest instruction said once brings one message, read and heard, and a
   await expect(digestPage.card('weather')).toBeVisible()
   await expect(digestPage.card('agenda')).toContainText('Kiné')
   await expect.poll(opened, { message: 'the digest screen never marked the block opened' }).not.toBeNull()
+  // Back on the Accueil, the opened digest has no tile any more.
+  await home.open()
+  await expect(home.digestTile).toHaveCount(0)
   const openedAt = await opened()
   const second = await api.post(`/agent/messages/${message.id}/digest/opened`)
   expect(second.status(), await second.text()).toBe(200)
