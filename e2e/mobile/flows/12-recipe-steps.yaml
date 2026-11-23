@@ -161,6 +161,12 @@ tags:
       - tapOn: "Annuler"
 - scrollUntilVisible:
     element: "Mixeur MAG-492"
+- extendedWaitUntil:
+    visible:
+      id: "recipe_save"
+      text: "Enregistrer"
+      enabled: true
+    timeout: 10000
 - tapOn:
     id: "recipe_save"
 - extendedWaitUntil:

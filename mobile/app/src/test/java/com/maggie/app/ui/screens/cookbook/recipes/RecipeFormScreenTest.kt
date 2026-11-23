@@ -18,7 +18,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.screentest.ScreenRule
+import androidx.compose.ui.graphics.Color
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.MaggieTokens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -169,5 +171,16 @@ class RecipeFormScreenTest {
 
         compose.onNodeWithText("Recette modifiée ailleurs").assertExists()
         compose.onNodeWithText("Notes").assertExists()
+    }
+
+    @Test
+    fun `in dark mode the save pill is F3F1F8 with 0F0E17 text`() {
+        assertEquals(Color(0xFFF3F1F8) to Color(0xFF0F0E17), savePillColors(MaggieTokens.surfaceDark))
+    }
+
+    @Test
+    fun `in light mode the save pill takes the light surface's text and background`() {
+        val light = MaggieTokens.surfaceLight
+        assertEquals(light.text to light.background, savePillColors(light))
     }
 }
