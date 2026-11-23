@@ -12,6 +12,7 @@ export class BilanActivityPage extends AdminShell {
   readonly nextButton: Locator
   readonly quitButton: Locator
   readonly stepsNav: Locator
+  readonly dayTotal: Locator
 
   constructor(page: Page) {
     super(page)
@@ -21,6 +22,7 @@ export class BilanActivityPage extends AdminShell {
     this.nextButton = this.root.getByRole('button', { name: /^(Suivant|Bonne nuit)$/ })
     this.quitButton = this.root.getByRole('button', { name: 'Quitter l’activité' })
     this.stepsNav = this.root.getByRole('navigation', { name: 'Étapes du bilan' })
+    this.dayTotal = this.root.getByTestId('bilan-day-total')
   }
 
   async open(): Promise<void> {
@@ -30,6 +32,20 @@ export class BilanActivityPage extends AdminShell {
 
   step(name: string): Locator {
     return this.stepsNav.getByRole('button', { name: new RegExp(name) })
+  }
+
+  /** The Finance step's line of a period: « 186 € / 320 € » and the time gone. */
+  rhythm(period: 'Semaine' | 'Mois'): Locator {
+    return this.root.getByTestId(`bilan-rhythm-${period.toLowerCase()}`)
+  }
+
+  /** A task line of the Demain step's « Tâches prévues » card. */
+  plannedTask(title: string): Locator {
+    return this.root.getByTestId('bilan-planned-task').filter({ hasText: title })
+  }
+
+  async swap(title: string): Promise<void> {
+    await this.root.getByRole('button', { name: `Échanger « ${title} » contre une autre tâche` }).click()
   }
 
   async next(): Promise<void> {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMercure } from '../../../hooks/useMercure'
 import { BILAN_STATUS_TOPICS, createBilanWriter, fetchBilanStatus } from './bilanStatusApi'
 import type { BilanWriter } from './bilanStatusApi'
+import { isPrepared } from './bilanState'
 import { answersOf, newSession, originOf, resumable, sessionOf, stateOf } from './bilanSession'
 import type { BilanAnswers, BilanSession, BilanStep } from './bilanSession'
 
@@ -15,8 +16,10 @@ export interface BilanActivity {
   moveTo: (step: BilanStep) => void
   /** Merges answers into `answers` (the other answers stay untouched) and writes the status. */
   record: (answers: BilanAnswers | ((session: BilanSession) => BilanAnswers)) => void
-  /** « Bonne nuit »: the status is erased and the activity closes. */
-  end: () => void
+  /** Rewrites the status' state: `change` returns the keys to replace (`tomorrowTasks`, `answers`…), the others stay untouched. */
+  amend: (change: (session: BilanSession) => Record<string, unknown>) => void
+  /** « Bonne nuit »: `plan` runs first and a refusal (false) keeps the bilan open; then the status is erased and the activity closes. */
+  end: (plan?: () => Promise<boolean>) => Promise<boolean>
 }
 
 /**
@@ -55,7 +58,9 @@ export const useBilanActivity = (today: string, writer?: BilanWriter): BilanActi
       const status = await fetchBilanStatus(controller.signal)
       const resumed = resumable(status, today)
       if (controller.signal.aborted) return
+      // A bilan Maggie prepared has no step: it opens at Journée and keeps what she chose.
       if (resumed) apply(resumed)
+      else if (isPrepared(status, today)) save({ day: today, step: 'journee', state: status.state })
       else save(newSession(today))
       setLoad('ready')
     }
@@ -110,14 +115,29 @@ export const useBilanActivity = (today: string, writer?: BilanWriter): BilanActi
     [save],
   )
 
-  const end = useCallback(() => {
-    writes.current++
-    own.clear()
-    apply(null)
-    setLoad('closed')
-  }, [apply, own])
+  const amend = useCallback(
+    (change: (session: BilanSession) => Record<string, unknown>) => {
+      const current = sessionRef.current
+      if (!current) return
+      save({ ...current, state: { ...current.state, ...change(current) } })
+    },
+    [save],
+  )
+
+  const end = useCallback(
+    async (plan?: () => Promise<boolean>): Promise<boolean> => {
+      if (plan && !(await plan())) return false
+      writes.current++
+      own.clear()
+      apply(null)
+      setLoad('closed')
+
+      return true
+    },
+    [apply, own],
+  )
 
   const retry = useCallback(() => setAttempt((count) => count + 1), [])
 
-  return { load, session, retry, moveTo, record, end }
+  return { load, session, retry, moveTo, record, amend, end }
 }

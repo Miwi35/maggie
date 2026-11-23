@@ -21,6 +21,8 @@ export interface Trip {
   departAt: string
   navigationUrl: string
   originLabel: string
+  /** Who set the origin: `user` when the owner chose it. */
+  originDecidedBy?: string
   /** A return's arrival: `departAt` + the duration. */
   arriveAt?: string | null
   /** When the API last computed the route. */

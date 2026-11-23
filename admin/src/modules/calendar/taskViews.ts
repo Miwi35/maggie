@@ -141,11 +141,26 @@ export async function setTaskDueDate(id: string, day: string | null): Promise<vo
   }
 }
 
+/** Plans a task: its day, and the moment and hour within it — `null` takes each off. One merge-patch, the due day untouched. */
+export async function setTaskSchedule(
+  id: string,
+  schedule: { scheduledDate: string | null; scheduledMoment?: null; scheduledTime?: null },
+): Promise<void> {
+  const response = await fetch(`${apiUrl}/tasks/${id.split('/').pop()}`, {
+    method: 'PATCH',
+    headers: headers({ 'Content-Type': 'application/merge-patch+json' }),
+    body: JSON.stringify(schedule),
+  })
+  if (!response.ok) {
+    throw new Error(`Tâche : ${response.status}`)
+  }
+}
+
 /** The whole task, as the edit form wants it — the day only carries what it draws. */
 export async function fetchTask(id: string): Promise<ViewTask> {
   const response = await fetch(`${apiUrl}/tasks/${id.split('/').pop()}`, { headers: headers() })
   if (!response.ok) {
-    throw new Error(`Tâche : ${response.status}`)
+    throw new ApiStatusError(`Tâche : ${response.status}`, response.status)
   }
 
   return (await response.json()) as ViewTask
