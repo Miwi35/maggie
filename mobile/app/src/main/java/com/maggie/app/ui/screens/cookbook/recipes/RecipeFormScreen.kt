@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -51,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,6 +68,7 @@ import com.maggie.app.ui.components.LabeledTextField
 import com.maggie.app.ui.components.filledFieldColors
 import com.maggie.app.ui.components.markdown.MarkdownEditor
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.maggieSurface
 import java.util.Locale
 
 /** What the full-screen utensil search is choosing for: the recipe's equipment, or one step's. */
@@ -133,9 +136,17 @@ internal fun RecipeFormScreen(
                         onClick = onSave,
                         enabled = form.name.isNotBlank() && !isSaving,
                         shape = CircleShape,
+                        colors = savePillColors(maggieSurface()).let { (bg, fg) ->
+                            ButtonDefaults.buttonColors(
+                                containerColor = bg,
+                                contentColor = fg,
+                                disabledContainerColor = bg.copy(alpha = 0.38f),
+                                disabledContentColor = fg.copy(alpha = 0.38f),
+                            )
+                        },
                         modifier = Modifier.padding(end = 8.dp).testTag(UiTags.RECIPE_SAVE),
                     ) {
-                        Text(saveLabel)
+                        Text(saveLabel, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }
                 },
             )
@@ -474,3 +485,6 @@ internal fun UtensilSearchScreen(
         }
     }
 }
+
+/** The save pill's (background, text): the surface's ink on the surface, as « Recette-Edit-Tel » draws it. */
+internal fun savePillColors(surface: MaggieTokens.Surface): Pair<Color, Color> = surface.text to surface.background
