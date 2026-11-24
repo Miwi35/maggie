@@ -97,6 +97,25 @@ class TestOutbox:
         await memory_outbox_repo.done(USER_A, "A.md")
         assert await memory_outbox_repo.count() == 0
 
+    async def test_a_write_survives_the_push_removing_the_entry_under_it(self, memory_db, monkeypatch):
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "un", "etag-1")
+        real_row = memory_outbox_repo._row
+        raced = []
+
+        async def row_then_pushed(session, user_id, path):
+            row = await real_row(session, user_id, path)
+            if not raced:
+                raced.append(True)
+                await memory_outbox_repo.done(user_id, path)
+            return row
+
+        monkeypatch.setattr(memory_outbox_repo, "_row", row_then_pushed)
+
+        await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "deux", "etag-1")
+
+        [entry] = await memory_outbox_repo.pending(USER_A)
+        assert entry.body == "deux"
+
     async def test_a_skipped_done_moves_the_base_to_the_etag_the_push_obtained(self, memory_db):
         await memory_outbox_repo.enqueue(USER_A, "A.md", "put", "un", "etag-1")
         first = await memory_outbox_repo.get(USER_A, "A.md")
