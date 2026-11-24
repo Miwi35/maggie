@@ -1,5 +1,7 @@
 """The journal of what Maggie did on her own (MAG-688): every daily planning and every proaction run.
 
+Every streamed chat turn is kept in it too (MAG-995), with the time each call took and the deployed release.
+
 What a run did is read from the tool loop's own record (`tool_calls`): the instructions the planning
 read are what `list_instructions` returned, the proactions it scheduled what `schedule_proaction`
 answered. Nothing is asked of the model to keep it.
@@ -11,8 +13,10 @@ from typing import Any
 
 from sqlalchemy import delete, select
 
+from app.config import settings
 from app.db.agent_engine import agent_session
-from app.db.journal_model import COMPLETED, FAILED, PLANNING, PROACTION, JournalRun
+from app.db.journal_model import CHAT, COMPLETED, FAILED, PLANNING, PROACTION, JournalRun
+from app.redaction import redact, redact_event
 
 RESULT_MAX_CHARS = 2000  # a tool result is kept this long: enough to read the error or the first items
 INSTRUCTIONS_TOOL = "list_instructions"
@@ -37,19 +41,23 @@ def tool_error(result: Any) -> str | None:
 
 
 def journal_tool_calls(tool_calls: list[dict]) -> list[dict]:
-    """The calls as the journal keeps them: arguments, the result cut short, and the error it carried."""
+    """The calls as the journal keeps them: arguments, the result cut short, the error it carried, how long it took.
+
+    A secret written in an argument or answered by a tool is kept masked (MAG-871).
+    """
     kept = []
     for call in tool_calls:
         result = call.get("result")
-        text = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str)
-        kept.append(
-            {
-                "name": call.get("name"),
-                "input": call.get("input") or {},
-                "result": text[:RESULT_MAX_CHARS] + ("…" if len(text) > RESULT_MAX_CHARS else ""),
-                "error": tool_error(result),
-            }
-        )
+        text = redact(result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str))
+        entry = {
+            "name": call.get("name"),
+            "input": redact_event(call.get("input") or {}),
+            "result": text[:RESULT_MAX_CHARS] + ("…" if len(text) > RESULT_MAX_CHARS else ""),
+            "error": tool_error(result),
+        }
+        if "durationMs" in call:
+            entry["durationMs"] = call["durationMs"]
+        kept.append(entry)
     return kept
 
 
@@ -97,6 +105,15 @@ def _error(result: dict | None, error: str | None) -> str | None:
     return str(answered) if answered else None
 
 
+def _calls(result: dict | None) -> list[dict]:
+    """The calls of the run: the router's trace, timed (MAG-995), or the loop's record when there is none."""
+    return (result or {}).get("trace") or (result or {}).get("tool_calls") or []
+
+
+def _release() -> str | None:
+    return settings.sentry_release or None
+
+
 def _tokens(result: dict | None) -> tuple[int, int]:
     usage = (result or {}).get("usage") or {}
     return int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0))
@@ -120,7 +137,7 @@ class JournalRepository:
         error: str | None = None,
     ) -> JournalRun:
         """Keep one planning run: what it read and scheduled from `result`, or the error it raised."""
-        tool_calls = (result or {}).get("tool_calls", [])
+        tool_calls = _calls(result)
         input_tokens, output_tokens = _tokens(result)
         error = _error(result, error)
         return await self._store(
@@ -139,6 +156,7 @@ class JournalRepository:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 model=(result or {}).get("model"),
+                release=_release(),
             )
         )
 
@@ -155,7 +173,7 @@ class JournalRepository:
         error: str | None = None,
     ) -> JournalRun:
         """Keep one proaction run: its calls, duration and tokens, then its message or its error."""
-        tool_calls = (result or {}).get("tool_calls", [])
+        tool_calls = _calls(result)
         input_tokens, output_tokens = _tokens(result)
         error = _error(result, error)
         return await self._store(
@@ -175,17 +193,54 @@ class JournalRepository:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 model=(result or {}).get("model"),
+                release=_release(),
             )
         )
 
-    async def find_by_user(self, user_id: str, since: datetime) -> list[JournalRun]:
-        """The user's runs started since `since`, newest first."""
-        async with agent_session() as session:
-            result = await session.execute(
-                select(JournalRun)
-                .where(JournalRun.user_id == user_id, JournalRun.started_at >= since)
-                .order_by(JournalRun.started_at.desc())
+    async def record_chat(
+        self,
+        user_id: str,
+        message_id: str,
+        day: str,
+        started_at: datetime,
+        duration_ms: int,
+        *,
+        calls: list[dict],
+        response: str | None,
+        usage: dict | None,
+        model: str | None,
+        error: str | None = None,
+    ) -> JournalRun:
+        """Keep one streamed chat turn (MAG-995): the owner's message that opened it, its calls, its answer."""
+        usage = usage or {}
+        return await self._store(
+            JournalRun(
+                user_id=user_id,
+                kind=CHAT,
+                status=FAILED if error is not None else COMPLETED,
+                day=day,
+                started_at=started_at,
+                duration_ms=duration_ms,
+                message_id=message_id,
+                tool_calls=journal_tool_calls(calls),
+                response=redact(response) if response else response,
+                error=redact(error) if error else error,
+                input_tokens=int(usage.get("input_tokens", 0)),
+                output_tokens=int(usage.get("output_tokens", 0)),
+                model=model,
+                release=_release(),
             )
+        )
+
+    async def find_by_user(
+        self, user_id: str, since: datetime, kinds: tuple[str, ...] | None = None
+    ) -> list[JournalRun]:
+        """The user's runs started since `since`, newest first; only those of `kinds` when given."""
+        query = select(JournalRun).where(JournalRun.user_id == user_id, JournalRun.started_at >= since)
+        if kinds is not None:
+            query = query.where(JournalRun.kind.in_(kinds))
+        async with agent_session() as session:
+            result = await session.execute(query.order_by(JournalRun.started_at.desc()))
             return list(result.scalars().all())
 
     async def purge(self, before: datetime) -> int:

@@ -57,6 +57,9 @@ class ContextRepository:
             )
             # MAG-731 — the model a journaled run spoke to.
             await conn.execute(text("ALTER TABLE agent_journal_run ADD COLUMN IF NOT EXISTS model VARCHAR(64)"))
+            # MAG-995 — a chat turn's message, and the release every run ran on.
+            await conn.execute(text("ALTER TABLE agent_journal_run ADD COLUMN IF NOT EXISTS message_id VARCHAR(32)"))
+            await conn.execute(text("ALTER TABLE agent_journal_run ADD COLUMN IF NOT EXISTS release VARCHAR(64)"))
             # MAG-7 — the readable sentence of a held action. Null on the older ones.
             await conn.execute(text("ALTER TABLE agent_pending_action ADD COLUMN IF NOT EXISTS summary TEXT"))
             # MAG-344 — the idempotency key of a message, and the turn answering it.

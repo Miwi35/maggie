@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import logging
+import time
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import aclosing
@@ -12,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.db.context_repository import context_repo
+from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID, Message
 from app.error_tracking import capture_error
@@ -30,6 +32,7 @@ from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
 from app.policy.origin import OriginToolRouter, owner_message_origin
 from app.runtime.loop import (
     LoopOptions,
+    LoopOutcome,
     ModelFailed,
     ModelRetrying,
     QuestionAsked,
@@ -47,6 +50,7 @@ from app.runtime.loop import (
     run_loop,
 )
 from app.runtime.system_prompt import SystemPrompt
+from app.runtime.trace import TracingToolRouter
 from app.skills.index import MOMENT_CHAT
 from app.user_timezone import resolve_user_timezone
 
@@ -73,11 +77,18 @@ class StreamingGateway:
         # loop keeps only a weak reference to a running task: one nobody holds can be
         # collected mid-await, and the summary would go missing on a busy process.
         self._background: set[asyncio.Task] = set()
+        self._traces: set[asyncio.Task] = set()
 
     def _in_background(self, work: Coroutine) -> None:
         task = asyncio.create_task(work)
         self._background.add(task)
         task.add_done_callback(self._background.discard)
+
+    def _trace_in_background(self, work: Coroutine) -> None:
+        """The turn's journal write (MAG-995), held apart from `_background`: nothing waits for it either."""
+        task = asyncio.create_task(work)
+        self._traces.add(task)
+        task.add_done_callback(self._traces.discard)
 
     async def _route_turn(self, message: str, user_id: str, user_msg_id: str) -> tuple[dict | None, list | None]:
         """The thread of this turn, and the open threads as they are once it is routed (read once)."""
@@ -123,6 +134,8 @@ class StreamingGateway:
         - CUSTOM (context updates, tool results)
         """
         run_id = uuid.uuid4().hex[:16]
+        started_at = datetime.now(UTC)
+        clock = time.monotonic()
         yield {"type": "RUN_STARTED", "runId": run_id}
 
         if self.client is None:
@@ -214,6 +227,10 @@ class StreamingGateway:
         step_text = ""
         step_shown = False
         planned: list[dict] = []
+        # The trace of the turn (MAG-995): every call timed, kept in the journal once the turn is done.
+        tracer = TracingToolRouter(OriginToolRouter(self.tool_router, owner_message_origin(user_msg_id)))
+        outcome = None
+        failure: str | None = None
 
         try:
             loop = run_loop(
@@ -223,7 +240,7 @@ class StreamingGateway:
                 client=None,
                 resolve_client=lambda: client_for(user_id, self.client),
                 # The owner's message opening the turn is the origin of what it schedules (MAG-977).
-                tool_router=OriginToolRouter(self.tool_router, owner_message_origin(user_msg_id)),
+                tool_router=tracer,
                 options=options,
                 state=state,
                 resumed=resumed,
@@ -316,6 +333,7 @@ class StreamingGateway:
                             },
                         }
                     elif isinstance(event, ModelFailed):
+                        failure = str(event.error) or type(event.error).__name__
                         # The phone's chat goes this way: the owner hears of an empty credit from here too (MAG-448).
                         if (reason := provider_reason(event.error)) is not None:
                             await alert_owner(user_id, reason)
@@ -325,6 +343,7 @@ class StreamingGateway:
                         text_started = True
                         yield {"type": "TEXT_MESSAGE_CONTENT", "messageId": msg_id, "delta": API_ERROR_MESSAGE}
                     elif isinstance(event, TurnEnded):
+                        outcome = event.outcome
                         answer = API_ERROR_MESSAGE if event.outcome.failed else event.outcome.response
         except asyncio.CancelledError:
             if stopped is not None and stopped():
@@ -368,11 +387,56 @@ class StreamingGateway:
                 self._in_background(context_summarizer.maybe_summarize(current_context_id))
 
         yield {"type": "RUN_FINISHED", "runId": run_id}
+        self._trace_in_background(
+            self._trace(
+                user_id,
+                user_msg_id,
+                started_at.astimezone(tz).date().isoformat(),
+                started_at,
+                int((time.monotonic() - clock) * 1000),
+                calls=tracer.calls,
+                answer=answer,
+                outcome=outcome,
+                error=failure,
+            )
+        )
 
         # After RUN_FINISHED: the phone asks for the voice on it, and neither Mercure nor the
         # memory write may delay that. Still in the turn's task, which drains this generator.
         if answer:
             await self._announce_answer(msg, user_id, msg_id)
+
+    @staticmethod
+    async def _trace(
+        user_id: str,
+        user_msg_id: str,
+        day: str,
+        started_at: datetime,
+        duration_ms: int,
+        *,
+        calls: list[dict],
+        answer: str,
+        outcome: LoopOutcome | None,
+        error: str | None,
+    ) -> None:
+        """Keep the turn in the journal (MAG-995); a journal that cannot be written never reaches the turn."""
+        if error is None and outcome is not None and outcome.failed:
+            error = "the model failed"
+        try:
+            await journal_repo.record_chat(
+                user_id,
+                user_msg_id,
+                day,
+                started_at,
+                duration_ms,
+                calls=calls,
+                response=answer,
+                usage=outcome.usage if outcome is not None else None,
+                model=model_for(CHAT),
+                error=error,
+            )
+        except Exception as exc:
+            logger.warning(f"Could not keep the chat turn {user_msg_id} in the journal: {exc}")
 
     @staticmethod
     async def _checkpoint(user_msg_id: str, blocks: list[dict], uses: list[dict], done: list[dict]) -> None:
