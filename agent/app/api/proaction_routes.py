@@ -168,7 +168,9 @@ async def get_journal(
 ):
     """The caller's plannings and proaction runs of the last `days` days, newest first (MAG-688)."""
     since = datetime.now(UTC) - timedelta(days=days)
-    return _with_origin([run.to_dict() for run in await journal_repo.find_by_user(user_id, since)])
+    # The chat turns kept beside them (MAG-995) are the evening review's, not this screen's.
+    runs = await journal_repo.find_by_user(user_id, since, kinds=(PLANNING, PROACTION))
+    return _with_origin([run.to_dict() for run in runs])
 
 
 @router.post("/journal/planning")

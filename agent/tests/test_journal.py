@@ -9,6 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.container import container
 from app.api.routes import router
 from app.auth import get_current_user_id
@@ -257,3 +258,73 @@ class TestPurge:
 
         [kept] = await journal_repo.find_by_user("user-1", now - timedelta(days=366))
         assert kept.day == "2026-10-28"
+
+
+class TestTheTraceOfEachRun:
+    """Each call keeps how long it took, and each run the deployed release (MAG-995)."""
+
+    async def test_a_proaction_keeps_the_duration_of_each_call_and_the_release(self, journal_db, monkeypatch):
+        monkeypatch.setattr(settings, "sentry_release", "abc1234")
+        calls = [
+            {"name": "get_events", "input": {"date": "2026-10-29"}, "result": '{"events": []}'},
+            {"name": "get_weather", "input": {}, "result": '{"sky": "éclaircies"}'},
+        ]
+        await _execute(
+            {
+                "response": "Voici ton digest.",
+                "tool_calls": calls,
+                "trace": [call | {"durationMs": ms} for call, ms in zip(calls, (12, 0), strict=True)],
+            }
+        )
+
+        [run] = await _journal()
+        entry = run.to_dict()
+        assert [(call["name"], call["durationMs"]) for call in entry["toolCalls"]] == [("get_events", 12), ("get_weather", 0)]
+        assert entry["release"] == "abc1234"
+
+    async def test_the_proaction_gateway_hands_over_each_call_timed(self):
+        from tests.test_proaction_origin import Run
+
+        captured: dict = {}
+
+        async def loop(*_a, tool_router, **_k):
+            await tool_router.call_tool("get_events", {"date": "2026-10-29"}, user_id="user-1", source="proaction")
+            return {"response": "ok", "tool_calls": [{"name": "get_events", "input": {}, "result": "{}"}]}
+
+        run = Run()
+        gateway = run.gateway()
+        with (
+            patch("app.llm.gateway.run_tool_loop", new=loop),
+            patch("app.llm.contexts.context_repo") as contexts,
+            patch("app.prompt_sources.behavior_directives_section", AsyncMock(return_value="")),
+        ):
+            contexts.find_active = AsyncMock(return_value=[])
+            captured = await gateway.proaction("Fais le digest.", "user-1")
+
+        [call] = captured["trace"]
+        assert (call["name"], call["input"]) == ("get_events", {"date": "2026-10-29"})
+        assert call["durationMs"] >= 0
+        assert "durationMs" not in captured["tool_calls"][0]
+
+    async def test_the_journal_route_shows_no_chat_turn(self, journal_db):
+        await scheduler.generate_proactions(_gateway(PLANNING_RESULT), "user-1")
+        await journal_repo.record_chat(
+            "user-1", "01JMSG", "2026-10-29", datetime.now(UTC), 10, calls=[], response="Bonjour.", usage={}, model="m"
+        )
+
+        listed = _client().get("/journal").json()
+
+        assert [entry["kind"] for entry in listed] == ["planning"]
+
+    async def test_the_purge_also_removes_old_chat_turns(self, journal_db, monkeypatch):
+        monkeypatch.setattr(scheduler.settings, "proaction_journal_retention_days", 30)
+        now = datetime(2026, 10, 29, 12, 0, tzinfo=UTC)
+        for started, message_id in ((now - timedelta(days=31), "old"), (now - timedelta(days=1), "new")):
+            await journal_repo.record_chat(
+                "user-1", message_id, "2026-10-28", started, 10, calls=[], response="ok", usage={}, model="m"
+            )
+
+        assert await scheduler.purge_journal(now) == 1
+
+        [kept] = await journal_repo.find_by_user("user-1", now - timedelta(days=366))
+        assert kept.message_id == "new"

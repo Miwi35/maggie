@@ -21,6 +21,7 @@ from app.policy.origin import OriginToolRouter, owner_message_origin
 from app.proactions.triage import KIND_CHECK
 from app.proactions.verdict import VERDICT_TOOL_NAME, VerdictToolRouter
 from app.runtime.system_prompt import SystemPrompt
+from app.runtime.trace import TracingToolRouter
 from app.skills.index import MOMENT_CHAT, MOMENT_PLANNING, MOMENT_PROACTION
 from app.trips import is_silent_trip_run, trip_run_rules
 from app.user_timezone import resolve_user_timezone
@@ -192,6 +193,8 @@ class LLMGateway:
         content = prompt if silent else f"[Proaction due maintenant] {prompt}"
         messages = [{"role": "user", "content": content}]
         tool_router = DryRunToolRouter(tool_router) if dry_run else tool_router
+        # Each call timed, for the journal (MAG-995); `tool_calls` stays the loop's own record.
+        tracer = TracingToolRouter(tool_router)
 
         model = model_for(run)
         try:
@@ -200,7 +203,7 @@ class LLMGateway:
                 messages,
                 tools,
                 client=await client_for(user_id, self.client),
-                tool_router=tool_router,
+                tool_router=tracer,
                 user_id=user_id,
                 model=model,
                 effort=effort_for(run),
@@ -220,6 +223,7 @@ class LLMGateway:
             return {"response": "Unable to reach the AI service.", "tool_calls": [], "error": str(e)}
 
         result["model"] = model
+        result["trace"] = tracer.calls
         if dry_run:
             result["dry_run"] = True
             result["simulated_tools"] = tool_router.simulated

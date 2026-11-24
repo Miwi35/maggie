@@ -8,6 +8,7 @@ from app.db.base import AgentBase
 
 PLANNING = "planning"
 PROACTION = "proaction"
+CHAT = "chat"
 
 COMPLETED = "completed"
 FAILED = "failed"
@@ -19,6 +20,9 @@ class JournalRun(AgentBase):
     Before it, the planning's output went to the logs only and a failed proaction kept its error alone:
     nobody could tell why a digest did not come, or came wrong. Purged past
     `proaction_journal_retention_days`.
+
+    A streamed chat turn is kept here too (`chat`, MAG-995): the trace the evening review reads. The admin's
+    journal screen shows the plannings and proactions alone.
     """
 
     __tablename__ = "agent_journal_run"
@@ -26,7 +30,7 @@ class JournalRun(AgentBase):
 
     id = Column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
     user_id = Column(String(36), nullable=False)
-    kind = Column(String(16), nullable=False)  # planning, proaction
+    kind = Column(String(16), nullable=False)  # planning, proaction, chat
     status = Column(String(16), nullable=False)  # completed, failed
     # The day planned, on the user's wall clock; for a proaction, the day it ran.
     day = Column(String(10), nullable=False)
@@ -48,6 +52,10 @@ class JournalRun(AgentBase):
     output_tokens = Column(Integer, nullable=False, default=0)
     # The model the run spoke to (MAG-731); null on the runs kept before the column existed.
     model = Column(String(64), nullable=True)
+    # A chat turn's own (MAG-995): the owner's message that opened it.
+    message_id = Column(String(32), nullable=True)
+    # The deployed commit (`sentry_release`); null outside production and on the runs kept before it.
+    release = Column(String(64), nullable=True)
 
     def to_dict(self) -> dict:
         return {
@@ -68,4 +76,6 @@ class JournalRun(AgentBase):
             "inputTokens": int(self.input_tokens or 0),
             "outputTokens": int(self.output_tokens or 0),
             "model": self.model,
+            "messageId": self.message_id,
+            "release": self.release,
         }
