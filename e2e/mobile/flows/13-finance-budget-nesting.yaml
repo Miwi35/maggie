@@ -54,7 +54,23 @@ tags:
 - extendedWaitUntil:
     visible: "Loisirs"
     timeout: 30000
-- assertVisible: "40,00.€ / 300,00.€"
+# The phone and the foldable read « Enveloppes » and what is free; the tablet's pane keeps « x / y ».
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "budget_tree"
+    commands:
+      - assertVisible: "Enveloppes"
+      - assertVisible: "260.€ disponibles"
+      - assertNotVisible: "40,00.€ / 300,00.€"
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      - assertVisible: "40,00.€ / 300,00.€"
 - assertNotVisible: "Bars › Obsydian"
 # The phone only reads the tree (no « Nouvelle enveloppe », no bin): from 600 dp the same screen has both,
 # so nothing is asserted here on a format the flow cannot tell — `BudgetTreeScreenTest` owns the phone's side.
@@ -84,7 +100,8 @@ tags:
       - extendedWaitUntil:
           visible: "Bars › Obsydian"
           timeout: 10000
-      - assertVisible: "40,00.€ / 100,00.€"
+      - assertVisible: "60.€ disponibles"
+      - assertNotVisible: "40,00.€ / 100,00.€"
       # Bars has no envelope: it only appears inside Obsydian's path.
       - assertNotVisible: "Bars"
       # Touching Loisirs lists the month's lines of the subtree, Obsydian's spend included.
@@ -129,10 +146,26 @@ tags:
           timeout: 30000
 - tapOn: "Mois suivant"
 
-- extendedWaitUntil:
-    visible: "65,00.€ / 300,00.€"
-    timeout: 30000
-- assertVisible: "40,00.€ / 100,00.€"
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: "235.€ disponibles"
+          timeout: 30000
+      - assertVisible: "60.€ disponibles"
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: "65,00.€ / 300,00.€"
+          timeout: 30000
+      - assertVisible: "40,00.€ / 100,00.€"
 
 # A one-off « Hellfest 2026 » of 400 €, and an 89 € ticket filed in Loisirs: 154 / 300 €.
 - runScript:
@@ -191,9 +224,24 @@ tags:
 
 # Hellfest 89 / 400 € apart from the month, Loisirs no longer counting the ticket.
 - openLink: "maggie-e2e://finance/budgets"
-- extendedWaitUntil:
-    visible: "65,00.€ / 300,00.€"
-    timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      notVisible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: "235.€ disponibles"
+          timeout: 30000
+- evalScript: ${0}
+- runFlow:
+    when:
+      visible:
+        id: "budget_tree"
+    commands:
+      - extendedWaitUntil:
+          visible: "65,00.€ / 300,00.€"
+          timeout: 30000
 - tapOn:
     id: "subview_outside"
 - scrollUntilVisible:
