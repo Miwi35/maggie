@@ -9,7 +9,8 @@ import { parseFigure } from './healthProfileApi'
 /** The mockup's `.in`: a 40px field on the raised surface. */
 const inputSx = (theme: Theme) => ({
   height: 40,
-  borderRadius: 2.5,
+  // 1.25 × 8 = 10px, the mockup's `.in`.
+  borderRadius: 1.25,
   bgcolor: theme.palette.veilleuse.raised,
   px: 1.5,
   fontSize: 15,

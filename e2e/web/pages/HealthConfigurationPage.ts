@@ -31,6 +31,11 @@ export class HealthConfigurationPage extends AdminShell {
     return this.profile.getByRole('radio', { name: label, exact: true })
   }
 
+  /** The root of a field, the box the mockup rounds. */
+  field(label: string): Locator {
+    return this.content.getByLabel(label, { exact: true }).locator('..')
+  }
+
   get needKcal(): Locator {
     return this.need.getByTestId('need-kcal')
   }

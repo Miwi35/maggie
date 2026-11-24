@@ -23,7 +23,8 @@ const Card = ({ label, children, sx }: { label: string; children: ReactNode; sx?
   <Box
     component="section"
     aria-label={label}
-    sx={{ borderRadius: 4, bgcolor: 'background.paper', px: 2.75, py: 2.5, display: 'flex', flexDirection: 'column', gap: 1.75, minWidth: 0, ...sx }}
+    // 2.5 × 8 = 20px, the mockup's `.card`.
+    sx={{ borderRadius: 2.5, bgcolor: 'background.paper', px: 2.75, py: 2.5, display: 'flex', flexDirection: 'column', gap: 1.75, minWidth: 0, ...sx }}
   >
     {children}
   </Box>

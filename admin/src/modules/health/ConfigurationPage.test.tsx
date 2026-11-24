@@ -96,6 +96,26 @@ const profileCard = () => screen.getByRole('region', { name: 'Profil' })
 afterEach(() => vi.unstubAllGlobals())
 
 describe('ConfigurationPage', () => {
+  test('the three cards are rounded at 20 px, as the mockup', async () => {
+    stubApi(CRITERION)
+    renderPage()
+
+    for (const name of ['Profil', 'Besoin du jour', 'Activité']) {
+      expect(await screen.findByRole('region', { name })).toHaveStyle({ borderRadius: '20px' })
+    }
+  })
+
+  test('the fields are rounded at 10 px: figures, choices and the suggestion window', async () => {
+    stubApi(CRITERION)
+    renderPage()
+
+    const profile = await screen.findByRole('region', { name: 'Profil' })
+    expect(within(profile).getByLabelText('Taille').parentElement).toHaveStyle({ borderRadius: '10px' })
+    expect(within(profile).getByLabelText('Sexe').parentElement).toHaveStyle({ borderRadius: '10px' })
+    const activity = screen.getByRole('region', { name: 'Activité' })
+    expect(within(activity).getByRole('group', { name: 'Maggie propose entre' })).toHaveStyle({ borderRadius: '10px' })
+  })
+
   test('draws the mockup: the profile, the day’s need and the activity settings', async () => {
     stubApi(CRITERION)
     renderPage()
