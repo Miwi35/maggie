@@ -259,16 +259,19 @@ private fun TaskSettingsPage(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(vertical = 12.dp)
-                        .semantics(mergeDescendants = true) {}
-                        .testTag(UiTags.SETTINGS_TASKS_SAVED),
+                        .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val mint = if (isMaggieDark()) MaggieTokens.Rhythm.onTrack.second else MaggieTokens.Rhythm.onTrack.first
                     Icon(Icons.Default.Check, contentDescription = null, tint = mint, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Enregistré", style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = mint)
+                    Text(
+                        "Enregistré",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                        color = mint,
+                        modifier = Modifier.testTag(UiTags.SETTINGS_TASKS_SAVED),
+                    )
                 }
             }
         },
