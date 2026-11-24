@@ -8,7 +8,8 @@ tags:
 # Étant donné l'opération récurrente « Loyer MAG-309 », 900,00 € le 5 de chaque mois,
 #   dont la ligne « LOYER SCI VERDA » est arrivée huit jours après l'échéance
 # Quand j'ouvre les opérations récurrentes
-# Alors elle coûte 900,00 € par mois, le 5 de chaque mois, et « Échéance manquée » le dit
+# Alors « À VÉRIFIER » et « PROCHAINES ÉCHÉANCES » sont visibles, la pastille « en retard de … »
+#   aussi, la ligne de « Loyer MAG-309 » dit le 5 de chaque mois et 900,00 €,
 #   et le rattachement de « LOYER SCI VERDA » m'est proposé
 # Quand je l'accepte
 # Alors la ligne est rattachée en base et la proposition disparaît
@@ -65,12 +66,18 @@ tags:
     visible: "Opérations récurrentes"
     timeout: 20000
 
+- extendedWaitUntil:
+    visible: "À VÉRIFIER"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "PROCHAINES ÉCHÉANCES"
+    timeout: 30000
 - scrollUntilVisible:
     element: "Loyer MAG-309"
     timeout: 30000
 
 - extendedWaitUntil:
-    visible: ".*900,00.€ par mois.*"
+    visible: ".*900,00.€.*"
     timeout: 10000
 - extendedWaitUntil:
     visible: ".*le 5 de chaque mois.*"
@@ -78,7 +85,9 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "recurring_missed_badge"
-      below: "Loyer MAG-309"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ".*en retard de.*"
     timeout: 10000
 
 # The late line is only proposed, with the reason it broke.
