@@ -1,6 +1,22 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.maggie.app.ui.theme.maggieSurface
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +39,6 @@ import com.maggie.app.data.model.LinkCandidate
 import com.maggie.app.data.model.formatCents
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ConfirmDeleteDialog
-import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.uiTagRoot
 
 /**
@@ -46,19 +61,47 @@ fun AccountLinkSection(offer: AccountLinkOffer, modifier: Modifier = Modifier) {
     var choosing by remember { mutableStateOf(false) }
     val first = offer.candidates.firstOrNull()
     if (first != null) {
-        MaggieCard(
-            modifier = modifier.fillMaxWidth().testTag(UiTags.ACCOUNT_LINK_CARD).clickable {
-                if (offer.candidates.size == 1) offer.onPreview(first) else choosing = true
-            },
+        val tint = MaterialTheme.colorScheme.primary
+        val shape = RoundedCornerShape(20.dp)
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .testTag(UiTags.ACCOUNT_LINK_CARD)
+                .heightIn(min = 72.dp)
+                .background(tint.copy(alpha = 0.06f), shape)
+                .border(1.dp, tint.copy(alpha = 0.35f), shape)
+                .clickable(role = Role.Button, onClickLabel = "Rattacher au compte de la banque") {
+                    if (offer.candidates.size == 1) offer.onPreview(first) else choosing = true
+                }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Rattacher au compte de la banque", style = MaterialTheme.typography.titleSmall)
+            Box(
+                modifier = Modifier.size(36.dp).background(tint.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Link, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Rattacher au compte de la banque",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 Text(
                     "${first.bank?.takeIf { it.isNotBlank() } ?: "La banque"} a créé « ${first.name} » · ${formatCents(first.balanceCents, first.currency)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    color = maggieSurface().textMuted,
                 )
             }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = maggieSurface().textMuted,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 

@@ -49,6 +49,8 @@ tags:
     visible:
       id: "account_link_card"
     timeout: 30000
+- assertVisible: "Rattacher au compte de la banque"
+- assertVisible: ".*a créé « E2E compte bancaire à rattacher ».*"
 - tapOn:
     id: "account_link_card"
 
