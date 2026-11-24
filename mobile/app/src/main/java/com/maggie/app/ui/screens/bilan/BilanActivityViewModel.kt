@@ -7,12 +7,17 @@ import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
 import com.maggie.app.data.mercure.coalesced
 import com.maggie.app.data.repository.ActivityStatusRepository
+import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.util.DateRanges
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.Instant
 import java.time.LocalDate
 
@@ -23,6 +28,8 @@ data class BilanUiState(
     val session: BilanSession? = null,
     /** « Bonne nuit » was said, here or on another device: the activity is over. */
     val finished: Boolean = false,
+    /** What went wrong with « Bonne nuit », said at the Demain step; the bilan stays open. */
+    val failure: String? = null,
 ) {
     val step: BilanStep get() = session?.step ?: BilanStep.JOURNEE
 
@@ -41,10 +48,14 @@ class BilanActivityViewModel(
     private val mercureService: MercureService,
     private val authRepository: AuthRepository,
     private val doneStore: BilanDoneStore,
+    private val taskRepository: TaskRepository,
     private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BilanUiState())
     val uiState: StateFlow<BilanUiState> = _uiState
+
+    private var visibleTasks: List<String> = emptyList()
+    private var closing = false
 
     init {
         load()
@@ -65,7 +76,7 @@ class BilanActivityViewModel(
                 return@launch
             }
             val stored = status?.toBilanSession()?.takeIf { it.isOpenOn(today()) }
-            val session = stored ?: BilanSession(today(), BilanStep.JOURNEE).also(::write)
+            val session = stored ?: BilanSession(today(), BilanStep.JOURNEE, status?.preparedFor(today()) ?: JsonObject(emptyMap())).also(::write)
             _uiState.update { it.copy(load = BilanLoad.READY, session = session) }
         }
     }
@@ -116,12 +127,60 @@ class BilanActivityViewModel(
         write(recorded)
     }
 
+    /** The ids the Demain card shows: « Bonne nuit » plans these and no other. */
+    fun shown(ids: List<String>) {
+        visibleTasks = ids
+    }
+
+    /** ⇄ on [taskId]: the first spare takes its place. A task left « Demain » at Journée is put off, like « Plus tard » there. */
+    fun swap(taskId: String, title: String = "") {
+        val session = _uiState.value.session ?: return
+        var swapped = session.withSwap(taskId, title) ?: return
+        if (taskId in session.leftForTomorrow()) {
+            swapped = swapped.withTaskChoice(taskId, "later")
+            viewModelScope.launch { taskRepository.setDueDate(taskId, null) }
+        }
+        _uiState.update { it.copy(session = swapped) }
+        write(swapped)
+    }
+
     private fun goodNight() {
+        if (closing) return
+        closing = true
         viewModelScope.launch {
+            val session = _uiState.value.session
+            if (session != null && !planTomorrow(session)) {
+                closing = false
+                _uiState.update { it.copy(failure = TOMORROW_FAILURE) }
+                return@launch
+            }
             doneStore.markDone(today())
             statusRepository.delete(BILAN_ACTIVITY)
+            _uiState.update { it.copy(finished = true, failure = null) }
         }
-        _uiState.update { it.copy(finished = true) }
+    }
+
+    // Plans the tasks shown for tomorrow and frees the spares that were planned there; false at the first refusal.
+    private suspend fun planTomorrow(session: BilanSession): Boolean {
+        val tomorrow = today().plusDays(1)
+        visibleTasks.forEach { id ->
+            val planned = taskRepository.updateTask(id, buildJsonObject { put("scheduledDate", tomorrow.toString()) })
+            if (planned.isFailure) return false
+        }
+        session.tomorrowSpares().forEach { spare ->
+            val task = taskRepository.fetchTask(spare.taskId).getOrNull() ?: return@forEach
+            if (task.scheduledDay != tomorrow || task.isDone) return@forEach
+            val freed = taskRepository.updateTask(
+                spare.taskId,
+                buildJsonObject {
+                    put("scheduledDate", JsonNull)
+                    put("scheduledMoment", JsonNull)
+                    put("scheduledTime", JsonNull)
+                },
+            )
+            if (freed.isFailure) return false
+        }
+        return true
     }
 
     private fun write(session: BilanSession) {
@@ -150,5 +209,9 @@ class BilanActivityViewModel(
                 else -> current.copy(session = stored)
             }
         }
+    }
+
+    private companion object {
+        const val TOMORROW_FAILURE = "Impossible de prévoir vos tâches de demain : réessayez."
     }
 }

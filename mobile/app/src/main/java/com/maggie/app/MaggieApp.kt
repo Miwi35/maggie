@@ -601,10 +601,10 @@ class MaggieApp : Application() {
             viewModel { CookingViewModel(get(), get(), get(), get(), get(), get(), get()) }
             viewModel { CookingGroceryViewModel(get(), get(), get(), get()) }
             viewModel { CookingResumeViewModel(get(), get(), get(), get()) }
-            viewModel { BilanActivityViewModel(get(), get(), get(), get()) }
+            viewModel { BilanActivityViewModel(get(), get(), get(), get(), get()) }
             viewModel { BilanJourneeViewModel(get(), get()) }
             viewModel { BilanSanteViewModel(get(), get(), get()) }
-            viewModel { BilanTomorrowViewModel(get(), get(), get(), get(), get()) }
+            viewModel { BilanTomorrowViewModel(get(), get(), get(), get(), get(), get()) }
             viewModel { BilanResumeViewModel(get(), get(), get(), get(), get()) }
             viewModel { DigestTileViewModel(get(), get(), get()) }
             viewModel { GroceryRunViewModel(get(), get(), get(), get(), get()) }

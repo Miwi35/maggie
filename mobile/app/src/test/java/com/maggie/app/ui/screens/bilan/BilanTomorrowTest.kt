@@ -1,6 +1,7 @@
 package com.maggie.app.ui.screens.bilan
 
 import com.maggie.app.data.model.AgendaHomeEvent
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.Trip
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -84,5 +85,41 @@ class BilanTomorrowTest {
         val session = BilanSession(day, BilanStep.DEMAIN).withTripAnswer("e1:origin").withTripAnswer("e1:mode")
         assertEquals(setOf("e1:origin", "e1:mode"), session.answeredTrips())
         assertEquals(setOf("e1:origin", "e1:mode"), session.copy(step = BilanStep.JOURNEE).answeredTrips())
+    }
+
+    private val papers = PlannedTask("a", "Trier les papiers", reason = "reportée hier")
+
+    @Test
+    fun `with tasks Maggie says they can be swapped`() {
+        val plan = plan(listOf(event("e1", "Kiné", "09:30"), event("e2", "Réunion", "14:00")))
+        assertEquals("Kiné à 9 h 30, réunion à 14 h, et vos tâches, à échanger si besoin.", plan.say(null, hasTasks = true))
+        assertEquals("Kiné à 9 h 30, et vos tâches, à échanger si besoin.", plan(listOf(event("e1", "Kiné", "09:30"))).say(null, true))
+    }
+
+    @Test
+    fun `without tasks the line is unchanged`() {
+        val plan = plan(listOf(event("e1", "Kiné", "09:30"), event("e2", "Réunion", "14:00")))
+        assertEquals("Kiné à 9 h 30, puis réunion à 14 h.", plan.say(null))
+    }
+
+    @Test
+    fun `rows skip a task done since`() {
+        val tasks = mapOf("a" to Task(id = "a", title = "Trier les papiers"), "b" to Task(id = "b", title = "Payer", completedAt = "2026-11-08T10:00:00Z"))
+        val rows = plannedRows(listOf("a", "b", "gone"), listOf(papers), tasks, day)
+        assertEquals(listOf("a"), rows.map { it.taskId })
+    }
+
+    @Test
+    fun `Maggie's reason comes before the task's meta`() {
+        val task = Task(id = "a", title = "Trier les papiers", postponedSince = "2026-11-07")
+        assertEquals("reportée hier", plannedRows(listOf("a"), listOf(papers), mapOf("a" to task), day).single().meta)
+        assertEquals("Trier les papiers", plannedRows(listOf("a"), emptyList(), mapOf("a" to task), day).single().title)
+    }
+
+    @Test
+    fun `the hour shows for a task at a time`() {
+        val task = Task(id = "a", title = "Trier", scheduledDate = day.toString(), scheduledMoment = "time", scheduledTime = "10:30")
+        assertEquals("10:30", plannedRows(listOf("a"), emptyList(), mapOf("a" to task), day).single().time)
+        assertEquals("", plannedRows(listOf("a"), emptyList(), mapOf("a" to Task(id = "a", title = "T")), day).single().time)
     }
 }

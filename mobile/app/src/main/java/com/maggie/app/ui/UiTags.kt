@@ -1529,6 +1529,10 @@ object UiTags {
     const val BILAN_SANTE_FATIGUE_PREFIX = "bilan_sante_fatigue_"
     const val BILAN_SANTE_ERROR = "bilan_sante_error"
     const val BILAN_TOMORROW_CARD = "bilan_tomorrow_card"
+    const val BILAN_TOMORROW_FAILURE = "bilan_tomorrow_failure"
+    const val BILAN_TOMORROW_TASKS = "bilan_tomorrow_tasks"
+    const val BILAN_TOMORROW_TASK_PREFIX = "bilan_tomorrow_task_"
+    const val BILAN_TOMORROW_SWAP_PREFIX = "bilan_tomorrow_swap_"
     const val HOME_BILAN_RESUME = "home_bilan_resume"
 
     /** The digest's tile at the head of the Accueil, and its card in the chat (MAG-808). */

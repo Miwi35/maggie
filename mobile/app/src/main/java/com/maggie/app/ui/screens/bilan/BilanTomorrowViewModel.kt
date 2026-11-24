@@ -3,13 +3,18 @@ package com.maggie.app.ui.screens.bilan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maggie.app.data.model.HomeDay
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.AgendaCardRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.WorkoutRepository
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.rethrowCancellation
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -22,6 +27,8 @@ data class BilanTomorrowState(
     /** An answer is on its way to Maggie: the choices wait. */
     val sending: Boolean = false,
     val failed: Boolean = false,
+    /** The tasks of the « Tâches prévues » card, as the API holds them now; one that could not be read is missing. */
+    val tasks: Map<String, Task> = emptyMap(),
 )
 
 /**
@@ -35,6 +42,7 @@ class BilanTomorrowViewModel(
     private val mealRepository: MealRepository,
     private val workoutRepository: WorkoutRepository,
     private val chatRepository: ChatRepository,
+    private val taskRepository: TaskRepository,
     private val clock: () -> Instant = { Instant.now() },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BilanTomorrowState())
@@ -60,6 +68,16 @@ class BilanTomorrowViewModel(
         val meals = mealRepository.getMeals(tomorrow.toString(), tomorrow.toString()).getOrDefault(emptyList())
         val workouts = workoutRepository.getWorkouts().getOrDefault(emptyList())
         return TomorrowPlan.of(tomorrow, agenda.events, trips, meals, workouts)
+    }
+
+    /** Reads the tasks [ids] again, side by side; the ones that fail keep what was read before, or stay missing. */
+    fun tasksOf(ids: List<String>) {
+        viewModelScope.launch {
+            val read = coroutineScope {
+                ids.map { id -> async { taskRepository.fetchTask(id).getOrNull() } }.awaitAll()
+            }.filterNotNull().associateBy { it.id }
+            _uiState.update { it.copy(tasks = it.tasks.filterKeys { id -> id in ids } + read) }
+        }
     }
 
     /** Sends [choice] to Maggie; once she answered, reads tomorrow again and reports [question] as answered. */

@@ -3,9 +3,11 @@ package com.maggie.app.ui.screens.bilan
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.ChatMessage
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.AgendaCardRepository
 import com.maggie.app.data.repository.ChatRepository
 import com.maggie.app.data.repository.MealRepository
+import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.WorkoutRepository
 import io.mockk.coEvery
@@ -36,6 +38,7 @@ class BilanTomorrowViewModelTest {
     private val meals = mockk<MealRepository>()
     private val workouts = mockk<WorkoutRepository>()
     private val chat = mockk<ChatRepository>()
+    private val taskRepository = mockk<TaskRepository>()
     private val dentist = AgendaHomeEvent(
         id = "01HZX3Q8R5T6V7W8X9Y0Z1A2B3",
         summary = "Dentiste",
@@ -58,7 +61,7 @@ class BilanTomorrowViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = BilanTomorrowViewModel(agenda, trips, meals, workouts, chat) { Instant.parse("2026-11-08T20:40:00Z") }
+    private fun viewModel() = BilanTomorrowViewModel(agenda, trips, meals, workouts, chat, taskRepository) { Instant.parse("2026-11-08T20:40:00Z") }
 
     @Test
     fun `the plan of tomorrow loads with its first question`() = runTest(testDispatcher) {
@@ -112,5 +115,31 @@ class BilanTomorrowViewModelTest {
         advanceUntilIdle()
 
         coVerify(exactly = 0) { chat.sendMessage(any()) }
+    }
+
+    @Test
+    fun `reads the tasks of the bilan`() = runTest(testDispatcher) {
+        coEvery { taskRepository.fetchTask("a") } returns Result.success(Task(id = "a", title = "Trier les papiers"))
+        coEvery { taskRepository.fetchTask("b") } returns Result.success(Task(id = "b", title = "Ranger les photos"))
+        val vm = viewModel()
+
+        vm.tasksOf(listOf("a", "b"))
+        advanceUntilIdle()
+
+        assertEquals(setOf("a", "b"), vm.uiState.value.tasks.keys)
+    }
+
+    @Test
+    fun `a failed read keeps the other tasks and the plan`() = runTest(testDispatcher) {
+        coEvery { taskRepository.fetchTask("a") } returns Result.success(Task(id = "a", title = "Trier les papiers"))
+        coEvery { taskRepository.fetchTask("b") } returns Result.failure(RuntimeException("404"))
+        val vm = viewModel()
+
+        vm.tasksOf(listOf("a", "b"))
+        advanceUntilIdle()
+
+        assertEquals(setOf("a"), vm.uiState.value.tasks.keys)
+        assertNotNull(vm.uiState.value.plan)
+        assertFalse(vm.uiState.value.failed)
     }
 }

@@ -386,6 +386,7 @@ areas:
     - api/modules/core/src/Service/BilanStateValidator.php
     - api/modules/core/src/Mcp/Tool/SaveBilanStepTool.php
     - api/modules/core/src/Command/CloseOpenBilansCommand.php
+    - mobile/app/src/main/java/com/maggie/app/ui/screens/bilan/**
   weather:
     - api/modules/core/src/Weather/**
     - api/modules/core/src/Controller/WeatherController.php
@@ -923,6 +924,7 @@ mobile:
     paths: [e2e/mobile/scripts/recipe-api.js]
   e2e/mobile/flows/33-bilan-soir.yaml:
     areas: [dashboard, health, activity, bilan]
+    paths: [e2e/mobile/scripts/bilan-prepared-api.js]
   e2e/mobile/flows/15-task-subtasks.yaml:
     areas: [calendar, dashboard]
   e2e/mobile/flows/17-tasks-views.yaml:

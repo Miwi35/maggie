@@ -5,7 +5,9 @@ import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.model.ActivityOrigin
 import com.maggie.app.data.model.ActivityStatus
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.repository.ActivityStatusRepository
+import com.maggie.app.data.repository.TaskRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
@@ -13,6 +15,8 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
+import io.mockk.coVerify
+import io.mockk.MockKMatcherScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -48,6 +52,7 @@ class BilanActivityViewModelTest {
     private val auth = mockk<AuthRepository> { coEvery { getUserId() } returns "u-1" }
     private val repository = mockk<ActivityStatusRepository>()
     private val doneStore = FakeBilanDoneStore()
+    private val tasks = mockk<TaskRepository>()
     private var stored: ActivityStatus? = null
     private var failing = false
     private val puts = mutableListOf<Pair<ActivityOrigin, JsonObject>>()
@@ -84,7 +89,7 @@ class BilanActivityViewModelTest {
         updatedAt = "2026-11-08T18:00:00+00:00",
     )
 
-    private fun viewModel() = BilanActivityViewModel(repository, mercure, auth, doneStore) { now }
+    private fun viewModel() = BilanActivityViewModel(repository, mercure, auth, doneStore, tasks) { now }
 
     @Test
     fun `opening with nothing in progress starts at Journée and writes it`() = runTest(testDispatcher) {
@@ -256,5 +261,126 @@ class BilanActivityViewModelTest {
         assertEquals(setOf("e1:origin"), vm.uiState.value.session!!.answeredTrips())
         assertTrue(written["answers"]!!.jsonObject.containsKey("tasks"))
         assertEquals(2, puts.size)
+    }
+
+    private val prepared = """{"tomorrowTasks":[{"taskId":"a","title":"Trier les papiers"}],"tomorrowSpares":[{"taskId":"b","title":"Ranger les photos"}]}"""
+
+    private fun MockKMatcherScope.planned(vararg fields: Pair<String, String?>) =
+        match<JsonObject> { body -> body.keys == fields.map { it.first }.toSet() && fields.all { (k, v) -> body[k]?.toString()?.trim('"').let { it == (v ?: "null") } } }
+
+    private fun stubTasks() {
+        coEvery { tasks.updateTask(any(), any()) } returns Result.success(Task(id = "x", title = "x"))
+        coEvery { tasks.setDueDate(any(), any()) } returns Result.success(Task(id = "x", title = "x"))
+        coEvery { tasks.fetchTask(any()) } returns Result.success(Task(id = "x", title = "x"))
+    }
+
+    @Test
+    fun `opening a prepared bilan keeps its tomorrow tasks`() = runTest(testDispatcher) {
+        stored = status("2026-11-08", prepared)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertEquals(BilanStep.JOURNEE, vm.uiState.value.step)
+        assertEquals(listOf("a"), vm.uiState.value.session!!.tomorrowTasks().map { it.taskId })
+        assertEquals(listOf("b"), vm.uiState.value.session!!.tomorrowSpares().map { it.taskId })
+        assertEquals("journee", puts.single().second.getValue("step").jsonPrimitive.content)
+        assertTrue(puts.single().second.containsKey("tomorrowTasks"))
+    }
+
+    @Test
+    fun `a swap rewrites both lists`() = runTest(testDispatcher) {
+        stored = status("2026-11-08", """{"step":"demain",""" + prepared.drop(1))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.swap("a")
+
+        val session = vm.uiState.value.session!!
+        assertEquals(listOf("b"), session.tomorrowTasks().map { it.taskId })
+        assertEquals(listOf("a"), session.tomorrowSpares().map { it.taskId })
+        assertEquals(session.statusState(), puts.last().second)
+    }
+
+    @Test
+    fun `swapping a task left at Journée puts it off and adds the spare`() = runTest(testDispatcher) {
+        stubTasks()
+        stored = status("2026-11-08", """{"step":"demain","answers":{"tasks":[{"taskId":"j","choice":"tomorrow"}]},""" + prepared.drop(1))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.swap("j", "Appeler")
+        advanceUntilIdle()
+
+        val session = vm.uiState.value.session!!
+        assertEquals(mapOf("j" to "later"), session.taskChoices())
+        assertEquals(listOf("a", "b"), session.tomorrowTasks().map { it.taskId })
+        coVerify { tasks.setDueDate("j", null) }
+    }
+
+    @Test
+    fun `good night plans every shown task for tomorrow without its due date`() = runTest(testDispatcher) {
+        stubTasks()
+        stored = status("2026-11-08", """{"step":"demain",""" + prepared.drop(1))
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.shown(listOf("j", "a"))
+
+        vm.next()
+        advanceUntilIdle()
+
+        coVerify { tasks.updateTask("j", planned("scheduledDate" to "2026-11-09")) }
+        coVerify { tasks.updateTask("a", planned("scheduledDate" to "2026-11-09")) }
+        assertTrue(vm.uiState.value.finished)
+        assertEquals(1, deletes)
+    }
+
+    @Test
+    fun `good night takes a swapped-out task off tomorrow`() = runTest(testDispatcher) {
+        stubTasks()
+        coEvery { tasks.fetchTask("a") } returns Result.success(Task(id = "a", title = "Trier les papiers", scheduledDate = "2026-11-09", scheduledMoment = "morning"))
+        stored = status("2026-11-08", """{"step":"demain",""" + prepared.drop(1))
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.swap("a")
+        vm.shown(listOf("b"))
+
+        vm.next()
+        advanceUntilIdle()
+
+        coVerify { tasks.updateTask("a", planned("scheduledDate" to null, "scheduledMoment" to null, "scheduledTime" to null)) }
+        assertTrue(vm.uiState.value.finished)
+    }
+
+    @Test
+    fun `a refused plan keeps the bilan open and says so`() = runTest(testDispatcher) {
+        stubTasks()
+        coEvery { tasks.updateTask("a", any()) } returns Result.failure(RuntimeException("500"))
+        stored = status("2026-11-08", """{"step":"demain",""" + prepared.drop(1))
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.shown(listOf("a"))
+
+        vm.next()
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.finished)
+        assertEquals("Impossible de prévoir vos tâches de demain : réessayez.", vm.uiState.value.failure)
+        assertEquals(0, deletes)
+        assertEquals(BilanStep.DEMAIN, vm.uiState.value.step)
+    }
+
+    @Test
+    fun `a task done since is not planned`() = runTest(testDispatcher) {
+        stubTasks()
+        stored = status("2026-11-08", """{"step":"demain",""" + prepared.drop(1))
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.shown(emptyList())
+
+        vm.next()
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { tasks.updateTask("a", any()) }
+        assertTrue(vm.uiState.value.finished)
     }
 }

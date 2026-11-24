@@ -3,8 +3,13 @@ package com.maggie.app.ui.screens.bilan
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.MealSlot
+import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.Trip
 import com.maggie.app.data.model.Workout
+import com.maggie.app.ui.screens.tasks.TodayRows
+import com.maggie.app.ui.screens.tasks.UrgencyChip
+import com.maggie.app.ui.screens.tasks.WhenChip
+import com.maggie.app.ui.screens.tasks.WhenKind
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -13,6 +18,33 @@ import java.util.Locale
 
 /** One line of tomorrow's programme: [time] is empty for a whole-day event, [detail] the grey word on the right. */
 data class TomorrowRow(val time: String, val title: String, val detail: String = "")
+
+/** One line of the « Tâches prévues » card: [time] is empty unless the task is planned at an hour; [meta] is Maggie's reason, else the task's own. */
+data class PlannedRow(
+    val taskId: String,
+    val time: String,
+    val title: String,
+    val whenChip: WhenChip?,
+    val urgency: UrgencyChip?,
+    val meta: String?,
+)
+
+/** The card's rows, in the order of [ids]; a task not read (deleted, offline) or done since the choice is left out. */
+fun plannedRows(ids: List<String>, planned: List<PlannedTask>, tasks: Map<String, Task>, day: LocalDate): List<PlannedRow> =
+    ids.mapNotNull { id ->
+        val task = tasks[id]?.takeUnless { it.isDone } ?: return@mapNotNull null
+        val chosen = planned.firstOrNull { it.taskId == id }
+        PlannedRow(
+            taskId = id,
+            time = task.scheduledAt?.takeIf { task.scheduledDay == day }?.format(HOUR_FORMAT).orEmpty(),
+            title = chosen?.title ?: task.title,
+            whenChip = TodayRows.whenOf(task, day)?.takeIf { it.kind == WhenKind.MOMENT },
+            urgency = TodayRows.urgencyOf(task),
+            meta = chosen?.reason ?: TodayRows.metaOf(task, day),
+        )
+    }
+
+private val HOUR_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 /** What a trip question asks about: where the trip starts, how it is made, where the car is left. */
 enum class TripQuestionKind(val wire: String) { ORIGIN("origin"), MODE("mode"), PARKING("parking") }
@@ -53,12 +85,17 @@ data class TomorrowPlan(
         get() = events.filter { !it.allDay && it.status != "cancelled" && !it.location.isNullOrBlank() && it.start != null }
             .sortedBy { it.start }
 
-    /** Maggie's line: the first two appointments, in her voice, then the question when there is one. */
-    fun say(question: TripQuestion?): String {
+    /**
+     * Maggie's line: the first two appointments, in her voice, then — when tasks are planned — that they can be
+     * swapped, then the question when there is one.
+     */
+    fun say(question: TripQuestion?, hasTasks: Boolean = false): String {
         val timed = events.filter { !it.allDay && it.status != "cancelled" && it.start != null }.sortedBy { it.start }
+        val tail = if (hasTasks) ", et vos tâches, à échanger si besoin." else "."
         val programme = when {
-            timed.isEmpty() -> if (events.isEmpty()) "Rien à l’agenda demain." else "Voici ce qui vous attend demain."
-            timed.size == 1 -> "${timed[0].summary} à ${spoken(timed[0])}."
+            timed.isEmpty() -> if (events.isEmpty()) "Rien à l’agenda demain$tail" else "Voici ce qui vous attend demain$tail"
+            timed.size == 1 -> "${timed[0].summary} à ${spoken(timed[0])}$tail"
+            hasTasks -> "${timed[0].summary} à ${spoken(timed[0])}, ${timed[1].summary.replaceFirstChar { it.lowercase() }} à ${spoken(timed[1])}$tail"
             else -> "${timed[0].summary} à ${spoken(timed[0])}, puis ${timed[1].summary.replaceFirstChar { it.lowercase() }} à ${spoken(timed[1])}."
         }
         return if (question == null) programme else "$programme ${question.text}"
