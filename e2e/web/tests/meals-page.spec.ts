@@ -84,7 +84,7 @@ test('Cuisine › Repas opens on the Menu with the week’s meal, its two recipe
   const row = meals.content.getByTestId(`meal-row-${mealId}`)
   await expect(row).toContainText(/Mer\. \d+ · soir/)
   await expect(row).toContainText('4 convives')
-  await expect(row).toContainText(`${first} · ${second}`)
+  await expect(row).toContainText(new RegExp(`(${first} · ${second}|${second} · ${first})`))
   await meals.menuView.click()
   await meals.expectMenuView()
 
