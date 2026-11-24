@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ProjectOptions } from './ProjectOptions'
@@ -55,10 +55,20 @@ const stubOptions = (answer: Record<string, unknown> = ANSWER, status = 200) => 
 
 const columns = () => screen.getAllByTestId('project-option')
 
+const rowOf = (label: string) => screen.getByRole('row', { name: new RegExp(`^${label}`) })
+
+const cellsOf = (label: string) => within(rowOf(label)).getAllByRole('cell').map((cell) => cell.textContent)
+
 describe('ProjectOptions', () => {
   beforeEach(() => {
     vi.unstubAllGlobals()
     localStorage.setItem('token', 'test-jwt')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   test('prices the three options for the loan source and the default yield', async () => {
@@ -71,10 +81,8 @@ describe('ProjectOptions', () => {
     expect(Object.fromEntries(url.searchParams)).toEqual({ downPaymentCents: '400000', yieldBasisPoints: '300' })
 
     expect(columns().map((column) => column.getAttribute('data-option'))).toEqual(['Comptant', 'Emprunt', 'Partiel'])
-    expect(within(columns()[0]).getByText(/10\s000,00\s€/, { selector: 'p' })).toBeInTheDocument()
-    expect(columns()[1]).toHaveTextContent(/10\s422,00\s€/)
-    expect(columns()[2]).toHaveTextContent(/10\s253,00\s€/)
-    expect(columns().map((column) => within(column).getByText(/Délai avant jouissance/).nextSibling?.textContent)).toEqual(['20 mois', 'Tout de suite', '8 mois'])
+    expect(screen.getByRole('table', { name: 'Options' })).toBeInTheDocument()
+    expect(cellsOf('Coût réel total').map((text) => text?.replace(/\s/g, ' '))).toEqual(['Coût réel total', '10 000 €', '10 422 €', '10 253 €'])
   })
 
   test('the three columns share one style and nothing recommends one of them', async () => {
@@ -82,9 +90,10 @@ describe('ProjectOptions', () => {
     render(<ProjectOptions project={CAR} />)
     await waitFor(() => expect(columns()).toHaveLength(3))
 
-    const classes = columns().map((column) => column.className)
-    expect(new Set(classes).size).toBe(1)
+    expect(new Set(columns().map((column) => column.className)).size).toBe(1)
     expect(new Set(columns().map((column) => column.getAttribute('style'))).size).toBe(1)
+    const bars = screen.getAllByTestId('option-bar')
+    expect(new Set(bars.map((bar) => bar.className.replace(/\s?css-\S+/g, ''))).size).toBe(1)
     expect(screen.getByTestId('project-options').textContent).not.toMatch(/recommand|préférable|meilleur/i)
     expect(screen.queryByRole('alert')).toBeNull()
   })
@@ -94,23 +103,47 @@ describe('ProjectOptions', () => {
     render(<ProjectOptions project={CAR} />)
     await waitFor(() => expect(columns()).toHaveLength(3))
 
-    const widthOf = (column: HTMLElement, title: string) =>
-      within(column).getByRole('img', { name: new RegExp(`^${title} :`) }).style.width ||
-      getComputedStyle(within(column).getByRole('img', { name: new RegExp(`^${title} :`) })).width
-
-    const totals = columns().map((column) => within(column).getByRole('img', { name: /^Coût total :/ }))
-    // The widest cost is the loan's 10 422 €: the cash column's 10 000 € is shorter on the same scale.
-    expect(totals).toHaveLength(3)
-    expect(widthOf(columns()[0], 'Coût total')).not.toBe(widthOf(columns()[1], 'Coût total'))
+    const heights = screen.getAllByTestId('option-bar').map((bar) => bar.style.height)
+    expect(heights).toHaveLength(3)
+    expect(heights[1]).toBe('100%')
+    expect(parseFloat(heights[0])).toBeLessThan(100)
+    expect(parseFloat(heights[0])).toBeGreaterThan(90)
   })
 
-  test('shows the impact on N only once it is computed', async () => {
+  test('the rows of the mockup, in its order: Coût réel total, Coût net réel, Disponible, Mensualité, Impact sur N', async () => {
+    stubOptions()
+    render(<ProjectOptions project={CAR} />)
+    await waitFor(() => expect(columns()).toHaveLength(3))
+
+    const labels = within(screen.getByRole('table', { name: 'Options' }))
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('cell')[0].textContent)
+    expect(labels).toEqual(['Coût réel total', 'Coût net réel', 'Disponible', 'Mensualité', 'Impact sur N'])
+  })
+
+  test("« Disponible » is today's month plus the months to save: juin 2028, oct. 2026, juin 2027", async () => {
+    stubOptions()
+    render(<ProjectOptions project={CAR} />)
+    await waitFor(() => expect(columns()).toHaveLength(3))
+
+    expect(cellsOf('Disponible').slice(1)).toEqual(['juin 2028', 'oct. 2026', 'juin 2027'])
+  })
+
+  test('« Mensualité » reads « — » for cash and « 434 € × 24 » for the loan', async () => {
+    stubOptions()
+    render(<ProjectOptions project={CAR} />)
+    await waitFor(() => expect(columns()).toHaveLength(3))
+
+    expect(cellsOf('Mensualité').map((text) => text?.replace(/\s/g, ' '))).toEqual(['Mensualité', '—', '434 € × 24', '260 € × 24'])
+  })
+
+  test('« Impact sur N » reads « — » until it is computed, then « + 3 mois »', async () => {
     stubOptions({ ...ANSWER, loan: { ...ANSWER.loan, nImpactMonths: 3 } })
     render(<ProjectOptions project={CAR} />)
     await waitFor(() => expect(columns()).toHaveLength(3))
 
-    expect(screen.getAllByText(/Impact sur N/)).toHaveLength(1)
-    expect(columns()[1]).toHaveTextContent('Impact sur N : +3 mois')
+    expect(cellsOf('Impact sur N').map((text) => text?.replace(/\s/g, ' '))).toEqual(['Impact sur N', '—', '+ 3 mois', '—'])
   })
 
   test('asks again with the parameters typed', async () => {
