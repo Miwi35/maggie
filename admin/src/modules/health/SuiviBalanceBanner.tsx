@@ -26,7 +26,7 @@ export const SuiviBalanceBanner = () => {
       component="button"
       type="button"
       data-testid="suivi-balance-banner"
-      aria-label="Bilan du jour : ouvrir Nutrition"
+      aria-label="Nutrition, bilan du jour : ouvrir Santé › Nutrition"
       onClick={() => navigate(HEALTH_NUTRITION_PATH)}
       sx={(theme) => ({
         appearance: 'none',
@@ -41,14 +41,16 @@ export const SuiviBalanceBanner = () => {
         gap: 1.5,
         px: 1.75,
         py: 0.75,
-        borderRadius: 2.5,
+        borderRadius: 1.5,
         bgcolor: theme.palette.background.paper,
+        width: 460,
+        maxWidth: '100%',
         minWidth: 0,
         fontVariantNumeric: 'tabular-nums',
       })}
     >
       <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-        Bilan du jour
+        Nutrition · aujourd’hui
       </Typography>
       {day.balanceKcal === null ? (
         <Typography component="span" data-testid="balance-eaten" sx={{ fontSize: 14 }}>
@@ -56,12 +58,15 @@ export const SuiviBalanceBanner = () => {
         </Typography>
       ) : (
         <>
-          <BalanceFigure balanceKcal={day.balanceKcal} size={18} />
-          <Box sx={{ width: 120, flexShrink: 0 }}>
+          <BalanceFigure balanceKcal={day.balanceKcal} size={16} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <BalanceBar balanceKcal={day.balanceKcal} height={8} />
           </Box>
         </>
       )}
+      <Typography component="span" aria-hidden="true" sx={(theme) => ({ fontSize: 13, color: theme.palette.veilleuse.caption, ml: 'auto' })}>
+        ›
+      </Typography>
     </Box>
   )
 }

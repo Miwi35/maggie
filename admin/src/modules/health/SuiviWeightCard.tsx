@@ -29,7 +29,7 @@ export const SuiviWeightCard = ({ cols, withDots, selected, onSelect }: SuiviWei
     <Box
       component="section"
       aria-label="Poids"
-      sx={{ borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, minHeight: 0, fontVariantNumeric: 'tabular-nums' }}
+      sx={{ borderRadius: 2, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, minHeight: 0, fontVariantNumeric: 'tabular-nums' }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 15, fontWeight: 500 }}>
         <span>Poids</span>

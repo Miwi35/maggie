@@ -261,17 +261,42 @@ describe('SuiviPage', () => {
 
     const steps = await screen.findByRole('region', { name: 'Pas' })
     const energy = screen.getByRole('region', { name: 'Énergie' })
-    await waitFor(() => expect(within(energy).getByTestId('energy-total')).toHaveTextContent('1 950 kcal'))
-    expect(within(energy).getByTestId('energy-detail')).toHaveTextContent('base 1 700 kcal · pas 250 kcal · séances 0 kcal')
+    const detail = screen.getByRole('region', { name: 'Détail de l’énergie' })
+    await waitFor(() => expect(within(detail).getByTestId('energy-total')).toHaveTextContent('1 950 kcal'))
+    expect(within(detail).getByText('Base').closest('tr')).toHaveTextContent('1 700 kcal')
 
     await user.click(await within(steps).findByRole('button', { name: 'mar. 20 oct. : pas de donnée' }))
     expect(within(steps).getByTestId('steps-label')).toHaveTextContent('mar. 20 oct.')
     expect(within(steps).getByTestId('steps-value')).toHaveTextContent('—')
     expect(within(energy).getByTestId('energy-label')).toHaveTextContent('mar. 20 oct.')
-    expect(within(energy).getByTestId('energy-total')).toHaveTextContent('1 700 kcal')
+    expect(within(detail).getByTestId('energy-total')).toHaveTextContent('1 700 kcal')
 
     await user.click(within(screen.getByRole('radiogroup', { name: 'Période' })).getByRole('radio', { name: '90 j' }))
-    await waitFor(() => expect(within(steps).getByTestId('steps-label')).toHaveTextContent('Moyenne par jour'))
+    await waitFor(() => expect(within(steps).getByTestId('steps-label')).toHaveTextContent('Aujourd’hui'))
+  })
+
+  test('lays the cards out as the mockup: Énergie next to Détail de l’énergie, then Pas, then Moral · fatigue', async () => {
+    renderPage()
+
+    const energy = await screen.findByRole('region', { name: 'Énergie' })
+    const detail = screen.getByRole('region', { name: 'Détail de l’énergie' })
+    const steps = screen.getByRole('region', { name: 'Pas' })
+    const mood = screen.getByRole('region', { name: 'Moral · fatigue' })
+    const before = (a: HTMLElement, b: HTMLElement) => expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    before(weightCard(), screen.getByRole('region', { name: 'Pesées' }))
+    before(screen.getByRole('region', { name: 'Pesées' }), energy)
+    before(energy, detail)
+    before(detail, steps)
+    before(steps, mood)
+  })
+
+  test('the cards are rounded at 16 px', async () => {
+    renderPage()
+
+    await screen.findByRole('region', { name: 'Énergie' })
+    for (const name of ['Poids', 'Pesées', 'Énergie', 'Détail de l’énergie', 'Pas', 'Moral · fatigue']) {
+      expect(screen.getByRole('region', { name })).toHaveStyle({ borderRadius: '16px' })
+    }
   })
 
   test('the Moral · fatigue card reads the journal over the period and follows the chosen day', async () => {

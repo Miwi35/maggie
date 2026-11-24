@@ -54,7 +54,7 @@ test('Santé › Suivi shows an added 71,8 kg weighing as today’s weight — M
  *
  * Given un lot `POST /api/health/sync` avec un jour de 8 000 pas et 400 kcal actives,
  * When j'ouvre Santé › Suivi,
- * Then la carte Pas affiche 8 000 et la carte Énergie le détail base · pas · séances.
+ * Then la carte Pas lit « Aujourd’hui · 8 000 » et la carte « Détail de l’énergie » a Base, Pas, Séances et Dépensées.
  */
 test('Santé › Suivi shows the synced steps and the energy detail — MAG-746', async ({ page, api }) => {
   // The day the API reads is the Paris one.
@@ -67,14 +67,16 @@ test('Santé › Suivi shows the synced steps and the energy detail — MAG-746'
   await suivi.expectLoaded()
   await suivi.navigateTo('Suivi', 'Santé')
 
-  await expect(suivi.stepsCard.getByTestId('steps-value')).toHaveText(/^8\s000$/)
-  await expect(suivi.energyCard.getByTestId('energy-detail')).toHaveText(/^base .* · pas .* · séances .*$/)
+  await expect(suivi.stepsCard).toContainText(/Aujourd’hui · 8\s000/)
+  for (const label of ['Base', 'Pas', 'Séances', 'Dépensées']) {
+    await expect(suivi.energyDetail.getByRole('row', { name: new RegExp(`^${label}`) })).toBeVisible()
+  }
 })
 
 /**
  * Santé › Suivi s'ouvre sur le bilan du jour — MAG-748.
  *
- * Given le seed, When j'ouvre Santé › Suivi, Then le bandeau « Bilan du jour » est à côté du titre,
+ * Given le seed, When j'ouvre Santé › Suivi, Then le bandeau « Nutrition · aujourd’hui » est en tête,
  * And un clic dessus ouvre Santé › Nutrition.
  */
 test('Santé › Suivi opens on today’s balance, which opens Santé › Nutrition — MAG-748', async ({ page }) => {
@@ -82,6 +84,7 @@ test('Santé › Suivi opens on today’s balance, which opens Santé › Nutrit
   await suivi.open()
 
   await expect(suivi.balanceBanner).toBeVisible()
+  await expect(suivi.balanceBanner).toContainText('Nutrition · aujourd’hui')
   await suivi.balanceBanner.click()
 
   await expect(page).toHaveURL(/#\/health\/nutrition$/)

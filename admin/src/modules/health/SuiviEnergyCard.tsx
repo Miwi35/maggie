@@ -5,7 +5,8 @@ import Typography from '@mui/material/Typography'
 import { energyDayLabel, energyParts, maxStack, orNone } from './dailyEnergySeries'
 import type { DailyEnergyState } from './dailyEnergyApi'
 import { formatInteger } from './healthProfileApi'
-import { NONE } from './suiviSeries'
+import { SuiviAxis } from './SuiviAxis'
+import type { SuiviAxisProps } from './SuiviAxis'
 
 interface SuiviEnergyCardProps {
   state: DailyEnergyState
@@ -13,21 +14,22 @@ interface SuiviEnergyCardProps {
   /** The chosen day; null: the last one, today. */
   selected: number | null
   onSelect: (index: number | null) => void
+  axis: SuiviAxisProps
 }
 
 const caption = { fontSize: 12, color: (theme: Theme) => theme.palette.veilleuse.caption } as const
-const cardSx = { borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
+const cardSx = { borderRadius: 2, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
 
-const PARTS = [
-  { key: 'base', label: 'base', color: (theme: Theme) => alpha(theme.palette.text.primary, 0.28) },
-  { key: 'steps', label: 'pas', color: (theme: Theme) => alpha(theme.palette.module.sport, 0.5) },
-  { key: 'workouts', label: 'séances', color: (theme: Theme) => theme.palette.module.sport },
+export const PARTS = [
+  { key: 'base', label: 'Base', color: (theme: Theme) => alpha(theme.palette.text.primary, 0.32) },
+  { key: 'steps', label: 'Pas', color: (theme: Theme) => alpha(theme.palette.text.primary, 0.6) },
+  { key: 'workouts', label: 'Séances', color: (theme: Theme) => theme.palette.module.sport },
 ] as const
 
-const kcal = (value: number | null) => `${orNone(value, formatInteger)} kcal`
+export const kcal = (value: number | null) => `${orNone(value, formatInteger)} kcal`
 
-/** « Énergie »: per day, base · pas · séances stacked; the total is the API's, « — » when the profile is incomplete. */
-export const SuiviEnergyCard = ({ state, today, selected, onSelect }: SuiviEnergyCardProps) => {
+/** « Énergie »: per day, base · pas · séances stacked; the day's figures are the detail card's. */
+export const SuiviEnergyCard = ({ state, today, selected, onSelect, axis }: SuiviEnergyCardProps) => {
   const rows = state.status === 'ready' ? state.rows : []
   const row = selected === null ? rows.at(-1) : rows[selected]
   const scale = maxStack(rows)
@@ -45,15 +47,14 @@ export const SuiviEnergyCard = ({ state, today, selected, onSelect }: SuiviEnerg
       {state.status === 'error' && <Typography sx={caption}>Erreur : l’énergie n’a pas pu être chargée.</Typography>}
       {state.status === 'ready' && row && parts && (
         <>
-          <Typography component="span" data-testid="energy-total" sx={{ fontSize: 26, fontWeight: 300 }}>
-            {row.expendedKcal === null ? NONE : formatInteger(row.expendedKcal)}{' '}
-            <Box component="span" sx={{ fontSize: 15 }}>
-              kcal
-            </Box>
-          </Typography>
-          <Typography component="span" data-testid="energy-detail" sx={{ fontSize: 13, color: 'text.secondary' }}>
-            base {kcal(row.bmrKcal)} · pas {kcal(row.stepsKcal)} · séances {kcal(row.workoutKcal)}
-          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5, fontSize: 13, color: 'text.secondary' }}>
+            {PARTS.map((part) => (
+              <Box key={part.key} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                <Box component="span" sx={(theme) => ({ width: 8, height: 8, borderRadius: '2px', bgcolor: part.color(theme) })} />
+                {part.label}
+              </Box>
+            ))}
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: 140 }}>
             {rows.map((day, index) => {
               const dayParts = energyParts(day)
@@ -79,6 +80,7 @@ export const SuiviEnergyCard = ({ state, today, selected, onSelect }: SuiviEnerg
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'flex-end',
+                    alignItems: 'center',
                     borderRadius: 1,
                     bgcolor: row === day ? alpha(theme.palette.text.primary, 0.07) : 'transparent',
                   })}
@@ -87,7 +89,7 @@ export const SuiviEnergyCard = ({ state, today, selected, onSelect }: SuiviEnerg
                     <Box
                       key={part.key}
                       sx={(theme) => ({
-                        width: '100%',
+                        width: '64%',
                         height: `${scale > 0 ? ((dayParts[part.key] / scale) * 100).toFixed(1) : 0}%`,
                         bgcolor: part.color(theme),
                       })}
@@ -97,14 +99,7 @@ export const SuiviEnergyCard = ({ state, today, selected, onSelect }: SuiviEnerg
               )
             })}
           </Box>
-          <Box sx={{ display: 'flex', gap: 1.5, ...caption }}>
-            {PARTS.map((part) => (
-              <Box key={part.key} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                <Box component="span" sx={(theme) => ({ width: 8, height: 8, borderRadius: '2px', bgcolor: part.color(theme) })} />
-                {part.label}
-              </Box>
-            ))}
-          </Box>
+          <SuiviAxis from={axis.from} to={axis.to} />
         </>
       )}
     </Box>

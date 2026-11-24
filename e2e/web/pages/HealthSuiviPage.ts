@@ -12,11 +12,11 @@ import { ROUTES } from './routes.js'
  * each column is a button named « Aujourd’hui : 72,4 kg, tendance 72,1 kg ».
  * A row of « Pesées » is `weighing-row-<ulid>`.
  *
- * The cards « Pas » and « Énergie » (MAG-746) share the period: `steps-value`
- * (the period's average, or the chosen day's), `steps-bar`; `energy-total`,
- * `energy-detail` (« base … · pas … · séances … »), `energy-bar`.
+ * The cards « Pas », « Énergie » and « Détail de l’énergie » (MAG-746) share the period:
+ * `steps-value` (the chosen day's, today by default, in the title « Aujourd’hui · 8 000 »),
+ * `steps-bar`; `energy-bar`; the detail card lists Base, Pas, Séances and « Dépensées » (`energy-total`).
  *
- * Next to the title, the « Bilan du jour » banner (MAG-748) opens Santé › Nutrition.
+ * Next to the title, the « Nutrition · aujourd’hui » banner (MAG-748) opens Santé › Nutrition.
  *
  * The « Moral · fatigue » card (MAG-750) follows the same period: `mood-value`,
  * `fatigue-value` (the chosen day's, today by default), a `mood-column` per day
@@ -31,6 +31,7 @@ export class HealthSuiviPage extends AdminShell {
   readonly weighings: Locator
   readonly stepsCard: Locator
   readonly energyCard: Locator
+  readonly energyDetail: Locator
   readonly moodCard: Locator
   readonly addButton: Locator
   readonly form: Locator
@@ -45,6 +46,7 @@ export class HealthSuiviPage extends AdminShell {
     this.weighings = this.content.getByRole('region', { name: 'Pesées', exact: true })
     this.stepsCard = this.content.getByRole('region', { name: 'Pas', exact: true })
     this.energyCard = this.content.getByRole('region', { name: 'Énergie', exact: true })
+    this.energyDetail = this.content.getByRole('region', { name: 'Détail de l’énergie', exact: true })
     this.moodCard = this.content.getByRole('region', { name: 'Moral · fatigue', exact: true })
     this.addButton = this.weighings.getByRole('button', { name: 'Ajouter une pesée', exact: true })
     this.form = page.getByRole('dialog')

@@ -11,6 +11,7 @@ import { useHealthDays } from './healthDaysApi'
 import { PeriodPicker } from './PeriodPicker'
 import { SuiviBalanceBanner } from './SuiviBalanceBanner'
 import { SuiviEnergyCard } from './SuiviEnergyCard'
+import { SuiviEnergyDetailCard } from './SuiviEnergyDetailCard'
 import { SuiviMeasurementForm } from './SuiviMeasurementForm'
 import { SuiviMoodCard } from './SuiviMoodCard'
 import { SuiviStepsCard } from './SuiviStepsCard'
@@ -33,7 +34,7 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
   // null: the last column, today's.
   const [selected, setSelected] = useState<number | null>(null)
   // The weighing being edited is kept as it was opened: an event must not rewrite what is being typed.
-  // null: the whole period for « Pas », today for « Énergie » and « Moral · fatigue ».
+  // null: today, for « Pas », « Énergie » and « Moral · fatigue ».
   const [energyDay, setEnergyDay] = useState<number | null>(null)
   const [form, setForm] = useState<{ measurement?: BodyMeasurement } | null>(null)
 
@@ -44,6 +45,7 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
   const energy = useDailyEnergy(from, to)
   // Read once, as the energy: the page's one stream is the weighings' (MAG-473).
   const journal = useHealthDays(from, to)
+  const axis = { from: cols[0]?.short ?? '', to: cols.at(-1)?.short ?? '' }
   const current = selected === null || selected >= cols.length ? cols.length - 1 : selected
 
   return (
@@ -70,9 +72,16 @@ const SuiviBoard = ({ period, onPeriod, now }: BoardProps) => {
         />
       </Box>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(3, minmax(0, 1fr))' }, gap: 1.75, minWidth: 0 }}>
-        <SuiviStepsCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} />
-        <SuiviEnergyCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} />
-        <SuiviMoodCard state={journal} from={from} to={to} selected={energyDay} onSelect={setEnergyDay} />
+        <Box sx={{ gridColumn: { md: '1 / 3' }, display: 'grid', minWidth: 0 }}>
+          <SuiviEnergyCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} axis={axis} />
+        </Box>
+        <SuiviEnergyDetailCard state={energy} today={to} selected={energyDay} />
+        <Box sx={{ gridColumn: { md: '1 / 4' }, display: 'grid', minWidth: 0 }}>
+          <SuiviStepsCard state={energy} today={to} selected={energyDay} onSelect={setEnergyDay} axis={axis} />
+        </Box>
+        <Box sx={{ gridColumn: { md: '1 / 4' }, display: 'grid', minWidth: 0 }}>
+          <SuiviMoodCard state={journal} from={from} to={to} selected={energyDay} onSelect={setEnergyDay} axis={axis} />
+        </Box>
       </Box>
       <SuiviMeasurementForm open={form !== null} measurement={form?.measurement} onClose={() => setForm(null)} />
     </Box>
