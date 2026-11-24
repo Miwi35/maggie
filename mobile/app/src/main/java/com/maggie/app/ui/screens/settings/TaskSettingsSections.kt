@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -25,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.filled.Remove
@@ -61,15 +65,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.AlertRule
 import com.maggie.app.data.model.TaskOrderPreviewItem
 import com.maggie.app.data.model.TaskSettings
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.GuestsStepper
 import com.maggie.app.ui.components.InFrench
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.theme.readableTextOn
 import com.maggie.app.ui.theme.urgencyColor
 import com.maggie.app.ui.uiTagRoot
@@ -89,7 +99,7 @@ internal fun TaskAlertsSection(viewModel: SettingsViewModel, onBack: () -> Unit)
     var confirmDefaults by remember { mutableStateOf(false) }
 
     TaskSettingsPage(
-        title = "Rappels",
+        title = "Rappels par urgence",
         breadcrumb = "Réglages › Tâches",
         tasks = tasks,
         onBack = onBack,
@@ -190,38 +200,51 @@ private fun TaskSettingsPage(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    if (breadcrumb == null) {
-                        Text(title)
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                breadcrumb.uppercase(),
-                                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.14.em),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.testTag(UiTags.SETTINGS_TASKS_BREADCRUMB),
-                            )
-                            Text(title)
+            if (breadcrumb == null) {
+                TopAppBar(
+                    title = { Text(title) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                         }
+                    },
+                    actions = {
+                        if (tasks.saved) {
+                            Text(
+                                "Enregistré",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(end = 16.dp).testTag(UiTags.SETTINGS_TASKS_SAVED),
+                            )
+                        }
+                    },
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding().height(52.dp).padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onBack, modifier = Modifier.size(44.dp)) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Retour", modifier = Modifier.size(22.dp))
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-                actions = {
-                    if (tasks.saved) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            "Enregistré",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 16.dp).testTag(UiTags.SETTINGS_TASKS_SAVED),
+                            breadcrumb.uppercase(),
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, letterSpacing = 0.14.em),
+                            color = maggieSurface().caption,
+                            modifier = Modifier.testTag(UiTags.SETTINGS_TASKS_BREADCRUMB),
+                        )
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = (-0.02).em,
+                            ),
                         )
                     }
-                },
-            )
+                }
+            }
         },
         bottomBar = {
             if (tasks.settings != null && tasks.error != null) {
@@ -231,6 +254,22 @@ private fun TaskSettingsPage(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                 )
+            } else if (breadcrumb != null && tasks.saved) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(vertical = 12.dp)
+                        .semantics(mergeDescendants = true) {}
+                        .testTag(UiTags.SETTINGS_TASKS_SAVED),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val mint = if (isMaggieDark()) MaggieTokens.Rhythm.onTrack.second else MaggieTokens.Rhythm.onTrack.first
+                    Icon(Icons.Default.Check, contentDescription = null, tint = mint, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Enregistré", style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = mint)
+                }
             }
         },
     ) { padding ->
@@ -442,7 +481,7 @@ private fun UrgencyAlerts(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Icon(urgencyPillIcon(urgency), contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+            Icon(urgencyPillIcon(urgency), contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
             Text(label, style = MaterialTheme.typography.labelLarge, color = color)
         }
         Text(
@@ -531,7 +570,7 @@ private fun OverdueButton(text: String, selected: Boolean, tag: String, onClick:
     ) {
         Text(
             text,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
             color = if (selected) scheme.background else scheme.onSurfaceVariant,
             maxLines = 1,
         )

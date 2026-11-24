@@ -15,6 +15,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -101,7 +103,7 @@ class TaskSettingsScreenTest {
         open(loaded)
 
         compose.onNodeWithTag(UiTags.SETTINGS_TASKS_BREADCRUMB).assertTextEquals("RÉGLAGES › TÂCHES")
-        compose.onNodeWithText("Rappels").assertIsDisplayed()
+        compose.onNodeWithText("Rappels par urgence").assertIsDisplayed()
         listOf("critical" to "Critique", "high" to "Haute", "normal" to "Normale").forEach { (urgency, label) ->
             val card = compose.onNodeWithTag(UiTags.settingsTasksUrgency(urgency)).performScrollTo()
             listOf(label, "À programmer", "Pas faite").forEach { card.assert(hasAnyDescendant(hasText(it))) }
@@ -125,6 +127,17 @@ class TaskSettingsScreenTest {
             "Enregistré",
         ).forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         compose.onNodeWithText("Basse", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the header reads RÉGLAGES › TÂCHES over Rappels par urgence, and the chevron goes back`() {
+        open(loaded)
+
+        val crumb = compose.onNodeWithTag(UiTags.SETTINGS_TASKS_BREADCRUMB).fetchSemanticsNode().boundsInRoot
+        val title = compose.onNodeWithText("Rappels par urgence").fetchSemanticsNode().boundsInRoot
+        assertTrue(crumb.top < title.top)
+        compose.onNodeWithContentDescription("Retour").performClick()
+        compose.onNodeWithText("Rappels par urgence").assertDoesNotExist()
     }
 
     @Test
@@ -254,9 +267,12 @@ class TaskSettingsScreenTest {
     }
 
     @Test
-    fun `a save that went through shows Enregistré`() {
+    fun `a save that went through shows Enregistré at the foot, under the header`() {
         open(loaded.copy(saved = true))
         compose.onNodeWithTag(UiTags.SETTINGS_TASKS_SAVED).assertTextContains("Enregistré")
+        val crumb = compose.onNodeWithTag(UiTags.SETTINGS_TASKS_BREADCRUMB).fetchSemanticsNode().boundsInRoot
+        val saved = compose.onNodeWithTag(UiTags.SETTINGS_TASKS_SAVED).fetchSemanticsNode().boundsInRoot
+        assertTrue(saved.top > crumb.top)
     }
 
     @Test
