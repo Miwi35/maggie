@@ -28,8 +28,14 @@ class MealsWeekLabelsTest {
 
     @Test
     fun `a day is its weekday and its number`() {
-        assertEquals("Lundi 20", dayLabel(LocalDate.of(2025, 10, 20)))
-        assertEquals("Dimanche 1", dayLabel(LocalDate.of(2026, 11, 1)))
+        assertEquals("Lun. 20", dayLabel(LocalDate.of(2025, 10, 20), today = LocalDate.of(2025, 10, 1)))
+        assertEquals("Dim. 1", dayLabel(LocalDate.of(2026, 11, 1), today = LocalDate.of(2025, 10, 1)))
+    }
+
+    @Test
+    fun `today's title says aujourd’hui`() {
+        val tuesday = LocalDate.of(2025, 10, 21)
+        assertEquals("Mar. 21 · aujourd’hui", dayLabel(tuesday, today = tuesday))
     }
 
     private val rice = Ingredient("rice", "Riz", null, ProductCategory.MEAT, 250f)

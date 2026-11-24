@@ -66,6 +66,9 @@ tags:
 - assertNotVisible:
     id: "top_bar_title"
 - assertNotVisible: "Planning"
+# MAG-1004: today is named and in apricot, and its dinner alone is planned, so the add button offers the lunch.
+- assertVisible: ".*· aujourd’hui"
+- assertVisible: "Ajouter le midi"
 
 # 4 → 2 portions on the first recipe: its quantity halves, the second's does not.
 - scrollUntilVisible:
