@@ -376,8 +376,11 @@ test.describe('funding', () => {
 
       // --- And: cash, loan and partial are priced side by side, none singled out
       await expect(screen.options(BIKE)).toHaveCount(3)
-      await expect(screen.options(BIKE).nth(0)).toContainText(/10\s000,00\s€/)
-      await expect(screen.options(BIKE).nth(1)).toContainText(/10\s421,86\s€/)
+      await expect(screen.options(BIKE)).toHaveText(['Comptant', 'Emprunt', 'Partiel'])
+      await expect(screen.optionRow(BIKE, 'Coût réel total')).toContainText(/10\s000\s€/)
+      await expect(screen.optionRow(BIKE, 'Coût réel total')).toContainText(/10\s422\s€/)
+      await expect(screen.optionRow(BIKE, 'Mensualité')).toContainText('—')
+      await expect(screen.optionRow(BIKE, 'Mensualité')).toContainText(/× 24/)
       const classes = await screen.options(BIKE).evaluateAll((columns) => columns.map((column) => column.className))
       expect(new Set(classes).size).toBe(1)
       await expect(reloaded).not.toContainText(/recommand|préférable/i)

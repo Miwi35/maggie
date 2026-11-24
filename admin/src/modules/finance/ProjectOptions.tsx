@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { formatCents } from './accountTypes'
+import { alpha } from '@mui/material/styles'
+import { formatCentsRounded } from './accountTypes'
 import { eurosToCents } from './projectForm'
 import { fetchProjectOptions } from './projectsApi'
 import type { OptionParams, Project, ProjectOption, ProjectOptions as Options } from './projectsApi'
@@ -57,81 +62,81 @@ const COLUMNS: { key: 'cash' | 'loan' | 'partial'; title: string }[] = [
   { key: 'partial', title: 'Partiel' },
 ]
 
-/** A bar whose length is `value` on a scale shared by every column. */
-const Bar = ({ value, max, label }: { value: number | null; max: number; label: string }) => (
-  <Box sx={{ height: 8, borderRadius: 0.5, bgcolor: 'action.hover', overflow: 'hidden' }}>
+const monthFormatter = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' })
+
+/** « juin 2028 »: this month plus `months`, built from the parts so no timezone moves it. */
+const availableLabel = (months: number | null, today = new Date()): string =>
+  months === null ? '—' : monthFormatter.format(new Date(today.getFullYear(), today.getMonth() + months, 1))
+
+/** « 434 € × 24 »; « — » when there is no payment (cash). */
+const monthlyLabel = (option: ProjectOption, currency: string): string =>
+  option.monthlyPaymentCents === 0 ? '—' : `${formatCentsRounded(option.monthlyPaymentCents, currency)} × ${option.durationMonths}`
+
+const impactLabel = (months: number | null): string =>
+  months === null ? '—' : months === 0 ? '0 mois' : `${months > 0 ? '+' : '−'} ${Math.abs(months)} mois`
+
+const BAR_AREA = 80
+
+const cellSx = { fontSize: 13, py: 1, px: 1.25, fontVariantNumeric: 'tabular-nums', borderColor: 'divider' } as const
+const labelSx = { ...cellSx, color: 'veilleuse.caption' } as const
+const headSx = { ...cellSx, fontSize: 12, fontWeight: 500, color: 'veilleuse.caption' } as const
+
+const ROWS: { label: string; text: (option: ProjectOption, currency: string) => string }[] = [
+  { label: 'Coût réel total', text: (option, currency) => formatCentsRounded(option.totalCostCents, currency) },
+  { label: 'Coût net réel', text: (option, currency) => formatCentsRounded(option.netCostCents, currency) },
+  { label: 'Disponible', text: (option) => availableLabel(option.availableInMonths) },
+  { label: 'Mensualité', text: monthlyLabel },
+  { label: 'Impact sur N', text: (option) => impactLabel(option.nImpactMonths) },
+]
+
+/** The three columns and the three bars are drawn alike: no colour or emphasis tells one from the others. */
+const OptionsCard = ({ options, currency }: { options: Options; currency: string }) => {
+  const maxCost = Math.max(0, ...COLUMNS.map((column) => Math.abs(options[column.key].totalCostCents)))
+
+  return (
     <Box
-      role="img"
-      aria-label={label}
-      data-testid="option-bar"
-      sx={{ height: '100%', width: `${max > 0 && value !== null ? (Math.min(Math.abs(value), max) / max) * 100 : 0}%`, bgcolor: 'primary.main' }}
-    />
-  </Box>
-)
-
-interface FigureProps {
-  title: string
-  text: string
-  value: number | null
-  max: number
-}
-
-const Figure = ({ title, text, value, max }: FigureProps) => (
-  <Box sx={{ py: 1 }}>
-    <Stack direction="row" sx={{ justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
-      <Typography variant="body2" color="text.secondary">
-        {title}
-      </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-        {text}
-      </Typography>
-    </Stack>
-    <Bar value={value} max={max} label={`${title} : ${text}`} />
-  </Box>
-)
-
-const monthsText = (months: number | null) => (months === null ? '—' : months === 0 ? 'Tout de suite' : `${months} mois`)
-
-interface ColumnProps {
-  title: string
-  option: ProjectOption
-  currency: string
-  scales: { cost: number; monthly: number; delay: number }
-}
-
-/** The same column three times: no colour or emphasis tells one from the others. */
-const OptionColumn = ({ title, option, currency, scales }: ColumnProps) => (
-  <Paper variant="outlined" data-testid="project-option" data-option={title} sx={{ p: 2, flex: '1 1 0', minWidth: 180 }}>
-    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-      {title}
-    </Typography>
-    <Figure title="Coût total" text={formatCents(option.totalCostCents, currency)} value={option.totalCostCents} max={scales.cost} />
-    <Figure title="Coût net" text={formatCents(option.netCostCents, currency)} value={option.netCostCents} max={scales.cost} />
-    <Figure
-      title="Mensualité"
-      text={formatCents(option.monthlyPaymentCents, currency)}
-      value={option.monthlyPaymentCents}
-      max={scales.monthly}
-    />
-    <Figure title="Délai avant jouissance" text={monthsText(option.availableInMonths)} value={option.availableInMonths} max={scales.delay} />
-    {option.nImpactMonths !== null && (
-      <Typography variant="body2" sx={{ pt: 1 }}>
-        Impact sur N : {option.nImpactMonths > 0 ? '+' : ''}
-        {option.nImpactMonths} mois
-      </Typography>
-    )}
-  </Paper>
-)
-
-const scalesOf = (options: Options) => {
-  const all = [options.cash, options.loan, options.partial]
-  const maxOf = (values: (number | null)[]) => Math.max(0, ...values.map((value) => Math.abs(value ?? 0)))
-
-  return {
-    cost: maxOf(all.flatMap((option) => [option.totalCostCents, option.netCostCents])),
-    monthly: maxOf(all.map((option) => option.monthlyPaymentCents)),
-    delay: maxOf(all.map((option) => option.availableInMonths)),
-  }
+      component="section"
+      aria-label="Options"
+      data-testid="project-options"
+      sx={{ bgcolor: 'background.paper', borderRadius: 4, p: 2.25, display: 'flex', flexDirection: 'column', gap: 1.5 }}
+    >
+      <Typography sx={{ fontSize: 15, fontWeight: 500 }}>Options</Typography>
+      <Table size="small" aria-label="Options">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={headSx} />
+            {COLUMNS.map((column) => (
+              <TableCell key={column.key} data-testid="project-option" data-option={column.title} sx={headSx}>
+                {column.title}
+              </TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {ROWS.map((row) => (
+            <TableRow key={row.label}>
+              <TableCell sx={labelSx}>{row.label}</TableCell>
+              {COLUMNS.map((column) => (
+                <TableCell key={column.key} sx={cellSx}>
+                  {row.text(options[column.key], currency)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <Box role="img" aria-label="Coût et délai des trois options" sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: BAR_AREA }}>
+        {COLUMNS.map((column) => (
+          <Box
+            key={column.key}
+            data-testid="option-bar"
+            style={{ height: `${maxCost > 0 ? (Math.abs(options[column.key].totalCostCents) / maxCost) * 100 : 0}%` }}
+            sx={{ width: 60, borderRadius: 1.5, bgcolor: (theme) => alpha(theme.palette.text.primary, 0.28) }}
+          />
+        ))}
+      </Box>
+    </Box>
+  )
 }
 
 /**
@@ -189,13 +194,7 @@ export const ProjectOptions = ({ project }: { project: Project }) => {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {options && complete && (
-        <Stack direction="row" sx={{ gap: 2, flexWrap: 'wrap' }} data-testid="project-options">
-          {COLUMNS.map((column) => (
-            <OptionColumn key={column.key} title={column.title} option={options[column.key]} currency={project.currency} scales={scalesOf(options)} />
-          ))}
-        </Stack>
-      )}
+      {options && complete && <OptionsCard options={options} currency={project.currency} />}
     </Stack>
   )
 }
