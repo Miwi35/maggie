@@ -490,6 +490,8 @@ test('a hand-typed account is linked to the bank\'s from its page', async ({ lin
   const accounts = new FinanceAccountsPage(page)
   await accounts.openTransactions(manual?.id ?? '')
   await expect(accounts.linkCard).toBeVisible()
+  await expect(accounts.linkCard).toHaveCSS('border-top-left-radius', '14px')
+  await expect(accounts.linkCard.getByRole('button', { name: 'Rattacher…' })).toBeVisible()
 
   // And I choose it: the preview counts the two movements.
   await accounts.openLink(bankName)

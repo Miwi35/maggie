@@ -1,8 +1,10 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminContext, Notification, testDataProvider } from 'react-admin'
 import { AccountLinkCard } from './AccountLinkCard'
+import { renderWithTheme } from '../../test/renderWithTheme'
+import { veilleuseDarkTheme, veilleuseLightTheme } from '../../theme'
 
 const candidate = {
   id: '01BANK',
@@ -26,12 +28,13 @@ const stubApi = (link: (body: { confirm: boolean }) => Promise<Response>, candid
   return fetchMock
 }
 
-const renderCard = (manual = true, onLinked = vi.fn()) => {
-  render(
-    <AdminContext dataProvider={testDataProvider()}>
+const renderCard = (manual = true, onLinked = vi.fn(), theme = veilleuseDarkTheme) => {
+  renderWithTheme(
+    <AdminContext dataProvider={testDataProvider()} theme={theme}>
       <AccountLinkCard accountId="01MANUAL" accountName="Compte main" manual={manual} onLinked={onLinked} />
       <Notification />
     </AdminContext>,
+    theme,
   )
   return onLinked
 }
@@ -97,5 +100,36 @@ describe('AccountLinkCard', () => {
     expect(posts(fetchMock).every(([, init]) => JSON.parse(String(init?.body)).confirm === false)).toBe(true)
     expect(onLinked).not.toHaveBeenCalled()
     expect(screen.getByText('Rattacher au compte de la banque')).toBeTruthy()
+  })
+
+  test.each([
+    ['dark', veilleuseDarkTheme],
+    ['light', veilleuseLightTheme],
+  ])('the card is one row: the link tile, the text, then « Rattacher… » on the right (%s)', async (_, theme) => {
+    stubApi(() => json({}))
+    renderCard(true, vi.fn(), theme)
+    const region = await screen.findByRole('region', { name: 'Rattacher au compte de la banque' })
+    const [tile, text, button] = Array.from(region.children)
+    expect(tile.querySelector('svg')).not.toBeNull()
+    expect(within(text as HTMLElement).getByText(/a créé « Compte bancaire »/)).toBeTruthy()
+    expect(button).toBe(within(region).getByRole('button', { name: 'Rattacher…' }))
+    expect(region).toHaveStyle({ display: 'flex' })
+  })
+
+  test.each([
+    ['dark', veilleuseDarkTheme],
+    ['light', veilleuseLightTheme],
+  ])('the card is rounded at 14 px and at most 880 px wide (%s)', async (_, theme) => {
+    stubApi(() => json({}))
+    renderCard(true, vi.fn(), theme)
+    const region = await screen.findByRole('region', { name: 'Rattacher au compte de la banque' })
+    expect(region).toHaveStyle({ borderRadius: '14px', maxWidth: '880px' })
+  })
+
+  test('« Rattacher… » is a tinted button rounded at 8 px', async () => {
+    stubApi(() => json({}))
+    renderCard()
+    const button = await screen.findByRole('button', { name: 'Rattacher…' })
+    expect(button).toHaveStyle({ borderRadius: '8px', height: '36px' })
   })
 })

@@ -38,7 +38,7 @@ export class FinanceAccountsPage extends AdminShell {
     this.addTransaction = this.content.getByRole('link', { name: 'Ajouter une transaction' })
     this.previousMonth = this.content.getByRole('button', { name: 'Mois précédent' })
     this.accountSelect = this.content.getByRole('combobox', { name: 'Compte' })
-    this.linkCard = this.content.getByText('Rattacher au compte de la banque')
+    this.linkCard = this.content.getByRole('region', { name: 'Rattacher au compte de la banque' })
     this.linkDialog = this.page.getByRole('dialog')
   }
 
