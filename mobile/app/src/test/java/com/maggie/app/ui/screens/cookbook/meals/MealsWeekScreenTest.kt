@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook.meals
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasTestTag
@@ -36,6 +37,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,6 +55,7 @@ class MealsWeekScreenTest {
     @get:Rule val compose = ScreenRule()
 
     private val monday = LocalDate.now().with(WeekFields.of(Locale.FRANCE).dayOfWeek(), 1)
+    private val today = monday.plusDays(1)
     private val curry = Recipe(id = "r-curry", name = "Riz au curry", servings = 2)
     private val salad = Recipe(id = "r-salad", name = "Salade verte", servings = 2)
     private val lunch = Meal(
@@ -111,6 +114,7 @@ class MealsWeekScreenTest {
                 onOpenMeal = onOpenMeal,
                 onChooseIngredients = onChooseIngredients,
                 onLaunchRecipe = onLaunchRecipe,
+                today = today,
             )
         }
         compose.waitForIdle()
@@ -130,7 +134,8 @@ class MealsWeekScreenTest {
     fun `one block per day, in order, each titled with its weekday and number`() {
         show()
 
-        val titles = (0L..6L).map { offset -> dayTitle(monday.plusDays(offset)) }
+        val titles = (0L..6L).map { offset -> dayTitle(monday.plusDays(offset), today) }
+        assertTrue(titles[1].endsWith("· aujourd’hui"))
         titles.forEach { compose.onNodeWithText(it).assertExists() }
         assertTopToBottom(*titles.map { it to compose.onNodeWithText(it) }.toTypedArray())
     }
@@ -140,7 +145,7 @@ class MealsWeekScreenTest {
         show()
 
         compose.onNodeWithTag(UiTags.MEAL_CARD).assertExists()
-        compose.onNodeWithText("Déjeuner").assertExists()
+        compose.onNodeWithText("Midi").assertExists()
         compose.onNodeWithTag(UiTags.MEAL_CARD_GUESTS_VALUE).assertTextEquals("4")
         compose.waitForText("Riz au curry")
         compose.onNodeWithText("Salade verte").assertExists()
@@ -161,8 +166,8 @@ class MealsWeekScreenTest {
         show(listOf(lunch.copy(id = "meal-dinner", slot = MealSlot.DINNER, recipes = emptyList()), lunch))
 
         assertTopToBottom(
-            "Déjeuner" to compose.onNodeWithText("Déjeuner"),
-            "Dîner" to compose.onNodeWithText("Dîner"),
+            "Midi" to compose.onNodeWithText("Midi"),
+            "Soir" to compose.onNodeWithText("Soir"),
         )
     }
 
@@ -261,19 +266,36 @@ class MealsWeekScreenTest {
         val created = mutableListOf<Pair<String, String>>()
         show(onCreateMeal = { day, slot -> created += day to slot })
 
-        compose.onNodeWithTag(UiTags.mealAddDay(0)).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.mealAddDay(0)).performScrollTo().assert(hasText("Ajouter le soir")).performClick()
 
         assertEquals(listOf(monday.toString() to "dinner"), created)
+    }
+
+    @Test
+    fun `a day whose dinner alone is planned offers the lunch`() {
+        val created = mutableListOf<Pair<String, String>>()
+        show(listOf(lunch.copy(slot = MealSlot.DINNER)), onCreateMeal = { day, slot -> created += day to slot })
+
+        compose.onNodeWithTag(UiTags.mealAddDay(0)).performScrollTo().assert(hasText("Ajouter le midi")).performClick()
+
+        assertEquals(listOf(monday.toString() to "lunch"), created)
+    }
+
+    @Test
+    fun `a day whose lunch and dinner are planned offers no add button`() {
+        show(listOf(lunch, lunch.copy(id = "meal-dinner", slot = MealSlot.DINNER)))
+
+        compose.onNodeWithTag(UiTags.mealAddDay(0)).assertDoesNotExist()
     }
 
     @Test
     fun `an empty day shows only its title and the add button`() {
         show(emptyList())
 
-        compose.onNodeWithText(dayTitle(monday.plusDays(1))).assertExists()
+        compose.onNodeWithText(dayTitle(monday.plusDays(1), today)).assertExists()
         compose.onNodeWithTag(UiTags.mealAddDay(1)).assertExists()
-        assertEquals(7, compose.onAllNodesWithText("+ Ajouter un repas").fetchSemanticsNodes().size)
-        assertEquals(0, compose.onAllNodes(hasText("Déjeuner")).fetchSemanticsNodes().size)
+        assertEquals(7, compose.onAllNodesWithText("Ajouter un repas").fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodes(hasText("Midi")).fetchSemanticsNodes().size)
     }
 
     @Test
@@ -298,4 +320,4 @@ class MealsWeekScreenTest {
     }
 }
 
-internal fun dayTitle(day: LocalDate): String = dayLabel(day)
+internal fun dayTitle(day: LocalDate, today: LocalDate): String = dayLabel(day, today)

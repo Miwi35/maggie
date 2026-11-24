@@ -51,7 +51,7 @@ tags:
     file: ../subflows/open-destination.yaml
     env:
       DEST: cookbook
-# Cuisine opens on Repas (MAG-628): the week's days, each with its « + Ajouter un repas ».
+# Cuisine opens on Repas (MAG-628): the week's days, each with its « Ajouter un repas » button.
 # `scrollUntilVisible` swipes from the screen's centre: the tablet's detail pane, not the
 # week (MAG-571, `subflows/scroll-list-end.yaml`).
 - runFlow: ../subflows/scroll-list-end.yaml
@@ -166,7 +166,7 @@ tags:
     env:
       DEST: cookbook
 - runFlow: ../subflows/scroll-list-end.yaml
-- tapOn: "Déjeuner"
+- tapOn: "Midi"
 - extendedWaitUntil:
     visible:
       id: "meal_detail_title"
