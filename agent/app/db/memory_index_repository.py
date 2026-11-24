@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, func, or_, select
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.db.agent_engine import agent_session
 from app.db.memory_index_model import (
@@ -390,29 +391,36 @@ class MemoryOutboxRepository:
     async def enqueue(self, user_id: str, path: str, op: str, body: str | None, base_etag: str | None) -> None:
         """Queue a write. `base_etag` is kept from the first write still waiting: it is what the push compares to."""
         now = datetime.now(UTC)
-        async with agent_session() as session:
-            row = await self._row(session, user_id, path)
-            if row is None:
-                session.add(
-                    MemoryOutbox(
-                        user_id=user_id,
-                        path=path,
-                        op=op,
-                        body=body,
-                        base_etag=base_etag,
-                        attempts=0,
-                        created_at=now,
-                        updated_at=now,
-                    )
-                )
-            else:
-                if op == OP_APPEND and row.op == OP_APPEND:
-                    row.body = (row.body or "") + (body or "")
-                else:
-                    row.op = op
-                    row.body = body
-                row.updated_at = now
-            await session.commit()
+        # The push removes the row without the file lock: if it goes between our read and our update, read again.
+        for attempt in range(3):
+            try:
+                async with agent_session() as session:
+                    row = await self._row(session, user_id, path)
+                    if row is None:
+                        session.add(
+                            MemoryOutbox(
+                                user_id=user_id,
+                                path=path,
+                                op=op,
+                                body=body,
+                                base_etag=base_etag,
+                                attempts=0,
+                                created_at=now,
+                                updated_at=now,
+                            )
+                        )
+                    else:
+                        if op == OP_APPEND and row.op == OP_APPEND:
+                            row.body = (row.body or "") + (body or "")
+                        else:
+                            row.op = op
+                            row.body = body
+                        row.updated_at = now
+                    await session.commit()
+                    return
+            except StaleDataError:
+                if attempt == 2:
+                    raise
 
     async def pending(self, user_id: str) -> list[OutboxEntry]:
         async with agent_session() as session:
@@ -473,10 +481,10 @@ class MemoryOutboxRepository:
             if only_if_updated_at is not None and _naive(row.updated_at) != _naive(only_if_updated_at):
                 if not isinstance(new_base_etag, Keep):
                     row.base_etag = new_base_etag
-                    await session.commit()
+                    await self._commit_unless_gone(session)
                 return
             await session.delete(row)
-            await session.commit()
+            await self._commit_unless_gone(session)
 
     async def failed(self, user_id: str, path: str, error: str) -> None:
         async with agent_session() as session:
@@ -485,7 +493,14 @@ class MemoryOutboxRepository:
                 return
             row.attempts = int(row.attempts or 0) + 1
             row.last_error = error[:500]
+            await self._commit_unless_gone(session)
+
+    @staticmethod
+    async def _commit_unless_gone(session: Any) -> None:
+        try:
             await session.commit()
+        except StaleDataError:
+            await session.rollback()
 
     @staticmethod
     async def _row(session: Any, user_id: str, path: str) -> MemoryOutbox | None:
