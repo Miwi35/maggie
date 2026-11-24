@@ -6,6 +6,7 @@ import Button from '@mui/material/Button'
 import ButtonBase from '@mui/material/ButtonBase'
 import Card from '@mui/material/Card'
 import Chip from '@mui/material/Chip'
+import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
@@ -28,7 +29,7 @@ import { ReviewSheet, ReviewStatePill } from './ReviewSheet'
 import { ReviewSheetNav, useArrowNavigation, useWideReview } from './ReviewSheetNav'
 import { useSequenceCursor } from './reviewSequence'
 import { AVOIDABLE_LABEL, KEEP_LABEL } from './satisfaction'
-import { formatDay } from './recurringOperations'
+import { formatDay, formatShortDay } from './recurringOperations'
 import { byDate, useReviewQueue } from './useReviewQueue'
 import type { ReviewItem } from './useReviewQueue'
 
@@ -59,6 +60,8 @@ const Heading = ({ children }: { children: ReactNode }) => (
     {children}
   </Typography>
 )
+
+const transactionsLabel = (n: number) => `${n} transaction${n > 1 ? 's' : ''}`
 
 const SATISFACTION_CHIP: Record<string, string> = { keep: KEEP_LABEL, avoidable: AVOIDABLE_LABEL }
 
@@ -91,32 +94,38 @@ const ReviewRow = ({
         data-state={recognised ? 'recognised' : 'unrecognised'}
         onClick={onSelect}
         sx={{
-          display: 'flex',
+          display: 'grid',
+          gridTemplateColumns: '64px minmax(0, 1fr) auto 110px',
+          alignItems: 'center',
           width: '100%',
-          justifyContent: 'flex-start',
           textAlign: 'left',
-          gap: 1,
-          px: 2,
-          py: 1,
-          borderRadius: 0,
+          gap: 1.5,
+          px: 1.75,
+          py: 1.25,
+          borderRadius: 1.5,
           bgcolor: selected ? 'action.selected' : undefined,
           '&:hover': { bgcolor: 'action.hover' },
         }}
       >
-        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          {formatShortDay(item.bookedAt)}
+        </Typography>
+        <Box sx={{ minWidth: 0 }}>
           <Typography variant="body2" noWrap>
             {item.label}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatDay(item.bookedAt)}
+          <Typography variant="caption" color="text.secondary" noWrap component="div">
+            {item.accountName}
           </Typography>
         </Box>
-        {verdict && <Chip size="small" variant="outlined" label={verdict} />}
-        {controlled && <CheckIcon fontSize="small" color="success" titleAccess="Contrôlée" data-testid="review-controlled" />}
-        <ReviewStatePill recognised={recognised} />
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <ReviewStatePill recognised={recognised} />
+          {verdict && <Chip size="small" label={verdict} sx={{ bgcolor: 'action.hover', color: 'text.secondary' }} />}
+          {controlled && <CheckIcon fontSize="small" color="success" titleAccess="Contrôlée" data-testid="review-controlled" />}
+        </Stack>
         <Typography
           variant="body2"
-          sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 84, textAlign: 'right', color: income ? 'success.main' : undefined }}
+          sx={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right', color: income ? 'success.main' : undefined }}
         >
           {income ? '+' : ''}
           {formatCents(item.amountCents, item.currency)}
@@ -145,10 +154,10 @@ const Group = ({
 }) =>
   items.length === 0 ? null : (
     <Box component="section" aria-label={title} sx={{ mb: 2 }}>
-      <Typography variant="overline" color="text.secondary" component="h3" sx={{ px: 2 }}>
+      <Typography variant="overline" color="text.secondary" component="h3" sx={{ px: 1.75 }}>
         {title}
       </Typography>
-      <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+      <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
         {items.map((item) => (
           <ReviewRow
             key={item.id}
@@ -276,66 +285,70 @@ export const ReviewPage = () => {
 
   return (
     <>
-      <Title title={`Revue · ${counts.all}`} />
-      <Heading>Revue · {counts.all}</Heading>
+      <Title title="Revue" />
+      <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Typography variant="h5" component="h1">
+          Revue
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          {transactionsLabel(ordered.length)}
+        </Typography>
+      </Stack>
 
-      <Stack spacing={2} sx={{ mb: 2 }}>
-        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', rowGap: 1 }} alignItems="center">
-          <Stack direction="row" spacing={1} role="group" aria-label="État">
-            <Pill label={`Toutes · ${counts.all}`} active={filter.state === 'all'} onClick={() => change({ state: 'all' })} />
-            <Pill
-              label={`À qualifier · ${counts.unrecognised}`}
-              active={filter.state === 'unrecognised'}
-              onClick={() => change({ state: 'unrecognised' })}
-            />
-            <Pill
-              label={`Reconnues · ${counts.recognised}`}
-              active={filter.state === 'recognised'}
-              onClick={() => change({ state: 'recognised' })}
-            />
-          </Stack>
-
-          <TextField
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 1, mb: 2 }}>
+        {filter.period === 'month' && (
+          <IconButton size="small" aria-label="Mois précédent" onClick={() => change({ month: shiftMonth(filter.month, -1) })}>
+            <ChevronLeftIcon />
+          </IconButton>
+        )}
+        <Stack direction="row" spacing={1} role="group" aria-label="Période">
+          <Pill label={monthLabel(filter.month)} active={filter.period === 'month'} onClick={() => change({ period: 'month' })} />
+          <Pill label={SINCE_REVIEW_LABEL} active={filter.period === 'since_review'} onClick={() => change({ period: 'since_review' })} />
+          <Pill label={ALL_DATES_LABEL} active={filter.period === 'all'} onClick={() => change({ period: 'all' })} />
+        </Stack>
+        {filter.period === 'month' && (
+          <IconButton
             size="small"
-            type="search"
-            placeholder="Rechercher"
-            value={filter.q}
-            onChange={(e) => change({ q: e.target.value })}
-            slotProps={{ htmlInput: { 'aria-label': 'Rechercher une transaction' } }}
+            aria-label="Mois suivant"
+            disabled={filter.month >= thisMonth}
+            onClick={() => change({ month: shiftMonth(filter.month, 1) })}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        )}
+        {filter.period === 'since_review' && queue.sinceReviewDate && (
+          <Typography variant="caption" color="text.secondary">
+            depuis le {formatDay(queue.sinceReviewDate)}
+          </Typography>
+        )}
+
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+        <Stack direction="row" spacing={1} role="group" aria-label="État">
+          <Pill label={`Toutes · ${counts.all}`} active={filter.state === 'all'} onClick={() => change({ state: 'all' })} />
+          <Pill
+            label={`À qualifier · ${counts.unrecognised}`}
+            active={filter.state === 'unrecognised'}
+            onClick={() => change({ state: 'unrecognised' })}
+          />
+          <Pill
+            label={`Reconnues · ${counts.recognised}`}
+            active={filter.state === 'recognised'}
+            onClick={() => change({ state: 'recognised' })}
           />
         </Stack>
 
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }} alignItems="center">
-          {filter.period === 'month' && (
-            <IconButton
-              size="small"
-              aria-label="Mois précédent"
-              onClick={() => change({ month: shiftMonth(filter.month, -1) })}
-            >
-              <ChevronLeftIcon />
-            </IconButton>
-          )}
-          <Stack direction="row" spacing={1} role="group" aria-label="Période">
-            <Pill label={monthLabel(filter.month)} active={filter.period === 'month'} onClick={() => change({ period: 'month' })} />
-            <Pill label={SINCE_REVIEW_LABEL} active={filter.period === 'since_review'} onClick={() => change({ period: 'since_review' })} />
-            <Pill label={ALL_DATES_LABEL} active={filter.period === 'all'} onClick={() => change({ period: 'all' })} />
-          </Stack>
-          {filter.period === 'month' && (
-            <IconButton
-              size="small"
-              aria-label="Mois suivant"
-              disabled={filter.month >= thisMonth}
-              onClick={() => change({ month: shiftMonth(filter.month, 1) })}
-            >
-              <ChevronRightIcon />
-            </IconButton>
-          )}
-          {filter.period === 'since_review' && queue.sinceReviewDate && (
-            <Typography variant="caption" color="text.secondary">
-              depuis le {formatDay(queue.sinceReviewDate)}
-            </Typography>
-          )}
-        </Stack>
+        <Box sx={{ flexGrow: 1 }} />
+
+        <TextField
+          size="small"
+          type="search"
+          placeholder="Rechercher…"
+          value={filter.q}
+          onChange={(e) => change({ q: e.target.value })}
+          sx={{ minWidth: 200 }}
+          slotProps={{ htmlInput: { 'aria-label': 'Rechercher une transaction' } }}
+        />
       </Stack>
 
       {gestureError && (
@@ -364,7 +377,7 @@ export const ReviewPage = () => {
       ) : (
         <Stack direction="row" spacing={2} alignItems="flex-start">
           {showList && (
-            <Card sx={{ width: wide ? 520 : '100%', flexShrink: 0, py: 1 }}>
+            <Card sx={{ flexGrow: 1, minWidth: 0, width: wide ? undefined : '100%', p: 0.75, borderRadius: 2 }}>
               <Group
                 title="Non reconnues"
                 items={unrecognisedLines}
@@ -386,7 +399,7 @@ export const ReviewPage = () => {
             </Card>
           )}
           {showSheet && current && (
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Box sx={{ width: wide ? 460 : '100%', flexShrink: 0, minWidth: 0 }}>
               <ReviewSheetNav cursor={cursor} showBack={!wide} />
               <ReviewSheet
                 key={current.id}
