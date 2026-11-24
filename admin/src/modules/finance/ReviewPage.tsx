@@ -338,17 +338,17 @@ export const ReviewPage = () => {
           />
         </Stack>
 
-        <Box sx={{ flexGrow: 1 }} />
-
-        <TextField
-          size="small"
-          type="search"
-          placeholder="Rechercher…"
-          value={filter.q}
-          onChange={(e) => change({ q: e.target.value })}
-          sx={{ minWidth: 200 }}
-          slotProps={{ htmlInput: { 'aria-label': 'Rechercher une transaction' } }}
-        />
+        <Box data-testid="review-search" sx={{ ml: 'auto', width: 240, maxWidth: '100%', flexShrink: 0 }}>
+          <TextField
+            fullWidth
+            size="small"
+            type="search"
+            placeholder="Rechercher…"
+            value={filter.q}
+            onChange={(e) => change({ q: e.target.value })}
+            slotProps={{ htmlInput: { 'aria-label': 'Rechercher une transaction' } }}
+          />
+        </Box>
       </Stack>
 
       {gestureError && (
