@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,9 +40,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -62,6 +67,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import com.maggie.app.data.model.DailyBalance
 import com.maggie.app.data.model.DailyEnergy
 import com.maggie.app.data.model.HealthDay
 import com.maggie.app.ui.UiTags
@@ -139,10 +145,9 @@ private fun SuiviContent(
     // Suivi opens on the day's bilan (MAG-748): a tap opens Nutrition, the profile hint Configuration.
     val bilan: @Composable () -> Unit = {
         uiState.balance?.let { balance ->
-            BalanceCard(
+            SuiviBalanceBanner(
                 balance = balance,
                 onCompleteProfile = { onSelectSection(HealthSection.CONFIGURATION) },
-                compact = true,
                 onOpen = { onSelectSection(HealthSection.NUTRITION) },
             )
         }
@@ -180,7 +185,7 @@ private fun SuiviContent(
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
                     WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, viewModel::delete, large = true)
                     Spacer(Modifier.height(14.dp))
-                    MoodCard(moods, uiState, today, viewModel::selectDay, large = true)
+                    MoodCard(moods, uiState, today, viewModel::selectDay, large = true, axis = chart.from to chart.to)
                 }
                 // The right column of the mockup holds Nutrition: its bilan on top, then Pas and Énergie.
                 Column(
@@ -188,7 +193,7 @@ private fun SuiviContent(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     bilan()
-                    StepsCard(energy, day, uiState, today, viewModel::selectDay, large = true)
+                    StepsCard(energy, day, uiState, today, viewModel::selectDay, large = true, axis = chart.from to chart.to)
                     EnergyCard(energy, day, uiState, today, viewModel::selectDay, large = true)
                 }
             }
@@ -196,15 +201,106 @@ private fun SuiviContent(
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                bilan()
                 PeriodSelector(uiState.period, viewModel::selectPeriod, segmentWidth = null, height = 36.dp)
+                bilan()
                 WeightCard(chart, uiState.selectedIndex, viewModel::selectColumn, viewModel::exclude, viewModel::delete, large = false)
-                StepsCard(energy, day, uiState, today, viewModel::selectDay, large = false)
+                StepsCard(energy, day, uiState, today, viewModel::selectDay, large = false, axis = chart.from to chart.to)
                 EnergyCard(energy, day, uiState, today, viewModel::selectDay, large = false)
-                MoodCard(moods, uiState, today, viewModel::selectDay, large = false)
+                MoodCard(moods, uiState, today, viewModel::selectDay, large = false, axis = chart.from to chart.to)
             }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+/** « Nutrition · bilan du jour ›»: the signed balance, its word, the figures and the gauge (Suivi-Tel); a tap opens Nutrition. */
+@Composable
+private fun SuiviBalanceBanner(balance: DailyBalance, onCompleteProfile: () -> Unit, onOpen: () -> Unit) {
+    val surface = maggieSurface()
+    val kcal = balance.balanceKcal
+    val zone = balanceZone(kcal)
+    val word = suiviBalanceWord(kcal)
+    val value = suiviBalanceValue(balance)
+    MaggieCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                contentDescription = if (word != null) "Nutrition, bilan du jour : $word de $value" else "Nutrition, bilan du jour"
+            }
+            .testTag(UiTags.NUTRITION_BALANCE),
+        onClick = onOpen,
+    ) {
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(fontSize = 14.sp, color = surface.textMuted)) { append("Nutrition · bilan du jour") }
+                        withStyle(SpanStyle(fontSize = 12.sp, color = surface.caption)) { append(" · prévu compris") }
+                    },
+                )
+                Text("›", fontSize = 16.sp, color = surface.caption)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                Text(
+                    value,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Light,
+                    color = surface.text,
+                    modifier = Modifier.testTag(UiTags.NUTRITION_BALANCE_VALUE),
+                )
+                if (word != null) Text(word, fontSize = 14.sp, color = balanceColor(zone))
+                Spacer(Modifier.weight(1f))
+                Text(
+                    suiviBalanceFigures(balance),
+                    fontSize = 12.sp,
+                    color = surface.caption,
+                    modifier = Modifier.testTag(UiTags.NUTRITION_BALANCE_FIGURES),
+                )
+            }
+            if (kcal != null) {
+                BalanceGauge(kcal, Modifier.fillMaxWidth().height(22.dp))
+            } else {
+                TextButton(onClick = onCompleteProfile, modifier = Modifier.testTag(UiTags.NUTRITION_PROFILE_HINT)) {
+                    Text("Compléter le profil")
+                }
+            }
+        }
+    }
+}
+
+/** The gauge of Suivi-Tel: a blue → grey → amber rail, the balanced band and a marker where the balance stands. */
+@Composable
+private fun BalanceGauge(balanceKcal: Int, modifier: Modifier = Modifier) {
+    val surface = maggieSurface()
+    val deficit = balanceColor(BalanceZone.DEFICIT)
+    val surplus = balanceColor(BalanceZone.SURPLUS)
+    val balanced = balanceColor(BalanceZone.BALANCED)
+    val marker = balanceColor(balanceZone(balanceKcal))
+    val half = balanceHalfRange(balanceKcal)
+    Canvas(modifier = modifier) {
+        val rail = Brush.horizontalGradient(
+            0f to deficit.copy(alpha = 0.45f),
+            0.4f to surface.track,
+            0.6f to surface.track,
+            1f to surplus.copy(alpha = 0.45f),
+        )
+        drawRoundRect(rail, Offset(0f, 8.dp.toPx()), Size(size.width, 6.dp.toPx()), CornerRadius(3.dp.toPx()))
+        val bandStart = balanceFraction(-BALANCE_ZONE_KCAL, half) * size.width
+        val bandEnd = balanceFraction(BALANCE_ZONE_KCAL, half) * size.width
+        val bandTop = Offset(bandStart, 4.dp.toPx())
+        val bandSize = Size(bandEnd - bandStart, 14.dp.toPx())
+        val bandRadius = CornerRadius(4.dp.toPx())
+        drawRoundRect(balanced.copy(alpha = 0.22f), bandTop, bandSize, bandRadius)
+        drawRoundRect(balanced.copy(alpha = 0.45f), bandTop, bandSize, bandRadius, style = Stroke(1.dp.toPx()))
+        val x = balanceFraction(balanceKcal, half) * size.width
+        val ring = 10.dp.toPx()
+        val bar = 4.dp.toPx()
+        val ringLeft = (x - ring / 2f).coerceIn(0f, size.width - ring)
+        drawRoundRect(surface.paper, Offset(ringLeft, 0f), Size(ring, size.height), CornerRadius(ring / 2f))
+        drawRoundRect(marker, Offset(ringLeft + (ring - bar) / 2f, 0f), Size(bar, size.height), CornerRadius(bar / 2f))
     }
 }
 
@@ -461,12 +557,22 @@ private fun DayBars(
             },
     ) {
         val slot = size.width / window.size
-        val bar = (slot * 0.7f).coerceAtLeast(1f)
+        val bar = (slot * 0.64f).coerceAtLeast(1f)
         window.forEachIndexed { i, day ->
             if (day.date == selected?.date) drawRect(shade, Offset(i * slot, 0f), Size(slot, size.height))
             draw(day, i * slot + (slot - bar) / 2f, bar)
         }
     }
+}
+
+/** A bar with its top corners rounded to 3 dp; a bar too short to round is a plain rectangle. */
+private fun DrawScope.drawTopRounded(color: Color, x: Float, top: Float, width: Float, height: Float) {
+    if (height <= 0f) return
+    val r = minOf(3.dp.toPx(), width / 2f, height)
+    val path = Path().apply {
+        addRoundRect(RoundRect(Rect(x, top, x + width, top + height), topLeft = CornerRadius(r), topRight = CornerRadius(r)))
+    }
+    drawPath(path, color)
 }
 
 /**
@@ -481,6 +587,7 @@ private fun StepsCard(
     today: LocalDate,
     onSelect: (LocalDate) -> Unit,
     large: Boolean,
+    axis: Pair<String, String>,
 ) {
     val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
     val accent = MaterialTheme.colorScheme.primary
@@ -501,23 +608,17 @@ private fun StepsCard(
                 Text("Pas", fontSize = if (large) 15.sp else 14.sp, color = surface.textMuted)
                 Text(dayTitle(day, today), fontSize = 12.sp, color = surface.caption)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                Text(
-                    day?.steps?.let(::formatCount) ?: DASH,
-                    fontSize = if (large) 30.sp else 26.sp,
-                    fontWeight = FontWeight.Light,
-                    modifier = Modifier.testTag(UiTags.STEPS_VALUE),
-                )
-                Text(
-                    "· moy. " + (averageSteps(window)?.let(::formatCount) ?: DASH) + " /j",
-                    fontSize = if (large) 14.sp else 13.sp,
-                    color = surface.textMuted,
-                )
-            }
-            DayBars(window, day, onSelect, if (large) 120.dp else 76.dp) { d, x, width ->
+            Text(
+                day?.steps?.let(::formatCount) ?: DASH,
+                fontSize = if (large) 30.sp else 26.sp,
+                fontWeight = FontWeight.Light,
+                modifier = Modifier.testTag(UiTags.STEPS_VALUE),
+            )
+            DayBars(window, day, onSelect, if (large) 120.dp else 56.dp) { d, x, width ->
                 val h = (d.steps ?: 0) / top.toFloat() * size.height
-                drawRect(accent, Offset(x, size.height - h), Size(width, h))
+                drawTopRounded(if (d.date == day?.date) accent else accent.copy(alpha = 0.42f), x, size.height - h, width, h)
             }
+            AxisRow(axis, large)
         }
     }
 }
@@ -538,8 +639,8 @@ private fun EnergyCard(
     val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
     val colors = MaterialTheme.colorScheme
     val base = surface.caption.copy(alpha = 0.55f)
-    val steps = colors.primary
-    val workouts = colors.tertiary
+    val steps = surface.textMuted.copy(alpha = 0.8f)
+    val workouts = colors.primary
     when {
         state.energyFailed && !state.energyLoaded ->
             return EnergyPlaceholder("Énergie", "L'énergie n'a pas pu être chargée.", UiTags.ENERGY_CARD, large)
@@ -556,22 +657,31 @@ private fun EnergyCard(
                 Text("Énergie", fontSize = if (large) 15.sp else 14.sp, color = surface.textMuted)
                 Text(dayTitle(day, today), fontSize = 12.sp, color = surface.caption)
             }
-            Text(
-                formatKcal(day?.expendedKcal),
-                fontSize = if (large) 30.sp else 26.sp,
-                fontWeight = FontWeight.Light,
-                modifier = Modifier.testTag(UiTags.ENERGY_TOTAL),
-            )
-            DayBars(window, day, onSelect, if (large) 120.dp else 76.dp) { d, x, width ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(8.dp).height(8.dp).clip(RoundedCornerShape(2.dp)).background(workouts))
+                Text(
+                    day?.expendedKcal?.let(::formatCount) ?: DASH,
+                    fontSize = if (large) 30.sp else 22.sp,
+                    fontWeight = FontWeight.Light,
+                    modifier = Modifier.testTag(UiTags.ENERGY_TOTAL),
+                )
+                Text("dépensées", fontSize = 12.sp, color = surface.caption)
+            }
+            DayBars(window, day, onSelect, if (large) 120.dp else 96.dp) { d, x, width ->
                 val p = energyParts(d)
+                val parts = listOf(p.base to base, p.steps to steps, p.workouts to workouts).filter { it.first > 0 }
                 var bottom = size.height
-                listOf(p.base to base, p.steps to steps, p.workouts to workouts).forEach { (kcal, color) ->
+                parts.forEachIndexed { index, (kcal, color) ->
                     val h = kcal / top.toFloat() * size.height
-                    drawRect(color, Offset(x, bottom - h), Size(width, h))
+                    if (index == parts.lastIndex) {
+                        drawTopRounded(color, x, bottom - h, width, h)
+                    } else {
+                        drawRect(color, Offset(x, bottom - h), Size(width, h))
+                    }
                     bottom -= h
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 EnergyLegend("Base", day?.bmrKcal, base, UiTags.ENERGY_BASE)
                 EnergyLegend("Pas", day?.stepsKcal, steps, UiTags.ENERGY_STEPS)
                 EnergyLegend("Séances", parts?.workouts, workouts, UiTags.ENERGY_WORKOUTS)
@@ -589,7 +699,7 @@ private fun EnergyLegend(label: String, kcal: Int?, color: Color, tag: String) {
         modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(tag),
     ) {
         Box(Modifier.width(8.dp).height(8.dp).clip(RoundedCornerShape(2.dp)).background(color))
-        Text("$label ${kcal?.let(::formatCount) ?: DASH}", fontSize = 12.sp, color = surface.caption)
+        Text("$label ${kcal?.let(::formatCount) ?: DASH}", fontSize = 12.sp, color = surface.textMuted)
     }
 }
 
@@ -605,6 +715,7 @@ private fun MoodCard(
     today: LocalDate,
     onSelect: (LocalDate) -> Unit,
     large: Boolean,
+    axis: Pair<String, String>,
 ) {
     val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
     val dark = isMaggieDark()
@@ -629,10 +740,18 @@ private fun MoodCard(
                 Text(if (chosenDate == today) "Aujourd’hui" else dayLabel(chosenDate), fontSize = 12.sp, color = surface.caption)
             }
             val shade = surface.text.copy(alpha = 0.07f)
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ScaleFigure("moral", chosen.mood, mood, dashed = false, tag = UiTags.MOOD_VALUE)
+                    ScaleFigure("fatigue", chosen.fatigue, fatigue, dashed = true, tag = UiTags.FATIGUE_VALUE)
+                }
+                Spacer(Modifier.weight(1f))
+                Text("/ 10", fontSize = 12.sp, color = surface.caption)
+            }
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (large) 120.dp else 76.dp)
+                    .height(if (large) 120.dp else 64.dp)
                     .pointerInput(window) {
                         detectTapGestures { tap ->
                             val index = (tap.x / size.width * window.size).toInt().coerceIn(0, window.lastIndex)
@@ -652,13 +771,10 @@ private fun MoodCard(
                     ::x,
                     ::y,
                     fatigue,
-                    Stroke(width, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 5.dp.toPx()))),
+                    Stroke(width, cap = StrokeCap.Round, join = StrokeJoin.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx()))),
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                ScaleLegend("Moral", chosen.mood, mood, dashed = false, tag = UiTags.MOOD_VALUE)
-                ScaleLegend("Fatigue", chosen.fatigue, fatigue, dashed = true, tag = UiTags.FATIGUE_VALUE)
-            }
+            AxisRow(axis, large)
         }
     }
 }
@@ -677,23 +793,34 @@ private fun DrawScope.scaleLine(values: List<Int?>, x: (Int) -> Float, y: (Int) 
 }
 
 @Composable
-private fun ScaleLegend(label: String, value: Int?, color: Color, dashed: Boolean, tag: String) {
+private fun ScaleFigure(label: String, value: Int?, color: Color, dashed: Boolean, tag: String) {
     val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.semantics(mergeDescendants = true) {}.testTag(tag),
     ) {
-        Canvas(Modifier.width(16.dp).height(8.dp)) {
+        Canvas(Modifier.width(14.dp).height(3.dp)) {
             drawLine(
                 color,
                 Offset(0f, size.height / 2),
                 Offset(size.width, size.height / 2),
-                strokeWidth = 2.dp.toPx(),
-                pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx())) else null,
+                strokeWidth = size.height,
+                pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())) else null,
             )
         }
-        Text("$label ${value ?: DASH}", fontSize = 12.sp, color = surface.caption)
+        Text(value?.toString() ?: DASH, fontSize = 22.sp, fontWeight = FontWeight.Light)
+        Text(label, fontSize = 12.sp, color = surface.caption)
+    }
+}
+
+/** The period's first and last date under a card, as under Poids (without the trend's change). */
+@Composable
+private fun AxisRow(axis: Pair<String, String>, large: Boolean) {
+    val surface = if (isMaggieDark()) MaggieTokens.surfaceDark else MaggieTokens.surfaceLight
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(axis.first, fontSize = if (large) 12.sp else 11.sp, color = surface.caption)
+        Text(axis.second, fontSize = if (large) 12.sp else 11.sp, color = surface.caption)
     }
 }
 

@@ -76,7 +76,12 @@ tags:
 - assertVisible: "71,8 kg"
 - assertVisible: ".*21,3 % MG.*"
 
-# Pas: today's 8 000 steps, the figure of the day chosen.
+# Nutrition banner (Suivi-Tel): « Déficit » (no meal, an expenditure); the node merges its children, so the
+# assertion also matches its description.
+- assertVisible: "Nutrition · bilan du jour.*"
+- assertVisible: ".*[Dd]éficit.*"
+
+# Pas: today's 8 000 steps, the figure of the day chosen, with no « moy. ».
 - scrollUntilVisible:
     element:
       id: "steps_card"
@@ -85,6 +90,7 @@ tags:
       id: "steps_value"
       text: "8 000"
     timeout: 10000
+- assertNotVisible: ".*moy\\..*"
 
 # Énergie: base · pas · séances, no session today; the total is the API's, a figure and not a dash.
 - scrollUntilVisible:
@@ -106,7 +112,8 @@ tags:
 - assertVisible: "Séances 0"
 - assertVisible:
     id: "energy_total"
-    text: "[0-9 ]+ kcal"
+    text: "[0-9 ]+"
+- assertVisible: "dépensées"
 
 # Santé › Activité (MAG-898): from the breadcrumb's menu, the ring shows the day's 8 000 steps.
 - tapOn:
