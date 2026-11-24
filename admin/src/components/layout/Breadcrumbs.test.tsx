@@ -367,7 +367,6 @@ describe('PageHeading — the h1 of every page', () => {
     ['/tasks/routines', 'Routines'],
     ['/grocery', 'Liste'],
     ['/products', 'Produits'],
-    ['/meals', 'Repas'],
     ['/finance/dashboard', 'Finance'],
     ['/workouts', 'Sport'],
     ['/health/suivi', 'Suivi'],
@@ -382,6 +381,12 @@ describe('PageHeading — the h1 of every page', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: title })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  test('/meals draws none: the Repas page titles itself beside its views', () => {
+    renderHeading('/meals')
+
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
   test('the Accueil is titled with the date of the day it shows', () => {
