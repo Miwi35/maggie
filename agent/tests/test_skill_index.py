@@ -221,7 +221,7 @@ class TestShippedSkills:
     async def test_the_digest_skill_is_seeded_with_its_order_and_its_screen(self, agent_db):
         index = _index()
 
-        assert await index.seed_builtin() == ["bilan-soir", "digest", "recette", "releves-bancaires", "trajets"]
+        assert await index.seed_builtin() == ["agenda", "bilan-soir", "courses", "digest", "periodes", "recette", "releves-bancaires", "sport", "taches", "trajectoire", "trajets"]
         await index.rebuild()
 
         digest = await index.get("digest") or ""
@@ -294,7 +294,7 @@ class TestShippedSkills:
         index = _index()
         await index.create("digest", "le mien", [], "Mon digest à moi", user_id="u")
 
-        assert await index.seed_builtin() == ["bilan-soir", "recette", "releves-bancaires", "trajets"]
+        assert await index.seed_builtin() == ["agenda", "bilan-soir", "courses", "periodes", "recette", "releves-bancaires", "sport", "taches", "trajectoire", "trajets"]
 
         assert "Mon digest à moi" in (await index.get("digest") or "")
 
