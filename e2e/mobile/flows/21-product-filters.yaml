@@ -86,7 +86,7 @@ tags:
     timeout: 20000
 - tapOn:
     id: "product_search"
-- inputText: "Yaourt MAG-606"
+- inputText: "Yaourt MAG"
 - extendedWaitUntil:
     visible: "Yaourt MAG-606"
     timeout: 20000
