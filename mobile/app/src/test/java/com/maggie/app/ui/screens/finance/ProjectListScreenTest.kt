@@ -1,7 +1,13 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextEquals
@@ -9,6 +15,7 @@ import androidx.compose.ui.test.filter
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -31,6 +38,7 @@ import com.maggie.app.data.model.ProjectPreviewProject
 import com.maggie.app.data.model.ProjectPreviewScenario
 import com.maggie.app.data.model.ProjectResale
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.ProjectFundingSource
 import com.maggie.app.data.repository.ProjectRepository
 import com.maggie.app.screentest.ScreenRule
@@ -79,6 +87,10 @@ class ProjectListScreenTest {
         ),
     )
 
+    /** The row of a project: the Gantt writes the names too, so never `onNodeWithText(name)` alone. */
+    private fun row(name: String): SemanticsNodeInteraction =
+        compose.onAllNodesWithTag(UiTags.PROJECT_ROW).filter(hasText(name)).onFirst()
+
     private fun viewModel(
         projects: List<Project> = listOf(move, sofa),
         plan: Result<ProjectPlanning> = Result.success(planning),
@@ -93,19 +105,47 @@ class ProjectListScreenTest {
     }
 
     @Test
-    fun `the projects read in priority order, each with its badge, its date and what it waits for`() {
+    fun `each row reads its rank, its name, its amount in whole euros and its pills, in priority order`() {
         compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
         assertTopToBottom(
-            "Déménagement" to compose.onNodeWithText("1. Déménagement"),
-            "Canapé" to compose.onNodeWithText("2. Canapé"),
+            "Déménagement" to row("Déménagement"),
+            "Canapé" to row("Canapé"),
         )
-        compose.onNodeWithText("Indispensable").assertIsDisplayed()
-        compose.onNodeWithText("Confort").assertIsDisplayed()
-        compose.onNodeWithText("Date fixe · 1 mars 2027", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Sans date", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("après Déménagement").assertIsDisplayed()
+        row("Déménagement").assert(hasText(formatCentsRounded(250000)))
+            .assert(hasText("Date fixe · 1 mars 2027")).assert(hasText("Indispensable")).assert(hasText("mars 2027"))
+        row("Canapé").assert(hasText("Confort")).assert(hasText("Sans date · après Déménagement"))
+            .assert(hasText("juin 2027"))
+        compose.onAllNodesWithText("Indispensable 4", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithTag(UiTags.PROJECT_DRAG_HANDLE).filter(hasContentDescription("Déplacer Déménagement")).onFirst().assert(hasText("1"))
+    }
+
+    @Test
+    fun `the rank is the drag handle`() {
+        compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        val handle = compose.onAllNodesWithTag(UiTags.PROJECT_DRAG_HANDLE).filter(hasContentDescription("Déplacer Canapé"))
+        handle.assertCountEquals(1)
+        handle.onFirst().assert(hasText("2"))
+    }
+
+    @Test
+    fun `a row draws the share gathered as a bar, none without planning`() {
+        compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        row("Déménagement").assert(SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo, ProgressBarRangeInfo(0.2f, 0f..1f)))
+    }
+
+    @Test
+    fun `a row has neither month nor bar without planning`() {
+        compose.setContent {
+            ProjectListScreen(viewModel(plan = Result.failure(RuntimeException("down"))), onBack = {}, onOpenForm = {})
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
+        row("Déménagement").assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ProgressBarRangeInfo))
+        compose.onAllNodesWithText("mars 2027").assertCountEquals(0)
     }
 
     @Test
@@ -118,11 +158,12 @@ class ProjectListScreenTest {
     }
 
     @Test
-    fun `without a project the screen offers to add one`() {
+    fun `without a project the screen offers to add one, without a help text`() {
         val opened = mutableListOf<String?>()
         compose.setContent { ProjectListScreen(viewModel(emptyList()), onBack = {}, onOpenForm = { opened += it }) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_EMPTY).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Ajoutez", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Ajouter un projet").performClick()
 
         assertEquals(listOf<String?>(null), opened)
@@ -134,7 +175,7 @@ class ProjectListScreenTest {
         compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = { opened += it }) }
 
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
-        compose.onNodeWithText("2. Canapé").performClick()
+        row("Canapé").performClick()
         compose.onNodeWithTag(UiTags.PROJECT_ADD).performClick()
 
         assertEquals(listOf("p2", null), opened)
@@ -147,14 +188,14 @@ class ProjectListScreenTest {
         compose.setContent { ProjectListScreen(viewModel(), onBack = {}, onOpenForm = {}) }
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
 
-        val row = compose.onAllNodesWithTag(UiTags.PROJECT_ROW).filter(hasText("2. Canapé", substring = true)).fetchSemanticsNodes().single()
+        val row = compose.onAllNodesWithTag(UiTags.PROJECT_ROW).filter(hasText("Canapé")).fetchSemanticsNodes().single()
         val up = row.config[SemanticsActions.CustomActions].single { it.label == "Monter Canapé" }
         compose.runOnUiThread { up.action() }
         compose.waitForIdle()
 
         assertTopToBottom(
-            "Canapé" to compose.onNodeWithText("1. Canapé"),
-            "Déménagement" to compose.onNodeWithText("2. Déménagement"),
+            "Canapé" to row("Canapé"),
+            "Déménagement" to row("Déménagement"),
         )
         coVerify { repository.reorderProjects(listOf("p2", "p1")) }
     }
@@ -384,7 +425,7 @@ class ProjectListScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.PROJECT_ROW).fetchSemanticsNodes().size == 2 }
         compose.onAllNodesWithTag(UiTags.PROJECT_FUNDING_SUMMARY, useUnmergedTree = true).assertCountEquals(1)
         compose.onNodeWithText("économies + emprunt + salaire").assertIsDisplayed()
-        compose.onNodeWithText("2. Canapé").performClick()
+        row("Canapé").performClick()
         compose.onNodeWithTag(UiTags.PROJECT_ADD).performClick()
 
         assertEquals(listOf("p2"), sheets)
