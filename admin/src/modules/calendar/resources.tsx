@@ -2,6 +2,7 @@ import { ResourceGuesser } from '@api-platform/admin'
 import { CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
 import { lazyPage } from '../../lazyPage'
+import { TaskStockRedirect } from './TaskStockRedirect'
 
 const CalendarView = lazyPage(() => import('./CalendarView'), 'CalendarView')
 const PeriodList = lazyPage(() => import('./PeriodList'), 'PeriodList')
@@ -11,8 +12,9 @@ export const calendarResources = (
   <>
     <CustomRoutes>
       <Route path="/calendar" element={<CalendarView />} />
-      <Route path="/tasks/upcoming" element={<TaskBoard />} />
-      <Route path="/tasks/someday" element={<TaskBoard />} />
+      <Route path="/tasks/stock" element={<TaskBoard />} />
+      <Route path="/tasks/upcoming" element={<TaskStockRedirect />} />
+      <Route path="/tasks/someday" element={<TaskStockRedirect />} />
       <Route path="/tasks/done" element={<TaskBoard />} />
       <Route path="/tasks/routines" element={<TaskBoard />} />
     </CustomRoutes>

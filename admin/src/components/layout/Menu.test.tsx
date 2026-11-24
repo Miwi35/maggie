@@ -470,25 +470,23 @@ describe('CustomMenu — the Tâches views (MAG-644)', () => {
       }),
     )
 
-  test('opens Aujourd\'hui · À venir · Un jour · Faites under the module, Routines being reached from the page', async () => {
+  test('opens Aujourd\'hui · Tâches · Routines · Archives under the module', async () => {
     stubTasks()
     renderMenuAt('/tasks')
 
     expect(await screen.findByRole('menuitem', { name: /^Aujourd'hui/ })).toHaveAttribute('href', '/tasks')
-    expect(screen.getByRole('menuitem', { name: /^À venir/ })).toHaveAttribute('href', '/tasks/upcoming')
-    expect(screen.getByRole('menuitem', { name: /^Un jour/ })).toHaveAttribute('href', '/tasks/someday')
-    expect(screen.getByRole('menuitem', { name: /^Faites/ })).toHaveAttribute('href', '/tasks/done')
-    expect(hrefs()).not.toContain('/tasks/routines')
+    expect(hrefs()).toContain('/tasks/stock')
+    expect(screen.getByRole('menuitem', { name: 'Routines' })).toHaveAttribute('href', '/tasks/routines')
+    expect(screen.getByRole('menuitem', { name: /^Archives/ })).toHaveAttribute('href', '/tasks/done')
   })
 
-  test('counts what is left of the day under Aujourd\'hui, and the size of the other views', async () => {
+  test('counts what is left of the day under Aujourd\'hui, « Tâches » counts À venir and Un jour together, and Archives its own size', async () => {
     stubTasks()
-    renderMenuAt('/tasks/upcoming')
+    renderMenuAt('/tasks/stock')
 
     expect(await screen.findByRole('menuitem', { name: "Aujourd'hui 3" })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'À venir 4' })).toHaveClass('Mui-selected')
-    expect(screen.getByRole('menuitem', { name: 'Un jour 2' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Faites 7' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Tâches 6' })).toHaveClass('Mui-selected')
+    expect(screen.getByRole('menuitem', { name: 'Archives 7' })).toBeInTheDocument()
   })
 
   test('counts the list of the day: a reserve task due later or without a day is not in Aujourd\'hui', async () => {
@@ -503,11 +501,11 @@ describe('CustomMenu — the Tâches views (MAG-644)', () => {
     expect(await screen.findByRole('menuitem', { name: "Aujourd'hui 2" })).toBeInTheDocument()
   })
 
-  test('keeps Aujourd\'hui lit on the Routines page, which no entry names', async () => {
+  test('lights Routines, which has no number, on its page', async () => {
     stubTasks()
     renderMenuAt('/tasks/routines')
 
-    expect(await screen.findByRole('menuitem', { name: /^Aujourd'hui/ })).toHaveClass('Mui-selected')
+    expect(await screen.findByRole('menuitem', { name: 'Routines' })).toHaveClass('Mui-selected')
   })
 
   test('reads no number while the page belongs to another module', async () => {

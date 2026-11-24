@@ -72,7 +72,7 @@ test('a task made to repeat every other Tuesday shows ↻ and its rule, and chec
 
   // When I open its row, « Modifier », and choose « Toutes les deux semaines »…
   const tasks = new TasksPage(page)
-  await tasks.goto(ROUTES.tasksUpcoming)
+  await tasks.goto(ROUTES.tasksStock)
   await tasks.openTask(title)
   await tasks.sheet.getByRole('button', { name: 'Modifier la tâche' }).click()
   await tasks.repeatField.click()

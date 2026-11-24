@@ -85,10 +85,10 @@ test.describe('the Tâches card of the Accueil', () => {
       })
       .toBe(true)
 
-    // …and it is among the done tasks of « Tâches ».
+    // …and it is among the « Archives ».
     const board = new TasksPage(page)
     await board.open()
-    await board.select('Faites')
+    await board.select('Archives')
     await expect(board.row(first)).toHaveCount(1)
     await expect(board.checkbox(first)).toBeChecked()
   })

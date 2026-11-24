@@ -82,8 +82,8 @@ test('a valid session introspects the API schema and can list a resource', async
     }
   })
 
-  // « À venir » is a route of its own; the seeded garage call is due in three days.
-  await shell.goto(ROUTES.tasksUpcoming)
+  // « Tâches » is a route of its own; the seeded garage call is due in three days.
+  await shell.goto(ROUTES.tasksStock)
   await shell.expectLoaded()
   await expect(shell.content.getByText('Appeler le garage')).toBeVisible()
   expect(unauthorised, 'the admin made an unauthenticated API call').toEqual([])
@@ -142,8 +142,8 @@ test('a request the server refuses for an expired token is replayed with a renew
   const shell = new AdminShell(page)
   const login = new LoginPage(page)
 
-  // « À venir » is a route of its own; the seeded garage call is due in three days.
-  await shell.goto(ROUTES.tasksUpcoming)
+  // « Tâches » is a route of its own; the seeded garage call is due in three days.
+  await shell.goto(ROUTES.tasksStock)
   await shell.expectLoaded()
   await expect(shell.content.getByText('Appeler le garage')).toBeVisible()
   await expect(login.prompt).toHaveCount(0)

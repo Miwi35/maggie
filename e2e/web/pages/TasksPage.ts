@@ -3,18 +3,17 @@ import type { Locator, Page } from '@playwright/test'
 import { AdminShell } from './AdminShell.js'
 import { ROUTES } from './routes.js'
 
-/** The views of « Tâches », each a route of its own and a sub-entry of the menu (MAG-644), « Routines » reached from the page (MAG-511). */
-export type TasksView = "Aujourd'hui" | 'À venir' | 'Un jour' | 'Faites' | 'Routines'
+/** The views of « Tâches », each a route of its own and a sub-entry of the menu (MAG-644, MAG-1007), « Routines » included (MAG-511). */
+export type TasksView = "Aujourd'hui" | 'Tâches' | 'Routines' | 'Archives'
 
-/** The views that sit in the menu with a number. */
+/** The views that sit in the menu with a number: « Routines » has none. */
 export type CountedView = Exclude<TasksView, 'Routines'>
 
 const PATHS: Record<TasksView, string> = {
   "Aujourd'hui": ROUTES.tasks,
-  'À venir': ROUTES.tasksUpcoming,
-  'Un jour': ROUTES.tasksSomeday,
-  Faites: ROUTES.tasksDone,
+  Tâches: ROUTES.tasksStock,
   Routines: ROUTES.tasksRoutines,
+  Archives: ROUTES.tasksDone,
 }
 
 /** The groups of « Routines »: the part of the day for the daily ones, then the rhythm (MAG-511). */
@@ -22,11 +21,11 @@ export type RoutineGroup = 'Matin' | 'Après-midi' | 'Soir' | 'Chaque semaine' |
 
 /**
  * The « Tâches » page: « Aujourd'hui » — the day of five tasks at most with its « Maintenant » (MAG-497),
- * and the reserve in the same full-width list — then « À venir », « Un jour » and « Faites », each its
- * own route with the menu's sub-entry and number (MAG-644).
+ * and the reserve in the same full-width list — then « Tâches » (Cette semaine · Plus tard · Sans date),
+ * « Routines » and « Archives », each its own route with the menu's sub-entry (MAG-644, MAG-1007).
  */
 export class TasksPage extends AdminShell {
-  /** The h1 of the view: « Aujourd'hui », « À venir »… */
+  /** The h1 of the view: « Aujourd'hui », « Tâches »… */
   readonly heading: Locator
   /** « Tâches · jeudi 15 octobre », above the list. */
   readonly title: Locator
@@ -38,8 +37,6 @@ export class TasksPage extends AdminShell {
   readonly repeatField: Locator
   /** « Jusqu’au » of the form, shown once the task repeats (MAG-888). */
   readonly untilField: Locator
-  /** « Routines », the link to the routines from the page's header. */
-  readonly routinesLink: Locator
   /** The sheet of a task, a 420 px panel beside the list (MAG-644). */
   readonly sheet: Locator
   /** The card of the first task of the day not done. */
@@ -81,7 +78,6 @@ export class TasksPage extends AdminShell {
     this.form = page.getByRole('dialog', { name: /^(Nouvelle tâche|Modifier la tâche)$/ })
     this.repeatField = this.form.getByRole('combobox', { name: /^Répéter/ })
     this.untilField = this.form.getByRole('button', { name: /^Jusqu’au/ })
-    this.routinesLink = this.content.getByRole('link', { name: 'Routines', exact: true })
     this.sheet = page.getByRole('complementary', { name: 'Fiche de la tâche' })
     this.now = this.content.getByRole('region', { name: 'Maintenant' })
     this.ring = this.content.getByRole('img', { name: /^\d+ sur \d+$/ })
@@ -172,25 +168,21 @@ export class TasksPage extends AdminShell {
     return this.proposed.getByRole('listitem').filter({ has: this.page.getByText(title, { exact: true }) })
   }
 
-  /** The sub-entry of the menu for a view, whatever number it carries: « À venir 3 ». */
-  menuEntry(view: CountedView): Locator {
-    return this.page.getByRole('menuitem', { name: new RegExp(`^${view}\\s*\\d*$`) })
+  /** The sub-entry of the menu for a view, whatever number it carries: « Archives 3 ». The module's own « Tâches » entry comes first, the sub-entry last. */
+  menuEntry(view: TasksView): Locator {
+    return this.page.getByRole('menuitem', { name: new RegExp(`^${view}\\s*\\d*$`) }).last()
   }
 
-  /** Goes to a view the way the owner does: « Routines » by the link of the page, the others by the menu. */
+  /** Goes to a view the way the owner does: by the menu. */
   async select(view: TasksView): Promise<void> {
-    if (view === 'Routines') {
-      await this.routinesLink.click()
-    } else {
-      await this.openMenu()
-      await this.menuEntry(view).click()
-    }
+    await this.openMenu()
+    await this.menuEntry(view).click()
 
     await expect(this.page).toHaveURL(new RegExp(`#${PATHS[view]}$`))
     await expect(this.heading).toHaveText(view)
   }
 
-  /** The number on the menu's entry: « À venir 3 » is 3. Waits for the menu to have its numbers. */
+  /** The number on the menu's entry: « Archives 3 » is 3. Waits for the menu to have its numbers. */
   async count(view: CountedView): Promise<number> {
     await this.openMenu()
     const label = (await this.menuEntry(view).getByTestId('menu-count').textContent()) ?? ''

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNotify } from 'react-admin'
-import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -8,7 +8,7 @@ import Pagination from '@mui/material/Pagination'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import { addDays, localDay } from '../../dates'
+import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { TaskBravoBanner, TaskPalier } from './TaskBravo'
 import { TaskDay } from './TaskDay'
@@ -22,34 +22,39 @@ import { claimMorning, dayTasks, fetchDayPlan, fetchDayTimes, morningDue } from 
 import type { DayPlan } from './dayPlan'
 import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
+import { groupStock } from './taskStock'
 import { fetchTask, fetchTaskView, findTaskView, setTaskDone, TASK_TOPICS } from './taskViews'
 import type { TaskView, ViewTask } from './taskViews'
 
 const PAGE_SIZE = 30
 
-/** The views of the tasks, each a route (MAG-644), and the routines (MAG-511), which are not tasks. */
-type BoardView = TaskView | 'routines'
+/** The views of the tasks, each a route (MAG-644): « Tâches » reads « À venir » and « Un jour » together (MAG-1007). The routines (MAG-511) are no tasks. */
+type BoardView = 'today' | 'stock' | 'done' | 'routines'
 
 const VIEW_PATHS: Record<BoardView, string> = {
   today: '/tasks',
-  upcoming: '/tasks/upcoming',
-  someday: '/tasks/someday',
+  stock: '/tasks/stock',
   done: '/tasks/done',
   routines: '/tasks/routines',
 }
 
-const EMPTY: Record<TaskView, string> = {
+const EMPTY: Record<'today' | 'stock' | 'done', string> = {
   today: "Rien à faire aujourd'hui",
-  upcoming: 'Aucune tâche à venir',
-  someday: 'Aucune tâche pour plus tard',
-  done: 'Aucune tâche terminée',
+  stock: 'Aucune tâche.',
+  done: 'Aucune tâche archivée.',
 }
 
-const LABELS: Record<TaskView, string> = {
+const LABELS: Record<'today' | 'stock' | 'done', string> = {
   today: "Aujourd'hui",
-  upcoming: 'À venir',
-  someday: 'Un jour',
-  done: 'Faites',
+  stock: 'Tâches',
+  done: 'Archives',
+}
+
+const VIEW_OF_TASK_VIEW: Record<TaskView, BoardView> = {
+  today: 'today',
+  upcoming: 'stock',
+  someday: 'stock',
+  done: 'done',
 }
 
 const viewOfPath = (pathname: string): BoardView => {
@@ -85,6 +90,7 @@ const TasksPage = ({ view }: TasksPageProps) => {
   const page = view === 'done' ? Math.max(1, Number(searchParams.get('page')) || 1) : 1
 
   const [tasks, setTasks] = useState<ViewTask[]>([])
+  const [stock, setStock] = useState<{ upcoming: ViewTask[]; someday: ViewTask[] }>({ upcoming: [], someday: [] })
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -130,6 +136,24 @@ const TasksPage = ({ view }: TasksPageProps) => {
   const load = useCallback(() => {
     if (view === 'routines' || view === 'today') return
     const current = ++request.current
+    if (view === 'stock') {
+      Promise.all([fetchTaskView('upcoming'), fetchTaskView('someday')])
+        .then(([upcoming, someday]) => {
+          if (current !== request.current) return
+          setStock({ upcoming: upcoming.member, someday: someday.member })
+          setTasks([...upcoming.member, ...someday.member])
+          setFailed(false)
+        })
+        .catch((error: unknown) => {
+          if (current !== request.current) return
+          console.error(error)
+          setFailed(true)
+        })
+        .finally(() => {
+          if (current === request.current) setLoading(false)
+        })
+      return
+    }
     fetchTaskView(view, page)
       .then((result) => {
         if (current !== request.current) return
@@ -210,9 +234,10 @@ const TasksPage = ({ view }: TasksPageProps) => {
       .then((found) => {
         if (located.current !== target) return
         if (found) {
-          if (found.view === view && found.page === page) return
+          const foundView = VIEW_OF_TASK_VIEW[found.view]
+          if (foundView === view && found.page === page) return
           const query = new URLSearchParams({ task: target, ...(found.page > 1 ? { page: String(found.page) } : {}) })
-          navigate({ pathname: VIEW_PATHS[found.view], search: `?${query.toString()}` }, { replace: true })
+          navigate({ pathname: VIEW_PATHS[foundView], search: `?${query.toString()}` }, { replace: true })
         } else if (view !== 'today') {
           navigate({ pathname: VIEW_PATHS.today, search: `?task=${target}` }, { replace: true })
         }
@@ -287,12 +312,12 @@ const TasksPage = ({ view }: TasksPageProps) => {
       .catch(() => setEditing(null))
   }
 
-  // « Aujourd'hui » lists only what is due today or before, so a task made there is due today, and tomorrow on
-  // « À venir »: it would vanish from the view it was made in.
-  const defaultDueDate = view === 'today' ? today : view === 'upcoming' ? addDays(today, 1) : undefined
+  // « Aujourd'hui » lists only what is due today or before, so a task made there is due today; on « Tâches »
+  // it has no due day and lands in « Sans date », still in the view.
+  const defaultDueDate = view === 'today' ? today : undefined
 
   const pages = Math.ceil(total / PAGE_SIZE)
-  const canAdd = view === 'today' || view === 'upcoming' || view === 'someday'
+  const canAdd = view === 'today' || view === 'stock'
 
   let content
   if (view === 'routines') {
@@ -331,7 +356,7 @@ const TasksPage = ({ view }: TasksPageProps) => {
   } else {
     content = (
       <TaskList
-        groups={[{ tasks }]}
+        groups={view === 'stock' ? groupStock(stock.upcoming, stock.someday, today) : [{ tasks }]}
         today={today}
         label={LABELS[view]}
         highlightId={highlighted}
@@ -351,11 +376,6 @@ const TasksPage = ({ view }: TasksPageProps) => {
         {canAdd && (
           <Button variant="contained" onClick={() => setForm({ task: null })}>
             + Nouvelle tâche
-          </Button>
-        )}
-        {view !== 'routines' && (
-          <Button component={RouterLink} to={VIEW_PATHS.routines} color="inherit">
-            Routines
           </Button>
         )}
       </Stack>
@@ -403,7 +423,7 @@ const TasksPage = ({ view }: TasksPageProps) => {
   )
 }
 
-/** The module's page: the view is the route (`/tasks`, `/tasks/upcoming`…), and a view starts from nothing. */
+/** The module's page: the view is the route (`/tasks`, `/tasks/stock`…), and a view starts from nothing. */
 export const TaskBoard = () => {
   const { pathname } = useLocation()
   const view = viewOfPath(pathname)

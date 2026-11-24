@@ -180,11 +180,11 @@ test('« Aujourd\'hui » goes by score, each task with its urgency in words', as
  * the page « Aujourd'hui » is the day the owner chose (MAG-497), so the late ones
  * wait in its list under « En retard » — the ordinary one « reportée depuis … », the critical one
  * with its own mark, and so does the one planned on a past day — and the three others land in their own view. Ticking the
- * « À venir » one moves it to « Faites ». The seed and the other journeys add
+ * « Tâches » one moves it to « Archives ». The seed and the other journeys add
  * tasks of their own, so the menu's numbers are checked to be there and non-zero, and
  * to follow the view's own total, not to equal one.
  */
-test('« Tâches » puts a late, an upcoming, an undated and a done task in their own views, and ticking moves it to « Faites »', async ({ page, api }) => {
+test('« Tâches » puts a late, an upcoming, an undated and a done task in their own views, and ticking moves it to « Archives »', async ({ page, api }) => {
   const late = perAttempt('Relancer le notaire')
   const critical = perAttempt('Payer la taxe foncière')
   const putOff = perAttempt('Rappeler la mutuelle')
@@ -236,36 +236,39 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
   // Done, it is nowhere in the day.
   await expect(board.slot(finished)).toHaveCount(0)
 
-  await board.select('À venir')
+  // « Tâches »: the task due in five days is this week or later, by this Sunday; the undated one has no date.
+  const today = parisDay()
+  const sunday = daysFrom(today, (7 - new Date(`${today}T00:00:00Z`).getUTCDay()) % 7)
+  const dueGroup = seedDate(5) <= sunday ? 'Cette semaine' : 'Plus tard'
+  await board.select('Tâches')
+  await expect(board.content.getByRole('list', { name: dueGroup }).getByRole('listitem').filter({ hasText: upcoming })).toHaveCount(1)
+  await expect(board.content.getByRole('list', { name: 'Sans date' }).getByRole('listitem').filter({ hasText: someday })).toHaveCount(1)
   await expect(board.row(upcoming)).toHaveCount(1)
   await expect(board.row(late)).toHaveCount(0)
   await expect(board.row(putOff)).toHaveCount(0)
+  await expect(board.row(finished)).toHaveCount(0)
 
-  await board.select('Un jour')
-  await expect(board.row(someday)).toHaveCount(1)
-  await expect(board.row(upcoming)).toHaveCount(0)
-  await expect(board.row(putOff)).toHaveCount(0)
-
-  await board.select('Faites')
+  await board.select('Archives')
   await expect(board.row(finished)).toHaveCount(1)
   await expect(board.row(someday)).toHaveCount(0)
+  await expect(board.row(upcoming)).toHaveCount(0)
 
   // « Aujourd'hui » counts what is left of the day, which may be nothing.
   expect(await board.count("Aujourd'hui"), "the « Aujourd'hui » number").toBeGreaterThanOrEqual(0)
-  for (const view of ['À venir', 'Un jour', 'Faites'] as const) {
+  for (const view of ['Tâches', 'Archives'] as const) {
     expect(await board.count(view), `the « ${view} » number`).toBeGreaterThanOrEqual(1)
   }
 
-  // When I tick the « À venir » task, it leaves its view and shows in « Faites ».
-  await board.select('À venir')
-  const before = await board.count('Faites')
+  // When I tick the « Tâches » task, it leaves its view and shows in « Archives ».
+  await board.select('Tâches')
+  const before = await board.count('Archives')
   await board.checkbox(upcoming).click()
 
   await expect(board.row(upcoming)).toHaveCount(0)
   await expect
-    .poll(() => board.count('Faites'), { message: 'the « Faites » number should follow the tick' })
+    .poll(() => board.count('Archives'), { message: 'the « Archives » number should follow the tick' })
     .toBeGreaterThan(before)
-  await board.select('Faites')
+  await board.select('Archives')
   await expect(board.row(upcoming)).toHaveCount(1)
   await expect(board.checkbox(upcoming)).toBeChecked()
 
@@ -282,7 +285,7 @@ test('« Tâches » puts a late, an upcoming, an undated and a done task in thei
  *
  * The views are sub-entries of the menu with their numbers and a route each; the page is titled with
  * the day, lists its tasks in the full width with an Urgence and an Échéance column, opens a task in a
- * panel beside the list rather than a dialog over it, and adds a task from « + Nouvelle tâche » (MAG-723), whose form plans it on a day and an hour with reminders. « À venir » is used for the writes, so the
+ * panel beside the list rather than a dialog over it, and adds a task from « + Nouvelle tâche » (MAG-723), whose form plans it on a day and an hour with reminders. « Tâches » is used for the writes, so the
  * day of the other journeys is left alone.
  */
 test('the views are menu entries with their numbers, a task opens in a panel, and « + Nouvelle tâche » plans one with a reminder', async ({ page, api }) => {
@@ -296,22 +299,22 @@ test('the views are menu entries with their numbers, a task opens in a panel, an
     await board.open()
     await expect(board.title).toBeVisible()
     await expect(board.heading).toHaveText("Aujourd'hui")
-    await expect(board.routinesLink).toBeVisible()
+    await expect(board.content.getByRole('link', { name: 'Routines', exact: true })).toHaveCount(0)
     await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText("Aujourd'hui")
 
-    // …and the menu lists the four views under « Tâches », each with its number.
+    // …and the menu lists « Aujourd'hui · Tâches · Routines · Archives » under « Tâches ».
     await board.openMenu()
-    for (const view of ["Aujourd'hui", 'À venir', 'Un jour', 'Faites'] as const) {
+    for (const view of ["Aujourd'hui", 'Tâches', 'Routines', 'Archives'] as const) {
       await expect(board.menuEntry(view), view).toBeVisible()
     }
-    await expect.poll(() => board.count('Faites'), { message: 'the « Faites » number' }).toBeGreaterThanOrEqual(1)
+    await expect.poll(() => board.count('Archives'), { message: 'the « Archives » number' }).toBeGreaterThanOrEqual(1)
 
-    // When I go to « À venir » from the menu, the list has its Urgence and Échéance columns.
-    await board.select('À venir')
-    await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('À venir')
+    // When I go to « Tâches » from the menu, the list has its Urgence and Échéance columns.
+    await board.select('Tâches')
+    await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('Tâches')
     await expect(board.content.getByText('Urgence', { exact: true })).toBeVisible()
     await expect(board.content.getByText('Échéance', { exact: true })).toBeVisible()
-    const before = await board.count('À venir')
+    const before = await board.count('Tâches')
 
     // When I click « + Nouvelle tâche », type a title, plan it tomorrow at 18:00 with a reminder 30 minutes before…
     await expect(board.content.getByRole('textbox', { name: 'Ajouter une tâche' })).toHaveCount(0)
@@ -338,13 +341,13 @@ test('the views are menu entries with their numbers, a task opens in a panel, an
     expect(stored.scheduledTime).toBe('18:00')
     expect(stored.reminders).toEqual([30])
     // …and the menu's number follows.
-    await expect.poll(() => board.count('À venir'), { message: 'the « À venir » number should follow the add' }).toBeGreaterThan(before)
+    await expect.poll(() => board.count('Tâches'), { message: 'the « Tâches » number should follow the add' }).toBeGreaterThan(before)
 
     // …and « Aujourd'hui » does not list it: due tomorrow, it is not of today (MAG-644 recette).
     await board.select("Aujourd'hui")
     await expect(board.heading).toHaveText("Aujourd'hui")
     await expect(board.row(title)).toHaveCount(0)
-    await board.select('À venir')
+    await board.select('Tâches')
 
     // When I open it, the sheet is a panel beside the list, not a dialog over it.
     await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
@@ -358,7 +361,7 @@ test('the views are menu entries with their numbers, a task opens in a panel, an
     await board.sheet.getByRole('button', { name: 'Fermer la fiche' }).click()
     await expect(board.sheet).toBeHidden()
 
-    // When I follow « Routines » from the page, it has its own route and title.
+    // When I choose « Routines » in the menu, it has its own route and title.
     await board.select('Routines')
     await expect(board.newRoutine).toBeVisible()
     await expect(page.getByRole('navigation', { name: "Fil d'Ariane" })).toContainText('Routines')
@@ -917,7 +920,7 @@ test('a box in the notes of a task is ticked on its sheet, and « 1/2 » stays a
   await createTask(api, { title, dueDate: seedDate(5), description: '- [ ] Douche solaire\n- [ ] Crème' })
 
   const board = new TasksPage(page)
-  await board.goto(ROUTES.tasksUpcoming)
+  await board.goto(ROUTES.tasksStock)
   await board.row(title).getByRole('button', { name: `Ouvrir ${title}`, exact: true }).click()
   await expect(board.sheet.getByTestId('markdown-progress')).toHaveText('0/2')
 
