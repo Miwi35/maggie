@@ -9,7 +9,7 @@ tags:
 # Quand j'ouvre Planification › Projets
 # Alors le projet a une date d'achat dans les 36 mois
 # Quand j'ouvre Trésorerie › matelas
-# Alors « COMPTES DU MATELAS », « RÉGLAGES » et le seuil critique sont visibles
+# Alors la phrase d'épargne n'a aucun montant à centimes (MAG-982), « COMPTES DU MATELAS », « RÉGLAGES » et le seuil critique sont visibles
 # Quand je touche « Part du matelas », je règle la part à 100 % et j'enregistre
 # Alors le projet recule après le mois où le matelas est complet
 #
@@ -100,6 +100,7 @@ tags:
 - extendedWaitUntil:
     visible: ".*Seuil critique atteint : 60 % de l'épargne va au matelas.*"
     timeout: 10000
+- assertNotVisible: ".*\\d,\\d\\d €.*"
 
 - scrollUntilVisible:
     element: "COMPTES DU MATELAS"

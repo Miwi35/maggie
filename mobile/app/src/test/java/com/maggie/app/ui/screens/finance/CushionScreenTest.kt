@@ -1,6 +1,10 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -153,5 +157,70 @@ class CushionScreenTest {
         compose.onNodeWithText("Matelas de sécurité").assertDoesNotExist()
         compose.onNodeWithText("Comptes comptés").assertDoesNotExist()
         compose.onNodeWithText("RÉGLAGES").assertIsDisplayed()
+    }
+
+    @Test
+    fun `below the threshold the line gives the plan in whole euros without repeating the title`() {
+        val status = lent.copy(criticalDeficitCents = 1000, monthlyRechargeCents = 100000, rechargeMonths = 15)
+
+        assertEquals(
+            "Toute l'épargne va au matelas : ${formatCentsRounded(100000)} par mois pendant 15 mois.",
+            cushionSavingLine(status),
+        )
+    }
+
+    @Test
+    fun `cushion first and a 60 % share say their plan in whole euros`() {
+        val first = lent.copy(cushionSharePercent = 100, monthlyRechargeCents = 100000, rechargeMonths = 15)
+        val share = lent.copy(cushionSharePercent = 60, monthlyRechargeCents = 15000, rechargeMonths = 20)
+
+        assertEquals(
+            "Matelas d'abord : toute l'épargne va au matelas, ${formatCentsRounded(100000)} par mois pendant 15 mois.",
+            cushionSavingLine(first),
+        )
+        assertEquals(
+            "Seuil critique atteint : 60 % de l'épargne va au matelas, ${formatCentsRounded(15000)} par mois pendant 20 mois.",
+            cushionSavingLine(share),
+        )
+    }
+
+    @Test
+    fun `without a plan the line ends at the rule`() {
+        assertEquals(
+            "Toute l'épargne va au matelas.",
+            cushionSavingLine(lent.copy(criticalDeficitCents = 1000, monthlyRechargeCents = 0)),
+        )
+        assertEquals(
+            "Seuil critique atteint : 60 % de l'épargne va au matelas.",
+            cushionSavingLine(lent.copy(cushionSharePercent = 60, monthlyRechargeCents = 0)),
+        )
+    }
+
+    @Test
+    fun `a complete cushion has its title alone`() {
+        val complete = lent.copy(state = "complete", deficitCents = 0)
+
+        assertEquals(null, cushionSavingLine(complete))
+        compose.setContent { CushionSavingCard(complete) }
+        compose.onNodeWithText("Rien à faire").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.CUSHION_SHARE_RULE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `no amount on the screen carries cents`() {
+        val status = lent.copy(
+            criticalDeficitCents = 1000,
+            monthlyRechargeCents = 100050,
+            rechargeMonths = 15,
+            criticalCents = 400099,
+        )
+        compose.setContent { CushionScreen(viewModel = screen(status), onBack = {}) }
+
+        val cents = Regex("""\d,\d\d\s*€""")
+        val withCents = SemanticsMatcher("text with cents") { node ->
+            node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { cents.containsMatchIn(it.text) }
+        }
+
+        compose.onAllNodes(withCents).assertCountEquals(0)
     }
 }

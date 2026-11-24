@@ -47,31 +47,10 @@ fun cushionStateLabel(state: String): String = when (state) {
     else -> state
 }
 
-/** How the recharge reads once the cap has had its say. */
-fun rechargePlanLabel(status: CushionStatus): String = when {
-    status.deficitCents <= 0 -> "Matelas complet"
-    status.monthlyRechargeCents <= 0 -> "Aucun plan de recharge"
-    else -> "${formatCents(status.monthlyRechargeCents)} par mois pendant " +
-        "${status.rechargeMonths} mois"
-}
-
 /** The deficit sentence, saying how much of it is money lent to relatives. */
 fun cushionDeficitLabel(status: CushionStatus): String {
     val base = "Il manque ${formatCents(status.deficitCents)}"
     val lent = minOf(status.deficitCents, status.peerClaimsCents)
 
     return if (lent > 0) "$base, dont ${formatCents(lent)} avancés à des proches" else base
-}
-
-/** Where the saving goes this month: all of it below the critical threshold, a share past it (MAG-669). */
-fun cushionShareRuleLabel(status: CushionStatus): String = when {
-    status.criticalDeficitCents > 0 ->
-        "Sous le seuil critique (${status.criticalMonths} mois de dépenses, " +
-            "${formatCents(status.criticalCents)}) : toute l'épargne va au matelas."
-    status.deficitCents > 0 && status.cushionSharePercent >= 100 ->
-        "Matelas d'abord : toute l'épargne va au matelas, les projets attendent qu'il soit complet."
-    status.deficitCents > 0 ->
-        "Seuil critique atteint : ${status.cushionSharePercent} % de l'épargne va au matelas, " +
-            "le reste aux projets."
-    else -> "Matelas complet : toute l'épargne va aux projets."
 }
