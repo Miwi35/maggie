@@ -13,7 +13,7 @@ tags:
 #
 # The Courses card (MAG-563, extends MAG-99): it signs in as the seed's home account, who has
 # six open lines at one shop (`64-grocery-home.yaml`). Then the card shows five of them and
-# « + 1 », and « Demain » leaves it as it was.
+# « + 1 », « 6 articles · 1 magasin » under the title and the shop's name in capitals, and « Demain » leaves it as it was.
 #
 # The empty cards (MAG-594): the account has no meal, so the Cuisine card is not drawn and the cards
 # that have something stay (`28-home-tasks.yaml` is the account with nothing but a task, on Aujourd'hui).
@@ -64,14 +64,15 @@ tags:
       checked: false
     timeout: 20000
 
-# The Courses card: the shop, five lines in the order of the list, and the rest as « + 1 ».
+# The Courses card: the count, the shop (in capitals), five lines in the order of the list, and the rest as « + 1 ».
 - scrollUntilVisible:
     element:
       id: "home_grocery_more"
     timeout: 20000
 - extendedWaitUntil:
-    visible: "Biocoop de l'Accueil"
+    visible: "BIOCOOP DE L'ACCUEIL"
     timeout: 20000
+- assertVisible: "6 articles · 1 magasin"
 - assertVisible: "Article 1"
 - assertVisible: "Article 5"
 - assertNotVisible: "Article 6"

@@ -52,6 +52,7 @@ data class GroceryHomeState(
                         name = it.name,
                         day = (if (it.date == today.toString()) HomeDay.TODAY else HomeDay.TOMORROW).apiValue,
                         slot = it.slot,
+                        mealName = it.mealName,
                     )
                 },
                 stores = stores,
@@ -83,6 +84,8 @@ data class GroceryHomeRecipeNeed(
     val day: String,
     /** `lunch` or `dinner`. */
     val slot: String,
+    /** The meal that needs it: « Pâtes aux légumes ». */
+    val mealName: String = "",
 )
 
 data class GroceryHomeStore(
@@ -114,15 +117,19 @@ data class GroceryHomeLine(
     }
 }
 
-/** « parmesan (ce soir) », « crème fraîche (demain) »: the product, in lower case, and when a meal needs it. */
-fun GroceryHomeRecipeNeed.label(): String {
+/** « ce soir · pâtes aux légumes », « demain · gratin »: when a meal needs the product, then the meal; the moment alone without a name. */
+fun GroceryHomeRecipeNeed.whenLabel(): String {
     val moment = when {
         day == "tomorrow" -> "demain"
         slot == "dinner" -> "ce soir"
         else -> "ce midi"
     }
-    return "${name.replaceFirstChar { it.lowercase() }} ($moment)"
+    return if (mealName.isBlank()) moment else "$moment · ${mealName.replaceFirstChar { it.lowercase() }}"
 }
 
-/** « parmesan (ce soir), crème fraîche (demain) ». */
-fun List<GroceryHomeRecipeNeed>.recipeNeedsLabel(): String = joinToString(", ") { it.label() }
+/** « 6 articles · 1 magasin »: the open lines, then the shops they are in; lines with no shop count no shop. */
+fun GroceryHomeState.countLabel(): String {
+    val shops = stores.count { it.id != null }
+    val lines = "$count article${if (count > 1) "s" else ""}"
+    return if (shops > 0) "$lines · $shops magasin${if (shops > 1) "s" else ""}" else lines
+}

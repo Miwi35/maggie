@@ -75,7 +75,9 @@ object UiTags {
     fun homeLaunch(module: String) = HOME_LAUNCH_PREFIX + module
 
     /** Accueil › Courses card (MAG-563): the « Pour les recettes » line, a shop, a line, a shop's « + n », the empty and error states. */
+    const val HOME_GROCERY_COUNT = "home_grocery_count"
     const val HOME_GROCERY_RECIPES = "home_grocery_recipes"
+    const val HOME_GROCERY_RECIPE_NEED = "home_grocery_recipe_need"
     const val HOME_GROCERY_STORE = "home_grocery_store"
     const val HOME_GROCERY_ITEM = "home_grocery_item"
     const val HOME_GROCERY_MORE = "home_grocery_more"

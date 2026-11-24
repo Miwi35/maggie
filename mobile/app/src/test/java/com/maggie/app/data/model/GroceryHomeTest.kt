@@ -19,7 +19,7 @@ class GroceryHomeTest {
                 GroceryItem(id = "2", label = "Farine", quantity = 1000f, unit = CookbookUnit.G, needed = listOf(Need(800.0, "g")), position = 2),
                 GroceryItem(id = "3", label = "Fait", checked = true),
             ),
-            needs = listOf(GroceryRecipeNeed(productId = "p9", name = "Parmesan", date = "2026-10-23", slot = "dinner")),
+            needs = listOf(GroceryRecipeNeed(productId = "p9", name = "Parmesan", date = "2026-10-23", slot = "dinner", mealName = "Pâtes")),
             today = today,
         )
 
@@ -29,7 +29,7 @@ class GroceryHomeTest {
         assertNull(state.stores.single().items[0].needed)
         assertEquals("pack", state.stores.single().items[0].unit)
         assertEquals(800.0, state.stores.single().items[1].needed?.single()?.quantity ?: 0.0, 0.0)
-        assertEquals(listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner")), state.forRecipes)
+        assertEquals(listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner", "Pâtes")), state.forRecipes)
     }
 
     @Test
@@ -39,16 +39,39 @@ class GroceryHomeTest {
     }
 
     @Test
-    fun `a meal's need says the moment, today at noon or at night, tomorrow whatever the slot`() {
-        assertEquals("parmesan (ce soir)", GroceryHomeRecipeNeed("Parmesan", "today", "dinner").label())
-        assertEquals("citron (ce midi)", GroceryHomeRecipeNeed("Citron", "today", "lunch").label())
-        assertEquals("crème (demain)", GroceryHomeRecipeNeed("Crème", "tomorrow", "dinner").label())
+    fun `from keeps the meal's name of what a recipe lacks`() {
+        val state = GroceryHomeState.from(
+            emptyList(),
+            listOf(GroceryRecipeNeed("p", "Lait", "2026-10-24", "lunch", mealName = "Gratin")),
+            today,
+        )
+
+        assertEquals("Gratin", state.forRecipes.single().mealName)
     }
 
     @Test
-    fun `the needs are joined in one line`() {
-        val needs = listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner"), GroceryHomeRecipeNeed("Crème", "tomorrow", "lunch"))
+    fun `whenLabel says the moment and the meal`() {
+        assertEquals("ce soir · pâtes aux légumes", GroceryHomeRecipeNeed("Parmesan", "today", "dinner", "Pâtes aux légumes").whenLabel())
+        assertEquals("ce midi · salade", GroceryHomeRecipeNeed("Citron", "today", "lunch", "Salade").whenLabel())
+        assertEquals("demain · gratin", GroceryHomeRecipeNeed("Crème", "tomorrow", "dinner", "Gratin").whenLabel())
+    }
 
-        assertEquals("parmesan (ce soir), crème (demain)", needs.recipeNeedsLabel())
+    @Test
+    fun `whenLabel is the moment alone without a meal`() {
+        assertEquals("ce soir", GroceryHomeRecipeNeed("Parmesan", "today", "dinner").whenLabel())
+    }
+
+    @Test
+    fun `countLabel counts lines and shops`() {
+        assertEquals("6 articles · 1 magasin", GroceryHomeState(count = 6, stores = listOf(GroceryHomeStore(id = "a"))).countLabel())
+        assertEquals(
+            "1 article · 2 magasins",
+            GroceryHomeState(count = 1, stores = listOf(GroceryHomeStore(id = "a"), GroceryHomeStore(id = "b"))).countLabel(),
+        )
+    }
+
+    @Test
+    fun `countLabel leaves out the shops when no line has one`() {
+        assertEquals("3 articles", GroceryHomeState(count = 3, stores = listOf(GroceryHomeStore(id = null))).countLabel())
     }
 }
