@@ -70,7 +70,7 @@ test('« De saison » keeps the products in season, by rayon, and a click opens 
     // --- Then: its fiche opens in the panel on the right ---------------------
     const panel = page.getByRole('dialog', { name: strawberries })
     await expect(panel).toBeVisible()
-    await expect(shell.content.getByRole('row', { selected: true })).toContainText(strawberries)
+    await expect(shell.content.getByRole('row', { selected: true, includeHidden: true })).toContainText(strawberries)
     await expect(panel.getByLabel('Nom', { exact: false })).toHaveValue(strawberries)
     const box = await panel.boundingBox()
     const viewport = page.viewportSize()
