@@ -9,58 +9,36 @@ import ListItem from '@mui/material/ListItem'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import { keyframes } from '@mui/material/styles'
+import { alpha, keyframes } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
+import CheckIcon from '@mui/icons-material/Check'
+import SyncIcon from '@mui/icons-material/Sync'
 import { localDay } from '../../dates'
 import { useMercure } from '../../hooks/useMercure'
 import { RoutineDialog } from './RoutineDialog'
 import { motion } from './motion'
-import { checkRoutine, countLabel, fetchRoutines, GROUPS, groupOf, ROUTINE_TOPICS, whenLabel } from './routinesApi'
-import type { RecentDay, Routine } from './routinesApi'
+import { checkRoutine, countLabel, fetchRoutines, GROUPS, groupOf, ROUTINE_TOPICS, rhythmLabel } from './routinesApi'
+import type { Routine } from './routinesApi'
 
 /** The green of the routines (MAG-511). */
 export const ROUTINE_COLOR = '#7FD1AE'
+
+const GRID = '44px minmax(0, 1fr) 190px 110px'
+
+const capitals = (theme: Theme) => ({
+  fontSize: 12,
+  fontWeight: 500,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  color: theme.palette.veilleuse.caption,
+})
 
 const pop = keyframes`
   0% { transform: scale(0.6); }
   60% { transform: scale(1.2); }
   100% { transform: scale(1); }
 `
-
-const dayState = (day: RecentDay): 'checked' | 'missed' | 'off' => {
-  if (day.checked) return 'checked'
-
-  return day.due ? 'missed' : 'off'
-}
-
-/** The last seven days, the oldest first: green done, grey due and not done, nothing when not due. */
-const RecentDays = ({ days }: { days: RecentDay[] }) => {
-  const checked = days.filter((day) => day.checked).length
-
-  return (
-    <Box role="img" aria-label={`7 derniers jours : ${checked} fois`} sx={{ display: 'flex', gap: 0.5 }}>
-      {days.map((day) => {
-        const state = dayState(day)
-
-        return (
-          <Box
-            key={day.date}
-            data-testid="routine-day"
-            data-state={state}
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              bgcolor: state === 'checked' ? ROUTINE_COLOR : state === 'missed' ? 'action.disabled' : 'transparent',
-            }}
-          />
-        )
-      })}
-    </Box>
-  )
-}
 
 interface TaskRoutinesProps {
   /** The tick's little bounce, off with Réglages › Tâches like every animation of the page. */
@@ -70,7 +48,7 @@ interface TaskRoutinesProps {
 /**
  * « Routines » (MAG-511): the small things that come back — a moment, a rhythm, a
  * tick. Grouped by the part of the day for the daily ones, by their rhythm for the
- * others. A tick is for today only, and only on a day the routine is due.
+ * others. A tick is for today only, on any active routine.
  */
 export const TaskRoutines = ({ animate = true }: TaskRoutinesProps) => {
   const notify = useNotify()
@@ -159,13 +137,20 @@ export const TaskRoutines = ({ animate = true }: TaskRoutinesProps) => {
 
   return (
     <Box>
-      <Button startIcon={<AddIcon />} variant="outlined" onClick={() => {
-          setOpening((n) => n + 1)
-          setEditing(null)
-          setDialogOpen(true)
-        }} sx={{ mb: 2 }}>
-        Nouvelle routine
-      </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button
+          startIcon={<AddIcon />}
+          variant="contained"
+          onClick={() => {
+            setOpening((n) => n + 1)
+            setEditing(null)
+            setDialogOpen(true)
+          }}
+          sx={{ borderRadius: 999, height: 36, bgcolor: 'text.primary', color: 'background.default', boxShadow: 'none' }}
+        >
+          Nouvelle routine
+        </Button>
+      </Box>
 
       {failed ? (
         <Stack direction="row" spacing={1} alignItems="center" role="alert">
@@ -179,44 +164,66 @@ export const TaskRoutines = ({ animate = true }: TaskRoutinesProps) => {
       ) : loading ? (
         [1, 2, 3].map((i) => <Skeleton key={i} height={56} />)
       ) : (
-        groups.map((group) => (
+        <>
+          {groups.length > 0 && (
+            <Box aria-hidden sx={(theme) => ({ ...capitals(theme), display: 'grid', gridTemplateColumns: GRID, px: 0.5, pb: 0.5 })}>
+              <Box sx={{ gridColumn: 2 }}>Tâche</Box>
+              <Box>Quand</Box>
+              <Box>Urgence</Box>
+            </Box>
+          )}
+          {groups.map((group) => (
           <Box key={group.key} component="section" aria-labelledby={`routines-${group.key}`} sx={{ mb: 3 }}>
-            <Typography id={`routines-${group.key}`} variant="subtitle1" component="h2" sx={{ fontWeight: 600, mb: 1 }}>
+            <Typography
+              id={`routines-${group.key}`}
+              component="h2"
+              sx={(theme) => ({ ...capitals(theme), px: 1.75, pt: 1.25, pb: 0.25 })}
+            >
               {group.label}
             </Typography>
-            <List disablePadding aria-labelledby={`routines-${group.key}`} sx={{ display: 'grid', gap: 1 }}>
+            <List disablePadding aria-labelledby={`routines-${group.key}`} sx={{ display: 'grid', gap: 0.75 }}>
               {group.routines.map((routine) => (
                 <ListItem
                   key={routine.id}
                   disablePadding
                   data-testid="routine-card"
                   sx={{
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    pl: 0.5,
-                    opacity: routine.active ? 1 : 0.5,
+                    display: 'grid',
+                    gridTemplateColumns: GRID,
+                    alignItems: 'center',
+                    bgcolor: 'background.paper',
+                    borderRadius: 3.5,
+                    minHeight: 56,
+                    px: 0.5,
+                    opacity: !routine.active ? 0.5 : routine.checkedToday ? 0.6 : 1,
                   }}
                 >
-                  {routine.dueToday ? (
+                  {routine.active ? (
                     <Checkbox
                       checked={routine.checkedToday}
                       disabled={pending.has(routine.id)}
                       onChange={() => toggle(routine)}
-                      icon={<RadioButtonUncheckedIcon />}
+                      icon={<Box sx={{ width: 22, height: 22, borderRadius: '7px', border: 2, borderColor: 'text.secondary' }} />}
                       checkedIcon={
-                        <CheckCircleIcon
+                        <Box
                           sx={{
-                            color: ROUTINE_COLOR,
+                            width: 22,
+                            height: 22,
+                            borderRadius: '7px',
+                            bgcolor: ROUTINE_COLOR,
+                            color: (theme) => theme.palette.veilleuse.onInk,
+                            display: 'grid',
+                            placeItems: 'center',
                             ...(ticked === routine.id ? motion(animate, `${pop} 320ms ease-out`) : {}),
                           }}
-                        />
+                        >
+                          <CheckIcon sx={{ fontSize: 16 }} />
+                        </Box>
                       }
                       slotProps={{ input: { 'aria-label': `${routine.title} : fait aujourd'hui` } }}
                     />
                   ) : (
-                    // The room of the tick, so the titles stay in line.
-                    <Box aria-hidden sx={{ width: 42, flexShrink: 0 }} />
+                    <Box aria-hidden />
                   )}
                   <ButtonBase
                     onClick={() => {
@@ -225,38 +232,58 @@ export const TaskRoutines = ({ animate = true }: TaskRoutinesProps) => {
                       setDialogOpen(true)
                     }}
                     sx={{
-                      flex: 1,
+                      gridColumn: 2,
                       minWidth: 0,
-                      justifyContent: 'space-between',
+                      justifyContent: 'flex-start',
                       textAlign: 'left',
-                      gap: 2,
-                      py: 1.25,
-                      pr: 1.5,
+                      py: 1,
                       borderRadius: 2,
-                      flexWrap: 'wrap',
                       '&.Mui-focusVisible': { outline: 2, outlineColor: ROUTINE_COLOR, outlineOffset: -2 },
                     }}
                   >
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      <Typography
+                        variant="body1"
+                        sx={{ fontWeight: 500, textDecoration: routine.checkedToday ? 'line-through' : 'none' }}
+                      >
                         {routine.title}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {whenLabel(routine)}
-                      </Typography>
-                    </Box>
-                    <Stack alignItems="flex-end" spacing={0.5}>
-                      <RecentDays days={routine.recentDays} />
-                      <Typography variant="caption" color="text.secondary" data-testid="routine-count">
+                      <Typography
+                        variant="caption"
+                        data-testid="routine-count"
+                        sx={(theme) => ({ display: 'block', color: theme.palette.veilleuse.caption })}
+                      >
                         {countLabel(routine)}
                       </Typography>
-                    </Stack>
+                    </Box>
                   </ButtonBase>
+                  <Box>
+                    <Box
+                      data-testid="routine-when"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        height: 24,
+                        px: 1.25,
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        bgcolor: alpha(ROUTINE_COLOR, 0.14),
+                        color: ROUTINE_COLOR,
+                      }}
+                    >
+                      <SyncIcon sx={{ fontSize: 11 }} />
+                      {rhythmLabel(routine)}
+                    </Box>
+                  </Box>
+                  <Box aria-hidden />
                 </ListItem>
               ))}
             </List>
           </Box>
-        ))
+        ))}
+        </>
       )}
 
       <RoutineDialog

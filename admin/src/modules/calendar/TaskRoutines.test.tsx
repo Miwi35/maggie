@@ -14,7 +14,7 @@ const TaskRoutines = () => (
 )
 
 const mockNotify = vi.fn()
-vi.mock('react-admin', () => ({ useNotify: () => mockNotify }))
+vi.mock('react-admin', async (importOriginal) => ({ ...(await importOriginal<object>()), useNotify: () => mockNotify }))
 
 class MockEventSource {
   static last: MockEventSource | null = null
@@ -168,7 +168,7 @@ describe('TaskRoutines (MAG-511)', () => {
     await screen.findByText("Grand verre d'eau")
     for (const head of ['Tâche', 'Quand', 'Urgence']) {
       const cell = screen.getByText(head, { selector: '[aria-hidden="true"] *' })
-      expect(cell).toHaveStyle({ textTransform: 'uppercase' })
+      expect(cell.parentElement).toHaveStyle({ textTransform: 'uppercase' })
     }
     const title = screen.getByRole('heading', { name: 'Matin' })
     expect(title).toHaveTextContent('Matin')

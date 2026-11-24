@@ -118,9 +118,14 @@ export class TasksPage extends AdminShell {
     return this.content.getByTestId('routine-card').filter({ has: this.page.getByText(title, { exact: true }) })
   }
 
-  /** The round tick of `title` for today — only on a day it is due. */
+  /** The square tick of `title` for today — on every active routine. */
   routineCheck(title: string): Locator {
     return this.routineCard(title).getByRole('checkbox', { name: `${title} : fait aujourd'hui`, exact: true })
+  }
+
+  /** The green pill of `title`: « chaque jour · au réveil », « le mardi · après le dîner ». */
+  routineWhen(title: string): Locator {
+    return this.routineCard(title).getByTestId('routine-when')
   }
 
   /** « ce mois : 3 fois » or « depuis août : 9 fois », on the card of `title`. */

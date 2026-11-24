@@ -206,6 +206,18 @@ export function whenLabel(routine: Pick<Routine, 'anchor' | 'anchorTime' | 'time
   return moment
 }
 
+/** The pill of the list: « chaque jour · au réveil », « le mardi · après le dîner », « en semaine · à 22 h 30 », « le 15 · au réveil ». */
+export function rhythmLabel(routine: Pick<Routine, 'anchor' | 'anchorTime' | 'time' | 'recurrence'>): string {
+  const moment =
+    routine.anchor === 'time' ? `à ${hourLabel(routine.anchorTime ?? routine.time)}` : MOMENTS[routine.anchor]
+  const { kind, weekday, monthDay } = routine.recurrence
+  if (kind === 'weekly' && weekday) return `le ${WEEKDAYS[weekday - 1]} · ${moment}`
+  if (kind === 'monthly' && monthDay) return `le ${monthDay === 1 ? '1er' : monthDay} · ${moment}`
+  if (kind === 'weekdays') return `en semaine · ${moment}`
+
+  return `chaque jour · ${moment}`
+}
+
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 
 const times = (n: number): string => `${n} fois`
