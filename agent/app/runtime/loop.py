@@ -19,6 +19,7 @@ import anthropic
 
 from app.config import settings
 from app.llm.claim_guard import ClaimGuard, Verdict
+from app.llm.dry_run import is_read_only
 from app.llm.prompt_cache import cache_tools
 from app.llm.provider_status import (
     is_context_overflow,
@@ -74,6 +75,8 @@ class LoopOptions:
     stopped: Callable[[], bool] | None = None
     # The answer is read aloud: it carries no line of sources.
     spoken: bool = False
+    # What may run beside the other reads of its round (MAG-994); anything else runs alone, in the order asked.
+    reads: Callable[[str, dict], bool] = is_read_only
 
     @classmethod
     def blocking(
@@ -297,6 +300,20 @@ async def _model_step(
     yield _StepResponse(response, step_text)
 
 
+def _segments(blocks: list, reads: Callable[[str, dict], bool]) -> list[list]:
+    """The calls of a round in the order asked: consecutive reads share a segment, any other call stands alone."""
+    segments: list[list] = []
+    previous_read = False
+    for block in blocks:
+        is_read = reads(block.name, block.input)
+        if is_read and previous_read:
+            segments[-1].append(block)
+        else:
+            segments.append([block])
+        previous_read = is_read
+    return segments
+
+
 async def run_loop(
     system: str | list[dict],
     messages: list,
@@ -318,6 +335,9 @@ async def run_loop(
     An answer announcing a reminder or something learned that no tool backed this turn is sent back to the model
     once with the fact (`app.llm.claim_guard`, MAG-339, MAG-340, MAG-842). A response may carry web searches
     Anthropic ran on its side: the answer is the text after the last one (`app.llm.web_search`, MAG-384).
+
+    The reads of a round (`options.reads`) run side by side; any other call runs alone, after the calls before it
+    and before the calls after it (MAG-994).
 
     `resolve_client`, when given, picks the client at each model call, inside the error handling: a failing
     lookup is a failed call, not a crashed turn.
@@ -442,44 +462,65 @@ async def run_loop(
                 ]
                 yield ToolCallsPlanned(uses)
 
-                tool_results = []
-                for block in response.content:
-                    if block.type != "tool_use":
-                        continue
-                    logger.info(f"Tool call: {block.name}({block.input})")
-                    TOOL_CALLS.labels(tool_name=block.name, source=source).inc()
-                    call_kwargs = {"user_id": options.user_id, "source": source, "context_id": options.context_id}
-                    if streamed:
-                        call = asyncio.ensure_future(tool_router.call_tool(block.name, block.input, **call_kwargs))
-                        try:
-                            result = await asyncio.shield(call)
-                        except asyncio.CancelledError:
-                            # A tool that may already be acting is let finish: what it did is what the next
-                            # turn is told, and what is not known is not undone.
-                            if options.stopped is not None and options.stopped():
-                                result = await call
-                                state.round_calls.append(
-                                    {"id": block.id, "name": block.name, "input": block.input, "result": result}
-                                )
-                            else:
-                                call.cancel()
-                            raise
-                    else:
-                        result = await tool_router.call_tool(block.name, block.input, **call_kwargs)
+                call_kwargs = {"user_id": options.user_id, "source": source, "context_id": options.context_id}
+
+                def record_call(block, result):
                     state.round_calls.append(
                         {"id": block.id, "name": block.name, "input": block.input, "result": result}
                     )
-                    tool_calls.append({"name": block.name, "input": block.input, "result": result})
-                    guard.record(block.name, result, block.input)
-                    streak.record(block.name, result)
-                    tool_results.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": for_model(result, settings.tool_result_max_chars),
-                        }
-                    )
-                    yield ToolCallEnded(block.id, block.name, block.input, result, tool_result_status(result))
+
+                async def raw_call(block, kwargs=call_kwargs):
+                    logger.info(f"Tool call: {block.name}({block.input})")
+                    TOOL_CALLS.labels(tool_name=block.name, source=source).inc()
+                    return await tool_router.call_tool(block.name, block.input, **kwargs)
+
+                async def run_call(block):
+                    if not streamed:
+                        return await raw_call(block)
+                    call = asyncio.ensure_future(raw_call(block))
+                    try:
+                        return await asyncio.shield(call)
+                    except asyncio.CancelledError:
+                        # A tool that may already be acting is let finish: what it did is what the next
+                        # turn is told, and what is not known is not undone.
+                        if options.stopped is not None and options.stopped():
+                            record_call(block, await call)
+                        else:
+                            call.cancel()
+                        raise
+
+                async def run_reads(segment):
+                    # Reads do not act: a stop cancels them, the finished ones are kept.
+                    tasks = [asyncio.ensure_future(raw_call(block)) for block in segment]
+                    try:
+                        return list(await asyncio.gather(*tasks))
+                    except BaseException:
+                        for block, task in zip(segment, tasks, strict=True):
+                            if task.done() and not task.cancelled() and task.exception() is None:
+                                record_call(block, task.result())
+                            else:
+                                task.cancel()
+                        raise
+
+                tool_results = []
+                for segment in _segments([b for b in response.content if b.type == "tool_use"], options.reads):
+                    if len(segment) == 1:
+                        results = [await run_call(segment[0])]
+                    else:
+                        results = await run_reads(segment)
+                    for block, result in zip(segment, results, strict=True):
+                        record_call(block, result)
+                        tool_calls.append({"name": block.name, "input": block.input, "result": result})
+                        guard.record(block.name, result, block.input)
+                        streak.record(block.name, result)
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": for_model(result, settings.tool_result_max_chars),
+                            }
+                        )
+                        yield ToolCallEnded(block.id, block.name, block.input, result, tool_result_status(result))
 
                 if streak.gave_up():
                     tool_results.append(streak.note(options.user_id, source))
