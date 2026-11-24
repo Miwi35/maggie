@@ -1,4 +1,4 @@
-import { CATEGORY_CHOICES } from './productChoices'
+import type { StockState } from './productChoices'
 import { NO_AISLE } from './groceryAisles'
 import { bareId } from './recurring'
 import type { Aisle } from './aislesApi'
@@ -52,25 +52,9 @@ const fold = (text: string): string =>
 
 export const matchesSearch = (row: ProductRow, search: string): boolean => fold(row.name).includes(fold(search))
 
-/** The French name of a stored category; an unknown one reads « Autre », never the raw English value. */
-export const categoryName = (category?: string | null): string =>
-  CATEGORY_CHOICES.find((choice) => choice.id === category)?.name ?? 'Autre'
-
 export interface ProductGroup {
   title: string
   rows: ProductRow[]
-}
-
-/** With no store: one group per category, in the order of the form's choices, « Autre » last. */
-export const groupsByCategory = (rows: ProductRow[]): ProductGroup[] => {
-  const known = new Set(CATEGORY_CHOICES.map((choice) => choice.id as string))
-  const ordered = CATEGORY_CHOICES.filter((choice) => choice.id !== 'other').map((choice) => ({
-    title: choice.name,
-    rows: rows.filter((row) => row.category === choice.id),
-  }))
-  const other = { title: categoryName('other'), rows: rows.filter((row) => !row.category || row.category === 'other' || !known.has(row.category)) }
-
-  return [...ordered, other].filter((group) => group.rows.length > 0)
 }
 
 /** The aisle a product has in a store, when that store still has it. */
@@ -92,3 +76,34 @@ export const groupsByAisle = (rows: ProductRow[], storeId: string, aisles: Aisle
     (group) => group.rows.length > 0,
   )
 }
+
+/** The aisle of a product in its usual store, when that store's aisles are known. */
+export const usualAisle = (row: ProductRow, aislesByStore: Map<string, Aisle[]>): Aisle | undefined => {
+  if (!row.preferredStore) return undefined
+  const storeId = bareId(row.preferredStore)
+
+  return aisleIn(row, storeId, aislesByStore.get(storeId) ?? [])
+}
+
+/** « Super U · Biocoop », the usual store alone, or nothing. */
+export const storesLabel = (row: ProductRow, storeName: (iri?: string | null) => string): string =>
+  [row.preferredStore, row.fallbackStore]
+    .map((iri) => storeName(iri))
+    .filter(Boolean)
+    .join(' · ')
+
+export const STOCK_LOOKS: Record<StockState, { label: 'en stock' | 'bas' | 'épuisé'; tone: 'neutral' | 'courses' | 'warning' }> = {
+  in_stock: { label: 'en stock', tone: 'neutral' },
+  low: { label: 'bas', tone: 'courses' },
+  out: { label: 'épuisé', tone: 'warning' },
+}
+
+/** An unknown state reads as in stock, like `StockStateChip`. */
+export const stockLook = (state?: string | null) => STOCK_LOOKS[state as StockState] ?? STOCK_LOOKS.in_stock
+
+export type SortField = 'name' | 'aisle' | 'stockState'
+
+/** Sorting by aisle needs a store: the API only orders by aisle inside one. */
+export const sortCycle = (hasStore: boolean): SortField[] => (hasStore ? ['name', 'aisle', 'stockState'] : ['name', 'stockState'])
+
+export const SORT_WORDS: Record<SortField, string> = { name: 'nom', aisle: 'rayon', stockState: 'stock' }

@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { veilleuseDarkTheme } from '../theme'
 import { afterEach, describe, test, expect, vi } from 'vitest'
 import { useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
@@ -86,7 +87,7 @@ export function renderLiveList(
 
   render(
     <MemoryRouter initialEntries={route ? [route.entry] : undefined}>
-      <AdminContext dataProvider={dataProvider}>
+      <AdminContext dataProvider={dataProvider} theme={veilleuseDarkTheme}>
         <ResourceContextProvider value={resource}>
           {route ? (
             <Routes>

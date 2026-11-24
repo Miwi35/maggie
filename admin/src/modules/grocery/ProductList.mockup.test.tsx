@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { AdminContext, Notification, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { veilleuseDarkTheme } from '../../theme'
 import { stubAislesApi } from '../../test/aislesApi'
 import { ProductList } from './ProductList'
 
@@ -71,7 +72,7 @@ const renderPage = (path = '/products') => {
   })
   render(
     <MemoryRouter initialEntries={[path]}>
-      <AdminContext dataProvider={dataProvider}>
+      <AdminContext dataProvider={dataProvider} theme={veilleuseDarkTheme}>
         <ResourceContextProvider value="products">
           <Routes>
             <Route path="/products" element={<ProductList />} />
@@ -95,33 +96,34 @@ describe('ProductList — the mockup « Admin-Produits » (MAG-622)', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  test('reads Produit · Rayon · Magasin · À défaut · Conditionnement · Stock, with no checkbox and no row buttons', async () => {
+  test('reads Produit · Rayon (habituel) · Magasin · à défaut · Conditionnement · Stock without a store, Rayon · Super U with one', async () => {
+    const user = userEvent.setup()
     renderPage()
 
     await screen.findByText('Fraises')
-    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent)
-    expect(headers.slice(0, 6)).toEqual(['Produit', 'Rayon', 'Magasin', 'À défaut', 'Conditionnement', 'Stock'])
-    expect(screen.queryByText('Catégorie')).not.toBeInTheDocument()
-    expect(screen.queryByText('Conservation (jours)')).not.toBeInTheDocument()
+    const headers = () => screen.getAllByRole('columnheader').map((h) => h.textContent)
+    expect(headers()).toEqual(['Produit', 'Rayon (habituel)', 'Magasin · à défaut', 'Conditionnement', 'Stock'])
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /éditer|edit/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /supprimer|delete/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /exporter|export/i })).not.toBeInTheDocument()
 
     const row = screen.getByText('Fraises').closest('tr') as HTMLElement
-    expect(within(row).getByText('Super U')).toBeInTheDocument()
-    expect(within(row).getByText('Biocoop')).toBeInTheDocument()
+    expect(within(row).getByText('Super U · Biocoop')).toBeInTheDocument()
     const butter = screen.getByText('Beurre').closest('tr') as HTMLElement
     expect(within(butter).getByText('paquet de 250 g')).toBeInTheDocument()
-    expect(within(butter).getByText('Stock faible')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Super U' }))
+    await waitFor(() => expect(headers()).toEqual(['Produit', 'Rayon · Super U', 'Magasin · à défaut', 'Conditionnement', 'Stock']))
   })
 
-  test('groups the products by rayon, named in French — never the stored English category', async () => {
+  test('without a store the list is flat and names the usual aisle, « Sans rayon » otherwise', async () => {
     renderPage()
 
     await screen.findByText('Fraises')
-    const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(headings).toEqual(['Fruits & Légumes · 2', 'Produits laitiers · 1', 'Céréales · 1'])
+    expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0)
+    await waitFor(() => expect(within(screen.getByText('Fraises').closest('tr') as HTMLElement).getByText('Frais')).toBeInTheDocument())
+    expect(within(screen.getByText('Riz').closest('tr') as HTMLElement).getByText('Sans rayon')).toBeInTheDocument()
     for (const english of ['produce', 'dairy', 'grain', 'other']) {
       expect(screen.queryByText(english)).not.toBeInTheDocument()
     }
@@ -132,11 +134,12 @@ describe('ProductList — the mockup « Admin-Produits » (MAG-622)', () => {
 
     await screen.findByText('Fraises')
     const pastilles = screen.getAllByRole('button', { pressed: true }).concat(screen.getAllByRole('button', { pressed: false }))
-    expect(pastilles.map((p) => p.textContent).sort()).toEqual(['Conditionnés', 'De saison', 'Stock bas', 'Tous'].sort())
-    expect(screen.getByRole('button', { name: 'Tous' })).toHaveAttribute('aria-pressed', 'true')
+    expect(pastilles.map((p) => p.textContent)).toEqual(expect.arrayContaining(['Conditionnés', 'De saison', 'Stock bas', 'Tous']))
+    expect(screen.getAllByRole('button', { name: 'Tous' })[0]).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Magasin')).toBeInTheDocument()
   })
 
-  test('« De saison » keeps the products in season this month, still grouped by rayon', async () => {
+  test('« De saison » keeps the products in season this month', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -145,7 +148,6 @@ describe('ProductList — the mockup « Admin-Produits » (MAG-622)', () => {
 
     expect(screen.getByRole('button', { name: 'De saison' })).toHaveAttribute('aria-pressed', 'true')
     expect(names()).toEqual(['Fraises'])
-    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Fruits & Légumes · 1'])
   })
 
   test('« Conditionnés » keeps the products sold in a packaging', async () => {
@@ -166,7 +168,7 @@ describe('ProductList — the mockup « Admin-Produits » (MAG-622)', () => {
     await user.click(screen.getByRole('button', { name: 'Stock bas' }))
     expect(names()).toEqual(['Beurre'])
 
-    await user.click(screen.getByRole('button', { name: 'Tous' }))
+    await user.click(screen.getAllByRole('button', { name: 'Tous' })[0])
     expect(names()).toHaveLength(4)
   })
 
@@ -183,18 +185,38 @@ describe('ProductList — the mockup « Admin-Produits » (MAG-622)', () => {
     expect(await screen.findByText('Aucun produit ne correspond.')).toBeInTheDocument()
   })
 
-  test('a store groups by its aisles, and the Rayon column names the aisle', async () => {
+  test('a store groups by its aisles, each head reading its name and « n produits »', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('combobox', { name: 'Magasin' }))
-    await user.click(await screen.findByRole('option', { name: 'Super U' }))
+    await user.click(await screen.findByRole('button', { name: 'Super U' }))
 
     await waitFor(() =>
-      expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Frais · 2', 'Sans rayon · 2']),
+      expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.parentElement?.textContent)).toEqual(['Frais2 produits', 'Sans rayon2 produits']),
     )
     const row = screen.getByText('Beurre').closest('tr') as HTMLElement
-    expect(within(row).getAllByText('Frais').length).toBeGreaterThan(0)
+    expect(within(row).getByText('Frais')).toBeInTheDocument()
+  })
+
+  test('the stock reads en stock, bas, épuisé', async () => {
+    renderPage()
+
+    await screen.findByText('Beurre')
+    expect(within(screen.getByText('Beurre').closest('tr') as HTMLElement).getByText('bas')).toBeInTheDocument()
+    expect(within(screen.getByText('Riz').closest('tr') as HTMLElement).getByText('en stock')).toBeInTheDocument()
+    expect(screen.queryByText('Stock faible')).not.toBeInTheDocument()
+  })
+
+  test('the product whose fiche is open is the selected row', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByText('Beurre'))
+    await screen.findByRole('dialog', { name: 'Beurre' })
+
+    const rowOf = (name: string) => screen.getAllByTestId('product-name').find((n) => n.textContent === name)?.closest('tr')
+    expect(rowOf('Beurre')).toHaveAttribute('aria-selected', 'true')
+    expect(rowOf('Riz')).toHaveAttribute('aria-selected', 'false')
   })
 
   test('a click on a row opens the product in a panel on the right, over the list', async () => {

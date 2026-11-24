@@ -155,7 +155,7 @@ test('a product is « En stock » by default, and the state chosen in its form s
     })
     await openSubscribed(observer, () => watching.goto(ROUTES.products))
     const row = watching.content.getByRole('row').filter({ hasText: name })
-    await expect(row).toContainText('En stock')
+    await expect(row).toContainText('en stock')
 
     // When I open its form, it is announced « En stock ».
     await acting.goto(`${ROUTES.products}/${encodeURIComponent(iri)}`)
@@ -187,7 +187,7 @@ test('a product is « En stock » by default, and the state chosen in its form s
       },
       // Then the second window sees « Rupture » without reloading.
       async () => {
-        await expect(row).toContainText('Rupture')
+        await expect(row).toContainText('épuisé')
       },
     )
 
