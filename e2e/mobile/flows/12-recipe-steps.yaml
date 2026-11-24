@@ -164,8 +164,10 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "recipe_save"
-      text: "Enregistrer"
       enabled: true
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Enregistrer"
     timeout: 10000
 - tapOn:
     id: "recipe_save"
