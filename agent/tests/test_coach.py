@@ -195,12 +195,11 @@ async def test_the_coach_run_reads_the_method_and_prescribes_without_writing():
 
 
 async def test_the_sport_line_hands_the_week_to_the_coach_without_naming_it():
-    from app.personality.engine import PersonalityEngine
+    from app.skills.document import parse_markdown
+    from app.skills.index import BUILTIN_SKILLS_DIR
 
-    with patch("app.personality.engine.personality_repo") as repo:
-        repo.get = AsyncMock(return_value=None)
-        prompt = await PersonalityEngine().get_system_prompt("user-1")
-
-    line = next(line for line in prompt.splitlines() if line.strip().startswith("- Sport :"))
+    parsed = parse_markdown(BUILTIN_SKILLS_DIR / "sport.md")
+    assert parsed is not None
+    line = next(line for line in parsed[1].splitlines() if line.startswith("Sport :"))
     assert "`coach`" in line and "manage_workouts" in line and "planned" in line and "strength" in line
     assert "jamais" in line

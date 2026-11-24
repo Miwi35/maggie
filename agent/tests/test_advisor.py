@@ -155,15 +155,12 @@ async def test_maggie_hands_a_trajectory_question_to_the_advisor():
 
 
 async def test_the_prompt_sends_trajectory_questions_to_the_advisor_as_facts_never_advice():
-    from unittest.mock import AsyncMock
+    from app.skills.document import parse_markdown
+    from app.skills.index import BUILTIN_SKILLS_DIR
 
-    from app.personality.engine import PersonalityEngine
-
-    with patch("app.personality.engine.personality_repo") as repo:
-        repo.get = AsyncMock(return_value=None)
-        prompt = await PersonalityEngine().get_system_prompt("user-1")
-
-    line = next(line for line in prompt.splitlines() if "Trajectoire :" in line)
+    parsed = parse_markdown(BUILTIN_SKILLS_DIR / "trajectoire.md")
+    assert parsed is not None
+    line = next(line for line in parsed[1].splitlines() if line.startswith("Trajectoire :"))
     assert "`advisor`" in line and "revue mensuelle" in line
     assert "champ du possible" in line and "jamais comme un conseil" in line
     assert "ne rends jamais un scénario courant" in line
