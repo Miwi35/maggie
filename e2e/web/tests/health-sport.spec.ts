@@ -61,6 +61,9 @@ test('Santé › Sport lists an added bike ride and the week grows by its 65 min
   await sport.navigateTo('Sport', 'Santé')
   await expect(sport.addButton).toBeVisible()
   await expect(sport.currentWeek).toBeVisible()
+  // …drawn as Admin-Sport: cards at 16 px, buttons at 8 px.
+  await expect(sport.sessions).toHaveCSS('border-top-left-radius', '16px')
+  await expect(sport.addButton).toHaveCSS('border-top-left-radius', '8px')
   const before = await sport.currentWeekMinutes()
 
   // …and add « Vélo, 1 h 05, 22 km » today.

@@ -74,7 +74,7 @@ const FilterMenu = ({ label, value, options, allLabel, onChange }: FilterMenuPro
         variant="text"
         aria-haspopup="menu"
         onClick={(event) => setAnchor(event.currentTarget)}
-        sx={(theme) => ({ height: 32, px: 1.5, borderRadius: 2, fontSize: 13, color: 'text.primary', bgcolor: alpha(theme.palette.text.primary, 0.08), fontVariantNumeric: 'tabular-nums' })}
+        sx={(theme) => ({ height: 32, px: 1.5, borderRadius: 1 /* 1 × 8 = 8 px, `.abtn` d'Admin-Sport */, fontSize: 13, color: 'text.primary', bgcolor: alpha(theme.palette.text.primary, 0.08), fontVariantNumeric: 'tabular-nums' })}
       >
         {`${current ? current[1] : label} ▾`}
       </Button>
@@ -148,7 +148,7 @@ const WorkoutsBoard = ({ filters, onFilters, withChart }: BoardProps) => {
         <Button
           variant="contained"
           onClick={() => setForm({})}
-          sx={(theme) => ({ height: 32, px: 1.75, borderRadius: 2, fontSize: 13, fontWeight: 500, boxShadow: 'none', bgcolor: theme.palette.module.sport, color: theme.palette.getContrastText(theme.palette.module.sport), '&:hover': { bgcolor: theme.palette.module.sport, boxShadow: 'none' } })}
+          sx={(theme) => ({ height: 32, px: 1.75, borderRadius: 1 /* 1 × 8 = 8 px, `.aprim` d'Admin-Sport */, fontSize: 13, fontWeight: 500, boxShadow: 'none', bgcolor: theme.palette.module.sport, color: theme.palette.getContrastText(theme.palette.module.sport), '&:hover': { bgcolor: theme.palette.module.sport, boxShadow: 'none' } })}
         >
           Ajouter une séance
         </Button>
@@ -160,7 +160,7 @@ const WorkoutsBoard = ({ filters, onFilters, withChart }: BoardProps) => {
 
         {selected && <WorkoutDetail key={selected.id} workout={selected} onEdit={() => setForm({ workout: selected })} onDeleted={() => setSelectedId(null)} />}
 
-        <Box component="section" aria-label="Séances" sx={{ borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, minWidth: 0, overflowX: 'auto', gridColumn: { md: 1 } }}>
+        <Box component="section" aria-label="Séances" sx={{ borderRadius: 2 /* 2 × 8 = 16 px, `.card` d'Admin-Sport */, bgcolor: 'background.paper', px: 2.25, py: 2, minWidth: 0, overflowX: 'auto', gridColumn: { md: 1 } }}>
           <Table size="small" sx={{ borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <TableHead>
               <TableRow>

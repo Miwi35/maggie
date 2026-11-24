@@ -148,7 +148,7 @@ describe('WorkoutList', () => {
 
     await screen.findByTestId('workout-detail-01RUN')
     for (const name of ['Minutes par semaine', 'Séance', 'Séances']) {
-      expect(screen.getByRole('region', { name, exact: true })).toHaveStyle({ borderRadius: '16px' })
+      expect(screen.getByRole('region', { name })).toHaveStyle({ borderRadius: '16px' })
     }
   })
 
@@ -174,7 +174,7 @@ describe('WorkoutList', () => {
     renderList()
 
     await screen.findByTestId('workout-detail-01RUN')
-    expect(screen.getByRole('region', { name: 'Séance', exact: true })).toHaveStyle({ paddingBottom: '90px', overflow: 'hidden' })
+    expect(screen.getByRole('region', { name: 'Séance' })).toHaveStyle({ paddingBottom: '90px', overflow: 'hidden' })
   })
 
   test('a row shows the formats of the mockup', async () => {

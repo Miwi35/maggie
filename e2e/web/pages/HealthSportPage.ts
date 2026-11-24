@@ -13,11 +13,13 @@ import { ROUTES } from './routes.js'
 export class HealthSportPage extends AdminShell {
   readonly addButton: Locator
   readonly currentWeek: Locator
+  readonly sessions: Locator
   readonly form: Locator
 
   constructor(page: Page) {
     super(page)
     this.addButton = this.content.getByRole('button', { name: 'Ajouter une séance', exact: true })
+    this.sessions = this.content.getByRole('region', { name: 'Séances', exact: true })
     this.currentWeek = this.content.getByTestId('weekly-minutes-current')
     this.form = page.getByRole('dialog')
   }
