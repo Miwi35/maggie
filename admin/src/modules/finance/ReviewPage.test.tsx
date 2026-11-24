@@ -279,6 +279,7 @@ describe('ReviewPage', () => {
       expect(period.compareDocumentPosition(state) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(state.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(search).toHaveAttribute('placeholder', 'Rechercher…')
+      expect(screen.getByTestId('review-search').parentElement).toBe(period.parentElement)
     })
 
     test('a row reads its day, its label over its account, its state and its amount, in that order', async () => {
