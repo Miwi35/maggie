@@ -143,6 +143,40 @@ describe('WorkoutList', () => {
     expect(getComputedStyle(chart).height).toBe('230px')
   })
 
+  test('the three cards are rounded at 16 px, as Admin-Sport', async () => {
+    renderList()
+
+    await screen.findByTestId('workout-detail-01RUN')
+    for (const name of ['Minutes par semaine', 'Séance', 'Séances']) {
+      expect(screen.getByRole('region', { name, exact: true })).toHaveStyle({ borderRadius: '16px' })
+    }
+  })
+
+  test("the sheet's figures are tiles rounded at 14 px", async () => {
+    renderList()
+
+    await screen.findByTestId('workout-detail-01RUN')
+    const tiles = screen.getAllByTestId('workout-metric')
+    expect(tiles.length).toBeGreaterThan(0)
+    for (const tile of tiles) expect(tile).toHaveStyle({ borderRadius: '14px' })
+  })
+
+  test("the header's filters and « Ajouter une séance » are rounded at 8 px", async () => {
+    renderList()
+
+    await screen.findByTestId('workout-detail-01RUN')
+    for (const name of ['Type ▾', 'Source ▾', '90 j ▾', 'Ajouter une séance']) {
+      expect(screen.getByRole('button', { name })).toHaveStyle({ borderRadius: '8px' })
+    }
+  })
+
+  test("the sheet keeps 90 px under its actions for Maggie's portrait", async () => {
+    renderList()
+
+    await screen.findByTestId('workout-detail-01RUN')
+    expect(screen.getByRole('region', { name: 'Séance', exact: true })).toHaveStyle({ paddingBottom: '90px', overflow: 'hidden' })
+  })
+
   test('a row shows the formats of the mockup', async () => {
     renderList()
 
