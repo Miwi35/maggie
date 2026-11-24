@@ -205,10 +205,15 @@ describe('MealsPage — one page, two views of the same week', () => {
     expect(screen.getByText('27 avr. → 3 mai')).toBeInTheDocument()
   })
 
-  test('has one row of pills and no explanatory text', async () => {
+  test("is titled « Repas », the views beside the title and the week after them, without « Aujourd'hui »", async () => {
     await renderPage()
 
-    expect(screen.getByRole('button', { name: "Aujourd'hui" })).toBeInTheDocument()
+    const title = screen.getByRole('heading', { level: 1, name: 'Repas' })
+    const follows = (a: Node, b: Node) => expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    follows(title, screen.getByRole('button', { name: 'Menu' }))
+    follows(screen.getByRole('button', { name: 'Menu' }), screen.getByRole('button', { name: 'Liste' }))
+    follows(screen.getByRole('button', { name: 'Liste' }), screen.getByRole('button', { name: 'Semaine précédente' }))
+    expect(screen.queryByRole('button', { name: "Aujourd'hui" })).not.toBeInTheDocument()
     expect(screen.queryByText(/glisser|déplacer|cliquez/i)).not.toBeInTheDocument()
   })
 
@@ -233,31 +238,33 @@ describe('MealsPage — one page, two views of the same week', () => {
     await user.click(screen.getByRole('button', { name: 'Liste' }))
 
     expect(screen.getByRole('button', { name: 'Liste' })).toHaveAttribute('aria-pressed', 'true')
-    const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1)
-    expect(rows).toHaveLength(2)
-    expect(within(rows[0]).getByText(/mardi 14/i)).toBeInTheDocument()
-    expect(within(rows[0]).getByText('Déjeuner')).toBeInTheDocument()
-    expect(within(rows[0]).getByText(/Tartiflette, Salade verte/)).toBeInTheDocument()
-    expect(within(rows[0]).getByTestId('guests-value')).toHaveTextContent('2')
-    expect(within(rows[1]).getByText(/jeudi 16/i)).toBeInTheDocument()
-    expect(within(rows[1]).getByText('Dîner')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    const lunch = within(screen.getByTestId('meal-row-01LUNCH'))
+    const text = screen.getByTestId('meal-row-01LUNCH').textContent ?? ''
+    expect(text.indexOf('Mar. 14 · midi')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('2 convives')).toBeGreaterThan(text.indexOf('Mar. 14 · midi'))
+    expect(text.indexOf('Tartiflette · Salade verte')).toBeGreaterThan(text.indexOf('2 convives'))
+    expect(lunch.getByText('Mar. 14 · midi')).toBeInTheDocument()
+    expect(within(screen.getByTestId('meal-row-01DINNER')).getByText('Jeu. 16 · soir')).toBeInTheDocument()
     expect(screen.queryByTestId('meal-day-2')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Menu' }))
     expect(screen.getByTestId('meal-day-2')).toBeInTheDocument()
   })
 
-  test('the Liste view changes the convives and deletes a meal like the card does', async () => {
+  test('a Liste row reads only: no stepper, no button', async () => {
     const user = await renderPage()
     await user.click(screen.getByRole('button', { name: 'Liste' }))
-    const row = within(screen.getByTestId('meal-row-01DINNER'))
 
-    await user.click(row.getByRole('button', { name: /Un convive de plus/ }))
-    await waitFor(() => expect(patches()).toEqual([['/api/meals/01DINNER', { guests: 7 }]]))
+    expect(within(screen.getByTestId('meal-row-01DINNER')).queryByRole('button')).not.toBeInTheDocument()
+  })
 
-    await user.click(row.getByRole('button', { name: 'Supprimer le repas Dîner : Gratin de courgettes' }))
-    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('meals', expect.objectContaining({ id: '01DINNER' })))
-    expect(screen.queryByTestId('meal-row-01DINNER')).not.toBeInTheDocument()
+  test("the Liste row of today's meal is marked", async () => {
+    const user = await renderPage([{ ...lunch, date: '2026-04-15' }, dinner])
+    await user.click(screen.getByRole('button', { name: 'Liste' }))
+
+    expect(screen.getByTestId('meal-row-01LUNCH')).toHaveAttribute('aria-current', 'date')
+    expect(screen.getByTestId('meal-row-01DINNER')).not.toHaveAttribute('aria-current')
   })
 
   test('says so when the week has no meal, in the Liste view', async () => {
@@ -284,9 +291,16 @@ describe('MealsPage — the ingredients of the week', () => {
 
     const band = within(screen.getByTestId('week-ingredients'))
     expect(band.getByText('Ingrédients de la semaine')).toBeInTheDocument()
-    expect(band.getByText('2 repas')).toBeInTheDocument()
     // Pommes de terre (twice), Reblochon, Salade: three products.
-    expect(band.getByText('3 produits')).toBeInTheDocument()
+    expect(band.getByText('2 repas · 3 produits')).toBeInTheDocument()
+  })
+
+  test('the ingredients band comes after the week', async () => {
+    await renderPage()
+
+    expect(
+      screen.getByTestId('meal-day-6').compareDocumentPosition(screen.getByTestId('week-ingredients')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   test('is hidden when the week has no meal', async () => {
@@ -675,7 +689,7 @@ describe('MealsPage — the week', () => {
     await user.click(screen.getByRole('button', { name: 'Semaine précédente' }))
     await waitFor(() => expect(asked().at(-1)).toEqual({ 'date[after]': '2026-04-06', 'date[before]': '2026-04-12' }))
 
-    await user.click(screen.getByRole('button', { name: "Aujourd'hui" }))
+    await user.click(screen.getByRole('button', { name: 'Semaine suivante' }))
     await waitFor(() => expect(asked().at(-1)).toEqual({ 'date[after]': '2026-04-13', 'date[before]': '2026-04-19' }))
   })
 

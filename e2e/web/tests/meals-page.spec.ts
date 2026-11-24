@@ -77,6 +77,16 @@ test('Cuisine › Repas opens on the Menu with the week’s meal, its two recipe
   await expect(card).toContainText(first)
   await expect(card).toContainText(second)
   await expect(card.getByTestId('guests-value')).toHaveText('4')
+  await expect(meals.content.getByRole('heading', { level: 1, name: 'Repas', exact: true })).toBeVisible()
+
+  // The Liste view reads the same meal on one line.
+  await meals.listView.click()
+  const row = meals.content.getByTestId(`meal-row-${mealId}`)
+  await expect(row).toContainText(/Mer\. \d+ · soir/)
+  await expect(row).toContainText('4 convives')
+  await expect(row).toContainText(new RegExp(`(${first} · ${second}|${second} · ${first})`))
+  await meals.menuView.click()
+  await meals.expectMenuView()
 
   // When I add a meal on Friday lunch with a third recipe…
   const friday = dayOfThisWeek(4)

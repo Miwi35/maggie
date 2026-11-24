@@ -85,8 +85,8 @@ const headingOf = (crumbs: ResolvedCrumb[]): string | undefined => {
   return last?.label
 }
 
-/** The digest is titled by its date. The recipe sheet is titled by its own h1, which sits beside the sheet's actions in its reading column; the Revue's carries its count. */
-const OWN_HEADING = /^\/(recipes\/(create|[^/]+\/show)|finance\/(summary\/)?review|digest)$/
+/** The digest is titled by its date. The recipe sheet is titled by its own h1, which sits beside the sheet's actions in its reading column; the Revue's carries its count; the Repas page's sits beside its Menu · Liste views. */
+const OWN_HEADING = /^\/(meals|recipes\/(create|[^/]+\/show)|finance\/(summary\/)?review|digest)$/
 
 /**
  * The page's title, above its content. Every page of the trail table has
