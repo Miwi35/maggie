@@ -1,6 +1,14 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -171,5 +179,24 @@ class AccountTimelineScreenTest {
         show(ui(timeline(manual = true)))
 
         compose.onAllNodesWithTag(UiTags.ACCOUNT_LINK_CARD).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the link card is at least 72 dp high, its title above the bank's account`() {
+        show(ui(timeline(manual = true).copy(linkCandidates = listOf(candidate))))
+
+        compose.onNodeWithTag(UiTags.ACCOUNT_LINK_CARD).assertHeightIsAtLeast(72.dp)
+        val title = compose.onNodeWithText("Rattacher au compte de la banque", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val line = compose.onNodeWithText("N26 a créé", substring = true, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue(title.bottom <= line.top)
+    }
+
+    @Test
+    fun `the link card is a button named Rattacher au compte de la banque`() {
+        show(ui(timeline(manual = true).copy(linkCandidates = listOf(candidate))))
+
+        compose.onNodeWithTag(UiTags.ACCOUNT_LINK_CARD)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assert(hasClickAction())
     }
 }
