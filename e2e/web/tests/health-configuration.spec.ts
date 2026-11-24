@@ -53,6 +53,9 @@ test('Santé › Configuration computes 1 980 kcal for Homme, 38 ans, 178 cm, 72
   await expect(configuration.profile).toBeVisible()
   await expect(configuration.mode('Calculé')).toHaveAttribute('aria-checked', 'true')
   await expect(configuration.needKcal).toHaveText('— kcal')
+  // …drawn as the mockup: cards at 20px, fields at 10px.
+  await expect(configuration.profile).toHaveCSS('border-top-left-radius', '20px')
+  await expect(configuration.field('Taille')).toHaveCSS('border-top-left-radius', '10px')
 
   // …and set Homme, 38 ans, 178 cm, 72 kg, Sédentaire.
   await configuration.pick('Sexe', 'Homme')
