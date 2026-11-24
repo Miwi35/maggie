@@ -78,7 +78,7 @@ interface WorkoutDetailProps {
 const Metric = ({ label, value }: { label: string; value: string }) => (
   <Box
     data-testid="workout-metric"
-    sx={(theme) => ({ borderRadius: 3.5, bgcolor: theme.palette.veilleuse.raised, px: 1.5, py: 1.25, display: 'flex', flexDirection: 'column', gap: 0.25 })}
+    sx={(theme) => ({ borderRadius: 1.75 /* 1.75 × 8 = 14 px, tuile d'Admin-Sport */, bgcolor: theme.palette.veilleuse.raised, px: 1.5, py: 1.25, display: 'flex', flexDirection: 'column', gap: 0.25 })}
   >
     <Typography component="span" sx={(theme) => ({ fontSize: 12, color: theme.palette.veilleuse.caption })}>
       {label}
@@ -140,7 +140,7 @@ export const WorkoutDetail = ({ workout, onEdit, onDeleted }: WorkoutDetailProps
       component="section"
       aria-label="Séance"
       data-testid={`workout-detail-${workoutUlid(workout.id)}`}
-      sx={{ gridRow: { md: '1 / 3' }, gridColumn: { md: 2 }, borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}
+      sx={{ gridRow: { md: '1 / 3' }, gridColumn: { md: 2 }, borderRadius: 2 /* 2 × 8 = 16 px, `.card` d'Admin-Sport */, bgcolor: 'background.paper', px: 2.25, pt: 2, pb: '90px' /* place du portrait de Maggie */, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 1.25, minWidth: 0 }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <WorkoutIcon type={workout.type} size={44} />
