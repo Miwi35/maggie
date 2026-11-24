@@ -269,7 +269,7 @@ def agent_db(tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_journal_write(request):
-    """Keep the journal (MAG-688) off the database in tests that run a planning or a proaction for something else.
+    """Keep the journal (MAG-688) off the database in tests that run a planning, a proaction or a chat turn for something else.
 
     Tests that run on `journal_db` keep the real repository.
     """
@@ -281,6 +281,8 @@ def no_journal_write(request):
     with (
         patch("app.db.journal_repository.journal_repo.record_planning", AsyncMock(return_value=JournalRun(id="j"))),
         patch("app.db.journal_repository.journal_repo.record_proaction", AsyncMock(return_value=JournalRun(id="j"))),
+        # Every streamed chat turn is kept too (MAG-995).
+        patch("app.db.journal_repository.journal_repo.record_chat", AsyncMock(return_value=JournalRun(id="j"))),
     ):
         yield
 
