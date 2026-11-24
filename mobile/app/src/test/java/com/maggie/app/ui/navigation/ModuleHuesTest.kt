@@ -59,9 +59,14 @@ class ModuleHuesTest {
     }
 
     @Test
+    fun `the Courses sections wear the Courses blue`() {
+        listOf(Screen.Grocery.route, Screen.ProductList.route, Screen.StoreList.route)
+            .forEach { assertEquals(it, ModuleHue.COURSES, moduleHueOf(it)) }
+    }
+
+    @Test
     fun `other screens keep Maggie's violet`() {
         assertNull(moduleHueOf(Screen.Home.route))
-        assertNull(moduleHueOf(Screen.Grocery.route))
         assertNull(moduleHueOf(Screen.Settings.route))
         assertNull(moduleHueOf(Screen.Loading.route))
         assertNull(moduleHueOf(null))

@@ -53,6 +53,7 @@ import com.maggie.app.ui.components.GroceryTopBar
 import com.maggie.app.ui.navigation.GrocerySection
 import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.screens.cookbook.grocery.ProductPickerDialog
 import java.util.Locale
 import com.maggie.app.ui.screens.cookbook.grocery.RecurringGroceryViewModel
 
@@ -66,6 +67,7 @@ fun ProductListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val recurringState by recurringViewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -76,6 +78,7 @@ fun ProductListScreen(
         },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            ProductSearchField(onClick = { showSearch = true })
             ProductFilterBar(
                 state = uiState,
                 onStore = viewModel::selectFilterStore,
@@ -133,6 +136,18 @@ fun ProductListScreen(
                 }
             }
         }
+    }
+
+    if (showSearch) {
+        ProductPickerDialog(
+            products = uiState.products,
+            onSelectProduct = {
+                showSearch = false
+                viewModel.openProduct(it.id)
+            },
+            onSelectCustomLabel = null,
+            onDismiss = { showSearch = false },
+        )
     }
 
     uiState.editor?.let { editor ->
