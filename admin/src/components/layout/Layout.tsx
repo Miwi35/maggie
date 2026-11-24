@@ -197,7 +197,7 @@ export const Layout = (props: LayoutProps) => {
             onToolCallsChange={setToolCalls}
           />
           {!chatOpen && <MaggiePortrait unread={unreadChat || unreadCount > 0} count={unreadCount} onClick={handleChatToggle} />}
-          <MaggieInterruptionHost chatOpen={chatOpen} onOpenChat={handleOpenChatFromInterruption} />
+          <MaggieInterruptionHost chatOpen={chatOpen} chatFocused={chatOpen && sidebarTab === 'chat'} onOpenChat={handleOpenChatFromInterruption} />
         </Box>
       </RALayout>
     </ChatContext.Provider>

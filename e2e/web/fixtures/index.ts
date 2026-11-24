@@ -25,6 +25,7 @@ import {
   REPLAN_USER_EMAIL,
   VOICE_USER_EMAIL,
   STARS_USER_EMAIL,
+  CHECKER_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   MEALS_USER_EMAIL,
   CUISINE_USER_EMAIL,
@@ -58,6 +59,7 @@ export {
   ADJUST_USER_EMAIL,
   SEED_USER_EMAIL,
   OTHER_USER_EMAIL,
+  CHECKER_USER_EMAIL,
   INTERRUPTED_USER_EMAIL,
   PACKAGINGS_USER_EMAIL,
   STOCK_USER_EMAIL,
@@ -227,6 +229,8 @@ export interface MaggieFixtures {
   envelopeAlertUser: OtherUser
   /** The bank statement journey's account (MAG-802). */
   bankStatementUser: OtherUser
+  /** The proaction checker journey's (MAG-943): its interruptions stay off the interruptions account. */
+  checkerUser: OtherUser
   /** The seasonality journey's (MAG-494): its grocery list and its chat are its own. */
   seasonUser: OtherUser
   /** The thirteenth seeded account, for the rings and the rhythm curve (MAG-417). */
@@ -322,11 +326,27 @@ export interface MaggieFixtures {
  * fatal for the Mercure stream, which never ends — every real-time assertion
  * in the suite went silent the first time this was written the easy way.
  */
+const UNREAD_AT_LOAD = /\/api\/notifications\?exists\[readAt\]=false&order\[createdAt\]=asc&itemsPerPage=30/
+const unreadAtLoadAllowed = new WeakSet<BrowserContext>()
+
+/** Lets the admin read the real unread notifications when it loads — the journey of MAG-956. */
+export function allowUnreadAtLoad(page: Page): void {
+  unreadAtLoadAllowed.add(page.context())
+}
+
 async function isolateFromInternet(context: BrowserContext, baseURL: string, journey: string): Promise<void> {
   const host = new URL(baseURL).host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const external = new RegExp(`^https?://(?!${host}(?:[/?#]|$))`)
 
   await context.route(external, (route) => route.abort())
+  // The admin reads the unread notifications when it loads (MAG-956). On the accounts the
+  // journeys share, what other journeys left unread would pop over every one of them, so the
+  // read is answered empty unless the journey asks for it with `allowUnreadAtLoad`.
+  await context.route(UNREAD_AT_LOAD, (route) =>
+    unreadAtLoadAllowed.has(context)
+      ? route.fallback()
+      : route.fulfill({ contentType: 'application/ld+json', body: JSON.stringify({ member: [] }) }),
+  )
   await pinClock(context)
   // The journey identity, on every request the context's pages make: the
   // admin's `fetch` to the API and to the agent, and the Mercure EventSource —
@@ -519,6 +539,9 @@ export const test = base.extend<MaggieFixtures>({
   },
   bankStatementUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(BANK_STATEMENT_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
+  },
+  checkerUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
+    await useSignedInUser(CHECKER_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)
   },
   seasonUser: async ({ playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use) => {
     await useSignedInUser(SEASON_USER_EMAIL, { playwright, browser, baseURL, contextOptions, journey, adminCoverage }, use)

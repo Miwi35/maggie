@@ -12,7 +12,7 @@ import { openSubscribed } from '../helpers/mercure.js'
  * owner's planning instructions: with none that covers it the write waits for « Autoriser / Refuser »,
  * with one that says it word for word (`07d-checker-grocery-milk.yaml`) it runs.
  *
- * Its own account, serially: the interruption covers every window of its user.
+ * Its own account (`checkerUser`), serially: the interruption covers every window of its user.
  */
 
 test.describe.configure({ mode: 'serial', retries: 0 })
@@ -25,9 +25,9 @@ interface ListedProaction {
 const REMINDER_PROMPT = 'Rappel à délivrer : fermer les volets (rappel e2e).'
 const PROMPT = 'Ajoute du lait à la liste de courses (checker e2e)'
 
-test('a proaction write no instruction covers waits for « Autoriser / Refuser » and is not on the list', async ({ interruptedUser }) => {
+test('a proaction write no instruction covers waits for « Autoriser / Refuser » and is not on the list', async ({ checkerUser }) => {
   test.setTimeout(240_000)
-  const { page, api, session } = interruptedUser
+  const { page, api, session } = checkerUser
   await openSubscribed(page, () => new HomePage(page).open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 
@@ -36,7 +36,7 @@ test('a proaction write no instruction covers waits for « Autoriser / Refuser �
   })
   expect(instruction.status(), await instruction.text()).toBe(201)
 
-  await runDueProaction(interruptedUser.api)
+  await runDueProaction(checkerUser.api)
 
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toContainText('Lait', { timeout: 20_000 })
@@ -51,9 +51,9 @@ test('a proaction write no instruction covers waits for « Autoriser / Refuser �
   }
 })
 
-test('a proaction write an instruction covers word for word runs without a validation', async ({ interruptedUser }) => {
+test('a proaction write an instruction covers word for word runs without a validation', async ({ checkerUser }) => {
   test.setTimeout(240_000)
-  const { page, api, session } = interruptedUser
+  const { page, api, session } = checkerUser
   await openSubscribed(page, () => new HomePage(page).open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 
@@ -73,9 +73,9 @@ test('a proaction write an instruction covers word for word runs without a valid
 })
 
 // Reproduction of MAG-988: talking to the owner is never held for approval (owner, 23 Nov.).
-test('a due reminder notifies the owner without asking to authorise it', async ({ interruptedUser }) => {
+test('a due reminder notifies the owner without asking to authorise it', async ({ checkerUser }) => {
   test.setTimeout(240_000)
-  const { page, api, session } = interruptedUser
+  const { page, api, session } = checkerUser
   await openSubscribed(page, () => new HomePage(page).open(), `/proactions/${session.user.id}`)
   await new ChatPanel(page).ensureClosed()
 

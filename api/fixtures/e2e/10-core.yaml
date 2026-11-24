@@ -83,6 +83,15 @@ Maggie\Core\Entity\User:
         googleId: 'e2e-interrupt-google-id'
         name: 'Alix Veilleuse'
 
+    # The proaction checker journey (MAG-943). Its proactions interrupt, and an
+    # interruption covers every window of its user: on the interruptions account
+    # it pops over `maggie-interruption.spec.ts` (and the other way round) when
+    # the two files run side by side in one Playwright lot.
+    e2e_checker_user:
+        email: 'e2e-checker@maggie.local'
+        googleId: 'e2e-checker-google-id'
+        name: 'Cléo Vérifie'
+
     # The stock journey (MAG-294). Telling Maggie « presque plus de riz » puts a
     # line on the grocery list and publishes it, and talking to her adds to the
     # chat history: on the owner's account that pushes `chat.spec.ts` off its
@@ -196,6 +205,14 @@ Maggie\Core\Entity\UserPreference:
 
     e2e_interrupt_user_preference:
         user: '@e2e_interrupt_user'
+        theme: 'light'
+        locale: 'fr'
+        timezone: 'Europe/Paris'
+        defaultCalendarView: 'month'
+        notificationsEnabled: true
+
+    e2e_checker_user_preference:
+        user: '@e2e_checker_user'
         theme: 'light'
         locale: 'fr'
         timezone: 'Europe/Paris'

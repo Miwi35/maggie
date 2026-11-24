@@ -137,10 +137,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         // thirty-second are the cushion share's (MAG-669), web and mobile: both journeys write the share
         // the planning reads. The thirty-third to thirty-fifth are the trip estimate's, the replan's and the dictation's (MAG-745): each
         // sets a state a neighbour in its Playwright lot read. The thirty-sixth and thirty-seventh are the make-up's (MAG-772), web and mobile: answering settles the proposal and plans a session. The thirty-eighth is the bank statement's (MAG-802): it counts exactly what it imports from a simulated September. The thirty-ninth is the advance source's (MAG-806), mobile: it names the source of its advances and reads the total they make. The fortieth and forty-first are the account link's (MAG-823), web and mobile: linking folds an account into another and changes the totals. A forty-second would mean somebody added an account without saying why.
-        self::assertSame(41, $this->rowsOf(User::class));
+        self::assertSame(42, $this->rowsOf(User::class));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-other@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-interrupt@maggie.local']));
+        self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-checker@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-stock@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-approvals@maggie.local']));
         self::assertNotNull($this->repository(User::class)->findOneBy(['email' => 'e2e-treasury@maggie.local']));
@@ -562,11 +563,11 @@ final class E2eSeedCommandTest extends KernelTestCase
         $stray->setName('Stray');
         $this->entityManager()->persist($stray);
         $this->entityManager()->flush();
-        self::assertSame(42, $this->rowsOf(User::class));
+        self::assertSame(43, $this->rowsOf(User::class));
 
         $this->seed();
 
-        self::assertSame(41, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
+        self::assertSame(42, $this->rowsOf(User::class), 'The seed must clear what a previous suite left behind.');
     }
 
     public function testDatesFollowTheAnchor(): void

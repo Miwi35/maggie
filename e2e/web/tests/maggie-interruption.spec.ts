@@ -1,4 +1,4 @@
-import { test, expect, e2eNow, seedDate } from '../fixtures/index.js'
+import { test, expect, e2eNow, seedDate, allowUnreadAtLoad } from '../fixtures/index.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
 import { HomePage } from '../pages/HomePage.js'
 import { getCollection, waitForIndexed } from '../helpers/api.js'
@@ -166,6 +166,65 @@ test('a message of Maggie rings without interrupting, and the next request still
   const interruption = page.getByRole('alertdialog')
   await expect(interruption).toContainText('Rappel e2e : après le message')
   await expect(interruption).not.toContainText('Votre digest du matin est disponible.')
+
+  // With the chat in front, a message does not ring and does not interrupt (MAG-956).
+  await interruption.getByRole('button', { name: 'Plus tard' }).click()
+  await expect(interruption).toBeHidden()
+  await new ChatPanel(page).open()
+  const notes = () => page.evaluate(() => (window as unknown as { __maggieChimeNotes: number }).__maggieChimeNotes)
+  const before = await notes()
+  await publishOnHub(
+    page,
+    `/users/${session.user.id}/api/notifications/e2e-message-3`,
+    notification('e2e-message-3', 'Maggie', {
+      type: 'message',
+      body: 'Un autre message.',
+      relatedEntityIri: '/chat?message=01JE2EMESSAGE0000000000001',
+      createdAt: e2eNow().toISOString(),
+    }),
+  )
+  await page.waitForTimeout(2_000)
+  expect(await notes()).toBe(before)
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+})
+
+test('a proaction that interrupts is said once, by its notification', async ({ interruptedUser }) => {
+  const { page, session } = interruptedUser
+  const dashboard = new HomePage(page)
+  await openSubscribed(page, () => dashboard.open(), `/proactions/${session.user.id}`)
+  await new ChatPanel(page).ensureClosed()
+
+  await publishOnHub(page, `/proactions/${session.user.id}`, { ...proaction(session.user.id, 'e2e-once-1'), delivery: 'interrupt' })
+  await publishOnHub(
+    page,
+    `/users/${session.user.id}/api/notifications/e2e-once-1`,
+    notification('e2e-once-1', 'Maggie', { type: 'proaction', body: 'Une seule fois.' }),
+  )
+
+  const interruption = page.getByRole('alertdialog')
+  await expect(interruption).toHaveCount(1)
+  await expect(interruption).toContainText('Une seule fois.')
+  await interruption.getByRole('button', { name: 'Plus tard' }).click()
+  await expect(interruption).toBeHidden()
+  await page.waitForTimeout(5_000)
+  await expect(interruption).toBeHidden()
+})
+
+test('an interruption left unread while the admin was closed pops when it opens', async ({ interruptedUser }) => {
+  const { page, api } = interruptedUser
+  const title = 'Rappel e2e : laissé en attente'
+
+  expect(
+    (await callMcpTool(api, 'manage_notifications', { action: 'create', type: 'reminder', title, body: '15' })).error,
+  ).toBeUndefined()
+  await expect
+    .poll(async () => (await getCollection<{ title: string }>(api, '/api/notifications?exists[readAt]=false')).some((n) => n.title === title))
+    .toBe(true)
+
+  allowUnreadAtLoad(page)
+  await new HomePage(page).goto('/')
+
+  await expect(page.getByRole('alertdialog')).toContainText(title)
 })
 
 test('« C\'est noté » on an event reminder marks it read and closes it, and the bell stops counting it', async ({

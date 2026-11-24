@@ -48,6 +48,13 @@ export const OTHER_USER_EMAIL = 'e2e-other@maggie.local'
 export const INTERRUPTED_USER_EMAIL = 'e2e-interrupt@maggie.local'
 
 /**
+ * The account of the proaction checker journey (MAG-943): its proactions interrupt, and
+ * an interruption covers every window of its user, so it cannot share the interruptions
+ * account with `maggie-interruption.spec.ts` when the two run side by side.
+ */
+export const CHECKER_USER_EMAIL = 'e2e-checker@maggie.local'
+
+/**
  * The fourth seeded account, for the stock journey (MAG-294): telling Maggie a
  * product is nearly out writes to a grocery list and to the chat history, and
  * neither can be shared with the files that assert on theirs.

@@ -57,7 +57,7 @@ describe('readFeedMessage', () => {
   test('a message notification is a message, never an interruption', () => {
     const event = readFeedMessage(JSON.stringify({ ...message, createdAt: '2026-10-07T10:00:00+00:00' }))
 
-    expect(event).toEqual({ kind: 'message', id: 'notification:/api/notifications/n2', createdAt: Date.parse('2026-10-07T10:00:00+00:00') })
+    expect(event).toEqual({ kind: 'message', id: 'notification:/api/notifications/n2', ref: '/api/notifications/n2', createdAt: Date.parse('2026-10-07T10:00:00+00:00') })
   })
 
   test('a message notification read elsewhere is still a withdrawal', () => {
@@ -75,6 +75,14 @@ describe('readFeedMessage', () => {
   })
 })
 
+describe('a message notification', () => {
+  test('carries its IRI', () => {
+    const event = readFeedMessage(JSON.stringify({ '@id': '/api/notifications/m1', type: 'message', title: 'Maggie', readAt: null }))
+
+    expect(event).toMatchObject({ kind: 'message', ref: '/api/notifications/m1' })
+  })
+})
+
 describe('a finished proaction (MAG-680)', () => {
   const finished = { id: 'p1', status: 'completed', response: 'Ton colis est arrivé.' }
 
@@ -87,6 +95,14 @@ describe('a finished proaction (MAG-680)', () => {
 
   test('one the agent did not flag is still an interruption', () => {
     expect(readFeedMessage(JSON.stringify(finished))).toMatchObject({ kind: 'interrupt' })
+  })
+
+  test('a run delivered as an interruption is left to its notification', () => {
+    expect(readFeedMessage(JSON.stringify({ ...finished, delivery: 'interrupt' }))).toBeNull()
+  })
+
+  test('a run without a delivery still interrupts', () => {
+    expect(readFeedMessage(JSON.stringify({ ...finished, delivery: undefined }))).toMatchObject({ kind: 'interrupt' })
   })
 
   test('a silent one (replan, departure check) is a log, never an interruption', () => {
