@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.health
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
@@ -98,8 +99,10 @@ class SuiviScreenTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag(UiTags.ENERGY_TOTAL).fetchSemanticsNodes().isNotEmpty() }
 
         compose.onNodeWithTag(UiTags.STEPS_VALUE).assertTextEquals("8 000")
-        compose.onNodeWithTag(UiTags.ENERGY_TOTAL).assertTextEquals("1 662 kcal")
+        compose.onNodeWithTag(UiTags.ENERGY_TOTAL).assertTextEquals("1 662")
+        compose.onNodeWithText("dépensées").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.ENERGY_BASE).assertTextContains("Base 1 648")
+        compose.onNodeWithText("moy.", substring = true).assertDoesNotExist()
     }
 
     @Test
@@ -129,14 +132,14 @@ class SuiviScreenTest {
     }
 
     @Test
-    fun `the bilan comes first, then the period selector, 30 days chosen, then the Poids card with today's values`() {
+    fun `the period selector comes first, then the Nutrition banner, then the Poids card with today's values`() {
         compose.setContent { SuiviScreen(viewModel()) }
         waitForCard()
         waitForBilan()
 
         assertTopToBottom(
-            "bilan" to compose.onNodeWithTag(UiTags.NUTRITION_BALANCE),
             "periods" to compose.onNodeWithTag(UiTags.SUIVI_PERIODS),
+            "bilan" to compose.onNodeWithTag(UiTags.NUTRITION_BALANCE),
             "card" to compose.onNodeWithTag(UiTags.WEIGHT_CARD),
         )
         listOf("7 j", "30 j", "90 j", "1 an").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
@@ -147,8 +150,16 @@ class SuiviScreenTest {
         compose.onNodeWithText("72,4 kg").assertIsDisplayed()
         compose.onNodeWithText("— 72,6 kg").assertIsDisplayed()
         compose.onNodeWithText("· 21,3 % MG").assertIsDisplayed()
-        compose.onNodeWithText("22 sept.").assertIsDisplayed()
-        compose.onNodeWithText("21 oct.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `Poids, Pas and Moral · fatigue end on the period's axis from 22 sept to 21 oct`() {
+        compose.setContent { SuiviScreen(viewModel()) }
+        waitForCard()
+        waitForMood()
+
+        compose.onAllNodesWithText("22 sept.").assertCountEquals(3)
+        compose.onAllNodesWithText("21 oct.").assertCountEquals(3)
     }
 
     @Test
@@ -158,8 +169,11 @@ class SuiviScreenTest {
         waitForMood()
 
         compose.onNodeWithText("Moral · fatigue").assertExists()
-        compose.onNodeWithTag(UiTags.MOOD_VALUE).assertTextContains("Moral 7")
-        compose.onNodeWithTag(UiTags.FATIGUE_VALUE).assertTextContains("Fatigue 4")
+        compose.onNodeWithTag(UiTags.MOOD_VALUE).assertTextContains("7")
+        compose.onNodeWithTag(UiTags.MOOD_VALUE).assertTextContains("moral")
+        compose.onNodeWithText("/ 10").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.FATIGUE_VALUE).assertTextContains("4")
+        compose.onNodeWithTag(UiTags.FATIGUE_VALUE).assertTextContains("fatigue")
         assertTopToBottom(
             "energy" to compose.onNodeWithTag(UiTags.ENERGY_CARD),
             "mood" to compose.onNodeWithTag(UiTags.MOOD_CARD),
@@ -175,8 +189,8 @@ class SuiviScreenTest {
 
         compose.runOnIdle { viewModel.selectDay(java.time.LocalDate.parse("2026-10-19")) }
 
-        compose.onNodeWithTag(UiTags.MOOD_VALUE).assertTextContains("Moral 6")
-        compose.onNodeWithTag(UiTags.FATIGUE_VALUE).assertTextContains("Fatigue 5")
+        compose.onNodeWithTag(UiTags.MOOD_VALUE).assertTextContains("6")
+        compose.onNodeWithTag(UiTags.FATIGUE_VALUE).assertTextContains("5")
     }
 
     @Test
@@ -211,10 +225,10 @@ class SuiviScreenTest {
 
         compose.onNodeWithTag(UiTags.suiviPeriod("365")).performClick()
         compose.onNodeWithText("Octobre 2026").assertIsDisplayed()
-        compose.onNodeWithText("nov. 25").assertIsDisplayed()
+        compose.onAllNodesWithText("nov. 25").assertCountEquals(3)
 
         compose.onNodeWithTag(UiTags.suiviPeriod("90")).performClick()
-        compose.onNodeWithText("Sem. du 15 oct.").assertIsDisplayed()
+        compose.onAllNodesWithText("Sem. du 15 oct.").assertCountEquals(1)
     }
 
     @Test
@@ -293,21 +307,23 @@ class SuiviScreenTest {
     }
 
     @Test
-    fun `the bilan card shows today's balance and its figures, and a tap opens Nutrition (MAG-748)`() {
+    fun `the Nutrition banner reads +318 kcal, Excédent, apport 1 980 · dépense 1 662, and a tap opens Nutrition`() {
         val picked = mutableListOf<HealthSection>()
         compose.setContent { SuiviScreen(viewModel(), onSelectSection = { picked += it }) }
         waitForCard()
         waitForBilan()
 
         compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_VALUE, useUnmergedTree = true).assertTextEquals("+318 kcal")
-        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_FIGURES, useUnmergedTree = true).assertTextEquals("Mangé 1 500 · Prévu 480 · Dépensé 1 662 kcal")
+        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_FIGURES, useUnmergedTree = true).assertTextEquals("apport 1 980 · dépense 1 662")
+        compose.onNodeWithText("Excédent", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Nutrition · bilan du jour", substring = true, useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag(UiTags.NUTRITION_BALANCE).performClick()
 
         assertEquals(listOf(HealthSection.NUTRITION), picked)
     }
 
     @Test
-    fun `without a profile the bilan card shows eaten and planned and leads to Configuration`() {
+    fun `without a profile the banner shows apport 800 and Compléter le profil leads to Configuration`() {
         val picked = mutableListOf<HealthSection>()
         val noProfile = DailyBalance("2026-10-21", eatenKcal = 500, plannedKcal = 300)
         compose.setContent { SuiviScreen(viewModel(balance = noProfile), onSelectSection = { picked += it }) }
@@ -315,8 +331,8 @@ class SuiviScreenTest {
         waitForBilan()
 
         compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_VALUE, useUnmergedTree = true).assertTextEquals("800 kcal")
-        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_FIGURES, useUnmergedTree = true).assertTextEquals("Mangé 500 · Prévu 300 kcal")
-        compose.onNodeWithText("Complétez votre profil pour voir le bilan").performClick()
+        compose.onNodeWithTag(UiTags.NUTRITION_BALANCE_FIGURES, useUnmergedTree = true).assertTextEquals("apport 800")
+        compose.onNodeWithText("Compléter le profil").performClick()
 
         assertEquals(listOf(HealthSection.CONFIGURATION), picked)
     }

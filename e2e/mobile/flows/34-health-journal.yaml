@@ -111,10 +111,10 @@ tags:
 - scrollUntilVisible:
     element:
       id: "fatigue_value"
-# The legend's id sits on a merged node whose text Maestro reads on its child: match the text.
+# The figures (7, 4) sit above the curve on merged nodes: match the node, whatever the merge order.
 - extendedWaitUntil:
-    visible: "Moral 7"
+    visible: "(.*7.*moral.*|moral)"
     timeout: 10000
 - extendedWaitUntil:
-    visible: "Fatigue 4"
+    visible: "(.*4.*fatigue.*|fatigue)"
     timeout: 10000
