@@ -99,9 +99,9 @@ test('a due reminder notifies the owner without asking to authorise it', async (
   expect(JSON.stringify(await callMcpTool(api, 'manage_notifications', { action: 'list' }))).toContain('Fermer les volets')
 })
 
-test('a proaction asked in the chat writes what the owner\'s message says, without a validation', async ({ interruptedUser }) => {
+test('a proaction asked in the chat writes what the owner\'s message says, without a validation', async ({ checkerUser }) => {
   test.setTimeout(240_000)
-  const { page, api, session } = interruptedUser
+  const { page, api, session } = checkerUser
   await openSubscribed(page, () => new HomePage(page).open(), `/proactions/${session.user.id}`)
   await clearAccount(api)
 
@@ -121,9 +121,9 @@ test('a proaction asked in the chat writes what the owner\'s message says, witho
   expect(await (await api.get('/agent/approvals?status=pending')).json()).toEqual([])
 })
 
-test('a proaction asked with « préviens-moi » writes nothing without a validation', async ({ interruptedUser }) => {
+test('a proaction asked with « préviens-moi » writes nothing without a validation', async ({ checkerUser }) => {
   test.setTimeout(240_000)
-  const { page, api, session } = interruptedUser
+  const { page, api, session } = checkerUser
   await openSubscribed(page, () => new HomePage(page).open(), `/proactions/${session.user.id}`)
   await clearAccount(api)
 
