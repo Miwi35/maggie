@@ -48,5 +48,8 @@ fun incidentKindLabel(kind: String): String = when (kind) {
     else -> "Prélèvement rejeté"
 }
 
+/** « Virement » or « Prélèvement »: the kind without « rejeté », for the card's second line. */
+fun incidentKindShortLabel(kind: String): String = if (kind == "transfer") "Virement" else "Prélèvement"
+
 /** The tab title: « Incidents (2) », bare while the count is unknown. */
 fun incidentsTabTitle(count: Int?): String = if (count == null) "Incidents" else "Incidents ($count)"

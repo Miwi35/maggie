@@ -503,6 +503,7 @@ fun TransactionListScreen(
                     settling = uiState.settlingIncident,
                     onSettle = viewModel::settleIncident,
                     onUnsettle = viewModel::unsettleIncident,
+                    accountName = accountName,
                 )
             }
         }
