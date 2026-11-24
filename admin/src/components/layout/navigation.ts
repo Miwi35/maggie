@@ -201,13 +201,12 @@ export const NAVIGATION: NavModule[] = [
   },
   {
     label: 'Tâches',
-    // The views are routes (MAG-644): « Aujourd'hui » is the module's home. « Routines » is reached from the page.
+    // The views are routes (MAG-644): « Aujourd'hui » is the module's home; « Tâches » groups « À venir » and « Un jour ».
     parts: [
       { label: "Aujourd'hui", path: '/tasks' },
-      { label: 'À venir', path: '/tasks/upcoming' },
-      { label: 'Un jour', path: '/tasks/someday' },
-      { label: 'Faites', path: '/tasks/done' },
-      { label: 'Routines', path: '/tasks/routines', reachedFromPage: true },
+      { label: 'Tâches', path: '/tasks/stock' },
+      { label: 'Routines', path: '/tasks/routines' },
+      { label: 'Archives', path: '/tasks/done' },
       { ...resourcePart('Tâches', 'tasks'), reachedFromPage: true, bare: true },
     ],
   },

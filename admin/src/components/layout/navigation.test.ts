@@ -186,9 +186,8 @@ describe('resolveTrail on the Finance menus', () => {
 
   test('the views of Tâches are routes, each with its own trail (MAG-644)', () => {
     expect(labels('/tasks')).toEqual(['Tâches', "Aujourd'hui"])
-    expect(labels('/tasks/upcoming')).toEqual(['Tâches', 'À venir'])
-    expect(labels('/tasks/someday')).toEqual(['Tâches', 'Un jour'])
-    expect(labels('/tasks/done')).toEqual(['Tâches', 'Faites'])
+    expect(labels('/tasks/stock')).toEqual(['Tâches', 'Tâches'])
+    expect(labels('/tasks/done')).toEqual(['Tâches', 'Archives'])
     expect(labels('/tasks/routines')).toEqual(['Tâches', 'Routines'])
   })
 
@@ -224,25 +223,20 @@ describe('the Courses module', () => {
 describe('the Tâches sidebar', () => {
   const tasks = () => SIDEBAR.find((module) => module.label === 'Tâches')
 
-  test("lists Aujourd'hui · À venir · Un jour · Faites, and opens on Aujourd'hui", () => {
+  test("lists Aujourd'hui · Tâches · Routines · Archives, and opens on Aujourd'hui", () => {
     expect(tasks()?.path).toBe('/tasks')
     expect(tasks()?.entries.map((entry) => [entry.label, entry.path])).toEqual([
       ["Aujourd'hui", '/tasks'],
-      ['À venir', '/tasks/upcoming'],
-      ['Un jour', '/tasks/someday'],
-      ['Faites', '/tasks/done'],
+      ['Tâches', '/tasks/stock'],
+      ['Routines', '/tasks/routines'],
+      ['Archives', '/tasks/done'],
     ])
-  })
-
-  test('« Routines » is reached from the page, not from the menu', () => {
-    expect(tasks()?.entries.map((entry) => entry.label)).not.toContain('Routines')
-    expect(sidebarEntryOf('/tasks/routines')).toBe('/tasks')
   })
 
   test.each([
     ['/tasks', '/tasks'],
-    ['/tasks/upcoming', '/tasks/upcoming'],
-    ['/tasks/someday', '/tasks/someday'],
+    ['/tasks/stock', '/tasks/stock'],
+    ['/tasks/routines', '/tasks/routines'],
     ['/tasks/done', '/tasks/done'],
     ['/tasks/create', '/tasks'],
   ])('%s highlights %s', (path, entry) => {

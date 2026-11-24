@@ -361,9 +361,8 @@ describe('PageHeading — the h1 of every page', () => {
   test.each([
     ['/calendar', 'Calendrier'],
     ['/tasks', "Aujourd'hui"],
-    ['/tasks/upcoming', 'À venir'],
-    ['/tasks/someday', 'Un jour'],
-    ['/tasks/done', 'Faites'],
+    ['/tasks/stock', 'Tâches'],
+    ['/tasks/done', 'Archives'],
     ['/tasks/routines', 'Routines'],
     ['/grocery', 'Liste'],
     ['/products', 'Produits'],
@@ -461,9 +460,8 @@ describe('Breadcrumbs — the mockup style', () => {
 
   test.each([
     ['/tasks', "Aujourd'hui"],
-    ['/tasks/upcoming', 'À venir'],
-    ['/tasks/someday', 'Un jour'],
-    ['/tasks/done', 'Faites'],
+    ['/tasks/stock', 'Tâches'],
+    ['/tasks/done', 'Archives'],
     ['/tasks/routines', 'Routines'],
     ['/tasks/create', 'Nouveau'],
   ])('%s reads Tâches › %s', (path, view) => {

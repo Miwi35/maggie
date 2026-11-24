@@ -1,9 +1,10 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render as renderInto, screen, waitFor, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { MemoryRouter, useNavigate } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { TaskBoard } from './TaskBoard'
+import { TaskStockRedirect } from './TaskStockRedirect'
 import type { ViewTask } from './taskViews'
 import { resetMorningOffer } from './dayPlan'
 import type { DayTask } from './dayPlan'
@@ -256,29 +257,42 @@ describe('TaskBoard', () => {
   })
 
   describe('the page (MAG-644)', () => {
-    test('is headed « Tâches · <day> », with « + Nouvelle tâche » and the way to « Routines »', async () => {
+    test('is headed « Tâches · <day> » with « + Nouvelle tâche », and no « Routines » button', async () => {
       render(<TaskBoard />)
 
       expect(await screen.findByText('Tâches · jeudi 15 octobre')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: '+ Nouvelle tâche' })).toBeInTheDocument()
       expect(screen.queryByRole('textbox', { name: 'Ajouter une tâche' })).toBeNull()
-      expect(screen.getByRole('link', { name: 'Routines' })).toHaveAttribute('href', '/tasks/routines')
+      expect(screen.queryByRole('link', { name: 'Routines' })).toBeNull()
     })
 
-    test.each([
-      ['/tasks/upcoming', 'upcoming'],
-      ['/tasks/someday', 'someday'],
-      ['/tasks/done', 'done'],
-    ])('%s reads the « %s » view only, not the day', async (path, view) => {
-      boardUrl = path
+    test('« Tâches » reads À venir and Un jour, not the day, and draws Cette semaine · Plus tard · Sans date', async () => {
+      boardUrl = '/tasks/stock'
+      render(<TaskBoard />)
+
+      await screen.findByText('Préparer le déménagement')
+      expect(viewCalls().sort()).toEqual(['http://localhost/api/tasks/view/someday', 'http://localhost/api/tasks/view/upcoming'])
+      expect(dayCalls()).toEqual([])
+      // 2026-10-15 is a Thursday: the 20th is after this Sunday, the someday tasks have no date.
+      expect(screen.queryByRole('list', { name: 'Cette semaine' })).toBeNull()
+      expect(within(screen.getByRole('list', { name: 'Plus tard' })).getByText('Préparer le déménagement')).toBeInTheDocument()
+      const undated = within(screen.getByRole('list', { name: 'Sans date' }))
+      expect(undated.getByText('Renvoyer le formulaire')).toBeInTheDocument()
+      expect(screen.getByText("Payer l'amende").compareDocumentPosition(screen.getByText('Renvoyer le formulaire'))).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+    })
+
+    test('« Archives » reads the « done » view only, not the day', async () => {
+      boardUrl = '/tasks/done'
       render(<TaskBoard />)
 
       await waitFor(() => expect(viewCalls()).toHaveLength(1))
-      expect(viewCalls()[0]).toContain(`/tasks/view/${view}`)
+      expect(viewCalls()[0]).toContain('/tasks/view/done')
       expect(dayCalls()).toEqual([])
     })
 
-    test('« Faites » asks for its first page', async () => {
+    test('« Archives » asks for its first page', async () => {
       boardUrl = '/tasks/done'
       render(<TaskBoard />)
 
@@ -294,7 +308,7 @@ describe('TaskBoard', () => {
         task('01PLAIN', 'Appeler le garage'),
       ]
       try {
-        boardUrl = '/tasks/upcoming'
+        boardUrl = '/tasks/stock'
         render(<TaskBoard />)
 
         const rowOf = async (title: string) => (await screen.findByText(title)).closest('li') as HTMLElement
@@ -704,7 +718,6 @@ describe('TaskBoard', () => {
       render(<TaskBoard />)
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Tâches indisponibles')
-      expect(screen.getByRole('link', { name: 'Routines' })).toBeInTheDocument()
     })
 
     test('listens to the tasks and to the day, and reads the day again on an update', async () => {
@@ -754,11 +767,11 @@ describe('TaskBoard', () => {
     })
 
     test('the list of a view is full width, named after the view, a subtask under its task', async () => {
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       render(<TaskBoard />)
       await screen.findByText('Préparer le déménagement')
 
-      expect(screen.getByRole('list', { name: 'À venir' })).toBeInTheDocument()
+      expect(screen.getByRole('list', { name: 'Plus tard' })).toBeInTheDocument()
       expect(screen.getByText('Urgence')).toBeInTheDocument()
       expect(screen.getByText('Réserver le camion').closest('li')).toHaveStyle({ paddingLeft: '32px' })
       expect(screen.getByText('Préparer le déménagement').closest('li')).not.toHaveStyle({ paddingLeft: '32px' })
@@ -766,7 +779,7 @@ describe('TaskBoard', () => {
     })
 
     test('a put-off task reads « reportée », never late in red; a critical one keeps its mark', async () => {
-      boardUrl = '/tasks/someday'
+      boardUrl = '/tasks/stock'
       render(<TaskBoard />)
 
       const form = (await screen.findByText('Renvoyer le formulaire')).closest('li')!
@@ -782,7 +795,7 @@ describe('TaskBoard', () => {
 
     test('ticking a task sends a merge-patch on completedAt and refetches the view', async () => {
       const user = setup()
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       render(<TaskBoard />)
       await screen.findByText('Préparer le déménagement')
 
@@ -811,7 +824,7 @@ describe('TaskBoard', () => {
 
     test('a failing tick says so and leaves the list as it was', async () => {
       const user = setup()
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       mockFetch.mockImplementation((url, init) =>
         Promise.resolve(init?.method === 'PATCH' ? json({}, 500) : respond(String(url), init)),
       )
@@ -824,19 +837,13 @@ describe('TaskBoard', () => {
       expect(screen.getByText('Préparer le déménagement')).toBeInTheDocument()
     })
 
-    test('« + Nouvelle tâche » starts due tomorrow in « À venir » and with no day in « Un jour », and « Faites » has none', async () => {
+    test('a new task from « Tâches » has no due day, and « Archives » has no button', async () => {
       const user = setup()
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       const first = render(<TaskBoard />)
       await user.click(await screen.findByRole('button', { name: '+ Nouvelle tâche' }))
-      expect(await screen.findByLabelText('Échéance')).toHaveValue('2026-10-16')
-      first.unmount()
-
-      boardUrl = '/tasks/someday'
-      const second = render(<TaskBoard />)
-      await user.click(await screen.findByRole('button', { name: '+ Nouvelle tâche' }))
       expect(await screen.findByLabelText('Échéance')).toHaveValue('')
-      second.unmount()
+      first.unmount()
 
       boardUrl = '/tasks/done'
       render(<TaskBoard />)
@@ -846,7 +853,7 @@ describe('TaskBoard', () => {
 
     test('opens the detail of a task in the panel, without a refetch', async () => {
       const user = setup()
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       render(<TaskBoard />)
 
       await user.click(await screen.findByRole('button', { name: 'Ouvrir Préparer le déménagement' }))
@@ -855,13 +862,12 @@ describe('TaskBoard', () => {
       expect(within(panel).getByRole('heading', { name: 'Préparer le déménagement' })).toBeInTheDocument()
       expect(within(panel).queryByRole('textbox')).toBeNull()
       expect(screen.queryByRole('dialog')).toBeNull()
-      expect(screen.getByRole('list', { name: 'À venir' })).toBeInTheDocument()
+      expect(screen.getByRole('list', { name: 'Plus tard' })).toBeInTheDocument()
     })
 
     test.each([
-      ['upcoming', 'Aucune tâche à venir'],
-      ['someday', 'Aucune tâche pour plus tard'],
-      ['done', 'Aucune tâche terminée'],
+      ['stock', 'Aucune tâche.'],
+      ['done', 'Aucune tâche archivée.'],
     ])('says so when the « %s » view is empty', async (view, message) => {
       boardUrl = `/tasks/${view}`
       mockFetch.mockImplementation((url, init) => {
@@ -876,7 +882,7 @@ describe('TaskBoard', () => {
 
     test('a network failure shows the error, and the next update recovers', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       let failed = false
       mockFetch.mockImplementation((url, init) => {
         if (!failed && /\/tasks\/view\/upcoming/.test(String(url))) {
@@ -943,7 +949,7 @@ describe('TaskBoard', () => {
       await user.click(within(screen.getByText('Dernière faite').closest('li') as HTMLElement).getByRole('checkbox'))
 
       await screen.findByText('Sortir les poubelles')
-      expect(screen.queryByText('Aucune tâche terminée')).toBeNull()
+      expect(screen.queryByText('Aucune tâche archivée.')).toBeNull()
     })
 
     test('a tick answered after leaving the view does not draw on the view shown', async () => {
@@ -956,23 +962,23 @@ describe('TaskBoard', () => {
       const Go = () => {
         const navigate = useNavigate()
 
-        return <button onClick={() => navigate('/tasks/someday')}>Un jour</button>
+        return <button onClick={() => navigate('/tasks/done')}>Archives</button>
       }
       renderInto(
-        <MemoryRouter initialEntries={['/tasks/upcoming']}>
+        <MemoryRouter initialEntries={['/tasks/stock']}>
           <Go />
           <TaskBoard />
         </MemoryRouter>,
       )
       await screen.findByText('Préparer le déménagement')
       await user.click(within(screen.getByText('Préparer le déménagement').closest('li') as HTMLElement).getByRole('checkbox'))
-      await user.click(screen.getByRole('button', { name: 'Un jour' }))
-      await screen.findByText('Renvoyer le formulaire')
+      await user.click(screen.getByRole('button', { name: 'Archives' }))
+      await screen.findByText('Sortir les poubelles')
 
       release(json({}))
 
       await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Tâche terminée', { type: 'success' }))
-      expect(screen.getByText('Renvoyer le formulaire')).toBeTruthy()
+      expect(screen.getByText('Sortir les poubelles')).toBeTruthy()
       expect(screen.queryByText('Préparer le déménagement')).toBeNull()
     })
   })
@@ -1041,7 +1047,7 @@ describe('TaskBoard', () => {
 
     test('does not open on the other views', async () => {
       morningTime = '08:00'
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       render(<TaskBoard />)
 
       await screen.findByText('Préparer le déménagement')
@@ -1109,17 +1115,17 @@ describe('TaskBoard', () => {
       boardUrl = '/tasks?task=01FINE'
       render(<TaskBoard />)
 
-      expect(await screen.findByRole('list', { name: 'Un jour' })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: 'Sans date' })).toBeInTheDocument()
       const row = (await screen.findByText("Payer l'amende")).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
       expect(marked()).toHaveLength(1)
     })
 
-    test('a task done opens « Faites »', async () => {
+    test('a task done opens « Archives »', async () => {
       boardUrl = '/tasks?task=01DONE'
       render(<TaskBoard />)
 
-      expect(await screen.findByRole('list', { name: 'Faites' })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: 'Archives' })).toBeInTheDocument()
       const row = (await screen.findByText('Sortir les poubelles')).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
     })
@@ -1140,7 +1146,7 @@ describe('TaskBoard', () => {
 
       expect(await screen.findByRole('list', { name: "Aujourd'hui" })).toBeInTheDocument()
       await waitFor(() => expect(viewCalls().some((url) => url.includes('/view/done'))).toBe(true))
-      expect(screen.queryByRole('list', { name: 'Un jour' })).toBeNull()
+      expect(screen.queryByRole('list', { name: 'Sans date' })).toBeNull()
       expect(marked()).toHaveLength(0)
       expect(screen.queryByRole('alert')).toBeNull()
       expect(mockNotify).not.toHaveBeenCalled()
@@ -1163,7 +1169,7 @@ describe('TaskBoard', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Suivre le lien' }))
 
-      expect(await screen.findByRole('list', { name: 'À venir' })).toBeInTheDocument()
+      expect(await screen.findByRole('list', { name: 'Plus tard' })).toBeInTheDocument()
       const row = (await screen.findByText('Préparer le déménagement')).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
     })
@@ -1179,7 +1185,7 @@ describe('TaskBoard', () => {
       }
       const user = setup()
       renderInto(
-        <MemoryRouter initialEntries={['/tasks/upcoming']}>
+        <MemoryRouter initialEntries={['/tasks/stock']}>
           <Link />
           <TaskBoard />
         </MemoryRouter>,
@@ -1190,7 +1196,27 @@ describe('TaskBoard', () => {
 
       const row = (await screen.findByText('Réserver le camion')).closest('li')!
       await waitFor(() => expect(row).toHaveAttribute('aria-current', 'true'))
-      expect(screen.getByRole('list', { name: 'À venir' })).toBeInTheDocument()
+      expect(screen.getByRole('list', { name: 'Plus tard' })).toBeInTheDocument()
+    })
+  })
+
+  describe('the old addresses (MAG-1007)', () => {
+    const Address = () => <span data-testid="at">{useLocation().pathname + useLocation().search}</span>
+
+    test.each(['/tasks/upcoming', '/tasks/someday'])('%s opens « Tâches », the task link kept', async (path) => {
+      renderInto(
+        <MemoryRouter initialEntries={[`${path}?task=01MOVING`]}>
+          <Address />
+          <Routes>
+            <Route path="/tasks/upcoming" element={<TaskStockRedirect />} />
+            <Route path="/tasks/someday" element={<TaskStockRedirect />} />
+            <Route path="/tasks/stock" element={<TaskBoard />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByText('Préparer le déménagement')).toBeInTheDocument()
+      expect(screen.getByTestId('at')).toHaveTextContent('/tasks/stock?task=01MOVING')
     })
   })
 
@@ -1365,7 +1391,7 @@ describe('TaskBoard', () => {
 
     test('away from the day, the bravo is a short banner', async () => {
       const user = setup()
-      boardUrl = '/tasks/upcoming'
+      boardUrl = '/tasks/stock'
       render(<TaskBoard />)
 
       await user.click(await screen.findByRole('checkbox', { name: 'Terminer Préparer le déménagement' }))

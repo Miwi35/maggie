@@ -335,8 +335,8 @@ test('touching a task alert in the bell opens the task board on that task, highl
   await bell.open()
   await bell.item(title).click()
 
-  // Due in three days: « Aujourd'hui » does not list it, the page follows it to « À venir » (MAG-644).
-  await expect(page).toHaveURL(new RegExp(`#/tasks/upcoming\\?task=${taskId}$`))
+  // Due in three days: « Aujourd'hui » does not list it, the page follows it to « Tâches » (MAG-644).
+  await expect(page).toHaveURL(new RegExp(`#/tasks/stock\\?task=${taskId}$`))
   const board = new TasksPage(page)
   await expect(board.heading).toBeVisible()
   await expect(board.row(taskTitle)).toBeVisible()
