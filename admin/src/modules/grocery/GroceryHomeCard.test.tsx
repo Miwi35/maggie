@@ -6,7 +6,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { veilleuseLightTheme } from '../../theme'
 import { emitMercureAndWait } from '../../test/mercure'
 import { GroceryHomeCard } from './GroceryHomeCard'
-import { recipeNeedsLabel } from './homeRecipeNeeds'
+import { recipeNeedWhen } from './homeRecipeNeeds'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
 
@@ -143,14 +143,28 @@ describe('GroceryHomeCard', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/grocery')
   })
 
-  test('puts what the next meals lack above the list', async () => {
+  test('puts what the next meals lack in a « Pour les recettes » block, one row per product with its moment and meal', async () => {
     vi.stubGlobal('fetch', reads({ items: SIX_AT_THE_SUPERMARKET, needs: NEEDS }))
     renderCard()
 
     const recipes = await screen.findByTestId('home-grocery-recipes')
+    const rows = within(recipes).getAllByTestId('home-grocery-recipe-need')
 
-    expect(recipes).toHaveTextContent('Pour les recettes · parmesan (ce soir), crème fraîche (demain)')
+    expect(recipes).toHaveTextContent('Pour les recettes')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('Parmesance soir · pâtes')
+    expect(rows[1]).toHaveTextContent('Crème fraîchedemain · gratin')
     expect(recipes.compareDocumentPosition(screen.getAllByTestId('home-grocery-store')[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test('says how many lines and shops under its title', async () => {
+    vi.stubGlobal('fetch', reads({ items: SIX_AT_THE_SUPERMARKET, needs: NEEDS }))
+    renderCard()
+
+    const count = await screen.findByTestId('home-grocery-count')
+
+    expect(count).toHaveTextContent('8 articles · 2 magasins')
+    expect(count.compareDocumentPosition(screen.getByTestId('home-grocery-recipes')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   test('is not drawn at all when there is nothing to buy and nothing missing for a recipe', async () => {
@@ -260,14 +274,16 @@ describe('GroceryHomeCard', () => {
   })
 })
 
-describe('recipeNeedsLabel', () => {
-  test('names the moment of each meal', () => {
-    expect(
-      recipeNeedsLabel([
-        { name: 'Parmesan', day: 'today', slot: 'dinner' },
-        { name: 'Citron', day: 'today', slot: 'lunch' },
-        { name: 'Crème', day: 'tomorrow', slot: 'dinner' },
-      ]),
-    ).toBe('parmesan (ce soir), citron (ce midi), crème (demain)')
+describe('recipeNeedWhen', () => {
+  test('names the moment and the meal', () => {
+    const need = { name: 'Parmesan', mealName: 'Pâtes aux légumes', day: 'today', slot: 'dinner' } as const
+
+    expect(recipeNeedWhen(need)).toBe('ce soir · pâtes aux légumes')
+    expect(recipeNeedWhen({ ...need, slot: 'lunch' })).toBe('ce midi · pâtes aux légumes')
+    expect(recipeNeedWhen({ ...need, day: 'tomorrow', mealName: 'Gratin' })).toBe('demain · gratin')
+  })
+
+  test('keeps the moment alone without a meal name', () => {
+    expect(recipeNeedWhen({ name: 'Citron', mealName: '', day: 'today', slot: 'lunch' })).toBe('ce midi')
   })
 })

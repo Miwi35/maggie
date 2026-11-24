@@ -1,12 +1,15 @@
 import Box from '@mui/material/Box'
 import Skeleton from '@mui/material/Skeleton'
+import { alpha, useTheme } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
 import { HomeCard } from '../home/HomeCard'
 import { HomeCardError } from '../home/HomeCardError'
+import { moduleColor } from '../home/moduleColor'
 import { homeCardStatus, useReportHomeCard } from '../home/homeCardStatus'
 import { neededLabel, quantityHint } from './groceryQuantity'
-import { recipeNeedsLabel } from './homeRecipeNeeds'
+import { recipeNeedWhen } from './homeRecipeNeeds'
 import { useGroceryCardState } from './useGroceryCardState'
+import { groceryCountLabel } from './groceryCardState'
 import type { GroceryHomeState, HomeStore } from './groceryCardState'
 
 /**
@@ -41,16 +44,38 @@ const Loading = () => (
 )
 
 const Body = ({ state }: { state: GroceryHomeState }) => {
+  const courses = moduleColor(useTheme(), 'grocery')
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {state.count > 0 && (
+        <Typography variant="caption" color="text.secondary" data-testid="home-grocery-count">
+          {groceryCountLabel(state)}
+        </Typography>
+      )}
       {state.forRecipes.length > 0 && (
-        <Typography variant="body2" data-testid="home-grocery-recipes">
-          <Box component="span" sx={{ fontWeight: 600 }}>
+        <Box
+          data-testid="home-grocery-recipes"
+          sx={{ bgcolor: alpha(courses, 0.1), borderRadius: '14px', px: '10px', py: '8px' }}
+        >
+          <Box sx={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: courses }}>
             Pour les recettes
           </Box>
-          {' · '}
-          {recipeNeedsLabel(state.forRecipes)}
-        </Typography>
+          {state.forRecipes.map((need) => (
+            <Box
+              key={`${need.name}-${need.day}-${need.slot}`}
+              data-testid="home-grocery-recipe-need"
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', minHeight: 26 }}
+            >
+              <Typography noWrap sx={{ fontSize: 14, fontWeight: 500 }}>
+                {need.name}
+              </Typography>
+              <Typography noWrap sx={{ fontSize: 12, color: courses, whiteSpace: 'nowrap' }}>
+                {recipeNeedWhen(need)}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
       )}
       {state.stores.map((store) => (
         <Store key={store.id ?? 'none'} store={store} />
@@ -59,38 +84,54 @@ const Body = ({ state }: { state: GroceryHomeState }) => {
   )
 }
 
-const Store = ({ store }: { store: HomeStore }) => (
-  <Box component="section" aria-label={store.name ?? 'Non assigné'} data-testid="home-grocery-store">
-    <Typography variant="caption" color="text.secondary" component="h3" sx={{ display: 'block', fontWeight: 600 }}>
-      {store.name ?? 'Non assigné'}
-    </Typography>
-    <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
-      {store.items.map((item) => {
-        const quantity = neededLabel(item.needed) ?? quantityHint(item.quantity, item.unit)
+const Store = ({ store }: { store: HomeStore }) => {
+  const courses = moduleColor(useTheme(), 'grocery')
 
-        return (
-          <Box
-            component="li"
-            key={item.id}
-            data-testid="home-grocery-item"
-            sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.25 }}
-          >
-            <Typography variant="body2" noWrap>
-              {item.name}
-            </Typography>
-            {quantity && (
-              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                {quantity}
-              </Typography>
-            )}
-          </Box>
-        )
-      })}
-    </Box>
-    {store.more > 0 && (
-      <Typography variant="caption" color="text.secondary" data-testid="home-grocery-more">
-        {`+ ${store.more}`}
+  return (
+    <Box component="section" aria-label={store.name ?? 'Non assigné'} data-testid="home-grocery-store">
+      <Typography
+        variant="caption"
+        component="h3"
+        sx={{
+          display: 'block',
+          fontSize: 11,
+          fontWeight: 400,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: courses,
+          pt: '4px',
+        }}
+      >
+        {store.name ?? 'Non assigné'}
       </Typography>
-    )}
-  </Box>
-)
+      <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+        {store.items.map((item) => {
+          const quantity = neededLabel(item.needed) ?? quantityHint(item.quantity, item.unit)
+
+          return (
+            <Box
+              component="li"
+              key={item.id}
+              data-testid="home-grocery-item"
+              sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, minHeight: 26 }}
+            >
+              <Typography noWrap sx={{ fontSize: 13 }}>
+                {item.name}
+              </Typography>
+              {quantity && (
+                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                  {quantity}
+                </Typography>
+              )}
+            </Box>
+          )
+        })}
+      </Box>
+      {store.more > 0 && (
+        <Typography variant="caption" color="text.secondary" data-testid="home-grocery-more">
+          {`+ ${store.more}`}
+        </Typography>
+      )}
+    </Box>
+  )
+}

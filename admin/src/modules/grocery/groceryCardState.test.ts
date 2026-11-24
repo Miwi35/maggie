@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { composeGroceryState } from './groceryCardState'
+import { composeGroceryState, groceryCountLabel } from './groceryCardState'
 import type { ApiGroceryItem, ApiRecipeNeed } from './groceryCardState'
 
 const TODAY = '2026-10-14'
@@ -115,12 +115,35 @@ describe('composeGroceryState', () => {
     )
 
     expect(state.forRecipes).toEqual([
-      { name: 'Parmesan', day: 'today', slot: 'dinner' },
-      { name: 'Crème fraîche', day: 'tomorrow', slot: 'lunch' },
+      { name: 'Parmesan', mealName: '', day: 'today', slot: 'dinner' },
+      { name: 'Crème fraîche', mealName: '', day: 'tomorrow', slot: 'lunch' },
     ])
+  })
+
+  test("keeps the meal's name of a recipe need", () => {
+    const state = composeGroceryState(TODAY, [], [{ ...need('p1', 'Parmesan', TODAY), mealName: 'Pâtes' }])
+
+    expect(state.forRecipes[0].mealName).toBe('Pâtes')
   })
 
   test('is empty with nothing to buy and nothing missing', () => {
     expect(composeGroceryState(TODAY, [], [])).toEqual({ count: 0, forRecipes: [], stores: [] })
+  })
+})
+
+describe('groceryCountLabel', () => {
+  test('counts lines and shops', () => {
+    const six = Array.from({ length: 6 }, (_, i) => line(`a${i}`, `Article ${i}`, { store: market }))
+    expect(groceryCountLabel(composeGroceryState(TODAY, six, []))).toBe('6 articles · 1 magasin')
+
+    const two = [line('1', 'Farine', { store: market }), line('2', 'Radis', { store: greengrocer })]
+    expect(groceryCountLabel(composeGroceryState(TODAY, two, []))).toBe('2 articles · 2 magasins')
+    expect(groceryCountLabel(composeGroceryState(TODAY, [line('1', 'Farine', { store: market })], []))).toBe('1 article · 1 magasin')
+  })
+
+  test('leaves out the shops when no line has one', () => {
+    const three = [line('1', 'Piles'), line('2', 'Sel'), line('3', 'Riz')]
+
+    expect(groceryCountLabel(composeGroceryState(TODAY, three, []))).toBe('3 articles')
   })
 })
