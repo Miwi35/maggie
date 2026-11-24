@@ -70,7 +70,7 @@ test('a routine created « au réveil, chaque jour » and ticked is done in « M
     // …then it waits in « Matin », not ticked, at waking.
     const card = board.routineGroup('Matin').getByTestId('routine-card').filter({ has: page.getByText(title, { exact: true }) })
     await expect(card).toBeVisible()
-    await expect(card).toContainText('au réveil')
+    await expect(board.routineWhen(title)).toHaveText('chaque jour · au réveil')
     await expect(board.routineCheck(title)).not.toBeChecked()
     await expect(board.routineCount(title)).toHaveText('ce mois : 0 fois')
 
@@ -96,6 +96,41 @@ test('a routine created « au réveil, chaque jour » and ticked is done in « M
     expect(check.ok(), `GET /api/routines/day/${parisDay()} answered ${check.status()}`).toBe(true)
     const day = (await check.json()) as { moments: { routines: { title: string; checked: boolean }[] }[] }
     expect(day.moments.flatMap((m) => m.routines).find((r) => r.title === title)).toMatchObject({ checked: false })
+  } finally {
+    await removeRoutines(api, title)
+  }
+})
+
+test('a routine not due today has its tick: ticking it counts for today, in the API too', async ({ page, api }) => {
+  const title = perAttempt('Routine pas due aujourd’hui e2e')
+  await removeRoutines(api, title)
+
+  try {
+    // Given a weekly routine on yesterday's weekday (ISO 1-7)…
+    const [year, month, day] = parisDay().split('-').map(Number)
+    const yesterday = ((new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 5) % 7) + 1
+    const created = await api.post('/api/routines', {
+      headers: { Accept: 'application/json' },
+      data: { title, anchor: 'afterDinner', recurrence: { kind: 'weekly', weekday: yesterday } },
+    })
+    expect(created.status(), `POST /api/routines answered ${created.status()}`).toBe(201)
+
+    // When I open Tâches › Routines…
+    const board = new TasksPage(page)
+    await board.openRoutines()
+
+    // …then its tick is there, not ticked.
+    await expect(board.routineCheck(title)).toBeVisible()
+    await expect(board.routineCheck(title)).not.toBeChecked()
+
+    // When I tick it…
+    await board.routineCheck(title).click()
+
+    // …then it is ticked, counted once, and the API agrees.
+    await expect(board.routineCheck(title)).toBeChecked()
+    await expect(board.routineCount(title)).toHaveText(/: 1 fois$/)
+    const [stored] = (await routines(api)).filter((r) => r.title === title)
+    expect(stored).toMatchObject({ checkedToday: true })
   } finally {
     await removeRoutines(api, title)
   }
