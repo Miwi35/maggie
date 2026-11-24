@@ -7,6 +7,7 @@ from app.mcp.client import mcp_client
 
 # The policy module is where a `source` means something, so it owns the vocabulary.
 from app.policy.engine import A2A_SOURCE, Mode, policy_engine
+from app.policy.origin import hide_origin, stamp_origin
 from app.policy.summary import build_summary
 from app.redaction import redact
 from app.runtime.tools.registry import NativeToolRegistry, ToolCallContext
@@ -81,6 +82,7 @@ class ToolRouter:
         native = self._natives.names()
         mcp_tools = await mcp_client.list_tools()
         for tool in mcp_tools:
+            schema = tool.get("inputSchema", {"type": "object", "properties": {}})
             if a2a and tool["name"] not in A2A_ALLOWED_TOOLS:
                 continue
             if tool["name"] in native or tool["name"] in EXECUTOR_ONLY_MCP_TOOLS:
@@ -89,7 +91,8 @@ class ToolRouter:
                 {
                     "name": tool["name"],
                     "description": tool.get("description", ""),
-                    "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}}),
+                    # The origin of a proaction is the code's to set, never the model's (MAG-977).
+                    "input_schema": hide_origin(tool["name"], schema),
                 }
             )
 
@@ -102,10 +105,14 @@ class ToolRouter:
         user_id: str | None = None,
         source: str = "chat",
         context_id: str | None = None,
+        *,
+        origin: dict | None = None,
     ) -> str:
         """The only point every tool result goes through: it leaves masked (MAG-871),
-        toward the model, the stored and replayed blocks, `tool_calls` and the stream."""
-        return redact(await self._call_tool(name, arguments, user_id, source, context_id))
+        toward the model, the stored and replayed blocks, `tool_calls` and the stream.
+
+        `origin` is the owner's message the turn answers, set by `OriginToolRouter` alone (MAG-977)."""
+        return redact(await self._call_tool(name, arguments, user_id, source, context_id, origin=origin))
 
     async def _call_tool(
         self,
@@ -114,6 +121,8 @@ class ToolRouter:
         user_id: str | None = None,
         source: str = "chat",
         context_id: str | None = None,
+        *,
+        origin: dict | None = None,
     ) -> str:
         """Route a tool call to native handler or MCP server, unless the policy says otherwise.
 
@@ -128,6 +137,9 @@ class ToolRouter:
         if name in EXECUTOR_ONLY_MCP_TOOLS:
             logger.warning(f"Call to an executor-only tool refused: {name}")
             return json.dumps({"error": f"Tool '{name}' is not available"})
+
+        # Before the policy: a held action is stored without the origin the model wrote.
+        arguments = stamp_origin(name, arguments, origin)
 
         if missing := [f for f in self._natives.required_fields(name) if f not in arguments]:
             schema = self._natives.get(name).current_definition().get("input_schema") or {}

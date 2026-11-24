@@ -28,6 +28,7 @@ Maggie\Calendar\Entity\Proaction:
     summary: Dépose Tom
     startAt: '<(new \DateTimeImmutable("2037-01-15T08:30:00+01:00"))>'
     agenda: '@maggie_agenda'
+    origin: { kind: owner_message, ref: 01JM0000000000000000000001 }
   later_failed_proaction:
     prompt: Prépare le résumé de la semaine
     summary: Résumé de la semaine

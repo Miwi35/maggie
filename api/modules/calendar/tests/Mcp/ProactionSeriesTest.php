@@ -301,6 +301,25 @@ class ProactionSeriesTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable(self::NEXT_FRIDAY), new \DateTimeImmutable($claimed['proactions'][0]['occurrence']));
     }
 
+    /** A pass of a series was asked in the same words as the series (MAG-977). */
+    public function testAnOccurrenceKeepsTheOriginOfItsSeries(): void
+    {
+        $origin = ['kind' => 'owner_message', 'ref' => '01JM0000000000000000000009'];
+
+        $claimed = $this->call(ClaimDueProactionsTool::class)['proactions'][0];
+        self::assertSame($this->id('series'), $claimed['seriesId']);
+        self::assertSame($origin, $claimed['origin']);
+
+        $this->loginFixtureUser();
+        self::assertTrue($this->call(CancelProactionTool::class, $this->id('series'), self::NEXT_FRIDAY)['success']);
+
+        $instances = $this->instancesOf('series');
+        self::assertCount(2, $instances);
+        foreach ($instances as $instance) {
+            self::assertSame($origin, $instance->getOrigin());
+        }
+    }
+
     public function testAnOccurrenceNotOnTheRuleCannotBeCancelled(): void
     {
         $this->loginFixtureUser();

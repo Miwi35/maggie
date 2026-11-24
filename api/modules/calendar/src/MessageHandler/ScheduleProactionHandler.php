@@ -23,6 +23,6 @@ class ScheduleProactionHandler
     {
         $user = $this->userRepository->find($command->userId) ?? throw new \DomainException('No user found.');
 
-        return $this->proactions->schedule($user, $command->prompt, $command->scheduledAt, $command->summary, $command->kind, $command->rrule);
+        return $this->proactions->schedule($user, $command->prompt, $command->scheduledAt, $command->summary, $command->kind, $command->rrule, $command->origin);
     }
 }

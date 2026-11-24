@@ -15,6 +15,8 @@ final readonly class ScheduleProactionCommand
         public ?string $summary = null,
         public ProactionKind $kind = ProactionKind::Reminder,
         public ?string $rrule = null,
+        /** @var array<mixed>|null */
+        public ?array $origin = null,
     ) {
     }
 }

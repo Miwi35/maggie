@@ -17,6 +17,7 @@ from app.llm.tools import ToolRouter
 from app.llm.web_search import with_web_search
 from app.policy.checker import CheckedToolRouter
 from app.policy.engine import A2A_SOURCE
+from app.policy.origin import OriginToolRouter, owner_message_origin
 from app.proactions.triage import KIND_CHECK
 from app.proactions.verdict import VERDICT_TOOL_NAME, VerdictToolRouter
 from app.runtime.system_prompt import SystemPrompt
@@ -124,6 +125,7 @@ class LLMGateway:
         kind: str = "reminder",
         signaled_topics: list[dict] | tuple[dict, ...] = (),
         checked_values: list[dict] | tuple[dict, ...] = (),
+        origin: dict | None = None,
     ) -> dict:
         """Execute a proaction prompt, knowing what the open threads are about.
 
@@ -149,6 +151,8 @@ class LLMGateway:
                      says nothing in the chat: it runs with its own preamble and gets no thread.
             kind: `check` (MAG-886) offers `proaction_verdict` and the topics already told,
                   `signaled_topics`; a `reminder` runs as it always did.
+            origin: The owner's words the proaction was asked in (MAG-977): the checker reads that message
+                    besides the planning instructions.
         """
         if self.client is None:
             return {
@@ -159,7 +163,7 @@ class LLMGateway:
 
         run = proaction_run(silent=silent, summary=summary, prompt=prompt)
         checked = run == PROACTION and not dry_run
-        tool_router = CheckedToolRouter(self.tool_router, self.client) if checked else self.tool_router
+        tool_router = CheckedToolRouter(self.tool_router, self.client, origin=origin) if checked else self.tool_router
         if blocked_tools:
             tool_router = BlockedToolsRouter(tool_router, blocked_tools)
         trip_run = not silent and summary is not None and is_silent_trip_run(summary)
@@ -322,6 +326,13 @@ class LLMGateway:
             # Anthropic runs the web search itself; a peer agent gets the read-only tools only (MAG-384).
             tools = with_web_search(tools, await resolve_user_timezone(user_id))
 
+        # The owner's message opening the turn is the origin of what it schedules (MAG-977).
+        tool_router = (
+            OriginToolRouter(self.tool_router, owner_message_origin(exclude_message_id))
+            if source == "chat" and exclude_message_id
+            else self.tool_router
+        )
+
         try:
             system_prompt = await self.system_prompt.build(
                 user_id,
@@ -338,7 +349,7 @@ class LLMGateway:
                 messages,
                 tools,
                 client=await client_for(user_id, self.client),
-                tool_router=self.tool_router,
+                tool_router=tool_router,
                 user_id=user_id,
                 model=model_for(CHAT),
                 effort=effort_for(CHAT),

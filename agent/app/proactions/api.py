@@ -50,6 +50,8 @@ class Proaction:
     delivery: str | None = None
     signaled_topics: tuple[dict, ...] = ()
     checked_values: tuple[dict, ...] = ()
+    # The owner's words it was asked in (MAG-977): `{kind, ref}`, read by the checker of its run.
+    origin: dict | None = None
 
     @classmethod
     def from_api(cls, data: dict, user_id: str | None = None) -> "Proaction":
@@ -67,6 +69,7 @@ class Proaction:
             delivery=data.get("delivery"),
             signaled_topics=tuple(t for t in data.get("signaledTopics") or () if isinstance(t, dict)),
             checked_values=tuple(v for v in data.get("checkedValues") or () if isinstance(v, dict)),
+            origin=data.get("origin") if isinstance(data.get("origin"), dict) else None,
         )
 
     def to_dict(self) -> dict:
@@ -76,7 +79,8 @@ class Proaction:
         `silent` (MAG-680) tells the screens the run is a log, not a message: a trip check or replan —
         or a run whose message waits in the thread, or that said nothing (MAG-886): no bubble, no push.
 
-        `kind`, `signaledTopics` and `checkedValues` travel with the claimed proaction through the queue to its run."""
+        `kind`, `signaledTopics`, `checkedValues` and `origin` travel with the claimed proaction through the queue
+        to its run."""
         data = {
             "id": self.id,
             "userId": self.user_id,
@@ -95,6 +99,8 @@ class Proaction:
             data["signaledTopics"] = list(self.signaled_topics)
         if self.checked_values:
             data["checkedValues"] = list(self.checked_values)
+        if self.origin is not None:
+            data["origin"] = self.origin
         return data
 
 

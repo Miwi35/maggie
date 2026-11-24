@@ -27,6 +27,7 @@ from app.llm.questions import asked_question, blocks_of
 from app.llm.tool_blocks import close_interrupted, record, record_partial
 from app.llm.tools import ToolRouter
 from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
+from app.policy.origin import OriginToolRouter, owner_message_origin
 from app.runtime.loop import (
     LoopOptions,
     ModelFailed,
@@ -221,7 +222,8 @@ class StreamingGateway:
                 tools,
                 client=None,
                 resolve_client=lambda: client_for(user_id, self.client),
-                tool_router=self.tool_router,
+                # The owner's message opening the turn is the origin of what it schedules (MAG-977).
+                tool_router=OriginToolRouter(self.tool_router, owner_message_origin(user_msg_id)),
                 options=options,
                 state=state,
                 resumed=resumed,

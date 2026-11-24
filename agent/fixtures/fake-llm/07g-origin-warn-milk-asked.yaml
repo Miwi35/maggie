@@ -1,0 +1,17 @@
+# « Dans 30 minutes, préviens-moi s'il manque du lait » (MAG-977): the owner asks to be told, nothing more.
+# This model writes a prompt that goes beyond the request — it adds the milk. The checker must stop it: the
+# message it was asked in does not hold « ajoute du lait à la liste de courses », the quote 07d answers.
+name: origin-warn-milk-asked
+description: Schedule adding milk although the owner only asked to be warned, for the checker journey.
+
+match:
+  user_matches: 'préviens-moi s.il manque du lait \(origine e2e, pour (\S+)\)'
+
+turns:
+  - tools:
+      - name: schedule_proaction
+        input:
+          prompt: "Ajoute du lait à la liste de courses (checker e2e)"
+          scheduled_at: '\1'
+          summary: "Lait"
+  - text: "C'est programmé, monsieur."

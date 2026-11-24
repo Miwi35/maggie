@@ -139,7 +139,7 @@ class ScriptedRouter:
     async def get_tool_definitions(self):
         return TOOLS
 
-    async def call_tool(self, name, arguments, *, user_id=None, source="chat", context_id=None):
+    async def call_tool(self, name, arguments, *, user_id=None, source="chat", context_id=None, origin=None):
         self.calls.append(
             {"name": name, "input": _plain(arguments), "user_id": user_id, "source": source, "context_id": context_id}
         )
