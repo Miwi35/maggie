@@ -6,6 +6,8 @@ import Typography from '@mui/material/Typography'
 import type { HealthDay } from './healthDaysApi'
 import { daysBetween, formatScore, scorePaths } from './healthJournal'
 import { dayLabel } from './nutritionBalance'
+import { SuiviAxis } from './SuiviAxis'
+import type { SuiviAxisProps } from './SuiviAxis'
 import type { Loaded } from './nutritionApi'
 
 interface SuiviMoodCardProps {
@@ -16,12 +18,13 @@ interface SuiviMoodCardProps {
   /** The chosen day, as the cards Pas and Énergie count it; null: the last one, today. */
   selected: number | null
   onSelect: (index: number | null) => void
+  axis: SuiviAxisProps
 }
 
 const caption = { fontSize: 12, color: (theme: Theme) => theme.palette.veilleuse.caption } as const
-const cardSx = { borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
+const cardSx = { borderRadius: 2, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
 
-/** Moral in a solid amber line, fatigue in a dotted blue one: the theme's warning and info hues. */
+/** Moral in a solid amber line, fatigue in a dashed blue one: the theme's warning and info hues. */
 const MOOD = (theme: Theme) => theme.palette.warning.main
 const FATIGUE = (theme: Theme) => theme.palette.info.main
 
@@ -29,7 +32,7 @@ const FATIGUE = (theme: Theme) => theme.palette.info.main
  * « Moral · fatigue » (MAG-750): the scores the journal holds over the
  * period, on a 0–10 scale, without a verdict. The figure is the chosen day's.
  */
-export const SuiviMoodCard = ({ state, from, to, selected, onSelect }: SuiviMoodCardProps) => {
+export const SuiviMoodCard = ({ state, from, to, selected, onSelect, axis }: SuiviMoodCardProps) => {
   const days = useMemo(() => daysBetween(from, to), [from, to])
   const byDate = useMemo(() => new Map((state.status === 'ready' ? state.data : []).map((day) => [day.date, day])), [state])
   const current = selected === null || selected >= days.length ? days.length - 1 : selected
@@ -49,26 +52,30 @@ export const SuiviMoodCard = ({ state, from, to, selected, onSelect }: SuiviMood
       {state.status === 'error' && <Typography sx={caption}>Erreur : le moral et la fatigue n’ont pas pu être chargés.</Typography>}
       {state.status === 'ready' && (
         <>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-            <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Moral{' '}
-              <Box component="span" data-testid="mood-value" sx={{ fontSize: 26, fontWeight: 300, color: 'text.primary' }}>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2.5 }}>
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75 }}>
+              <Box component="span" sx={(theme) => ({ width: 18, alignSelf: 'center', borderTop: `3px solid ${MOOD(theme)}` })} />
+              <Box component="span" data-testid="mood-value" sx={{ fontSize: 20, fontWeight: 300, color: 'text.primary' }}>
                 {formatScore(chosen?.mood ?? null)}
               </Box>
-            </Typography>
-            <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>
-              Fatigue{' '}
-              <Box component="span" data-testid="fatigue-value" sx={{ fontSize: 26, fontWeight: 300, color: 'text.primary' }}>
+              <Box component="span" sx={caption}>
+                moral
+              </Box>
+            </Box>
+            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75 }}>
+              <Box component="span" sx={(theme) => ({ width: 18, alignSelf: 'center', borderTop: `3px dashed ${FATIGUE(theme)}` })} />
+              <Box component="span" data-testid="fatigue-value" sx={{ fontSize: 20, fontWeight: 300, color: 'text.primary' }}>
                 {formatScore(chosen?.fatigue ?? null)}
               </Box>
-            </Typography>
+              <Box component="span" sx={caption}>
+                fatigue
+              </Box>
+            </Box>
+            <Box component="span" sx={{ ...caption, ml: 'auto' }}>
+              / 10
+            </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 0.75, height: 140 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', ...caption, fontSize: 11 }} aria-hidden="true">
-              <span>10</span>
-              <span>5</span>
-              <span>0</span>
-            </Box>
             <Box sx={{ position: 'relative', flexGrow: 1, minWidth: 0 }}>
               <Box sx={{ position: 'absolute', inset: 0, display: 'flex', gap: '2px' }}>
                 {days.map((day, index) => {
@@ -109,32 +116,21 @@ export const SuiviMoodCard = ({ state, from, to, selected, onSelect }: SuiviMood
                 aria-hidden="true"
                 sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
               >
-                <Box component="path" data-testid="mood-line" d={mood.line} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" sx={(theme) => ({ stroke: MOOD(theme) })} />
-                <Box component="path" data-testid="mood-dots" d={mood.dots} strokeWidth={6} strokeLinecap="round" vectorEffect="non-scaling-stroke" sx={(theme) => ({ stroke: MOOD(theme) })} />
+                <Box component="path" data-testid="mood-line" d={mood.line} strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" sx={(theme) => ({ stroke: MOOD(theme) })} />
                 <Box
                   component="path"
                   data-testid="fatigue-line"
                   d={fatigue.line}
-                  strokeWidth={2.5}
-                  strokeDasharray="4 4"
+                  strokeWidth={3}
+                  strokeDasharray="6 5"
                   strokeLinejoin="round"
                   vectorEffect="non-scaling-stroke"
                   sx={(theme) => ({ stroke: FATIGUE(theme) })}
                 />
-                <Box component="path" data-testid="fatigue-dots" d={fatigue.dots} strokeWidth={6} strokeLinecap="round" vectorEffect="non-scaling-stroke" sx={(theme) => ({ stroke: FATIGUE(theme) })} />
               </Box>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1.5, ...caption }}>
-            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-              <Box component="span" sx={(theme) => ({ width: 14, borderTop: `2px solid ${MOOD(theme)}` })} />
-              moral
-            </Box>
-            <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-              <Box component="span" sx={(theme) => ({ width: 14, borderTop: `2px dashed ${FATIGUE(theme)}` })} />
-              fatigue
-            </Box>
-          </Box>
+          <SuiviAxis from={axis.from} to={axis.to} />
         </>
       )}
     </Box>

@@ -46,7 +46,7 @@ export const SuiviWeighingsCard = ({ weighings, loaded, onAdd, onEdit }: SuiviWe
     <Box
       component="section"
       aria-label="Pesées"
-      sx={{ borderRadius: 4, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, minHeight: 0 }}
+      sx={{ borderRadius: 2, bgcolor: 'background.paper', px: 2.25, py: 2, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, minHeight: 0 }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 15, fontWeight: 500 }}>
         <span>Pesées</span>

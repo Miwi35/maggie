@@ -32,12 +32,13 @@ const READY: Loaded<HealthDay[]> = {
   data: [day('2026-10-18', 6, 5), day('2026-10-20', 8, 2), day('2026-10-21', 7, 4)],
 }
 
+const axis = { from: '18 oct.', to: '21 oct.' }
 const wrap = (node: React.ReactNode, theme: Theme = veilleuseLightTheme) => render(<ThemeProvider theme={theme}>{node}</ThemeProvider>)
 const card = () => screen.getByRole('region', { name: 'Moral · fatigue' })
 
 describe('SuiviMoodCard', () => {
   test('shows today’s scores and one column per day of the period, without a verdict', () => {
-    wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} />)
+    wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} axis={axis} />)
 
     expect(within(card()).getByTestId('mood-label')).toHaveTextContent('Aujourd’hui')
     expect(within(card()).getByTestId('mood-value')).toHaveTextContent('7')
@@ -49,21 +50,35 @@ describe('SuiviMoodCard', () => {
       'Aujourd’hui : moral 7, fatigue 4',
     ])
     expect(within(card()).getByRole('button', { name: 'Aujourd’hui : moral 7, fatigue 4' })).toHaveAttribute('aria-pressed', 'true')
-    expect(card()).toHaveTextContent(/moral.*fatigue$/)
+    expect(card()).toHaveTextContent('18 oct.')
+    expect(card()).toHaveTextContent('21 oct.')
   })
 
-  test('draws moral in a solid amber line and fatigue in a dotted blue one, on a 0–10 scale', () => {
+  test('reads « 7 moral », « 4 fatigue » and « / 10 »', () => {
+    wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} axis={axis} />)
+
+    expect(card().textContent).toMatch(/7moral4fatigue\/ 10/)
+  })
+
+  test('draws no dots and no 10 / 5 / 0 scale', () => {
+    wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} axis={axis} />)
+
+    expect(within(card()).queryByTestId('mood-dots')).not.toBeInTheDocument()
+    expect(within(card()).queryByTestId('fatigue-dots')).not.toBeInTheDocument()
+    expect(within(card()).queryByText('5')).not.toBeInTheDocument()
+  })
+
+  test('draws moral in a solid amber line and fatigue in a dashed blue one', () => {
     for (const theme of [veilleuseLightTheme, veilleuseDarkTheme]) {
-      const { unmount } = wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} />, theme)
+      const { unmount } = wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} axis={axis} />, theme)
 
       const mood = within(card()).getByTestId('mood-line')
       const fatigue = within(card()).getByTestId('fatigue-line')
       // x: the middle of each of the four columns; y: 100 − score × 10. The missing 19th starts a new line.
       expect(mood).toHaveAttribute('d', 'M125.0 40.0 M625.0 20.0 L875.0 30.0')
       expect(fatigue).toHaveAttribute('d', 'M125.0 50.0 M625.0 80.0 L875.0 60.0')
-      expect(within(card()).getByTestId('mood-dots').getAttribute('d')).toContain('M875.0 30.0 l0 0')
       expect(mood).not.toHaveAttribute('stroke-dasharray')
-      expect(fatigue).toHaveAttribute('stroke-dasharray', '4 4')
+      expect(fatigue).toHaveAttribute('stroke-dasharray', '6 5')
       expect(mood).toHaveStyle({ stroke: theme.palette.warning.main })
       expect(fatigue).toHaveStyle({ stroke: theme.palette.info.main })
       unmount()
@@ -73,14 +88,14 @@ describe('SuiviMoodCard', () => {
   test('a column chooses its day; clicking it again goes back to today', async () => {
     const user = userEvent.setup()
     const onSelect = vi.fn()
-    const { rerender } = wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={onSelect} />)
+    const { rerender } = wrap(<SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={null} onSelect={onSelect} axis={axis} />)
 
     await user.click(screen.getByRole('button', { name: 'mar. 20 oct. : moral 8, fatigue 2' }))
     expect(onSelect).toHaveBeenCalledWith(2)
 
     rerender(
       <ThemeProvider theme={veilleuseLightTheme}>
-        <SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={2} onSelect={onSelect} />
+        <SuiviMoodCard state={READY} from="2026-10-18" to="2026-10-21" selected={2} onSelect={onSelect} axis={axis} />
       </ThemeProvider>,
     )
     expect(within(card()).getByTestId('mood-label')).toHaveTextContent('mar. 20 oct.')
@@ -92,13 +107,13 @@ describe('SuiviMoodCard', () => {
   })
 
   test('a day without scores reads « — »; loading and errors are said', () => {
-    const { rerender } = wrap(<SuiviMoodCard state={{ status: 'ready', data: [] }} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} />)
+    const { rerender } = wrap(<SuiviMoodCard state={{ status: 'ready', data: [] }} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} axis={axis} />)
     expect(within(card()).getByTestId('mood-value')).toHaveTextContent('—')
     expect(within(card()).getByTestId('mood-line')).toHaveAttribute('d', '')
 
     rerender(
       <ThemeProvider theme={veilleuseLightTheme}>
-        <SuiviMoodCard state={{ status: 'error' }} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} />
+        <SuiviMoodCard state={{ status: 'error' }} from="2026-10-18" to="2026-10-21" selected={null} onSelect={vi.fn()} axis={axis} />
       </ThemeProvider>,
     )
     expect(within(card()).getByText('Erreur : le moral et la fatigue n’ont pas pu être chargés.')).toBeInTheDocument()

@@ -50,10 +50,11 @@ describe('SuiviBalanceBanner', () => {
     vi.stubGlobal('fetch', fetcher)
     renderBanner()
 
-    const banner = await screen.findByRole('button', { name: 'Bilan du jour : ouvrir Nutrition' })
+    const banner = await screen.findByRole('button', { name: 'Nutrition, bilan du jour : ouvrir Santé › Nutrition' })
     expect(fetcher).toHaveBeenCalledWith('/api/health/daily-balance?date=2026-10-21', expect.anything())
     expect(screen.getByTestId('balance-value')).toHaveTextContent('+100 kcal')
     expect(screen.getByTestId('balance-value')).toHaveAttribute('data-zone', 'balanced')
+    expect(banner).toHaveTextContent(/^Nutrition · aujourd’hui.*›$/)
     expect(screen.getByTestId('balance-word')).toHaveTextContent('Équilibre')
 
     await user.click(banner)
