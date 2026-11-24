@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNotify } from 'react-admin'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -110,6 +110,11 @@ const WorkHoursCard = ({
   useEffect(() => setStartDraft(start), [start])
   const [endDraft, setEndDraft] = useState(end)
   useEffect(() => setEndDraft(end), [end])
+  // The pair as last typed, read by the next change even before React has re-rendered under load.
+  const pair = useRef({ start, end })
+  useEffect(() => {
+    pair.current = { start, end }
+  }, [start, end])
   const [dayDraft, setDayDraft] = useState(days)
   useEffect(() => setDayDraft(days), [days])
 
@@ -120,6 +125,7 @@ const WorkHoursCard = ({
   // Both drafts go together: once the pair is in order again, every hour that differs from the saved one is sent
   // in one PATCH, the start refused a moment ago included.
   const savePair = async (nextStart: string, nextEnd: string) => {
+    pair.current = { start: nextStart, end: nextEnd }
     setStartDraft(nextStart)
     setEndDraft(nextEnd)
     if (!nextStart || !nextEnd) return
@@ -132,6 +138,7 @@ const WorkHoursCard = ({
     }
     if (Object.keys(patch).length === 0) return
     if (!(await onSave(patch))) {
+      pair.current = { start, end }
       setStartDraft(start)
       setEndDraft(end)
     }
@@ -156,7 +163,7 @@ const WorkHoursCard = ({
               type="time"
               label="Début du travail"
               value={startDraft}
-              onChange={(e) => savePair(e.target.value, endDraft)}
+              onChange={(e) => savePair(e.target.value, pair.current.end)}
               size="small"
               sx={{ maxWidth: 160 }}
               slotProps={{ inputLabel: { shrink: true } }}
@@ -165,7 +172,7 @@ const WorkHoursCard = ({
               type="time"
               label="Fin du travail"
               value={endDraft}
-              onChange={(e) => savePair(startDraft, e.target.value)}
+              onChange={(e) => savePair(pair.current.start, e.target.value)}
               error={outOfOrder}
               helperText={outOfOrder ? 'La fin doit suivre le début' : undefined}
               size="small"
