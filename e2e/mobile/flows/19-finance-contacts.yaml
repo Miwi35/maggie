@@ -321,7 +321,7 @@ tags:
     visible: "Voyages"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "200,00.€ / 300,00.€"
+    visible: "200.€ consommés"
     timeout: 30000
 
 # MAG-452: Tom's transfers are 800 € of income; 280 € of one are to be given back.
