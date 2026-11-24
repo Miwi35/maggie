@@ -1,27 +1,42 @@
 package com.maggie.app.ui.screens.health.sport
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.Workout
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.components.MaggieCard
+import com.maggie.app.ui.screens.health.WorkoutType
 import com.maggie.app.ui.screens.health.formatWorkoutDuration
 import com.maggie.app.ui.screens.health.workoutStart
+import com.maggie.app.ui.theme.maggieSurface
+import com.maggie.app.ui.theme.readableTextOn
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -31,8 +46,10 @@ import java.time.ZoneId
 data class SportLaunch(
     val workoutId: String,
     val title: String,
+    /** « Séance de ce soir »: what the card is called for accessibility. */
+    val label: String,
     val subtitle: String,
-    /** « Lancer » or « ▶ Reprendre · 2/6 ». */
+    /** « Lancer » or « Reprendre · 2/6 » (the play icon is drawn apart). */
     val buttonLabel: String,
     val resuming: Boolean,
 )
@@ -66,41 +83,59 @@ fun sportLaunchOf(workouts: List<Workout>, today: LocalDate, zone: ZoneId, resum
     }
     return SportLaunch(
         workoutId = workout.id,
-        title = "Séance de ${moment.replaceFirstChar { it.lowercase() }}",
+        title = workout.title,
+        label = "Séance de ${moment.replaceFirstChar { it.lowercase() }}",
         subtitle = subtitle,
-        buttonLabel = if (active != null) "▶ Reprendre · ${active.progress}" else "Lancer",
+        buttonLabel = if (active != null) "Reprendre · ${active.progress}" else "Lancer",
         resuming = active != null,
     )
 }
 
-/** The 44 dp pill. */
+/** The 44 dp pill in the module's colour; a 12 dp play icon leads the label when [resuming]. */
 @Composable
-fun SportLaunchButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SportLaunchButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, resuming: Boolean = false) {
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = 44.dp).testTag(UiTags.SPORT_LAUNCH_BUTTON),
         shape = RoundedCornerShape(22.dp),
-    ) { Text(label) }
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = readableTextOn(MaterialTheme.colorScheme.primary)),
+        contentPadding = PaddingValues(horizontal = if (resuming) 16.dp else 18.dp),
+    ) {
+        if (resuming) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(12.dp))
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    }
 }
 
 @Composable
 fun SportLaunchCard(launch: SportLaunch, onLaunch: (String) -> Unit, modifier: Modifier = Modifier) {
-    MaggieCard(modifier = modifier.fillMaxWidth().testTag(UiTags.SPORT_LAUNCH_CARD)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = modifier.fillMaxWidth()
+            .testTag(UiTags.SPORT_LAUNCH_CARD)
+            .background(accent.copy(alpha = 0.12f), RoundedCornerShape(22.dp))
+            .padding(start = 14.dp, top = 12.dp, end = 12.dp, bottom = 12.dp)
+            .semantics { contentDescription = launch.label },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp).background(accent.copy(alpha = 0.18f), CircleShape),
+            contentAlignment = Alignment.Center,
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(launch.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-                Text(
-                    launch.subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag(UiTags.SPORT_LAUNCH_SUBTITLE),
-                )
-            }
-            SportLaunchButton(launch.buttonLabel, onClick = { onLaunch(launch.workoutId) })
+            Icon(WorkoutType.STRENGTH.icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
         }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(launch.title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(
+                launch.subtitle,
+                fontSize = 13.sp,
+                color = maggieSurface().textMuted,
+                modifier = Modifier.testTag(UiTags.SPORT_LAUNCH_SUBTITLE),
+            )
+        }
+        SportLaunchButton(launch.buttonLabel, onClick = { onLaunch(launch.workoutId) }, resuming = launch.resuming)
     }
 }

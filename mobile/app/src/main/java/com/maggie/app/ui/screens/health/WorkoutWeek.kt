@@ -18,6 +18,21 @@ data class WeekDay(val letter: String, val date: LocalDate, val state: DayState,
         }
 }
 
+/** Which colour rings a day's disc. */
+enum class DayBorder { ACCENT, TRACK }
+
+/** Which colour a day's digit takes. */
+enum class DayDigit { ON_ACCENT, TEXT }
+
+/** How a day draws (Sport-Tel mock-up): [todayRing] around it, its [border], a [filled] disc or not, its [digit]. */
+data class DayLook(val todayRing: Boolean, val border: DayBorder, val filled: Boolean, val digit: DayDigit)
+
+fun dayLook(day: WeekDay): DayLook = when (day.state) {
+    DayState.DONE -> DayLook(day.isToday, DayBorder.ACCENT, filled = true, digit = DayDigit.ON_ACCENT)
+    DayState.PLANNED -> DayLook(day.isToday, DayBorder.ACCENT, filled = false, digit = DayDigit.TEXT)
+    DayState.NONE -> DayLook(day.isToday, DayBorder.TRACK, filled = false, digit = DayDigit.TEXT)
+}
+
 /** The ISO week of [days] (Monday to Sunday) with its counts of sessions, not of days. */
 data class WeekSummary(val days: List<WeekDay>, val done: Int, val planned: Int) {
     /** « 1 faite · 3 prévues », « 0 faite · 0 prévue ». */

@@ -7,6 +7,7 @@ tags:
 # L'activité Sport, lancée, déroulée d'une série, quittée, puis la fin de séance (MAG-779, MAG-780, MAG-781, extends 30-health-sport; modèle 27-cooking-launch).
 #
 # Étant donné une séance prévue aujourd'hui avec ses six exercices (écrite par `scripts/sport-plan-api.js`)
+# Alors la carte « Séance de ce soir » porte le titre « Séance A » et « Lancer » (MAG-968)
 # Quand je touche « Lancer » dans Santé › Sport
 # Alors l'écran de la séance s'ouvre sur « Tractions négatives » et « 1 / 6 », sans la barre de Maggie
 # Et quand je touche « − » puis « Série faite », la pastille 1 montre « 4 » et « Repos » s'affiche ; « Passer le repos » ouvre la série 2
@@ -43,6 +44,7 @@ tags:
     visible:
       id: "sport_launch_card"
     timeout: 30000
+- assertVisible: "Séance A"
 - assertVisible: "Lancer"
 - tapOn:
     id: "sport_launch_button"

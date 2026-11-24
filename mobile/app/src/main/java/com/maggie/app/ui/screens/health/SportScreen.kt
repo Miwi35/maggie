@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -58,6 +59,7 @@ import com.maggie.app.ui.components.ModuleFab
 import com.maggie.app.ui.components.ModuleBreadcrumb
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.navigation.HealthSection
 import com.maggie.app.ui.navigation.LocalModuleBar
 import com.maggie.app.ui.screens.health.sport.SportLaunch
@@ -247,7 +249,7 @@ private fun SessionList(
         if (workouts.isEmpty()) {
             item(key = "empty") {
                 Text(
-                    "Aucune séance. Touchez + pour en ajouter une.",
+                    "Aucune séance",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp).testTag(UiTags.SPORT_EMPTY),
@@ -281,32 +283,29 @@ private fun WeekCard(week: WeekSummary) {
 @Composable
 private fun WeekDayPill(day: WeekDay) {
     val accent = MaterialTheme.colorScheme.primary
-    val done = day.state == DayState.DONE
+    val look = dayLook(day)
+    val surface = maggieSurface()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.width(40.dp).semantics { contentDescription = day.description }.testTag(UiTags.sportWeekDay(day.date.dayOfMonth)),
+        modifier = Modifier.width(42.dp).semantics { contentDescription = day.description }.testTag(UiTags.sportWeekDay(day.date.dayOfMonth)),
     ) {
         Text(day.letter, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         // The outer ring is today's; the inner disc says what the day holds.
         Box(
-            modifier = Modifier.size(38.dp).then(if (day.isToday) Modifier.border(BorderStroke(1.5.dp, accent), CircleShape) else Modifier),
+            modifier = Modifier.size(42.dp).then(if (look.todayRing) Modifier.border(BorderStroke(2.dp, surface.text), CircleShape) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier.size(32.dp).clip(CircleShape)
-                    .background(if (done) accent else androidx.compose.ui.graphics.Color.Transparent)
-                    .then(if (day.state == DayState.PLANNED) Modifier.border(BorderStroke(1.5.dp, accent), CircleShape) else Modifier),
+                    .background(if (look.filled) accent else Color.Transparent)
+                    .border(BorderStroke(2.dp, if (look.border == DayBorder.ACCENT) accent else surface.track), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     day.date.dayOfMonth.toString(),
                     fontSize = 13.sp,
-                    color = when (day.state) {
-                        DayState.DONE -> MaterialTheme.colorScheme.onPrimary
-                        DayState.PLANNED -> accent
-                        DayState.NONE -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color = if (look.digit == DayDigit.ON_ACCENT) MaterialTheme.colorScheme.onPrimary else surface.text,
                 )
             }
         }
