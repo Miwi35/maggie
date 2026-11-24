@@ -93,6 +93,9 @@ tags:
     visible: ".*Dernière synchronisation.*"
     timeout: 60000
 
+- assertVisible:
+    id: "bank_connect"
+
 # A first connection: the search, the bank of the simulation, and `start` answered
 # by the stand-in (mapping `/enablebanking/auth`). The app then hands the browser
 # the bank's page, so the journey ends there.
