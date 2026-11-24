@@ -91,6 +91,13 @@ export class FinanceProjectsPage extends AdminShell {
     return this.funding(name).getByTestId('project-option')
   }
 
+  /** A row of the « Options » table (« Coût réel total », « Mensualité »…), label first. */
+  optionRow(name: string, label: string): Locator {
+    return this.funding(name)
+      .getByRole('table', { name: 'Options' })
+      .getByRole('row', { name: new RegExp('^' + label) })
+  }
+
   /** The column of a month (`YYYY-MM`) in the funding chart. */
   fundingBar(month: string): Locator {
     return this.fundingChart.locator(`[data-testid="funding-bar"][data-month="${month}"]`)
