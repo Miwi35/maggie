@@ -7,7 +7,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'check_conflicts', description: 'Check for scheduling conflicts at a given date (YYYY-MM-DD), time (HH:MM) and duration in minutes (default 60).')]
+#[McpTool(name: 'check_conflicts', description: 'Call it before create_event, or before update_event moves a timed event. Returns the timed events overlapping the slot; any means the slot is taken. Periods, whole-day events and proactions never conflict. Slot: a given date (YYYY-MM-DD), time (HH:MM) and duration in minutes (default 60).')]
 class CheckConflictsTool
 {
     public function __construct(
