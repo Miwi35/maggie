@@ -417,7 +417,7 @@ export const ProductList = () => {
         }
       >
         <ProductListContent
-          selectedId={id ? bareId(id) : ''}
+          selectedId={id ? bareId(decodeURIComponent(id)) : ''}
           onOpen={(productId) => navigate(createPath({ resource: 'products', type: 'edit', id: productId }))}
           onCreate={() => navigate(createPath({ resource: 'products', type: 'create' }))}
         />
