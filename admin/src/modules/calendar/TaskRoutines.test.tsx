@@ -1,12 +1,20 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { TaskRoutines } from './TaskRoutines'
-import { countLabel, whenLabel } from './routinesApi'
+import { ThemeProvider } from '@mui/material/styles'
+import { veilleuseDarkTheme } from '../../theme'
+import { TaskRoutines as Routines } from './TaskRoutines'
+import { countLabel, rhythmLabel, whenLabel } from './routinesApi'
 import type { RecentDay, Routine } from './routinesApi'
 
+const TaskRoutines = () => (
+  <ThemeProvider theme={veilleuseDarkTheme}>
+    <Routines />
+  </ThemeProvider>
+)
+
 const mockNotify = vi.fn()
-vi.mock('react-admin', () => ({ useNotify: () => mockNotify }))
+vi.mock('react-admin', async (importOriginal) => ({ ...(await importOriginal<object>()), useNotify: () => mockNotify }))
 
 class MockEventSource {
   static last: MockEventSource | null = null
@@ -129,40 +137,64 @@ describe('TaskRoutines (MAG-511)', () => {
 
     const morning = await screen.findByRole('region', { name: 'Matin' })
     expect(within(morning).getByText("Grand verre d'eau")).toBeInTheDocument()
-    expect(within(card("Grand verre d'eau")).getByText('au réveil')).toBeInTheDocument()
+    expect(within(card("Grand verre d'eau")).getByText('chaque jour · au réveil')).toBeInTheDocument()
     expect(within(card("Grand verre d'eau")).getByText('ce mois : 13 fois')).toBeInTheDocument()
     expect(within(morning).getByText('Étirements')).toBeInTheDocument()
-    expect(within(group('Soir')).getByText('à 22 h 30')).toBeInTheDocument()
+    expect(within(group('Soir')).getByText('chaque jour · à 22 h 30')).toBeInTheDocument()
     expect(within(group('Soir')).getByText('ce mois : 1 fois')).toBeInTheDocument()
-    expect(within(group('Chaque semaine')).getByText('le mardi, après le dîner')).toBeInTheDocument()
+    expect(within(group('Chaque semaine')).getByText('le mardi · après le dîner')).toBeInTheDocument()
     expect(within(group('Chaque semaine')).getByText('depuis août : 9 fois')).toBeInTheDocument()
-    expect(within(group('Chaque mois')).getByText('le 15, au réveil')).toBeInTheDocument()
+    expect(within(group('Chaque mois')).getByText('le 15 · au réveil')).toBeInTheDocument()
     expect(within(group('Chaque mois')).getByText('depuis septembre : 2 fois')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Après-midi' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('heading').map((h) => h.textContent)).toEqual(['Matin', 'Soir', 'Chaque semaine', 'Chaque mois'])
   })
 
-  test('the seven days: green done, grey due and not done, nothing when not due', async () => {
+  test("the mockup's row: the rhythm in a green pill under « Quand », the count under the title, no seven days", async () => {
     render(<TaskRoutines />)
 
     await screen.findByText("Grand verre d'eau")
-    const states = (title: string) =>
-      within(card(title))
-        .getAllByTestId('routine-day')
-        .map((dot) => dot.dataset.state)
-    expect(states("Grand verre d'eau")).toEqual(['checked', 'checked', 'missed', 'checked', 'checked', 'checked', 'missed'])
-    expect(states('Arroser les plantes')).toEqual(['off', 'off', 'off', 'off', 'missed', 'off', 'off'])
-    expect(within(card("Grand verre d'eau")).getByRole('img', { name: '7 derniers jours : 5 fois' })).toBeInTheDocument()
+    const water = within(card("Grand verre d'eau"))
+    expect(water.getByTestId('routine-when')).toHaveTextContent('chaque jour · au réveil')
+    expect(water.getByTestId('routine-count')).toHaveTextContent('ce mois : 13 fois')
+    expect(screen.queryAllByTestId('routine-day')).toHaveLength(0)
+    expect(screen.queryByRole('img', { name: /7 derniers jours/ })).not.toBeInTheDocument()
+    expect(card("Grand verre d'eau")).not.toHaveStyle({ border: '1px solid' })
   })
 
-  test('a tick only where the routine is due today; an inactive routine is dimmed', async () => {
+  test('the column heads Tâche · Quand · Urgence, and the group titles in capitals by style, their names unchanged', async () => {
+    render(<TaskRoutines />)
+
+    await screen.findByText("Grand verre d'eau")
+    for (const head of ['Tâche', 'Quand', 'Urgence']) {
+      const cell = screen.getByText(head, { selector: '[aria-hidden="true"] *' })
+      expect(cell.parentElement).toHaveStyle({ textTransform: 'uppercase' })
+    }
+    const title = screen.getByRole('heading', { name: 'Matin' })
+    expect(title).toHaveTextContent('Matin')
+    expect(title).toHaveStyle({ textTransform: 'uppercase' })
+  })
+
+  test('a square tick on every active routine, due today or not; an inactive routine is dimmed, without a tick', async () => {
     render(<TaskRoutines />)
 
     await screen.findByText("Grand verre d'eau")
     expect(screen.getByRole('checkbox', { name: "Grand verre d'eau : fait aujourd'hui" })).not.toBeChecked()
-    expect(screen.queryByRole('checkbox', { name: "Arroser les plantes : fait aujourd'hui" })).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: "Arroser les plantes : fait aujourd'hui" })).not.toBeChecked()
     expect(screen.queryByRole('checkbox', { name: "Étirements : fait aujourd'hui" })).not.toBeInTheDocument()
     expect(card('Étirements')).toHaveStyle({ opacity: '0.5' })
+  })
+
+  test('a routine not due today is ticked for today: a PUT on the API\'s today', async () => {
+    const user = setup()
+    render(<TaskRoutines />)
+
+    const box = await screen.findByRole('checkbox', { name: "Arroser les plantes : fait aujourd'hui" })
+    await user.click(box)
+
+    await waitFor(() => expect(box).toBeChecked())
+    expect(calls('PUT').map((c) => c.url)).toEqual(['http://localhost/api/routines/01PLANTS/checks/2026-10-15'])
+    expect(within(card('Arroser les plantes')).getByTestId('routine-count')).toHaveTextContent('depuis août : 9 fois')
   })
 
   test('ticking sends a PUT on today, unticking a DELETE, and the count follows', async () => {
@@ -395,6 +427,14 @@ describe('routine wording', () => {
     expect(whenLabel({ anchor: 'time', anchorTime: '07:00', time: '07:00', recurrence: { kind: 'daily' } })).toBe('à 7 h')
     expect(whenLabel({ anchor: 'wake', anchorTime: null, time: '07:00', recurrence: { kind: 'weekdays' } })).toBe('en semaine, au réveil')
     expect(whenLabel({ anchor: 'wake', anchorTime: null, time: '07:00', recurrence: { kind: 'monthly', monthDay: 1 } })).toBe('le 1er, au réveil')
+  })
+
+  test('rhythm: every day, weekdays, the weekday, the date, then the moment', () => {
+    expect(rhythmLabel({ anchor: 'wake', anchorTime: null, time: '07:00', recurrence: { kind: 'daily' } })).toBe('chaque jour · au réveil')
+    expect(rhythmLabel({ anchor: 'time', anchorTime: '22:30', time: '22:30', recurrence: { kind: 'weekdays' } })).toBe('en semaine · à 22 h 30')
+    expect(rhythmLabel({ anchor: 'afterDinner', anchorTime: null, time: '20:00', recurrence: { kind: 'weekly', weekday: 2 } })).toBe('le mardi · après le dîner')
+    expect(rhythmLabel({ anchor: 'wake', anchorTime: null, time: '07:00', recurrence: { kind: 'monthly', monthDay: 1 } })).toBe('le 1er · au réveil')
+    expect(rhythmLabel({ anchor: 'wake', anchorTime: null, time: '07:00', recurrence: { kind: 'monthly', monthDay: 15 } })).toBe('le 15 · au réveil')
   })
 
   test('the count: the month for a daily rhythm, since the month created for the others', () => {
