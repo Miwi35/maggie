@@ -1,13 +1,18 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.BankConnection
 import com.maggie.app.screentest.FakeBankConnections
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.assertTopToBottom
+import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -32,10 +37,11 @@ class BankConnectionListScreenTest {
     private fun link(
         needsReconnecting: Boolean = false,
         daysBeforeExpiry: Int? = 60,
+        status: String = "active",
     ) = BankConnection(
         id = "conn-1",
         bankName = "Mock Bank",
-        status = "active",
+        status = status,
         needsReconnecting = needsReconnecting,
         daysBeforeExpiry = daysBeforeExpiry,
     )
@@ -57,6 +63,42 @@ class BankConnectionListScreenTest {
         compose.onNodeWithText("À reconnecter").assertIsDisplayed()
         compose.onNodeWithText("Connectée").assertDoesNotExist()
         compose.onNodeWithText("Reconnecter").assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithText("Accès expiré", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a pending link reads En attente and offers Reprendre, without a sentence`() {
+        val server = FakeBankConnections(listOf(link(status = "pending", daysBeforeExpiry = null)))
+        compose.setContent { BankConnectionListScreen(viewModel = server.viewModel, onBack = {}) }
+
+        compose.onNodeWithText("En attente").assertIsDisplayed()
+        compose.onNodeWithText("Jamais synchronisée").assertIsDisplayed()
+        compose.onNodeWithText("Reprendre").assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithText("L'autorisation n'a pas été", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the connect card is at least 64 dp high and ends the list`() {
+        val server = FakeBankConnections(listOf(link()))
+        compose.setContent { BankConnectionListScreen(viewModel = server.viewModel, onBack = {}) }
+
+        compose.onNodeWithTag(UiTags.BANK_CONNECT).assertHeightIsAtLeast(64.dp)
+        assertTopToBottom(
+            "Mock Bank" to compose.onNodeWithText("Mock Bank"),
+            "Connecter une banque" to compose.onNodeWithTag(UiTags.BANK_CONNECT),
+        )
+    }
+
+    @Test
+    fun `a bank card reads its name, its state, its last sync, then its action, top to bottom`() {
+        val server = FakeBankConnections(listOf(link(status = "pending", daysBeforeExpiry = null)))
+        compose.setContent { BankConnectionListScreen(viewModel = server.viewModel, onBack = {}) }
+
+        assertTopToBottom(
+            "Mock Bank" to compose.onNodeWithText("Mock Bank"),
+            "Jamais synchronisée" to compose.onNodeWithText("Jamais synchronisée"),
+            "Reprendre" to compose.onNodeWithText("Reprendre"),
+        )
     }
 
     @Test
@@ -66,6 +108,7 @@ class BankConnectionListScreenTest {
 
         compose.onNodeWithText("Connectée").assertIsDisplayed()
         compose.onNodeWithText("Reconnecter").assertIsDisplayed()
+        compose.onNodeWithText("L'accès expire dans 3 jour(s).").assertIsDisplayed()
     }
 
     @Test

@@ -7,9 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.Box
@@ -32,7 +33,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -47,7 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.maggie.app.data.model.BankConnection
@@ -63,9 +65,9 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.ConfirmDeleteDialog
 import com.maggie.app.ui.components.ErrorSnackbar
 import com.maggie.app.ui.components.FinanceTopBar
-import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.maggieSurface
 
 /**
  * The banks Maggie reads, and the one button that reads them.
@@ -195,29 +197,35 @@ fun BankConnectionListScreen(
 
 @Composable
 private fun ConnectCard(onConnect: () -> Unit, modifier: Modifier = Modifier) {
-    val green = MaggieTokens.Signal.success
+    val mint = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, green, RoundedCornerShape(12.dp))
+            .heightIn(min = 64.dp)
+            .background(mint.copy(alpha = 0.06f), shape)
+            .border(1.dp, mint.copy(alpha = 0.35f), shape)
             .clickable(onClick = onConnect)
-            .padding(12.dp)
+            .padding(horizontal = 14.dp)
             .testTag(UiTags.BANK_CONNECT),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(green.copy(alpha = 0.16f)),
+            modifier = Modifier.size(36.dp).background(mint.copy(alpha = 0.16f), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = green)
+            Icon(Icons.Default.Add, contentDescription = null, tint = mint)
         }
         Text(
             "Connecter une banque",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
             modifier = Modifier.weight(1f),
         )
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = green)
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = maggieSurface().textMuted,
+        )
     }
 }
 
@@ -228,57 +236,53 @@ private fun ConnectionCard(
     onReconnect: () -> Unit,
     onForget: () -> Unit,
 ) {
-    val notice = bankConnectionNotice(connection)
+    val notice = if (bankConnectionNeedsAction(connection)) null else bankConnectionNotice(connection)
 
-    MaggieCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .background(maggieSurface().paper, RoundedCornerShape(20.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = connection.bankName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                StatusLabel(connection)
-            }
-
             Text(
-                text = lastSyncLabel(connection.lastSyncedAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = connection.bankName,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                modifier = Modifier.weight(1f),
             )
+            StatusLabel(connection)
+        }
 
-            if (notice != null) {
-                Text(
-                    text = notice,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (connection.needsReconnecting) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
+        Text(
+            text = lastSyncLabel(connection.lastSyncedAt),
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+            color = maggieSurface().textMuted,
+        )
+
+        if (notice != null) {
+            Text(
+                text = notice,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                color = maggieSurface().textMuted,
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = onForget, enabled = !busy) {
+                Text("Oublier la banque", color = MaterialTheme.colorScheme.error)
             }
-
-            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = onForget, enabled = !busy) {
-                    Text("Oublier la banque", color = MaterialTheme.colorScheme.error)
-                }
-                if (bankConnectionOffersReconnect(connection)) {
-                    if (bankConnectionNeedsAction(connection)) {
-                        Button(onClick = onReconnect, enabled = !busy) {
-                            Text(bankReconnectLabel(connection))
-                        }
-                    } else {
-                        TextButton(onClick = onReconnect, enabled = !busy) {
-                            Text(bankReconnectLabel(connection))
-                        }
+            if (bankConnectionOffersReconnect(connection)) {
+                if (bankConnectionNeedsAction(connection)) {
+                    Button(onClick = onReconnect, enabled = !busy) {
+                        Text(bankReconnectLabel(connection))
+                    }
+                } else {
+                    TextButton(onClick = onReconnect, enabled = !busy) {
+                        Text(bankReconnectLabel(connection))
                     }
                 }
             }
@@ -293,21 +297,20 @@ private fun ConnectionCard(
  */
 @Composable
 private fun StatusLabel(connection: BankConnection) {
-    val color = when (bankConnectionTone(connection)) {
-        BankConnectionTone.CONNECTED -> MaggieTokens.Signal.success
-        BankConnectionTone.NEEDS_ACTION -> MaggieTokens.Signal.warning
-        BankConnectionTone.NEUTRAL -> MaterialTheme.colorScheme.outline
+    val (color, alpha) = when (bankConnectionTone(connection)) {
+        BankConnectionTone.CONNECTED -> MaterialTheme.colorScheme.primary to 0.14f
+        BankConnectionTone.NEEDS_ACTION -> MaggieTokens.Signal.warning to 0.16f
+        BankConnectionTone.NEUTRAL -> MaterialTheme.colorScheme.outline to 0.14f
     }
 
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = color.copy(alpha = 0.12f),
-        contentColor = color,
+    Box(
+        modifier = Modifier.height(24.dp).background(color.copy(alpha = alpha), RoundedCornerShape(8.dp)).padding(horizontal = 9.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = bankConnectionStatusLabel(connection),
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+            color = color,
         )
     }
 }
