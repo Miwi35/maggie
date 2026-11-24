@@ -1,10 +1,15 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -15,6 +20,7 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Category
+import com.maggie.app.data.model.ContactRef
 import com.maggie.app.data.model.ControlResult
 import com.maggie.app.data.model.OPERATION_RULE
 import com.maggie.app.data.model.RETROSPECT_AVOIDABLE
@@ -169,8 +175,8 @@ class ReviewListScreenTest {
         compose.onNodeWithText("Octobre 2026").assertIsDisplayed()
         compose.onNodeWithText("Depuis la dernière revue").assertIsDisplayed()
         compose.onNodeWithText("Toutes les dates").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_SECTION_UNRECOGNISED).assertTextEquals("Non reconnues · 2")
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_SECTION_RECOGNISED).assertTextEquals("Reconnues · 1")
+        compose.onNodeWithTag(UiTags.REVIEW_LIST_SECTION_UNRECOGNISED).assertTextEquals("NON RECONNUES")
+        compose.onNodeWithTag(UiTags.REVIEW_LIST_SECTION_RECOGNISED).assertTextEquals("RECONNUES")
         compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW).assertCountEquals(3)
     }
 
@@ -187,7 +193,7 @@ class ReviewListScreenTest {
     }
 
     @Test
-    fun `a row reads the cleaned label on two lines at most and a short day`() {
+    fun `a row reads the cleaned label on one line and its day as day-month`() {
         val thisYear = java.time.LocalDate.now().year
         val raw = ReviewQueueItem(
             id = "tx-9",
@@ -200,8 +206,34 @@ class ReviewListScreenTest {
 
         compose.onNodeWithText("BOULANGERIE PAUL").assertIsDisplayed()
         compose.onNodeWithText(raw.label.trim(), substring = true).assertDoesNotExist()
-        compose.onNodeWithText("1 oct.").assertIsDisplayed()
+        compose.onNodeWithText("01/10").assertIsDisplayed()
         compose.onNodeWithText("$thisYear-10-01", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a row shows its day and its state pill on one line, and its amount on the right`() {
+        show(viewModel())
+
+        val card = compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW)[0]
+        card.assertTextContains("05/10")
+        card.assert(hasAnyDescendant(hasTestTag(UiTags.REVIEW_LIST_ROW_STATE) and hasText("À qualifier")))
+        card.assertTextContains("53,20", substring = true)
+        compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW_STATE)[0].assertTextEquals("À qualifier")
+    }
+
+    @Test
+    fun `a row linked to a contact reads its day then the contact`() {
+        val linked = carrefour.copy(contact = ContactRef(id = "c-1", name = "Anna"))
+        show(viewModel(listOf(linked)))
+
+        compose.onNodeWithText("05/10 · Anna").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a group title carries no count`() {
+        show(viewModel())
+
+        compose.onNode(hasTestTag(UiTags.REVIEW_LIST_SECTION_UNRECOGNISED) and hasText("· 2", substring = true)).assertDoesNotExist()
     }
 
     @Test
@@ -215,7 +247,7 @@ class ReviewListScreenTest {
         states[2].assertTextEquals("Reconnue")
         states[3].assertTextEquals("Reconnue")
         compose.onAllNodesWithTag(UiTags.REVIEW_LIST_ROW)[0].assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.REVIEW_LIST_SECTION_RECOGNISED).assertTextEquals("Reconnues · 2")
+        compose.onNodeWithTag(UiTags.REVIEW_LIST_SECTION_RECOGNISED).assertTextEquals("RECONNUES")
     }
 
     @Test
