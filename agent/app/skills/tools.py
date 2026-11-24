@@ -60,8 +60,9 @@ SKILL_TOOLS = [
     {
         "name": "get_skill",
         "description": (
-            "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre "
-            "(voir l'index des compétences du system prompt)."
+            "Charge une compétence de l'index « Compétences disponibles ». Quand sa description couvre la "
+            "demande, charge-la au premier round, en même temps que tes premières lectures, "
+            "et suis-la avant d'écrire."
         ),
         "input_schema": {
             "type": "object",

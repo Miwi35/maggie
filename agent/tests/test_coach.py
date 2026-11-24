@@ -194,12 +194,9 @@ async def test_the_coach_run_reads_the_method_and_prescribes_without_writing():
     assert "calibration" in result["response"].lower()
 
 
-async def test_the_sport_line_hands_the_week_to_the_coach_without_naming_it():
-    from app.skills.document import parse_markdown
-    from app.skills.index import BUILTIN_SKILLS_DIR
+async def test_the_coach_description_has_the_prompt_write_the_sessions():
+    from pathlib import Path
 
-    parsed = parse_markdown(BUILTIN_SKILLS_DIR / "sport.md")
-    assert parsed is not None
-    line = next(line for line in parsed[1].splitlines() if line.startswith("Sport :"))
-    assert "`coach`" in line and "manage_workouts" in line and "planned" in line and "strength" in line
-    assert "jamais" in line
+    text = (Path(__file__).parent.parent / "data" / "agents" / "coach.md").read_text(encoding="utf-8")
+    assert "manage_workouts create" in text and "planned" in text and "strength" in text
+    assert "redemandée avec le refus" in text

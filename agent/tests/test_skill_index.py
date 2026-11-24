@@ -8,7 +8,7 @@ import pytest
 from tests.prompt_helpers import system_prompt_with
 from app.db.skill_model import Skill
 from app.llm.gateway import LLMGateway
-from app.skills.index import SUPERSEDED_BUILTIN_BODIES, SkillEntry, SkillIndex
+from app.skills.index import RETIRED_BUILTIN_BODIES, SUPERSEDED_BUILTIN_BODIES, SkillEntry, SkillIndex
 from app.memory.agent_memory import MemoryBlocks
 
 
@@ -221,7 +221,7 @@ class TestShippedSkills:
     async def test_the_digest_skill_is_seeded_with_its_order_and_its_screen(self, agent_db):
         index = _index()
 
-        assert await index.seed_builtin() == ["agenda", "bilan-soir", "courses", "digest", "periodes", "recette", "releves-bancaires", "sport", "taches", "trajectoire", "trajets"]
+        assert await index.seed_builtin() == ["bilan-soir", "digest", "recette", "releves-bancaires", "trajets"]
         await index.rebuild()
 
         digest = await index.get("digest") or ""
@@ -294,7 +294,7 @@ class TestShippedSkills:
         index = _index()
         await index.create("digest", "le mien", [], "Mon digest à moi", user_id="u")
 
-        assert await index.seed_builtin() == ["agenda", "bilan-soir", "courses", "periodes", "recette", "releves-bancaires", "sport", "taches", "trajectoire", "trajets"]
+        assert await index.seed_builtin() == ["bilan-soir", "recette", "releves-bancaires", "trajets"]
 
         assert "Mon digest à moi" in (await index.get("digest") or "")
 
@@ -712,3 +712,26 @@ async def test_a_failed_refresh_keeps_the_last_index():
     await index.refresh()
 
     assert "delivrer-un-rappel" in index.get_skills_index()
+
+
+class TestRetiredShippedSkills:
+    """The skills that are no longer shipped leave the store, unless the owner edited them (MAG-1012)."""
+
+    async def test_a_retired_shipped_skill_left_untouched_is_deleted_at_start(self, agent_db):
+        index = _index()
+        body = "Ancien texte livré"
+        await index.create("taches", "ancien", [], body, user_id="u")
+        digest = hashlib.sha256(body.encode()).hexdigest()
+
+        with patch.dict(RETIRED_BUILTIN_BODIES, {"taches": frozenset({digest})}):
+            assert await index.retire_builtin() == ["taches"]
+
+        assert await index.get("taches") is None
+
+    async def test_a_retired_shipped_skill_the_owner_edited_is_kept(self, agent_db):
+        index = _index()
+        await index.create("taches", "le mien", [], "Ma version", user_id="u")
+
+        assert await index.retire_builtin() == []
+
+        assert "Ma version" in (await index.get("taches") or "")

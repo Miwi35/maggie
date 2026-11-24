@@ -98,6 +98,9 @@ async def lifespan(app: FastAPI):
         seeded = await skill_index.seed_builtin()
         if seeded:
             logger.info(f"Seeded the shipped skills: {', '.join(seeded)}")
+        retired = await skill_index.retire_builtin()
+        if retired:
+            logger.info(f"Retired the shipped skills no longer provided: {', '.join(retired)}")
     except Exception as e:
         logger.warning(f"Could not seed the shipped skills: {e}")
 
