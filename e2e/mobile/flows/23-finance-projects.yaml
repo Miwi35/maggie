@@ -13,17 +13,17 @@ tags:
 # Quand je fais glisser « Canapé » en haut de la liste
 # Alors l'ordre change, et il reste après réouverture de l'écran
 # Étant donné « Canapé » sans date
-# Quand je lui donne une date limite
+# Quand je lui donne une date limite (« Au plus tard · … » sur la liste)
 # Alors la liste l'affiche
 #
-# The drag goes through the row's handle, which drags at once: Maestro's swipe moves from its first
+# The drag goes through the row's rank (the handle, a 48 dp circle), which drags at once: Maestro's swipe moves from its first
 # millisecond, so it cannot hold still for the long press the row itself waits for (same gesture
 # library, same reorder; the long press is the handle's twin on the whole row). The reorder is a
 # custom controller no contract records, so `scripts/projects-api.js` reads the order the API stored.
-# The date picker opens on today: the date itself is not asserted, only « Date limite ».
+# The date picker opens on today: the date itself is not asserted, only « Au plus tard ».
 #
 # The Gantt sits above the list on a phone (the mockup's frieze first). Its line labels are plain
-# texts, apart from the list rows' « 1. Déménagement … »: two lines, one per project, in the same order.
+# texts, apart from the list rows (`project_row`): two lines, one per project, in the same order.
 # Its bars, the 36 months and the reread after a reorder are the unit tests' and the web journey's.
 #
 # Les sources et les options (MAG-525), sur le téléphone :
@@ -89,13 +89,14 @@ tags:
 # list, a tablet or a foldable (from 600 dp) the scenarios above it and the Gantt under it.
 # A row is one node for accessibility: its texts are read together, hence the `.*`.
 - scrollUntilVisible:
-    element: ".*1. Déménagement.*"
+    element: { id: "project_row", text: ".*Déménagement.*" }
     centerElement: true
     timeout: 20000
 - extendedWaitUntil:
     visible:
-      text: ".*2. Canapé.*"
-      below: ".*1. Déménagement.*"
+      id: "project_row"
+      text: ".*Canapé.*"
+      below: { id: "project_row", text: ".*Déménagement.*" }
     timeout: 10000
 
 # ---------------------------------------------------------------------------
@@ -111,8 +112,9 @@ tags:
     duration: 2000
 - extendedWaitUntil:
     visible:
-      text: ".*2. Déménagement.*"
-      below: ".*1. Canapé.*"
+      id: "project_row"
+      text: ".*Déménagement.*"
+      below: { id: "project_row", text: ".*Canapé.*" }
     timeout: 10000
 - runScript:
     file: ../scripts/projects-api.js
@@ -128,12 +130,13 @@ tags:
     timeout: 30000
 - openLink: "maggie-e2e://finance/projects"
 - scrollUntilVisible:
-    element: ".*1. Canapé.*"
+    element: { id: "project_row", text: ".*Canapé.*" }
     timeout: 30000
 - extendedWaitUntil:
     visible:
-      text: ".*2. Déménagement.*"
-      below: ".*1. Canapé.*"
+      id: "project_row"
+      text: ".*Déménagement.*"
+      below: { id: "project_row", text: ".*Canapé.*" }
     timeout: 30000
 
 # The Gantt of the planning: one line per project, in the new order. From the top again, so that the same
@@ -178,13 +181,13 @@ tags:
     timeout: 30000
 - openLink: "maggie-e2e://finance/projects"
 - scrollUntilVisible:
-    element: ".*1. Canapé.*"
+    element: { id: "project_row", text: ".*Canapé.*" }
     timeout: 30000
 
 # ---------------------------------------------------------------------------
 # « Canapé » gets a date limite in the full-screen form, and the list shows it.
 # ---------------------------------------------------------------------------
-- tapOn: ".*1. Canapé.*"
+- tapOn: { id: "project_row", text: ".*Canapé.*" }
 - extendedWaitUntil:
     visible:
       id: "project_sheet"
@@ -229,7 +232,7 @@ tags:
       id: "projects"
     timeout: 20000
 - scrollUntilVisible:
-    element: ".*Date limite · .*"
+    element: ".*Au plus tard · .*"
     timeout: 20000
 - runScript:
     file: ../scripts/projects-api.js
@@ -262,12 +265,12 @@ tags:
 
 - openLink: "maggie-e2e://finance/projects"
 - scrollUntilVisible:
-    element: ".*1. Voiture.*"
+    element: { id: "project_row", text: ".*Voiture.*" }
     timeout: 30000
 - extendedWaitUntil:
     visible: ".*économies \\+ emprunt \\+ salaire.*"
     timeout: 10000
-- tapOn: ".*1. Voiture.*"
+- tapOn: { id: "project_row", text: ".*Voiture.*" }
 - extendedWaitUntil:
     visible:
       id: "project_sheet"

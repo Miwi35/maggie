@@ -1,12 +1,16 @@
 package com.maggie.app.ui.screens.finance
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -14,10 +18,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,25 +42,28 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.maggie.app.data.model.PlannedProject
 import com.maggie.app.data.model.Project
 import com.maggie.app.data.model.ProjectInvestment
+import com.maggie.app.data.model.ProjectPlanning
 import com.maggie.app.data.model.ProjectWellbeing
-import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.investmentBalanceLabel
 import com.maggie.app.data.model.investmentLoanLabel
 import com.maggie.app.data.model.investmentRentLabel
 import com.maggie.app.data.model.investmentResaleLabel
-import com.maggie.app.data.model.projectDateLabel
-import com.maggie.app.data.model.projectDependenciesLabel
 import com.maggie.app.data.model.projectFundingSummary
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.FabModule
@@ -69,6 +75,8 @@ import com.maggie.app.ui.components.MaggieCard
 import com.maggie.app.ui.layout.WindowWidth
 import com.maggie.app.ui.layout.rememberAppLayout
 import com.maggie.app.ui.navigation.Screen
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
 import com.maggie.app.ui.theme.maggieSurface
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -150,11 +158,7 @@ fun ProjectListContent(
                 EmptyState(
                     modifier = Modifier.testTag(UiTags.PROJECT_EMPTY),
                     title = if (uiState.hasLoaded) "Aucun projet" else "Projets indisponibles",
-                    description = if (uiState.hasLoaded) {
-                        "Ajoutez ce que vous voulez financer, avec ou sans date : l'ordre de la liste est votre priorité."
-                    } else {
-                        "Les projets n'ont pas pu être chargés."
-                    },
+                    description = if (uiState.hasLoaded) "" else "Les projets n'ont pas pu être chargés.",
                     actionLabel = if (uiState.hasLoaded) "Ajouter un projet" else "Réessayer",
                     onAction = if (uiState.hasLoaded) ({ onOpenForm(null) }) else viewModel::refresh,
                 )
@@ -162,6 +166,7 @@ fun ProjectListContent(
             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 ProjectList(
                     projects = uiState.projects,
+                    planned = uiState.planning,
                     planning = {
                         ProjectPlanningSection(
                             state = uiState,
@@ -207,6 +212,7 @@ fun ProjectListContent(
 @Composable
 private fun ProjectList(
     projects: List<Project>,
+    planned: ProjectPlanning?,
     planning: @Composable () -> Unit,
     scenarios: (@Composable () -> Unit)?,
     wide: Boolean,
@@ -259,22 +265,28 @@ private fun ProjectList(
                         project = project,
                         all = projects,
                         wide = wide,
-                        handle = {
+                        planned = planned?.projects?.firstOrNull { it.projectId == project.id },
+                        handle = { rank ->
                             // A finger-sized handle that drags at once, without the long press. A node of
                             // its own, not merged into the row: it is what a journey drags by.
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .semantics(mergeDescendants = true) {}
+                                    .semantics(mergeDescendants = true) { contentDescription = "Déplacer ${project.name}" }
                                     .draggableHandle(onDragStopped = { onEndMove() })
                                     .testTag(UiTags.PROJECT_DRAG_HANDLE),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(
-                                    Icons.Default.DragIndicator,
-                                    contentDescription = "Déplacer ${project.name}",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Box(
+                                    modifier = Modifier.size(22.dp).background(maggieSurface().track, CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        rank.toString(),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         },
                     )
@@ -336,38 +348,60 @@ private fun ProjectPlanningSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProjectRow(
     rank: Int,
     project: Project,
     all: List<Project>,
     wide: Boolean,
-    handle: @Composable () -> Unit,
+    planned: PlannedProject?,
+    handle: @Composable (Int) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = if (wide) 16.dp else 12.dp, bottom = if (wide) 16.dp else 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = if (wide) 12.dp else 8.dp, bottom = if (wide) 16.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        handle()
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("$rank. ${project.name}", style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            handle(rank)
             Text(
-                text = "${formatCents(project.amountCents, project.currency)} · ${projectDateLabel(project)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                project.name,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
             )
+            Text(formatCentsRounded(project.amountCents, project.currency), fontSize = 15.sp)
+        }
+        Column(modifier = Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                ProjectPill(projectRowDateLabel(project, all), projectDatePillTone(project))
+                ProjectPill(ProjectWellbeing.of(project.wellbeing).label, DatePillTone.NEUTRAL)
+                projectRowMonthLabel(planned)?.let { ProjectPill(it, DatePillTone.NEUTRAL) }
+            }
+            projectGatheredShare(planned, project.amountCents)?.let { share ->
+                val dark = isMaggieDark()
+                val fill = if (dark) MaggieTokens.Module.travail.second else MaggieTokens.Module.travail.first
+                val shape = RoundedCornerShape(50)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .background(maggieSurface().track, shape)
+                        .semantics { progressBarRangeInfo = ProgressBarRangeInfo(share, 0f..1f) },
+                ) {
+                    Box(Modifier.fillMaxWidth(share).height(6.dp).background(fill, shape))
+                }
+            }
             projectFundingSummary(project)?.let {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = muted,
                     modifier = Modifier.testTag(UiTags.PROJECT_FUNDING_SUMMARY),
                 )
             }
             project.investment?.let { InvestmentLines(it, project.currency, all) }
-            projectDependenciesLabel(project, all)?.let {
-                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             if (project.unmetDependencies.isNotEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -388,7 +422,22 @@ private fun ProjectRow(
                 }
             }
         }
-        WellbeingBadge(ProjectWellbeing.of(project.wellbeing), project.wellbeingScore)
+    }
+}
+
+/** A 24 dp pill of the row: the date tinted by its mode, the wellbeing and the month in grey. */
+@Composable
+private fun ProjectPill(text: String, tone: DatePillTone) {
+    val (container, content) = when (tone) {
+        DatePillTone.WARNING -> MaggieTokens.Signal.warning.copy(alpha = 0.14f) to MaggieTokens.Signal.warning
+        DatePillTone.INFO -> MaggieTokens.Signal.info.copy(alpha = 0.14f) to MaggieTokens.Signal.info
+        DatePillTone.NEUTRAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Box(
+        modifier = Modifier.height(24.dp).background(container, RoundedCornerShape(50)).padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = content)
     }
 }
 
@@ -409,35 +458,5 @@ private fun InvestmentLines(investment: ProjectInvestment, currency: String, all
             color = MaterialTheme.colorScheme.onSurface,
         )
         investmentResaleLabel(investment, all, currency)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = muted) }
-    }
-}
-
-/** « Indispensable 4 »: the level in words, and the score the planning weighs it with. */
-@Composable
-internal fun WellbeingBadge(wellbeing: ProjectWellbeing, score: Int) {
-    val (container, content) = wellbeingColors(wellbeing)
-    Surface(color = container, contentColor = content, shape = RoundedCornerShape(50)) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(wellbeing.label, style = MaterialTheme.typography.labelMedium)
-            Text(
-                (if (score > 0) score else wellbeing.score).toString(),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-    }
-}
-
-@Composable
-private fun wellbeingColors(wellbeing: ProjectWellbeing): Pair<Color, Color> = with(MaterialTheme.colorScheme) {
-    when (wellbeing) {
-        ProjectWellbeing.ESSENTIAL -> primaryContainer to onPrimaryContainer
-        ProjectWellbeing.HIGH -> secondaryContainer to onSecondaryContainer
-        ProjectWellbeing.MEDIUM -> tertiaryContainer to onTertiaryContainer
-        ProjectWellbeing.COMFORT -> maggieSurface().raised to onSurfaceVariant
     }
 }
