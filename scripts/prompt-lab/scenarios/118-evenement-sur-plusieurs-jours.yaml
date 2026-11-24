@@ -1,0 +1,12 @@
+# Ce qui occupe tout le temps est un événement, même sur plusieurs jours (MAG-1012).
+name: evenement-sur-plusieurs-jours
+description: A three-day festival is one all-day event, not a period.
+channel: chat
+
+steps:
+  - user_message: "Je suis au festival de musique du 12 au 14 du mois prochain."
+    expected_tools: [create_event]
+    forbidden_tools: [manage_periods]
+    expected_behavior: >
+      Elle crée un seul événement de trois jours (journée entière, end_date le 15, exclu), nommé
+      par le festival, et confirme en une phrase sans poser de question.
