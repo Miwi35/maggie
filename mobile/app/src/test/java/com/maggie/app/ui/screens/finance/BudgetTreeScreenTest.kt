@@ -16,12 +16,15 @@ import com.maggie.app.data.model.OneOffBudgetLine
 import com.maggie.app.data.model.OutsideMonthlyBudget
 import com.maggie.app.data.model.RollOverResult
 import com.maggie.app.data.model.ToSortPile
+import com.maggie.app.data.model.Season
 import com.maggie.app.data.model.formatCents
+import com.maggie.app.data.model.formatCentsRounded
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.data.repository.BudgetRepository
 import com.maggie.app.data.repository.CategoryRepository
 import com.maggie.app.data.repository.TransactionRepository
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -63,12 +66,13 @@ class BudgetTreeScreenTest {
         toQualify: ToSortPile? = null,
         onOpenToQualify: () -> Unit = {},
         adjustments: EnvelopeAdjustmentsViewModel? = null,
+        lines: List<BudgetLine> = listOf(loisirs, obsydian),
     ) {
         coEvery { budgetRepository.getBudgetStatus(any(), any()) } returns Result.success(
             BudgetStatus(
                 year = 2026,
                 month = 10,
-                budgets = listOf(loisirs, obsydian),
+                budgets = lines,
                 outsideMonthlyBudget = OutsideMonthlyBudget(
                     oneOff = listOf(
                         OneOffBudgetLine(
@@ -114,6 +118,59 @@ class BudgetTreeScreenTest {
 
         compose.onNodeWithContentDescription("Replier Loisirs").performClick()
         compose.onNodeWithText("Bars › Obsydian").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the month reads Enveloppes, then the legend, and no totals sentence`() {
+        open()
+
+        assertTopToBottom(
+            "Enveloppes" to compose.onNodeWithText("Enveloppes"),
+            "Consommé" to compose.onNodeWithText("Consommé"),
+            "Loisirs" to compose.onNodeWithText("Loisirs"),
+        )
+        listOf("Planifié", "Proche", "Dépassée").forEach { compose.onNodeWithText(it).assertExists() }
+        compose.onNodeWithText("encore libres", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("consommés sur", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an envelope row reads its budget in whole euros, what is consumed and what is still free`() {
+        open()
+
+        compose.onNodeWithText(formatCentsRounded(30000)).assertIsDisplayed()
+        compose.onNodeWithText("${formatCentsRounded(4000)} consommés").assertIsDisplayed()
+        compose.onNodeWithText("${formatCentsRounded(26000)} disponibles").assertIsDisplayed()
+        compose.onNodeWithText("${formatCents(4000)} / ${formatCents(30000)}").assertDoesNotExist()
+        compose.onNodeWithText("Reste", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an overspent envelope says by how much, an overcommitted one what is planned too much`() {
+        open(
+            lines = listOf(
+                loisirs.copy(consumedCents = 33200, spentCents = 33200, remainingCents = -3200, availableCents = -3200, isOverspent = true),
+                obsydian.copy(plannedCents = 11500, availableCents = -1500, isOvercommitted = true),
+            ),
+        )
+
+        compose.onNodeWithText("Dépassement de ${formatCentsRounded(3200)}").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Déplier Loisirs").performClick()
+        compose.onNodeWithText("Surengagée : ${formatCentsRounded(1500)} planifiés en trop").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an envelope without a season shows no period`() {
+        open()
+
+        compose.onNodeWithText("saison", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Octobre 2026", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `an envelope with a season names it`() {
+        open(lines = listOf(loisirs.copy(season = Season(fromMonth = 10, toMonth = 12, amountCents = 30000))))
+        compose.onNodeWithText("saison", substring = true).assertIsDisplayed()
     }
 
     @Test

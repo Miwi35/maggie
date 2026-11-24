@@ -1,6 +1,23 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
+import com.maggie.app.data.model.formatCentsRounded
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -211,18 +228,6 @@ private fun BudgetContent(
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             ToQualifyRow(toQualify, onOpenToQualify)
 
-            uiState.status?.let { status ->
-                if (status.budgets.isNotEmpty() && !showsOutside) {
-                    Text(
-                        text = "${formatCents(status.totalConsumedCents)} consommés sur " +
-                            "${formatCents(status.totalBudgetedCents)} — " +
-                            "${formatCents(status.totalAvailableCents)} encore libres",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-            }
-
             val outside = uiState.status?.outsideMonthlyBudget
             when {
                 uiState.isLoading && budgets.isEmpty() && outside?.isEmpty != false -> {
@@ -244,6 +249,19 @@ private fun BudgetContent(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        if (budgets.isNotEmpty() && !showsOutside) {
+                            item(key = "envelopes-head") {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        "Enveloppes",
+                                        fontSize = 30.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        letterSpacing = (-0.02).em,
+                                    )
+                                    BudgetLegend()
+                                }
+                            }
+                        }
                         if (budgets.isEmpty() && !showsOutside) {
                             item {
                                 Text(
@@ -262,10 +280,9 @@ private fun BudgetContent(
                         }
                         items(if (showsOutside) emptyList() else visibleBudgets, key = { it.line.id }) { row ->
                             val label = row.label.ifEmpty { tree.pathOf(row.line.categoryId) ?: row.line.categoryName }
-                            BudgetCard(
+                            EnvelopeRow(
                                 line = row.line,
                                 label = label,
-                                caption = budgetCaption(row.line),
                                 depth = row.depth,
                                 hasChildren = row.hasChildren,
                                 expanded = row.expansionKey in uiState.expanded,
@@ -536,6 +553,153 @@ private fun BudgetCard(
 
             // A one-off envelope has no period: no sync weighs it against a threshold.
             if (line is BudgetLine) {
+                AlertThreshold(line.alertThresholdPercent, onEditThreshold)
+            }
+            if (daughters.isNotEmpty()) {
+                EnvelopeSplit(
+                    mother = line,
+                    daughters = daughters,
+                    editor = splitEditor,
+                    canEdit = canEditSplit,
+                    onStart = onStartSplit,
+                    onMoveBoundary = onMoveSplitBoundary,
+                    onSave = onSaveSplit,
+                    onCancel = onCancelSplit,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun envelopeMint(): Color =
+    if (isMaggieDark()) MaggieTokens.Module.finance.second else MaggieTokens.Module.finance.first
+
+@Composable
+private fun BudgetLegend() {
+    val mint = envelopeMint()
+    val caption = maggieSurface().caption
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        listOf(
+            "Consommé" to mint,
+            "Planifié" to mint.copy(alpha = 0.35f),
+            "Proche" to MaggieTokens.Signal.warning,
+            "Dépassée" to MaggieTokens.Signal.danger,
+        ).forEach { (name, color) ->
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(14.dp, 6.dp).background(color, RoundedCornerShape(3.dp)))
+                Text(name, fontSize = 12.sp, color = caption)
+            }
+        }
+    }
+}
+
+/** The month's envelope as the « Enveloppes » mock-up draws it: a tree row, a bar, what is consumed and what is left. */
+@Composable
+private fun EnvelopeRow(
+    line: EnvelopeConsumption,
+    label: String,
+    depth: Int,
+    onDelete: (() -> Unit)?,
+    hasChildren: Boolean = false,
+    expanded: Boolean = false,
+    onToggle: () -> Unit = {},
+    onOpen: (() -> Unit)? = null,
+    onEditThreshold: (() -> Unit)? = null,
+    daughters: List<BudgetLine> = emptyList(),
+    splitEditor: SplitEditor? = null,
+    canEditSplit: Boolean = false,
+    onStartSplit: () -> Unit = {},
+    onMoveSplitBoundary: (index: Int, deltaCents: Int) -> Unit = { _, _ -> },
+    onSaveSplit: () -> Unit = {},
+    onCancelSplit: () -> Unit = {},
+) {
+    var confirmingDelete by remember { mutableStateOf(false) }
+    if (confirmingDelete && onDelete != null) {
+        ConfirmDeleteDialog(
+            title = "Supprimer l'enveloppe « $label » ?",
+            onConfirm = {
+                confirmingDelete = false
+                onDelete()
+            },
+            onDismiss = { confirmingDelete = false },
+        )
+    }
+    val surface = maggieSurface()
+    val mint = envelopeMint()
+    val warning = MaggieTokens.Signal.warning
+    val danger = MaggieTokens.Signal.danger
+    val consumed = consumedFraction(line.consumedCents, line.amountCents)
+    val planned = consumedFraction(line.consumedCents + line.plannedCents, line.amountCents)
+    val barColor = when {
+        line.isOverspent -> danger
+        line.isOvercommitted || consumed >= 0.75f -> warning
+        else -> mint
+    }
+    if (depth == 1) {
+        HorizontalDivider(color = surface.text.copy(alpha = if (isMaggieDark()) MaggieTokens.Divider.DARK else MaggieTokens.Divider.LIGHT))
+    }
+    Column(modifier = Modifier.fillMaxWidth().padding(start = ((depth - 1) * 22).dp, top = 8.dp, bottom = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (hasChildren) {
+                Box(
+                    modifier = Modifier.minimumInteractiveComponentSize().clickable(onClick = onToggle),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (expanded) "▾" else "▸",
+                        fontSize = 16.sp,
+                        color = surface.textMuted,
+                        modifier = Modifier.semantics { contentDescription = if (expanded) "Replier $label" else "Déplier $label" },
+                    )
+                }
+            } else {
+                Spacer(Modifier.width(16.dp))
+            }
+            Text(
+                text = label,
+                fontSize = if (depth == 1) 16.sp else 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = surface.text,
+                modifier = Modifier
+                    .weight(1f)
+                    .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier),
+            )
+            Text(
+                formatCentsRounded(line.amountCents, line.currency),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = surface.text,
+            )
+            if (onDelete != null) {
+                IconButton(onClick = { confirmingDelete = true }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        Column(modifier = Modifier.padding(start = 24.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp).height(6.dp).background(surface.track, CircleShape)) {
+                if (planned > 0f) {
+                    Box(Modifier.fillMaxWidth(planned).fillMaxHeight().background(mint.copy(alpha = 0.35f), CircleShape))
+                }
+                if (consumed > 0f) {
+                    Box(Modifier.fillMaxWidth(consumed).fillMaxHeight().background(barColor, CircleShape))
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${formatCentsRounded(line.consumedCents, line.currency)} consommés", fontSize = 12.sp, color = surface.textMuted)
+                val (text, color) = when {
+                    line.isOverspent -> "Dépassement de ${formatCentsRounded(-line.remainingCents, line.currency)}" to danger
+                    line.isOvercommitted ->
+                        "Surengagée : ${formatCentsRounded(-line.availableCents, line.currency)} planifiés en trop" to warning
+                    else -> "${formatCentsRounded(line.availableCents, line.currency)} disponibles" to surface.textMuted
+                }
+                Text(text, fontSize = 12.sp, color = color)
+            }
+            if (line is BudgetLine) {
+                if (line.season != null) {
+                    Text(budgetCaption(line), fontSize = 12.sp, color = surface.caption)
+                }
                 AlertThreshold(line.alertThresholdPercent, onEditThreshold)
             }
             if (daughters.isNotEmpty()) {
