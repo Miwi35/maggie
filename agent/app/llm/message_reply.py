@@ -125,9 +125,10 @@ def with_reply(screen: str | None, reply: ReplyTo | None) -> str | None:
 ANSWER_APPROVAL_TOOL = {
     "name": "answer_approval",
     "description": (
-        "Approve or deny an action held for the user's validation (its approvalId is given with the message "
-        "the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval "
-        "the user is answering in this message — never decide one on your own: any other call is refused."
+        "For the owner's answer to an approval card: approve or deny an action held for his validation (its "
+        "approvalId is given with the message he is answering), exactly as the « Autoriser » / « Refuser » buttons "
+        "do. Only for an approval he is answering in this message, never decided on your own: any other call is "
+        "refused. A task reminder he answers is answer_task_reminder."
     ),
     "input_schema": {
         "type": "object",

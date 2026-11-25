@@ -26,10 +26,10 @@ ASK_OWNER_TOOL = {
     "name": ASK_OWNER,
     "description": (
         "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next "
-        "message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à "
-        "prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to "
-        "go ahead with something irreversible — never to ask a free-text question and never for a clear "
-        "request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; "
+        "message. For a hesitation that fits options: two plausible readings that lead to different actions, what "
+        "he expects from a request, whether to go ahead with something irreversible. Never for a clear request "
+        "(do it), never as a free-text question. Outside a live chat it reaches him as an interruption by itself: "
+        "add no notification. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; "
         "'multiple' is true when several can be ticked together."
     ),
     "input_schema": {

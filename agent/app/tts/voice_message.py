@@ -28,10 +28,10 @@ AUDIO_PREFIX = "audio/"
 SEND_VOICE_MESSAGE_TOOL = {
     "name": "send_voice_message",
     "description": (
-        "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in "
-        "the thread as an audio message they can play now or later. Use it when the user asks for a vocal "
-        "(« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the "
-        "text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the "
+        "Send the owner a voice message: the text is spoken in his chosen voice, recorded, and lands in the "
+        "thread as audio he can play now or later. Only when he asks for a vocal, or a directive or a skill asks "
+        "for one; otherwise the written reply is enough, and a push without audio is manage_notifications. Write "
+        "the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the "
         "thread once the tool answers: reply nothing else."
     ),
     "input_schema": {
