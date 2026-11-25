@@ -399,7 +399,7 @@
                 "name"
             ]
         },
-        "description": "Create a recipe; with no ingredients and no steps it is refused, the error saying what is missing. ingredients: JSON array of {quantity, unit, ingredientId or ciqualAlimCode (creates the Ingredient from that Ciqual food), pieceWeightGrams?}; nutrition counts only ingredients with Ciqual values, and piece lines with pieceWeightGrams. steps: JSON array in order of {text, durationMinutes?, background? (timer runs while the cook moves on), ingredientIds? (recipe ids or names), utensils?, waitsFor? (earlier step positions)}. utensils: JSON array of ids or names; unknown names are added. tags: comma-separated."
+        "description": "A recipe is how to cook a dish; planning it on a day is a meal (manage_meals). Before: search_recipes, an existing recipe is updated, not created again. Create a recipe; with no ingredients and no steps it is refused, the error saying what is missing. ingredients: JSON array of {quantity, unit, ingredientId or ciqualAlimCode (creates the Ingredient from that Ciqual food), pieceWeightGrams?}; nutrition counts only ingredients with Ciqual values, and piece lines with pieceWeightGrams. steps: JSON array in order of {text, durationMinutes?, background? (timer runs while the cook moves on), ingredientIds? (recipe ids or names), utensils?, waitsFor? (earlier step positions)}. utensils: JSON array of ids or names; unknown names are added. tags: comma-separated."
     },
     "create_task": {
         "name": "create_task",
@@ -529,7 +529,7 @@
                 "recipeId"
             ]
         },
-        "description": "Delete a recipe by id. Meals with no other recipe are deleted with it (their shopping leaves the grocery list); other meals keep their recipes. Returns deletedMeals."
+        "description": "Deletes it for good; taking it off one meal is manage_meals update. Delete a recipe by id. Meals with no other recipe are deleted with it (their shopping leaves the grocery list); other meals keep their recipes. Returns deletedMeals."
     },
     "delete_task": {
         "name": "delete_task",
@@ -980,7 +980,7 @@
                 "recipeId"
             ]
         },
-        "description": "Get a recipe by id with ingredients, utensils and steps (text, durationMinutes, background, ingredients, utensils, waitsFor = positions awaited). guests (1 or more) scales quantities (x guests / servings) without changing the recipe; the answer carries scaledFor and scaleFactor."
+        "description": "Get a recipe by id with ingredients, utensils and steps (text, durationMinutes, background, ingredients, utensils, waitsFor = positions awaited). guests (1 or more) scales quantities (x guests / servings) without changing the recipe; the answer carries scaledFor and scaleFactor. Id from search_recipes."
     },
     "get_seasonal_produce": {
         "name": "get_seasonal_produce",
@@ -996,7 +996,7 @@
                 }
             }
         },
-        "description": "Fruits and vegetables in season in metropolitan France for month (1-12, default: current), and the user's own products in season (season set by manage_products seasonMonths)."
+        "description": "Fruits and vegetables in season in metropolitan France for month (1-12, default: current), and the user's own products in season (season set by manage_products seasonMonths). Reference data, read-only."
     },
     "get_tasks": {
         "name": "get_tasks",
@@ -1751,7 +1751,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, start, pause, resume, add, cancel. list returns running, paused and done timers (label, step, remainingSeconds, endsAt). start needs label, recipeId, stepPosition, durationSeconds; pause, resume, cancel need timerId; add needs timerId and seconds (negative removes). A refusal returns error plus the current timers."
+        "description": "A cooking timer counts down a recipe step while the owner cooks; being told something later is a proaction (schedule_proaction). Actions: list, start, pause, resume, add, cancel. list returns running, paused and done timers (label, step, remainingSeconds, endsAt). start needs label, recipeId, stepPosition, durationSeconds; pause, resume, cancel need timerId; add needs timerId and seconds (negative removes). A refusal returns error plus the current timers."
     },
     "manage_envelopes": {
         "name": "manage_envelopes",
@@ -2181,7 +2181,7 @@
                 "action"
             ]
         },
-        "description": "Actions: create (needs name, category), update and delete (need ingredientId). category: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. ciqualAlimCode (search_ciqual_foods) supplies macros and micronutrients. pieceWeightGrams: grams of one piece, for recipe nutrition. packagingUnit, with packagingSize and packagingSizeUnit for its content, always together (pack, 500, g). stockState: in_stock (default), low, out. restockQuantity: packagings to buy when out (integer, 0 or more). autoRestock: relists itself. clear (update): optional fields to empty (not name, category, stockState, autoRestock)."
+        "description": "An ingredient is a food of the owner's catalogue, used by recipes and the list; non-food is manage_products, reference nutrition search_ciqual_foods. Before create: search_ingredients. Actions: create (needs name, category), update and delete (need ingredientId). category: produce, dairy, meat, fish, grain, spice, condiment, frozen, beverage, other. Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. ciqualAlimCode (search_ciqual_foods) supplies macros and micronutrients. pieceWeightGrams: grams of one piece, for recipe nutrition. packagingUnit, with packagingSize and packagingSizeUnit for its content, always together (pack, 500, g). stockState: in_stock (default), low, out. restockQuantity: packagings to buy when out (integer, 0 or more). autoRestock: relists itself. clear (update): optional fields to empty (not name, category, stockState, autoRestock)."
     },
     "manage_investments": {
         "name": "manage_investments",
@@ -2535,7 +2535,7 @@
                 "action"
             ]
         },
-        "description": "Actions: get, update. defaultGuests: people per meal without guests of its own (1 or more, 2 by default). update needs it and rescales the grocery list for upcoming meals following the default."
+        "description": "The default number of people per meal; one meal's guests are manage_meals. Actions: get, update. defaultGuests: people per meal without guests of its own (1 or more, 2 by default). update needs it and rescales the grocery list for upcoming meals following the default."
     },
     "manage_meals": {
         "name": "manage_meals",
@@ -3273,7 +3273,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete non-food products (food: manage_ingredients). Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. packagingUnit, with packagingSize and packagingSizeUnit together. stockState: in_stock (default), low, out. restockQuantity: packagings, whole number >= 0; seasonMonths: months 1-12 in season in France, pre-filled on create when the name is known; inSeason returned. clear lists fields to empty: defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths."
+        "description": "A product is a non-food item of the owner's catalogue; not a line of the list (add_grocery_item) nor what is left at home (update_stock). Before create: search_products. Actions: list, create, update, delete non-food products (food: manage_ingredients). Units: g, kg, ml, l, cl, piece, bunch, can, bottle, pack, sachet, jar. packagingUnit, with packagingSize and packagingSizeUnit together. stockState: in_stock (default), low, out. restockQuantity: packagings, whole number >= 0; seasonMonths: months 1-12 in season in France, pre-filled on create when the name is known; inSeason returned. clear lists fields to empty: defaultUnit, packagingUnit, packagingSize, packagingSizeUnit, restockQuantity, seasonMonths."
     },
     "manage_project_funding": {
         "name": "manage_project_funding",
@@ -3855,7 +3855,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, rename, delete kitchen utensils (oven, Thermomix...). create and rename need name (255 characters at most); rename and delete need utensilId. Names are unique whatever the case: create returns the existing one. Delete removes it from its recipes."
+        "description": "A utensil is a kitchen tool a recipe step uses. Actions: list, create, rename, delete kitchen utensils (oven, Thermomix...). create and rename need name (255 characters at most); rename and delete need utensilId. Names are unique whatever the case: create returns the existing one. Delete removes it from its recipes."
     },
     "manage_workouts": {
         "name": "manage_workouts",
@@ -4390,7 +4390,7 @@
                 "ingredientId"
             ]
         },
-        "description": "Replace the product of a recipe line; steps using the old ingredient use the new one. ingredientId: current line ingredient; new one is withIngredientId or withCiqualAlimCode; quantity, unit kept when omitted. Step texts change only with rewriteText true; the answer lists textSuggestions ({position, before, after})."
+        "description": "One ingredient swapped, the rest kept; whole lists are update_recipe. Replace the product of a recipe line; steps using the old ingredient use the new one. ingredientId: current line ingredient; new one is withIngredientId or withCiqualAlimCode; quantity, unit kept when omitted. Step texts change only with rewriteText true; the answer lists textSuggestions ({position, before, after})."
     },
     "save_bilan_step": {
         "name": "save_bilan_step",
@@ -4704,7 +4704,7 @@
                 "query"
             ]
         },
-        "description": "Search the Ciqual (ANSES) food database by name. Returns code and kcal, protein, carbs, fat per 100 g."
+        "description": "Reference data, not the owner's catalogue (search_ingredients): its code feeds ciqualAlimCode or ciqualCode. Search the Ciqual (ANSES) food database by name. Returns code and kcal, protein, carbs, fat per 100 g."
     },
     "search_ingredients": {
         "name": "search_ingredients",
@@ -4719,7 +4719,7 @@
                 "query"
             ]
         },
-        "description": "Search the user's ingredients by name. Returns id, name and category."
+        "description": "Search the user's ingredients by name. Returns id, name and category. The owner's food catalogue; reference foods are search_ciqual_foods."
     },
     "search_products": {
         "name": "search_products",
@@ -4734,7 +4734,7 @@
                 "query"
             ]
         },
-        "description": "Searches products (food and non-food) by name; returns id, name, category and type."
+        "description": "Searches products (food and non-food) by name; returns id, name, category and type. The owner's catalogue, not the list (get_grocery_list). Read it before creating a product or an ingredient."
     },
     "search_recipes": {
         "name": "search_recipes",
@@ -4757,7 +4757,7 @@
                 }
             }
         },
-        "description": "Search recipes by query (name) or tag; one of the two is required."
+        "description": "Search recipes by query (name) or tag; one of the two is required. The owner's recipes; a meal planned on a day is manage_meals list."
     },
     "set_day_plan": {
         "name": "set_day_plan",
@@ -5214,7 +5214,7 @@
                 "recipeId"
             ]
         },
-        "description": "Update a recipe; only given fields change. ingredients, steps and utensils replace the whole list, formatted as in create_recipe; [] empties steps and utensils. tags: comma-separated, empty string empties. clear: [notes] empties the notes. Unknown recipeId is an error."
+        "description": "Before: get_recipe, lists replace the whole list; one ingredient swapped is replace_recipe_ingredient. Update a recipe; only given fields change. ingredients, steps and utensils replace the whole list, formatted as in create_recipe; [] empties steps and utensils. tags: comma-separated, empty string empties. clear: [notes] empties the notes. Unknown recipeId is an error."
     },
     "update_stock": {
         "name": "update_stock",
@@ -5233,7 +5233,7 @@
                 "state"
             ]
         },
-        "description": "Sets what is left of a product at home: state in_stock, low or out; product is an id or a name. An autoRestock product with a restockQuantity is added to the list. Returns what was added or why not, and the next 7 days' meals using it."
+        "description": "Sets what is left of a product at home: state in_stock, low or out; product is an id or a name. An autoRestock product with a restockQuantity is added to the list. Returns what was added or why not, and the next 7 days' meals using it. What is left at home, not the list: a thing to buy is add_grocery_item."
     },
     "update_task": {
         "name": "update_task",

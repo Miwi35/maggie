@@ -198,6 +198,22 @@ final class McpToolsContractTest extends KernelTestCase
             'manage_stores' => ['A store is', 'assign_product_store'],
             'manage_aisles' => ['An aisle is', 'manage_stores'],
             'manage_meal_groceries' => ['add_grocery_item', 'preview'],
+            'manage_products' => ['A product is', 'add_grocery_item', 'search_products'],
+            'update_stock' => ['What is left at home', 'add_grocery_item'],
+            'search_products' => ['get_grocery_list'],
+            'get_seasonal_produce' => ['read-only'],
+            'manage_ingredients' => ['An ingredient is', 'manage_products', 'search_ciqual_foods', 'search_ingredients'],
+            'search_ingredients' => ['search_ciqual_foods'],
+            'search_ciqual_foods' => ['Reference data', 'search_ingredients'],
+            'create_recipe' => ['A recipe is', 'manage_meals', 'search_recipes'],
+            'update_recipe' => ['get_recipe', 'replace_recipe_ingredient'],
+            'get_recipe' => ['search_recipes'],
+            'delete_recipe' => ['manage_meals'],
+            'search_recipes' => ['manage_meals'],
+            'replace_recipe_ingredient' => ['update_recipe'],
+            'manage_utensils' => ['A utensil is'],
+            'manage_cooking_timers' => ['A cooking timer', 'schedule_proaction'],
+            'manage_meal_settings' => ['manage_meals'],
         ];
         $tools = $this->tools();
 

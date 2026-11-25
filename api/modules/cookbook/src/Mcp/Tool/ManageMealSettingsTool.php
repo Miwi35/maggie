@@ -12,7 +12,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'manage_meal_settings', description: 'Actions: get, update. defaultGuests: people per meal without guests of its own (1 or more, 2 by default). update needs it and rescales the grocery list for upcoming meals following the default.')]
+#[McpTool(name: 'manage_meal_settings', description: 'The default number of people per meal; one meal\'s guests are manage_meals. Actions: get, update. defaultGuests: people per meal without guests of its own (1 or more, 2 by default). update needs it and rescales the grocery list for upcoming meals following the default.')]
 class ManageMealSettingsTool
 {
     public function __construct(

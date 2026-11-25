@@ -12,7 +12,7 @@ use Maggie\Grocery\Service\SeasonalityCatalog;
 use Maggie\Grocery\Service\SeasonCalendar;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_seasonal_produce', description: 'Fruits and vegetables in season in metropolitan France for month (1-12, default: current), and the user\'s own products in season (season set by manage_products seasonMonths).')]
+#[McpTool(name: 'get_seasonal_produce', description: 'Fruits and vegetables in season in metropolitan France for month (1-12, default: current), and the user\'s own products in season (season set by manage_products seasonMonths). Reference data, read-only.')]
 class GetSeasonalProduceTool
 {
     private const MONTH_NAMES = [1 => 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
