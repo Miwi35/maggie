@@ -1,0 +1,17 @@
+# A period is removed as a period, never as an event (MAG-1015).
+name: supprimer-une-periode
+description: Removing a trip goes through manage_periods, not delete_event.
+channel: chat
+
+steps:
+  - user_message: "Je suis en déplacement de lundi à mercredi prochains."
+    expected_tools: [manage_periods]
+    expected_behavior: >
+      Elle crée la période de déplacement de lundi à mercredi (end_date le jeudi, exclu)
+      et confirme en une phrase.
+
+  - user_message: "Finalement, supprime ce déplacement."
+    expected_tools: [manage_periods]
+    forbidden_tools: [delete_event]
+    expected_behavior: >
+      Elle supprime la période avec manage_periods et confirme en une phrase.

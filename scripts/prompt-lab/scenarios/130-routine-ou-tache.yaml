@@ -1,0 +1,11 @@
+# A habit ticked every day is a routine, not a task (MAG-1015).
+name: routine-ou-tache
+description: A morning habit becomes a routine anchored on waking, never a task or a proaction.
+channel: chat
+
+steps:
+  - user_message: "Je veux prendre l'habitude de m'étirer tous les matins au réveil."
+    expected_tools: [save_routine]
+    forbidden_tools: [create_task, schedule_proaction]
+    expected_behavior: >
+      Elle crée une routine ancrée au réveil, chaque jour, et confirme en une phrase.
