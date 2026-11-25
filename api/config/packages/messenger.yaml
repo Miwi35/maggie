@@ -52,6 +52,7 @@ framework:
             'Maggie\Calendar\Message\GrantTaskRewardCommand': sync
             'Maggie\Calendar\Event\TaskOccurrencePassed': sync
             'Maggie\Calendar\Message\AdvanceTaskRecurrenceCommand': sync
+            'Maggie\Calendar\Message\RewindTaskRecurrenceCommand': sync
             'Maggie\Calendar\Message\GrantPalierCommand': sync
             'Maggie\Calendar\Message\AnswerTaskReminderCommand': sync
             'Maggie\Calendar\Message\PushEventToGoogleCommand': sync
