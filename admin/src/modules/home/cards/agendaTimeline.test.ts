@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { buildTimeline, clock, rowTime, scheduleLabel, tripLine, untilLabel } from './agendaTimeline'
+import { buildTimeline, clock, countLabel, dayShort, rowSub, rowTime, scheduleLabel, tripLine, untilLabel } from './agendaTimeline'
 import type { Trip } from '../../calendar/trips'
 import type { AgendaHomeEvent } from './agendaTimeline'
 
@@ -94,6 +94,29 @@ describe('labels', () => {
     expect(rowTime(next, '2026-10-14')).toBe('15:00')
     expect(rowTime(timed('s', '2026-10-13T23:00:00+02:00', '2026-10-14T01:00:00+02:00'), '2026-10-14')).toBe('→ 01:00')
     expect(rowTime(allDay, '2026-10-14')).toBe('')
+  })
+
+  test('dayShort reads « mer. 14 oct. »', () => {
+    expect(dayShort('2026-10-14')).toBe('mer. 14 oct.')
+    expect(dayShort('2026-10-15')).toBe('jeu. 15 oct.')
+  })
+
+  test('countLabel says what is done and to come today, what is planned tomorrow, and leaves out a zero', () => {
+    const today = (events: AgendaHomeEvent[]) => countLabel(buildTimeline(events, NOW))
+    expect(today([done, next])).toBe('1 passé · 1 à venir')
+    expect(today([done, running, next, later])).toBe('1 passé · 3 à venir')
+    expect(today([done, done])).toBe('2 passés')
+    expect(today([next, later])).toBe('2 à venir')
+    expect(today([done, allDay])).toBe('1 passé · 1 à venir')
+    expect(countLabel(buildTimeline([next], null))).toBe('1 prévu')
+    expect(countLabel(buildTimeline([next, later, allDay], null))).toBe('3 prévus')
+  })
+
+  test('rowSub joins the place and the agenda, and ends a done event with « fait »', () => {
+    expect(rowSub({ ...next, locationShort: 'Cabinet Martin' }, false)).toBe('Cabinet Martin · Perso')
+    expect(rowSub({ ...done, locationShort: 'Salle 2' }, true)).toBe('Salle 2 · Perso · fait')
+    expect(rowSub(next, false)).toBe('Perso')
+    expect(rowSub({ ...done, agendaName: '' }, true)).toBe('fait')
   })
 
   test('schedule: one day, over midnight, and whole days with the last one included', () => {

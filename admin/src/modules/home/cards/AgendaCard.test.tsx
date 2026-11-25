@@ -111,7 +111,7 @@ describe('AgendaCard', () => {
     expect(rows().map((row) => row.getAttribute('data-kind'))).toEqual(['plain', 'past', 'current', 'next', 'later'])
     expect(rows().map((row) => within(row).getByText(/Séjour|Réunion|Atelier|Dentiste|Yoga/).textContent)).toEqual([
       'Séjour',
-      'Réunion équipe · fait',
+      'Réunion équipe',
       'Atelier',
       'Dentiste',
       'Yoga',
@@ -148,13 +148,14 @@ describe('AgendaCard', () => {
     await screen.findByText('Dentiste')
     const [done, next] = rows()
     expect(done).toHaveTextContent('09:00')
-    expect(done).toHaveTextContent('Réunion équipe · fait')
-    expect(done).toHaveTextContent('Salle 2')
+    expect(done).toHaveTextContent('Réunion équipe')
+    expect(done).toHaveTextContent('Salle 2 · Perso · fait')
     expect(done).toBeVisible()
-    expect(getComputedStyle(done).opacity).toBe('0.6')
+    expect(getComputedStyle(done).opacity).toBe('0.72')
     expect(getComputedStyle(next).opacity).toBe('1')
     expect(next).toHaveTextContent('15:00')
-    expect(next).toHaveTextContent('Cabinet Martin · dans 48 min')
+    expect(next).toHaveTextContent('Cabinet Martin · Perso')
+    expect(within(next).getByTestId('agenda-row-tag')).toHaveTextContent('dans 48 min')
   })
 
   test('says « en cours » on an event that has begun and is not over', async () => {
@@ -163,8 +164,8 @@ describe('AgendaCard', () => {
     renderCard()
 
     await screen.findByText('Atelier')
-    expect(rows()[0]).toHaveTextContent('en cours')
-    expect(rows()[1]).toHaveTextContent('dans 48 min')
+    expect(within(rows()[0]).getByTestId('agenda-row-tag')).toHaveTextContent('en cours')
+    expect(within(rows()[1]).getByTestId('agenda-row-tag')).toHaveTextContent('dans 48 min')
   })
 
   test('shows the whole of tomorrow with no line, nothing done and nothing highlighted', async () => {
@@ -421,7 +422,21 @@ describe('AgendaCard', () => {
     renderCard()
     await screen.findByTestId('agenda-row')
 
-    expect(screen.getByRole('link', { name: 'Agenda' })).toHaveAttribute('href', '/calendar')
+    expect(screen.getByRole('link', { name: /^Agenda · mer\. 14 oct\.$/ })).toHaveAttribute('href', '/calendar')
+  })
+
+  test('the header counts what is done and to come, and tomorrow what is planned', async () => {
+    vi.stubGlobal('fetch', vi.fn(reads([past, upcoming])))
+    const today = renderCard()
+    await screen.findByText('Dentiste')
+    expect(screen.getByTestId('home-card-agenda-trailing')).toHaveTextContent('1 passé · 1 à venir')
+    today.unmount()
+
+    vi.stubGlobal('fetch', vi.fn(reads([past, upcoming])))
+    renderCard('tomorrow')
+    await screen.findByText('Dentiste')
+    expect(screen.getByRole('link', { name: /^Agenda · jeu\. 15 oct\.$/ })).toBeInTheDocument()
+    expect(screen.getByTestId('home-card-agenda-trailing')).toHaveTextContent('2 prévus')
   })
 
   describe('departures', () => {

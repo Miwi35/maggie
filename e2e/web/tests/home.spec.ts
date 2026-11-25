@@ -127,7 +127,7 @@ test('the Finance card says what was spent, without a verdict, and opens the Das
 })
 
 /**
- * The Agenda card (MAG-562). The seed has « Point du matin » (08:00) done and
+ * The Agenda card (MAG-562, header, count and sub-line extended by MAG-1031). The seed has « Point du matin » (08:00) done and
  * « Appel avec le plombier » (18:30) to come around the lunch (12:00): the line sits
  * between them while the stack is pinned at noon, which CI does. Outside 08:30–18:30
  * Paris (an unpinned run) the line is elsewhere, so the journey has nothing to say.
@@ -148,6 +148,9 @@ test('the Agenda card puts « maintenant » between the done and the coming even
   await expect(done).toBeVisible()
   await expect(home.nowLine).toBeVisible()
   await expect(done).toContainText('fait')
+  await expect(home.card('agenda').getByRole('heading', { level: 2 })).toHaveText(/^Agenda · \S+\. \d{1,2} \S+/)
+  await expect(home.card('agenda').getByTestId('home-card-agenda-trailing')).toHaveText(/^(\d+ passés? · )?\d+ à venir$/)
+  await expect(upcoming).toContainText('Au téléphone · Famille')
 
   const [doneBox, lineBox, upcomingBox] = await Promise.all([
     done.boundingBox(),

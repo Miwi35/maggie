@@ -4,24 +4,25 @@ import ButtonBase from '@mui/material/ButtonBase'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import Link from '@mui/material/Link'
-import CheckIcon from '@mui/icons-material/Check'
+import { alpha } from '@mui/material/styles'
 import { Link as RouterLink } from 'react-router-dom'
 import { ActivityLaunchButton, launchTargetFor } from '../ActivityLaunchButton'
 import { HomeCard } from '../HomeCard'
+import { moduleColor } from '../moduleColor'
 import { HomeCardError } from '../HomeCardError'
 import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
 import { useAgendaCardState } from '../useAgendaCardState'
 import type { HomeDay } from '../homeDay'
 import { AgendaEventPanel } from './AgendaEventPanel'
 import { DepartureTile, HomeTripLine } from './AgendaTrip'
-import { buildTimeline, clock, rowTime, untilLabel } from './agendaTimeline'
+import { buildTimeline, clock, countLabel, dayShort, rowSub, rowTime, untilLabel } from './agendaTimeline'
 import type { AgendaHomeEvent, TimelineRow } from './agendaTimeline'
 
 /** How often the line and « dans 48 min » are recomputed. */
 const TICK_MS = 20_000
 
 /** Past rows stay readable: dimmed, not struck out. */
-const PAST_OPACITY = 0.6
+const PAST_OPACITY = 0.72
 
 /** The clock of the card: the instant of the read, then the browser's clock moving on from it. */
 function useNowMs(readAt: string | null | undefined): number | null {
@@ -50,12 +51,15 @@ const NowLine = ({ nowMs }: { nowMs: number }) => {
       role="separator"
       aria-label={label}
       data-testid="agenda-now-line"
-      sx={(theme) => ({ display: 'flex', alignItems: 'center', gap: 1, my: 0.5, px: 1, color: theme.palette.error.main })}
+      sx={(theme) => ({ display: 'flex', alignItems: 'center', gap: '10px', px: 1, py: 0.5, color: moduleColor(theme, 'agenda') })}
     >
-      <Typography variant="caption" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+      <Typography component="span" sx={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap' }}>
         {label}
       </Typography>
-      <Box aria-hidden sx={{ flex: 1, height: '2px', borderRadius: 1, bgcolor: 'currentColor' }} />
+      <Box
+        aria-hidden
+        sx={{ flex: 1, height: '2px', borderRadius: '2px', background: (theme) => `linear-gradient(90deg, ${moduleColor(theme, 'agenda')}, ${alpha(moduleColor(theme, 'agenda'), 0)})` }}
+      />
     </Box>
   )
 }
@@ -72,8 +76,8 @@ const Row = ({ row, day, date, nowMs, onOpen }: RowProps) => {
   const { event, kind } = row
   const past = kind === 'past'
   const highlighted = kind === 'next'
-  const place = event.locationShort
   const time = rowTime(event, date)
+  const sub = rowSub(event, past)
   const hint =
     kind === 'next' && nowMs !== null && event.startAt
       ? untilLabel(Date.parse(event.startAt), nowMs)
@@ -86,53 +90,59 @@ const Row = ({ row, day, date, nowMs, onOpen }: RowProps) => {
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-    <ButtonBase
-      onClick={() => onOpen(event)}
-      data-testid="agenda-row"
-      data-kind={kind}
-      sx={(theme) => ({
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start',
-        gap: 1.5,
-        flex: 1,
-        minWidth: 0,
-        textAlign: 'left',
-        px: 1,
-        py: 0.75,
-        borderRadius: `${theme.shape.borderRadius}px`,
-        // Past events are transparent and dimmed; the next one sits on its agenda's colour.
-        bgcolor: highlighted ? `${event.agendaColor ?? theme.palette.primary.main}22` : 'transparent',
-        opacity: past ? PAST_OPACITY : 1,
-        '&:hover': { bgcolor: theme.palette.action.hover },
-        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
-      })}
-    >
-      <Typography variant="body2" sx={{ minWidth: 52, fontVariantNumeric: 'tabular-nums', color: 'text.secondary', pt: '1px' }}>
-        {time || (event.allDay ? 'Journée' : '')}
-      </Typography>
-      <Box
-        aria-hidden
-        sx={{ width: 4, alignSelf: 'stretch', minHeight: 20, borderRadius: 2, bgcolor: event.agendaColor ?? 'primary.main', flexShrink: 0 }}
-      />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: highlighted ? 600 : 500 }}>
-          {event.summary}
-          {past && (
-            <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
-              {' · fait'}
-              <CheckIcon aria-hidden sx={{ fontSize: 14, verticalAlign: 'text-bottom', ml: 0.5 }} />
-            </Box>
-          )}
+      <ButtonBase
+        onClick={() => onOpen(event)}
+        data-testid="agenda-row"
+        data-kind={kind}
+        sx={(theme) => ({
+          display: 'grid',
+          gridTemplateColumns: '48px 4px minmax(0, 1fr) auto',
+          alignItems: 'center',
+          justifyItems: 'start',
+          gap: '12px',
+          flex: 1,
+          minWidth: 0,
+          minHeight: 52,
+          textAlign: 'left',
+          padding: '6px 8px',
+          borderRadius: '14px',
+          // Past events are transparent and dimmed; the next one sits on the Agenda's colour.
+          bgcolor: highlighted ? alpha(moduleColor(theme, 'agenda'), 0.1) : 'transparent',
+          opacity: past ? PAST_OPACITY : 1,
+          '&:hover': { bgcolor: theme.palette.action.hover },
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+        })}
+      >
+        <Typography
+          component="span"
+          sx={{ fontSize: 15, fontWeight: highlighted ? 500 : 400, fontVariantNumeric: 'tabular-nums', color: past ? 'text.secondary' : 'text.primary' }}
+        >
+          {time || (event.allDay ? 'Journée' : '')}
         </Typography>
-        {(place || hint) && (
-          <Typography variant="caption" color="text.secondary" component="div" noWrap>
-            {[place, hint].filter(Boolean).join(' · ')}
+        <Box aria-hidden sx={{ width: 4, height: 32, borderRadius: '4px', bgcolor: event.agendaColor ?? 'primary.main' }} />
+        <Box sx={{ minWidth: 0, maxWidth: '100%' }}>
+          <Typography noWrap sx={{ fontSize: 15, fontWeight: highlighted ? 500 : 400 }}>
+            {event.summary}
           </Typography>
+          {sub && (
+            <Typography noWrap component="div" sx={{ fontSize: 12, color: 'text.secondary' }}>
+              {sub}
+            </Typography>
+          )}
+        </Box>
+        {hint ? (
+          <Typography
+            component="span"
+            data-testid="agenda-row-tag"
+            sx={(theme) => ({ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', color: moduleColor(theme, 'agenda') })}
+          >
+            {hint}
+          </Typography>
+        ) : (
+          <span />
         )}
-      </Box>
-    </ButtonBase>
-    {launch && <ActivityLaunchButton module={launch.module} activity={event.summary} day={day} to={launch.path} />}
+      </ButtonBase>
+      {launch && <ActivityLaunchButton module={launch.module} activity={event.summary} day={day} to={launch.path} />}
     </Box>
   )
 }
@@ -167,7 +177,13 @@ export const AgendaCard = ({ day }: { day: HomeDay }) => {
   if (status === 'empty') return null
 
   return (
-    <HomeCard module="agenda" title="Agenda" to="/calendar">
+    <HomeCard
+      module="agenda"
+      title={state ? `Agenda · ${dayShort(state.date)}` : 'Agenda'}
+      to="/calendar"
+      trailing={state && state.events.length > 0 ? countLabel(timeline) : undefined}
+      background={(theme) => `linear-gradient(160deg, ${alpha(moduleColor(theme, 'agenda'), 0.12)} 0%, ${theme.palette.background.paper} 55%)`}
+    >
       {error && <HomeCardError onRetry={() => void retry()} />}
       {loading && (!state || state.events.length === 0) && !error && (
         <Box aria-busy="true" aria-label="Chargement de l'agenda">
