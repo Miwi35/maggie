@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { composeCuisineState } from './cuisineCardState'
+import type { HomeMeal } from './cuisineCardState'
+import { composeCuisineState, mealHeadline, mealRecipesLine, missingLabel } from './cuisineCardState'
 
 const meal = (id: string, slot: 'lunch' | 'dinner', extra: Record<string, unknown> = {}) => ({ id, slot, summary: id, ...extra })
 const need = (mealId: string, productId: string, name: string) => ({ productId, name, mealId })
@@ -38,5 +39,25 @@ describe('composeCuisineState', () => {
     const state = composeCuisineState([meal('m1', 'lunch')], [need('gone', 'p1', 'Parmesan')])
 
     expect(state.slots[0].meals[0].missing).toEqual([])
+  })
+})
+
+const homeMeal = (recipes: string[], missing: string[] = [], title = 'Repas'): HomeMeal => ({ id: 'm', title, guests: 2, recipes, missing })
+
+describe('meal lines', () => {
+  test('mealHeadline is the first recipe, the title without recipe', () => {
+    expect(mealHeadline(homeMeal(['Pâtes', 'Salade'], [], 'Fête'))).toBe('Pâtes')
+    expect(mealHeadline(homeMeal([], [], 'Restaurant'))).toBe('Restaurant')
+  })
+
+  test('mealRecipesLine lists the recipes from two on, null for one or none', () => {
+    expect(mealRecipesLine(homeMeal(['Pâtes', 'Salade']))).toBe('Pâtes · Salade')
+    expect(mealRecipesLine(homeMeal(['Pâtes']))).toBeNull()
+    expect(mealRecipesLine(homeMeal([]))).toBeNull()
+  })
+
+  test('missingLabel lowercases each product, null when nothing lacks', () => {
+    expect(missingLabel(homeMeal([], ['Parmesan', 'Basilic']))).toBe('manque : parmesan, basilic')
+    expect(missingLabel(homeMeal([]))).toBeNull()
   })
 })

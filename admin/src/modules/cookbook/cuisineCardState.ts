@@ -61,3 +61,13 @@ export function composeCuisineState(meals: ApiMeal[], needs: ApiMealNeed[]): Cui
     })),
   }
 }
+
+/** The first line of a meal: its first recipe, its title when it has none. */
+export const mealHeadline = (meal: HomeMeal): string => meal.recipes[0] ?? meal.title
+
+/** All the recipes on one line, only from two recipes. */
+export const mealRecipesLine = (meal: HomeMeal): string | null => (meal.recipes.length >= 2 ? meal.recipes.join(' · ') : null)
+
+/** « manque : parmesan, basilic », null when nothing lacks. */
+export const missingLabel = (meal: HomeMeal): string | null =>
+  meal.missing.length > 0 ? `manque : ${meal.missing.map((name) => name.charAt(0).toLowerCase() + name.slice(1)).join(', ')}` : null
