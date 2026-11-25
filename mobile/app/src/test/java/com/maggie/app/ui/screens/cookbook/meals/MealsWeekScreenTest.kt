@@ -3,6 +3,8 @@ package com.maggie.app.ui.screens.cookbook.meals
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.filterToOne
+import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -286,6 +288,17 @@ class MealsWeekScreenTest {
         show(listOf(lunch, lunch.copy(id = "meal-dinner", slot = MealSlot.DINNER)))
 
         compose.onNodeWithTag(UiTags.mealAddDay(0)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the add button starts with its plus at the left edge`() {
+        show(emptyList())
+
+        val button = compose.onNodeWithTag(UiTags.mealAddDay(0)).performScrollTo().fetchSemanticsNode().boundsInRoot
+        val text = compose.onNodeWithTag(UiTags.mealAddDay(0), useUnmergedTree = true)
+            .onChildren().filterToOne(hasText("Ajouter un repas")).fetchSemanticsNode().boundsInRoot
+
+        assertTrue("text starts at ${text.left}, button at ${button.left}", text.left - button.left < button.width / 4)
     }
 
     @Test
