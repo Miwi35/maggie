@@ -96,4 +96,19 @@ class HealthHomeStateTest {
         assertEquals("fasting", fast?.state)
         assertEquals(15 * 60, fast?.minutesToEdge)
     }
+
+    @Test
+    fun `daySegment places 12-00 - 20-00 at half the day for a third of it`() {
+        val (start, length) = HealthHomeFast(null, "12:00", "20:00", null).daySegment()
+
+        assertEquals(0.5f, start, 0.001f)
+        assertEquals(1f / 3f, length, 0.001f)
+    }
+
+    @Test
+    fun `daySegment stops a window past midnight at the end of the day`() {
+        val (start, length) = HealthHomeFast(null, "20:00", "04:00", null).daySegment()
+
+        assertEquals(1f, start + length, 0.001f)
+    }
 }
