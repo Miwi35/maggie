@@ -77,7 +77,8 @@ class DtoContractTest {
         // Null on the user's own agendas, and the API omits a null: only a module's agenda names its module (MAG-820).
         "Agenda" to setOf("module"),
         // Null unless the task repeats, and the API omits a null: no recorded task of the collection repeats (MAG-887).
-        "Task" to setOf("rrule"),
+        // nextOccurrence: only a done occurrence of a series carries it (MAG-1033), and no recorded task of the collection is one.
+        "Task" to setOf("rrule", "nextOccurrence"),
     )
 
     // The agent's messages are not recorded in api/contract/responses (that suite records the API
