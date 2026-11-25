@@ -19,7 +19,8 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 /**
  * The rule of a recurring task goes to its next occurrence (MAG-870) once the
  * current one is over: done, or its day passed. The current one loses the
- * rule and nothing else — a missed one stays open, « reportée ». The next one
+ * rule and nothing else — a missed one stays open, « reportée » — and points
+ * to the next one, keeping the day of the rule it stood for. The next one
  * falls on the first day of the rule after the one this stands for, from
  * today on; none when the rule has run out (UNTIL).
  */
@@ -57,7 +58,7 @@ class AdvanceTaskRecurrenceHandler
             $rrule = (string) $task->getRrule();
             $from = $task->getRecurrenceDate() ?? TaskRecurrence::anchor($task);
             $nextDay = TaskRecurrence::nextDay($task, $today);
-            $task->repeat(null, null);
+            $task->handOverTo(null);
             $this->em->flush();
 
             if (null === $nextDay || null === $from) {
@@ -94,7 +95,14 @@ class AdvanceTaskRecurrenceHandler
                 recurrenceDate: $nextDay,
             ));
 
-            return $envelope->last(HandledStamp::class)?->getResult();
+            $next = $envelope->last(HandledStamp::class)?->getResult();
+            if ($next instanceof Task) {
+                // Reopening this one gives the series back (MAG-1033).
+                $task->handOverTo($next);
+                $this->em->flush();
+            }
+
+            return $next;
         });
     }
 
