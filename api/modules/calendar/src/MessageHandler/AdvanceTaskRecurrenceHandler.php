@@ -96,8 +96,9 @@ class AdvanceTaskRecurrenceHandler
             ));
 
             $next = $envelope->last(HandledStamp::class)?->getResult();
-            if ($next instanceof Task) {
-                // Reopening this one gives the series back (MAG-1033).
+            if ($next instanceof Task && $task->isDone()) {
+                // Reopening this one gives the series back (MAG-1033). A missed
+                // one is not linked: ticked and unticked later, it stays apart.
                 $task->handOverTo($next);
                 $this->em->flush();
             }

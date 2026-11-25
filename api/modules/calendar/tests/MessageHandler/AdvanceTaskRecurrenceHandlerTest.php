@@ -79,6 +79,7 @@ final class AdvanceTaskRecurrenceHandlerTest extends KernelTestCase
         self::assertFalse($stillOpen->isDone(), 'a missed occurrence stays to be done');
         self::assertSame('2026-11-24', $stillOpen->getScheduledDate()?->format('Y-m-d'), 'never moved in silence');
         self::assertNull($stillOpen->getRrule());
+        self::assertNull($stillOpen->getNextOccurrence(), 'only a done occurrence gives the series back');
         $marked = self::getContainer()->get(TaskUrgency::class)->mark($stillOpen);
         self::assertSame('2026-11-24', $marked->getPostponedSince()?->format('Y-m-d'), '« reportée »');
         self::assertSame('2026-12-08', $next->getScheduledDate()?->format('Y-m-d'));

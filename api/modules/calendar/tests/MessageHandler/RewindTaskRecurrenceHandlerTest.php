@@ -9,6 +9,7 @@ use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\MercureAssertionTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Maggie\Calendar\Entity\Task;
+use Maggie\Calendar\Message\AdvanceTaskRecurrenceCommand;
 use Maggie\Calendar\Message\CreateTaskCommand;
 use Maggie\Calendar\Message\RewindTaskRecurrenceCommand;
 use Maggie\Calendar\Message\UpdateTaskCommand;
@@ -118,6 +119,18 @@ final class RewindTaskRecurrenceHandlerTest extends KernelTestCase
         $this->reopen($current);
 
         $this->assertReopenedAlone($current);
+    }
+
+    public function testAMissedOccurrenceTickedThenUntickedKeepsTheNextOne(): void
+    {
+        $missed = $this->createRecurring($this->user);
+        $this->today('2026-11-26');
+        $this->handled(new AdvanceTaskRecurrenceCommand((string) $this->user->getId(), (string) $missed->getId()));
+        $this->complete($this->series()[0]);
+
+        $this->reopen($missed);
+
+        $this->assertReopenedAlone($missed);
     }
 
     public function testASecondRunChangesNothing(): void
