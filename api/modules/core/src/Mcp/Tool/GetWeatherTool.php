@@ -16,7 +16,7 @@ use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(
     name: 'get_weather',
-    description: 'Daily forecast from Open-Meteo: condition (text, `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min/max temperature (°C), rain (mm, probability), wind and gusts (km/h), alerts. Without `date`: today and tomorrow; with `date` (YYYY-MM-DD, up to 15 days ahead): that day. `location`: city, default the user\'s. Failure returns `error`.',
+    description: 'Daily forecast from Open-Meteo: condition (text, `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min/max temperature (°C), rain (mm, probability), wind and gusts (km/h), alerts. Without `date`: today and tomorrow; with `date` (YYYY-MM-DD, up to 15 days ahead): that day. `location`: city, default the user\'s. Failure returns `error`. Read-only.',
 )]
 class GetWeatherTool
 {

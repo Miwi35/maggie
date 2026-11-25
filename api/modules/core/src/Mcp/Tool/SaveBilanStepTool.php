@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'save_bilan_step', description: 'Records the evening review state. day: YYYY-MM-DD. step (optional): journee, finance, sante, consignes, demain; omitted keeps the stored step, a bilan prepared before it starts has none. tomorrowTasks, tomorrowSpares (optional): [{taskId, title, reason?}], the tasks Maggie plans for tomorrow and the ones she keeps to swap in; omitted keeps them. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}.')]
+#[McpTool(name: 'save_bilan_step', description: 'Evening review state only; a consigne of the review is add_bilan_consigne. Records the evening review state. day: YYYY-MM-DD. step (optional): journee, finance, sante, consignes, demain; omitted keeps the stored step, a bilan prepared before it starts has none. tomorrowTasks, tomorrowSpares (optional): [{taskId, title, reason?}], the tasks Maggie plans for tomorrow and the ones she keeps to swap in; omitted keeps them. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}.')]
 class SaveBilanStepTool
 {
     public function __construct(

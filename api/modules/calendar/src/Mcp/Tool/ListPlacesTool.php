@@ -11,7 +11,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'list_places', description: 'Reads the user\'s places, home (« Maison ») first then by name, as {places: [...]}. A place has id, name, address, latitude and longitude (null until the address is located), parkingAddress, parkingLatitude and parkingLongitude (null when none), and isHome. When there is no home, the address of the owner\'s Google account is imported as « Maison » if it has one.')]
+#[McpTool(name: 'list_places', description: 'A place is an address the owner keeps; where the phone is now is get_my_location. Reads the user\'s places, home (« Maison ») first then by name, as {places: [...]}. A place has id, name, address, latitude and longitude (null until the address is located), parkingAddress, parkingLatitude and parkingLongitude (null when none), and isHome. When there is no home, the address of the owner\'s Google account is imported as « Maison » if it has one.')]
 final class ListPlacesTool
 {
     public function __construct(

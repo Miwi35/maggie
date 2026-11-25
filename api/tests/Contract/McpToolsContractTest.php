@@ -161,7 +161,33 @@ final class McpToolsContractTest extends KernelTestCase
      */
     public function testEachToolSaysWhatItsObjectIs(): void
     {
-        $expected = [
+        $tools = $this->tools();
+
+        foreach (self::objectLines() as $name => $excerpts) {
+            foreach ($excerpts as $excerpt) {
+                self::assertStringContainsString($excerpt, (string) $tools[$name]['description'], sprintf('The description of "%s" no longer says "%s".', $name, $excerpt));
+            }
+        }
+    }
+
+    /**
+     * Closes the chain of MAG-1012: a tool added without its line here fails.
+     */
+    public function testEveryOfferedToolHasItsObjectLine(): void
+    {
+        $offered = array_values(array_diff(array_keys($this->tools()), self::EXECUTOR_ONLY));
+        $lined = array_keys(self::objectLines());
+
+        self::assertSame([], array_values(array_diff($offered, $lined)), 'These tools have no line in objectLines(): say what their object is and which neighbour to prefer.');
+        self::assertSame([], array_values(array_diff($lined, $offered)), 'These lines of objectLines() name no offered tool.');
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function objectLines(): array
+    {
+        return [
             'manage_periods' => ['A period links a context to a stretch of time', 'not a long event', 'makes the owner unavailable', 'A state of health is not a period', 'get_events'],
             'create_event' => ['An event is', 'makes him unavailable is an event even over several days', 'manage_periods', 'never a long event', 'check_conflicts'],
             'check_conflicts' => ['create_event'],
@@ -246,14 +272,23 @@ final class McpToolsContractTest extends KernelTestCase
             'get_training_status' => ['Read-only'],
             'get_exercises' => ['manage_workouts'],
             'choose_workout_makeup' => ['missed-session proposal', 'manage_workouts'],
+            'search' => ['memory_search', 'web_search'],
+            'read_web_page' => ['creates nothing'],
+            'get_user_timezone' => ["The owner's own zone"],
+            'get_weather' => ['Read-only'],
+            'get_my_location' => ['list_places'],
+            'list_places' => ['A place is', 'get_my_location'],
+            'save_place' => ['list_places'],
+            'estimate_trip' => ['keeps nothing', 'set_trip'],
+            'set_trip' => ['departure alert', 'estimate_trip'],
+            'list_trips' => ['set_trip'],
+            'get_activity_status' => ['An activity is'],
+            'save_bilan_step' => ['add_bilan_consigne'],
+            'update_event' => ['check_conflicts'],
+            'update_task' => ['get_tasks'],
+            'get_tasks' => ['A task is'],
+            'manage_meals' => ['A planned meal is a meal'],
         ];
-        $tools = $this->tools();
-
-        foreach ($expected as $name => $excerpts) {
-            foreach ($excerpts as $excerpt) {
-                self::assertStringContainsString($excerpt, (string) $tools[$name]['description'], sprintf('The description of "%s" no longer says "%s".', $name, $excerpt));
-            }
-        }
     }
 
     public function testNoDescriptionCountsSicknessAsAPeriod(): void
@@ -323,7 +358,7 @@ final class McpToolsContractTest extends KernelTestCase
      * description may send her to one of them (schedule_proaction → add_instruction, MAG-326).
      * Names from agent/app/llm/tools.py.
      */
-    private const AGENT_TOOLS = ['add_instruction', 'delete_instruction', 'answer_approval'];
+    private const AGENT_TOOLS = ['add_instruction', 'delete_instruction', 'answer_approval', 'add_bilan_consigne', 'memory_search'];
 
     /**
      * @param array<string, array<string, mixed>> $tools

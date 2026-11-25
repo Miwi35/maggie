@@ -10,7 +10,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Core\Repository\UserPreferenceRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_user_timezone', description: 'Reads the IANA timezone (e.g. Europe/Paris) the user chose in their preferences, and their working hours (HH:MM start and end, ISO days 1 = Monday … 7).')]
+#[McpTool(name: 'get_user_timezone', description: 'The owner\'s own zone and working hours. Reads the IANA timezone (e.g. Europe/Paris) the user chose in their preferences, and their working hours (HH:MM start and end, ISO days 1 = Monday … 7).')]
 class GetUserTimezoneTool
 {
     public const DEFAULT_TIMEZONE = 'Europe/Paris';
