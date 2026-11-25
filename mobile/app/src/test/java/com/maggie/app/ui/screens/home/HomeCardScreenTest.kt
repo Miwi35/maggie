@@ -53,6 +53,18 @@ class HomeCardScreenTest {
     }
 
     @Test
+    fun `a trailing takes the chevron's place and the header still opens the module`() {
+        var opened = 0
+        compose.setContent {
+            HomeCard(title = "Agenda", module = HomeModules.AGENDA, onOpen = { opened++ }, trailing = { Text("2 passés") }) { }
+        }
+
+        compose.onNodeWithText("2 passés").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.AGENDA)).performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test
     fun `the header is a button, at least 48 dp tall`() {
         compose.setContent {
             HomeCard(title = "Finance", module = HomeModules.FINANCE, onOpen = {}) { }

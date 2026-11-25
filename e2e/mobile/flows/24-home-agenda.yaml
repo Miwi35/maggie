@@ -9,7 +9,8 @@ tags:
 # Given those two events today, when the Accueil opens, then the line is on screen with the
 # done event above it; when the user touches the coming event, then its fiche opens with the
 # place and « Ouvrir dans l'agenda ». The rows, the order and the fiche's fields are
-# `AgendaCardScreenTest`'s and `AgendaHomeViewModelTest`'s.
+# `AgendaCardScreenTest`'s and `AgendaHomeViewModelTest`'s. MAG-1030: the header reads « Agenda · <day> »
+# with « n passé(s) · n à venir », and the plumber's line « Au téléphone · Famille ».
 # A row is one touch target that merges its texts (« Point du matin · fait », the hour, the place):
 # the flow matches the title inside it.
 
@@ -46,12 +47,30 @@ tags:
     direction: DOWN
     centerElement: true
     timeout: 20000
+- extendedWaitUntil:
+    visible: ".*Au téléphone · Famille.*"
+    timeout: 20000
 # The departure card (MAG-866) is tall: centering the 18:30 row pushes the 08:00 row above the fold,
 # so scroll back up to it instead of waiting for it.
 - scrollUntilVisible:
     element: ".*Point du matin.*"
     direction: UP
     centerElement: true
+    timeout: 20000
+
+- scrollUntilVisible:
+    element:
+      id: "home_header_agenda"
+    direction: UP
+    centerElement: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "home_header_agenda"
+      text: "(?s)Agenda · .*"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "(?s).*\\d+ passés? · \\d+ à venir.*"
     timeout: 20000
 
 # « ▶ Lancer » (MAG-568): the seed's « Revue d'octobre » (20:00) is an activity, so its line carries
