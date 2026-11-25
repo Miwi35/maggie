@@ -935,7 +935,8 @@ test.describe('Recipes and meals', () => {
     const shell = new AdminShell(page)
     await shell.goto(ROUTES.recipes)
     await expect(shell.content.getByRole('columnheader')).toHaveText(['Recette', 'Portions', 'Tags', 'Durée', 'kcal / pers.', 'Dernier repas'])
-    await expect(shell.content.getByRole('heading', { level: 1, name: 'Recettes' })).toBeVisible()
+    // The breadcrumb is also an h1 « Recettes »; the page's own title comes after it.
+    await expect(shell.content.getByRole('heading', { level: 1, name: 'Recettes' }).last()).toBeVisible()
     await expect(shell.content.getByRole('link', { name: '+ Recette' })).toBeVisible()
     const row = (name: string): Locator => shell.content.getByRole('row').filter({ hasText: name })
     await expect(row(quick)).toBeVisible()
