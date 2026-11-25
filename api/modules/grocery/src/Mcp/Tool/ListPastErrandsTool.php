@@ -11,7 +11,7 @@ use Maggie\Grocery\Entity\PurchasedItem;
 use Maggie\Grocery\Repository\ErrandRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'list_past_errands', description: 'Past errands, most recent first: one store each (storeName, null when none), endedAt (ISO 8601), items (label, quantity, unit, product IRI or null, packaging fields). store matches the name in part, case-insensitively; limit 1-20 (default 5).')]
+#[McpTool(name: 'list_past_errands', description: 'What was bought, errand by errand; the current list is get_grocery_list. Past errands, most recent first: one store each (storeName, null when none), endedAt (ISO 8601), items (label, quantity, unit, product IRI or null, packaging fields). store matches the name in part, case-insensitively; limit 1-20 (default 5).')]
 class ListPastErrandsTool
 {
     private const MAX_LIMIT = 20;

@@ -54,7 +54,7 @@
                 "label"
             ]
         },
-        "description": "Adds an item by label. A matching product's preferred store is assigned, else storeId or storeName. A product already on the list (not ticked) accumulates on its line, even in another unit. quantity with unit, or packagings (whole number >= 1, packaged products only), never both. A packaged product is counted in packagings, rounded up (asked quantity kept in desiredQuantity); with neither: restockQuantity, else the 7-day meal need, else 1. Returns productId, recipeNeed (base units, null when none), coversWeek, packagingsToCover."
+        "description": "Puts a thing to buy on the grocery list. What is left at home is update_stock, a product's catalogue data manage_products or manage_ingredients, an item listed again on its own manage_recurring_groceries. Adds an item by label. A matching product's preferred store is assigned, else storeId or storeName. A product already on the list (not ticked) accumulates on its line, even in another unit. quantity with unit, or packagings (whole number >= 1, packaged products only), never both. A packaged product is counted in packagings, rounded up (asked quantity kept in desiredQuantity); with neither: restockQuantity, else the 7-day meal need, else 1. Returns productId, recipeNeed (base units, null when none), coversWeek, packagingsToCover."
     },
     "answer_task_reminder": {
         "name": "answer_task_reminder",
@@ -187,7 +187,7 @@
                 "groceryItemId"
             ]
         },
-        "description": "Sets the checked state of an item: checked=true when bought, false to uncheck."
+        "description": "Sets the checked state of an item: checked=true when bought, false to uncheck. Item id from get_grocery_list. Ticking neither ends the errand nor changes stock: end_errand does both."
     },
     "check_routine": {
         "name": "check_routine",
@@ -567,7 +567,7 @@
                 }
             }
         },
-        "description": "Archives checked items as past errands, one per store (errands: id, storeName, itemCount), removes them from the list, puts their products In Stock (restockedProducts), returns the unchecked items. storeId ends that store only; paidAmountCents (whole cents, needs storeId) records what was paid."
+        "description": "Ends a shopping trip once the owner is done. Archives checked items as past errands, one per store (errands: id, storeName, itemCount), removes them from the list, puts their products In Stock (restockedProducts), returns the unchecked items. storeId ends that store only; paidAmountCents (whole cents, needs storeId) records what was paid."
     },
     "estimate_trip": {
         "name": "estimate_trip",
@@ -665,7 +665,7 @@
                 "toDate"
             ]
         },
-        "description": "Top up the grocery list with recurring items due again (idempotent). Meals add nothing: mealsToChoose lists meals in the date range (YYYY-MM-DD) whose ingredients are not chosen (id, date, slot, summary), to choose with manage_meal_groceries."
+        "description": "Top up the grocery list with recurring items due again (idempotent). Meals add nothing: mealsToChoose lists meals in the date range (YYYY-MM-DD) whose ingredients are not chosen (id, date, slot, summary), to choose with manage_meal_groceries. A one-off item is add_grocery_item."
     },
     "get_activity_status": {
         "name": "get_activity_status",
@@ -900,7 +900,7 @@
                 }
             }
         },
-        "description": "The list by store in visit order, then aisle (aisle {id, name, position}, null last), then position. Items with buyAfter in the future are in later; includeDeferred=true moves them into the store groups. One line per product: needed (base units), quantity and unit to buy (whole packagings for a packaged product), desiredQuantity, desiredUnit, packaging (null when none), stockState."
+        "description": "What is still to buy. What was bought is list_past_errands, what is at home update_stock, what may be due again get_purchase_suggestions. Read it before changing an item. The list by store in visit order, then aisle (aisle {id, name, position}, null last), then position. Items with buyAfter in the future are in later; includeDeferred=true moves them into the store groups. One line per product: needed (base units), quantity and unit to buy (whole packagings for a packaged product), desiredQuantity, desiredUnit, packaging (null when none), stockState."
     },
     "get_health_day": {
         "name": "get_health_day",
@@ -958,7 +958,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Products bought 3+ times in past errands and due again: everyDays (median gap), lastBoughtOn, dueOn (YYYY-MM-DD), usualQuantity, usualUnit (null when unknown). Products already listed, recurring or dismissed are left out."
+        "description": "Suggestions only, nothing is listed: add_grocery_item once the owner wants one. Products bought 3+ times in past errands and due again: everyDays (median gap), lastBoughtOn, dueOn (YYYY-MM-DD), usualQuantity, usualUnit (null when unknown). Products already listed, recurring or dismissed are left out."
     },
     "get_recipe": {
         "name": "get_recipe",
@@ -1172,7 +1172,7 @@
                 }
             }
         },
-        "description": "Past errands, most recent first: one store each (storeName, null when none), endedAt (ISO 8601), items (label, quantity, unit, product IRI or null, packaging fields). store matches the name in part, case-insensitively; limit 1-20 (default 5)."
+        "description": "What was bought, errand by errand; the current list is get_grocery_list. Past errands, most recent first: one store each (storeName, null when none), endedAt (ISO 8601), items (label, quantity, unit, product IRI or null, packaging fields). store matches the name in part, case-insensitively; limit 1-20 (default 5)."
     },
     "list_places": {
         "name": "list_places",
@@ -1438,7 +1438,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update (rename and/or move), reorder, delete the aisles of a store (position 1 first). list, create, reorder need storeId; update, delete need aisleId. create is last unless position is given. reorder takes aisleIds (all of the store). Deleting leaves its products without an aisle there."
+        "description": "An aisle is a section of one store, in walking order; storeId from manage_stores. Actions: list, create, update (rename and/or move), reorder, delete the aisles of a store (position 1 first). list, create, reorder need storeId; update, delete need aisleId. create is last unless position is given. reorder takes aisleIds (all of the store). Deleting leaves its products without an aisle there."
     },
     "manage_body_measurements": {
         "name": "manage_body_measurements",
@@ -2513,7 +2513,7 @@
                 "action"
             ]
         },
-        "description": "Choose the ingredients of a planned meal that go on the grocery list. preview lists them with toBuy (packagings), stock state (in_stock, low, out), suggested=true when low or out. add puts only ingredientIds (comma-separated, from preview; empty adds nothing) on the list, replacing what the meal put there."
+        "description": "For a planned meal (manage_meals) only; a thing to buy on its own is add_grocery_item. Before add: preview, then add only what the owner chose. Choose the ingredients of a planned meal that go on the grocery list. preview lists them with toBuy (packagings), stock state (in_stock, low, out), suggested=true when low or out. add puts only ingredientIds (comma-separated, from preview; empty adds nothing) on the list, replacing what the meal put there."
     },
     "manage_meal_settings": {
         "name": "manage_meal_settings",
@@ -3494,7 +3494,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete recurring items, added to generated lists. frequency: weekly, biweekly, monthly. Needs a productId or a customLabel. clear lists fields to empty: productId, customLabel, quantity, unit; one of the two must remain."
+        "description": "A recurring item comes back on the list at a fixed frequency through generate_grocery_list; a product relisted when it runs out is autoRestock (manage_products, manage_ingredients). Actions: list, create, update, delete recurring items, added to generated lists. frequency: weekly, biweekly, monthly. Needs a productId or a customLabel. clear lists fields to empty: productId, customLabel, quantity, unit; one of the two must remain."
     },
     "manage_scenarios": {
         "name": "manage_scenarios",
@@ -3615,7 +3615,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete stores, with visitOrder and a description of what they sell (used to assign products). clear lists fields to empty: description."
+        "description": "A store is a shop the owner buys in; products are placed with assign_product_store, aisles with manage_aisles. Actions: list, create, update, delete stores, with visitOrder and a description of what they sell (used to assign products). clear lists fields to empty: description."
     },
     "manage_transactions": {
         "name": "manage_transactions",
@@ -4132,7 +4132,7 @@
                 "groceryItemId"
             ]
         },
-        "description": "Marks an unchecked item missing: it moves to the product's fallback store if any, else stays. missing=false moves it back to the store it was missing from."
+        "description": "Marks an unchecked item missing: it moves to the product's fallback store if any, else stays. missing=false moves it back to the store it was missing from. For an item the store does not have: neither bought nor removed."
     },
     "move_to_fallback": {
         "name": "move_to_fallback",
@@ -4147,7 +4147,7 @@
                 "storeId"
             ]
         },
-        "description": "Moves every unchecked item of a closed store to its product's fallback store."
+        "description": "Moves every unchecked item of a closed store to its product's fallback store. For a closed store; one missing item is mark_grocery_item_missing."
     },
     "read_bank_statement": {
         "name": "read_bank_statement",
@@ -4324,7 +4324,7 @@
                 "groceryItemId"
             ]
         },
-        "description": "Removes an item from the list."
+        "description": "Removes an item no longer wanted (id from get_grocery_list); a bought item is ticked with check_grocery_item, one the store lacks marked with mark_grocery_item_missing."
     },
     "reorder_grocery_items": {
         "name": "reorder_grocery_items",
@@ -4339,7 +4339,7 @@
                 "items"
             ]
         },
-        "description": "Sets item positions from items, a list of {id, position}."
+        "description": "Sets item positions from items, a list of {id, position}. Ids from get_grocery_list; the order of a store's aisles is manage_aisles."
     },
     "replace_recipe_ingredient": {
         "name": "replace_recipe_ingredient",

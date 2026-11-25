@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'end_errand', description: 'Archives checked items as past errands, one per store (errands: id, storeName, itemCount), removes them from the list, puts their products In Stock (restockedProducts), returns the unchecked items. storeId ends that store only; paidAmountCents (whole cents, needs storeId) records what was paid.')]
+#[McpTool(name: 'end_errand', description: 'Ends a shopping trip once the owner is done. Archives checked items as past errands, one per store (errands: id, storeName, itemCount), removes them from the list, puts their products In Stock (restockedProducts), returns the unchecked items. storeId ends that store only; paidAmountCents (whole cents, needs storeId) records what was paid.')]
 class EndErrandTool
 {
     public function __construct(

@@ -1,0 +1,11 @@
+# What is left at home is stock, not the grocery list (MAG-1016).
+name: liste-ou-stock
+description: Telling Maggie the milk is gone sets the stock to out, and she only says what the tool did.
+channel: chat
+
+steps:
+  - user_message: "Il ne reste plus de lait à la maison."
+    expected_tools: [update_stock]
+    expected_behavior: >
+      Elle note le stock à « out » et dit seulement ce que l'outil a fait
+      (ajout à la liste ou non, selon sa réponse), en une phrase.

@@ -10,7 +10,7 @@ use Maggie\Grocery\Entity\GroceryItem;
 use Maggie\Grocery\Repository\GroceryListRepository;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_grocery_list', description: 'The list by store in visit order, then aisle (aisle {id, name, position}, null last), then position. Items with buyAfter in the future are in later; includeDeferred=true moves them into the store groups. One line per product: needed (base units), quantity and unit to buy (whole packagings for a packaged product), desiredQuantity, desiredUnit, packaging (null when none), stockState.')]
+#[McpTool(name: 'get_grocery_list', description: 'What is still to buy. What was bought is list_past_errands, what is at home update_stock, what may be due again get_purchase_suggestions. Read it before changing an item. The list by store in visit order, then aisle (aisle {id, name, position}, null last), then position. Items with buyAfter in the future are in later; includeDeferred=true moves them into the store groups. One line per product: needed (base units), quantity and unit to buy (whole packagings for a packaged product), desiredQuantity, desiredUnit, packaging (null when none), stockState.')]
 class GetGroceryListTool
 {
     public function __construct(

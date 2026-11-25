@@ -11,7 +11,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'remove_grocery_item', description: 'Removes an item from the list.')]
+#[McpTool(name: 'remove_grocery_item', description: 'Removes an item no longer wanted (id from get_grocery_list); a bought item is ticked with check_grocery_item, one the store lacks marked with mark_grocery_item_missing.')]
 class RemoveGroceryItemTool
 {
     public function __construct(

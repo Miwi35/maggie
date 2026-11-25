@@ -13,7 +13,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'move_to_fallback', description: 'Moves every unchecked item of a closed store to its product\'s fallback store.')]
+#[McpTool(name: 'move_to_fallback', description: 'Moves every unchecked item of a closed store to its product\'s fallback store. For a closed store; one missing item is mark_grocery_item_missing.')]
 class MoveToFallbackTool
 {
     public function __construct(

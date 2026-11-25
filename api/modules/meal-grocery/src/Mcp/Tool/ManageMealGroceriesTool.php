@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * One tool for the preview and the choice: Maggie always does both in a row,
  * and two tools would cost her one more round trip (MAG-295).
  */
-#[McpTool(name: 'manage_meal_groceries', description: 'Choose the ingredients of a planned meal that go on the grocery list. preview lists them with toBuy (packagings), stock state (in_stock, low, out), suggested=true when low or out. add puts only ingredientIds (comma-separated, from preview; empty adds nothing) on the list, replacing what the meal put there.')]
+#[McpTool(name: 'manage_meal_groceries', description: 'For a planned meal (manage_meals) only; a thing to buy on its own is add_grocery_item. Before add: preview, then add only what the owner chose. Choose the ingredients of a planned meal that go on the grocery list. preview lists them with toBuy (packagings), stock state (in_stock, low, out), suggested=true when low or out. add puts only ingredientIds (comma-separated, from preview; empty adds nothing) on the list, replacing what the meal put there.')]
 class ManageMealGroceriesTool
 {
     public function __construct(

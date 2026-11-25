@@ -11,7 +11,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'mark_grocery_item_missing', description: 'Marks an unchecked item missing: it moves to the product\'s fallback store if any, else stays. missing=false moves it back to the store it was missing from.')]
+#[McpTool(name: 'mark_grocery_item_missing', description: 'Marks an unchecked item missing: it moves to the product\'s fallback store if any, else stays. missing=false moves it back to the store it was missing from. For an item the store does not have: neither bought nor removed.')]
 class MarkGroceryItemMissingTool
 {
     public function __construct(

@@ -183,6 +183,21 @@ final class McpToolsContractTest extends KernelTestCase
             'delete_event' => ['manage_periods', 'cancel_proaction'],
             'manage_agendas' => ['An agenda holds', 'never an event'],
             'get_day_context' => ['manage_periods', 'Read-only'],
+            'add_grocery_item' => ['Puts a thing to buy', 'update_stock', 'manage_recurring_groceries'],
+            'remove_grocery_item' => ['check_grocery_item', 'mark_grocery_item_missing'],
+            'check_grocery_item' => ['end_errand'],
+            'mark_grocery_item_missing' => ['neither bought nor removed'],
+            'move_to_fallback' => ['mark_grocery_item_missing'],
+            'reorder_grocery_items' => ['manage_aisles'],
+            'get_grocery_list' => ['What is still to buy', 'list_past_errands', 'update_stock'],
+            'end_errand' => ['Ends a shopping trip'],
+            'list_past_errands' => ['get_grocery_list'],
+            'get_purchase_suggestions' => ['nothing is listed', 'add_grocery_item'],
+            'generate_grocery_list' => ['add_grocery_item'],
+            'manage_recurring_groceries' => ['A recurring item', 'autoRestock'],
+            'manage_stores' => ['A store is', 'assign_product_store'],
+            'manage_aisles' => ['An aisle is', 'manage_stores'],
+            'manage_meal_groceries' => ['add_grocery_item', 'preview'],
         ];
         $tools = $this->tools();
 

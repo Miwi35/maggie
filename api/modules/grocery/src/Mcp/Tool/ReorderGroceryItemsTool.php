@@ -11,7 +11,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'reorder_grocery_items', description: 'Sets item positions from items, a list of {id, position}.')]
+#[McpTool(name: 'reorder_grocery_items', description: 'Sets item positions from items, a list of {id, position}. Ids from get_grocery_list; the order of a store\'s aisles is manage_aisles.')]
 class ReorderGroceryItemsTool
 {
     public function __construct(
