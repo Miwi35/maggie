@@ -1,0 +1,12 @@
+# A weighing is a measurement, not a profile change (MAG-1020).
+name: pesee-ou-profil
+description: Told a weight, she records a weighing and leaves the profile and the day's journal alone.
+channel: chat
+
+steps:
+  - user_message: "Je pèse 78 kilos ce matin."
+    expected_tools: [manage_body_measurements]
+    forbidden_tools: [update_health_profile, update_health_day]
+    expected_behavior: >
+      Elle enregistre une pesée avec manage_body_measurements et confirme en
+      une phrase. Elle ne touche ni au profil ni au journal du jour.
