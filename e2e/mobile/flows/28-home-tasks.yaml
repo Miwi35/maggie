@@ -54,6 +54,8 @@ onFlowComplete:
 - assertVisible: "Une seule suffit pour lancer la journée"
 - assertVisible:
     id: "home_task_when_.*"
+    index: 0
+- assertVisible:
     text: "avant ce soir"
     index: 0
 

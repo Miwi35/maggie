@@ -2,7 +2,6 @@ package com.maggie.app.ui.screens.home
 
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -84,12 +83,12 @@ class TasksCardScreenTest {
     fun `a row reads its when pill, its urgency and its meta under a one-line title`() {
         show()
 
-        compose.onNodeWithTag(UiTags.homeTaskWhen("t1")).assertExists()
-        compose.onNodeWithText("avant ce soir").assertExists()
-        compose.onNodeWithTag(UiTags.homeTaskUrgency("t1")).assertExists()
-        compose.onNodeWithText("Critique").assertExists()
-        compose.onNodeWithTag(UiTags.homeTaskMeta("t1")).assertTextEquals("reportée depuis lundi")
-        compose.onNodeWithTag(UiTags.homeTaskWhen("t2")).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.homeTaskWhen("t1"), useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("avant ce soir", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(UiTags.homeTaskUrgency("t1"), useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Critique", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(UiTags.homeTaskMeta("t1"), useUnmergedTree = true).assertTextEquals("reportée depuis lundi")
+        compose.onNodeWithTag(UiTags.homeTaskWhen("t2"), useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
