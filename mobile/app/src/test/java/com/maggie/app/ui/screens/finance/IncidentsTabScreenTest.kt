@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.AccountIncident
+import com.maggie.app.data.model.formatCents
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
@@ -151,7 +152,7 @@ class IncidentsTabScreenTest {
         show(incidents = listOf(edf.copy(counterpartyName = longName, amountCents = 20600)))
 
         val name = compose.onNodeWithText(longName, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val amount = compose.onNodeWithText("206,00 €", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val amount = compose.onNodeWithText(formatCents(20600), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val gap = 12 * ApplicationProvider.getApplicationContext<Application>().resources.displayMetrics.density
 
         assertTrue("name ends at ${name.right}, amount starts at ${amount.left}", name.right + gap <= amount.left + 0.5f)
