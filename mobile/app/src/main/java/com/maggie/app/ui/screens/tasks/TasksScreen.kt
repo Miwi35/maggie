@@ -139,6 +139,24 @@ fun TasksScreen(
                 state.reward?.let { RewardBanner(celebration = it, onDismiss = viewModel::dismissReward) }
                 state.palier?.let { PalierBanner(celebration = it, animate = it.animate && !reducedMotion, onDismiss = viewModel::dismissPalier) }
 
+                state.recurringDone?.let { done ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = TasksStock.doneLabel(done.next),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f).testTag(UiTags.TASKS_RECURRING_DONE),
+                        )
+                        TextButton(
+                            onClick = viewModel::undoRecurringDone,
+                            modifier = Modifier.testTag(UiTags.TASKS_RECURRING_DONE_UNDO),
+                        ) { Text("Annuler") }
+                    }
+                }
+
                 state.message?.let { message ->
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),

@@ -45,8 +45,15 @@ data class Task(
     val timed: Boolean = false,
     /** RFC 5545 rule without `RRULE:`, carried only by the open occurrence of a series (MAG-870). */
     val rrule: String? = null,
+    /**
+     * Read only (MAG-1033): the IRI of the series' next occurrence, set on the done occurrence once its rule passed
+     * to it; absent otherwise, and when the rule ended. Not kept in Room.
+     */
+    val nextOccurrence: String? = null,
 ) {
     val isDone: Boolean get() = completedAt != null
+
+    val nextOccurrenceId: String? get() = nextOccurrence?.substringAfterLast('/')
 
     val isSubtask: Boolean get() = parent != null
 

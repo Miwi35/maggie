@@ -93,6 +93,28 @@ class TasksStockScreenTest {
     }
 
     @Test
+    fun `the done banner draws its label and Annuler, which undoes`() {
+        val next = Task(id = "t7", title = "Envoyer la mutuelle", scheduledDate = "2026-12-08", rrule = "FREQ=WEEKLY")
+        show(upcoming = listOf(mutuelle), someday = emptyList())
+        coEvery { repository.toggleDone("t2", true) } returns
+            Result.success(mutuelle.copy(completedAt = "2026-10-15T08:00:00Z", rrule = null, nextOccurrence = next.iri))
+        coEvery { repository.fetchTask("t7") } returns Result.success(next)
+        coEvery { repository.toggleDone("t2", false) } returns Result.success(mutuelle)
+        coEvery { repository.getTaskReward(any()) } returns Result.success(null)
+        coEvery { repository.getTaskSettings() } returns Result.failure(IllegalStateException("offline"))
+
+        compose.onNodeWithTag(UiTags.tasksCheck("t2")).performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(UiTags.TASKS_RECURRING_DONE).assertIsDisplayed().assertTextEquals("Fait · prochaine le 8 déc.")
+        compose.onNodeWithTag(UiTags.TASKS_RECURRING_DONE_UNDO).assertIsDisplayed().assertTextEquals("Annuler").performClick()
+        compose.waitForIdle()
+
+        coVerify { repository.toggleDone("t2", false) }
+        compose.onNodeWithTag(UiTags.TASKS_RECURRING_DONE).assertDoesNotExist()
+    }
+
+    @Test
     fun `the empty section says Aucune tâche`() {
         show(upcoming = emptyList(), someday = emptyList())
 

@@ -1,6 +1,8 @@
 package com.maggie.app.ui.screens.tasks
 
 import com.maggie.app.data.auth.AuthRepository
+import com.maggie.app.data.mercure.MERCURE_BURST_WINDOW_MS
+import com.maggie.app.data.mercure.MERCURE_INDEX_RECHECK_MS
 import com.maggie.app.data.mercure.MercureEvent
 import com.maggie.app.data.mercure.MercureService
 import com.maggie.app.data.mercure.MercureTopics
@@ -30,6 +32,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -499,6 +502,188 @@ class TasksViewModelTest {
 
         assertEquals(listOf("g1", "g2"), viewModel.uiState.value.stock.orEmpty().flatMap { g -> g.tasks.map { it.id } })
         assertEquals("Impossible de programmer la tâche.", viewModel.uiState.value.message)
+    }
+
+    // --- A repeated task ticked in « Tâches » (MAG-1033) ---
+
+    private val plants = Task(id = "r1", title = "Arroser les plantes", scheduledDate = "2026-10-16", rrule = "FREQ=WEEKLY")
+    private val plantsNext = Task(id = "r2", title = "Arroser les plantes", scheduledDate = "2026-10-23", rrule = "FREQ=WEEKLY")
+
+    /** The done occurrence the PATCH answers: the rule passed to [next], or ended with none. */
+    private fun plantsDone(next: Task? = plantsNext) =
+        plants.copy(completedAt = "2026-10-15T08:00:00Z", rrule = null, nextOccurrence = next?.iri)
+
+    private fun serveRecurringTick(next: Task? = plantsNext) {
+        coEvery { taskRepository.toggleDone("r1", true) } returns Result.success(plantsDone(next))
+        if (next != null) coEvery { taskRepository.fetchTask(next.id) } returns Result.success(next)
+    }
+
+    private fun TasksViewModel.stockTask(id: String): Task? =
+        uiState.value.stock.orEmpty().flatMap { it.tasks }.firstOrNull { it.id == id }
+
+    private fun TasksViewModel.stockIds(): List<String> = uiState.value.stock.orEmpty().flatMap { g -> g.tasks.map { it.id } }
+
+    @Test
+    fun `a repeated task ticked in Tâches is struck at once and says when the next one is`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        val answer = CompletableDeferred<Result<Task>>()
+        coEvery { taskRepository.toggleDone("r1", true) } coAnswers { answer.await() }
+        coEvery { taskRepository.fetchTask("r2") } returns Result.success(plantsNext)
+        val viewModel = openStock()
+
+        viewModel.toggleDone(plants)
+        assertTrue(viewModel.stockTask("r1")!!.isDone)
+        assertNull(viewModel.uiState.value.recurringDone)
+
+        answer.complete(Result.success(plantsDone()))
+        runCurrent()
+
+        assertEquals(RecurringDone("r1", LocalDate.of(2026, 10, 23)), viewModel.uiState.value.recurringDone)
+        assertTrue(viewModel.stockTask("r1")!!.isDone)
+        assertEquals(listOf("r1", "g2"), viewModel.stockIds())
+    }
+
+    @Test
+    fun `while the done banner shows, a push does not read Tâches again, it is read once the banner closes`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        serveRecurringTick()
+        val viewModel = openStock()
+        viewModel.onOpened()
+        advanceUntilIdle()
+        viewModel.toggleDone(plants)
+        runCurrent()
+
+        serveStock(listOf(plantsNext), listOf(photos))
+        pushes.emit(MercureEvent())
+        advanceTimeBy(MERCURE_BURST_WINDOW_MS + MERCURE_INDEX_RECHECK_MS + 100)
+        runCurrent()
+
+        coVerify(exactly = 2) { taskRepository.getTaskView(TaskView.UPCOMING, null) }
+        assertTrue(viewModel.stockTask("r1")!!.isDone)
+        assertNotNull(viewModel.uiState.value.recurringDone)
+
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.recurringDone)
+        assertEquals(listOf("r2", "g2"), viewModel.stockIds())
+        viewModel.onClosed()
+    }
+
+    @Test
+    fun `the done banner closes on its own after 6 s and Tâches is read again`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        serveRecurringTick()
+        val viewModel = openStock()
+        viewModel.toggleDone(plants)
+        runCurrent()
+        serveStock(listOf(plantsNext), listOf(photos))
+
+        advanceTimeBy(RECURRING_DONE_MS - 1)
+        runCurrent()
+        assertNotNull(viewModel.uiState.value.recurringDone)
+        assertEquals(listOf("r1", "g2"), viewModel.stockIds())
+
+        advanceTimeBy(2)
+        runCurrent()
+        assertNull(viewModel.uiState.value.recurringDone)
+        assertEquals(listOf("r2", "g2"), viewModel.stockIds())
+    }
+
+    @Test
+    fun `Annuler asks for completedAt null on the occurrence and reads Tâches again`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        serveRecurringTick()
+        coEvery { taskRepository.toggleDone("r1", false) } returns Result.success(plants)
+        val viewModel = openStock()
+        viewModel.toggleDone(plants)
+        runCurrent()
+
+        viewModel.undoRecurringDone()
+        assertNull(viewModel.uiState.value.recurringDone)
+        advanceUntilIdle()
+
+        coVerify { taskRepository.toggleDone("r1", false) }
+        coVerify(exactly = 2) { taskRepository.getTaskView(TaskView.UPCOMING, null) }
+        assertFalse(viewModel.stockTask("r1")!!.isDone)
+        assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `ticking the struck row again is Annuler`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        serveRecurringTick()
+        coEvery { taskRepository.toggleDone("r1", false) } returns Result.success(plants)
+        val viewModel = openStock()
+        viewModel.toggleDone(plants)
+        runCurrent()
+
+        viewModel.toggleDone(viewModel.stockTask("r1")!!)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { taskRepository.toggleDone("r1", false) }
+        coVerify(exactly = 1) { taskRepository.toggleDone("r1", true) }
+        assertNull(viewModel.uiState.value.recurringDone)
+        assertFalse(viewModel.stockTask("r1")!!.isDone)
+    }
+
+    @Test
+    fun `a repeated task with no next occurrence says Fait only`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        serveRecurringTick(next = null)
+        val viewModel = openStock()
+
+        viewModel.toggleDone(plants)
+        runCurrent()
+
+        assertEquals(RecurringDone("r1", null), viewModel.uiState.value.recurringDone)
+        coVerify(exactly = 0) { taskRepository.fetchTask(any()) }
+    }
+
+    @Test
+    fun `a tick of a repeated task that fails puts the row back and says so`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        coEvery { taskRepository.toggleDone("r1", true) } returns Result.failure(RuntimeException("boom"))
+        val viewModel = openStock()
+
+        viewModel.toggleDone(plants)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.stockTask("r1")!!.isDone)
+        assertNull(viewModel.uiState.value.recurringDone)
+        assertEquals("Impossible de modifier la tâche.", viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `an undo that fails says so and reads Tâches again`() = runTest {
+        serveStock(listOf(plants), listOf(photos))
+        serveRecurringTick()
+        coEvery { taskRepository.toggleDone("r1", false) } returns Result.failure(RuntimeException("boom"))
+        val viewModel = openStock()
+        viewModel.toggleDone(plants)
+        runCurrent()
+        serveStock(listOf(plantsNext), listOf(photos))
+
+        viewModel.undoRecurringDone()
+        advanceUntilIdle()
+
+        assertEquals("Impossible d'annuler.", viewModel.uiState.value.message)
+        coVerify(exactly = 2) { taskRepository.getTaskView(TaskView.UPCOMING, null) }
+        assertEquals(listOf("r2", "g2"), viewModel.stockIds())
+    }
+
+    @Test
+    fun `a task without rule ticked in Tâches shows no done banner`() = runTest {
+        serveStock(listOf(garage), listOf(photos))
+        coEvery { taskRepository.toggleDone("g1", true) } returns Result.success(garage.copy(completedAt = "2026-10-15T08:00:00Z"))
+        val viewModel = openStock()
+
+        serveStock(emptyList(), listOf(photos))
+        viewModel.toggleDone(garage)
+        runCurrent()
+
+        assertNull(viewModel.uiState.value.recurringDone)
+        coVerify(exactly = 2) { taskRepository.getTaskView(TaskView.UPCOMING, null) }
+        assertEquals(listOf("g2"), viewModel.stockIds())
     }
 
     @Test
