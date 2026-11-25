@@ -18,7 +18,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_recipe', description: 'Update a recipe; only given fields change. ingredients, steps and utensils replace the whole list, formatted as in create_recipe; [] empties steps and utensils. tags: comma-separated, empty string empties. clear: [notes] empties the notes. Unknown recipeId is an error.')]
+#[McpTool(name: 'update_recipe', description: 'Before: get_recipe, lists replace the whole list; one ingredient swapped is replace_recipe_ingredient. Update a recipe; only given fields change. ingredients, steps and utensils replace the whole list, formatted as in create_recipe; [] empties steps and utensils. tags: comma-separated, empty string empties. clear: [notes] empties the notes. Unknown recipeId is an error.')]
 class UpdateRecipeTool
 {
     public function __construct(

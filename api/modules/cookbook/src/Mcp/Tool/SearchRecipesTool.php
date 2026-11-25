@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'search_recipes', description: 'Search recipes by query (name) or tag; one of the two is required.')]
+#[McpTool(name: 'search_recipes', description: 'Search recipes by query (name) or tag; one of the two is required. The owner\'s recipes; a meal planned on a day is manage_meals list.')]
 class SearchRecipesTool
 {
     public function __construct(

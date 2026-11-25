@@ -7,7 +7,7 @@ namespace Maggie\Cookbook\Mcp\Tool;
 use Maggie\Cookbook\Service\CiqualClient;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'search_ciqual_foods', description: 'Search the Ciqual (ANSES) food database by name. Returns code and kcal, protein, carbs, fat per 100 g.')]
+#[McpTool(name: 'search_ciqual_foods', description: 'Reference data, not the owner\'s catalogue (search_ingredients): its code feeds ciqualAlimCode or ciqualCode. Search the Ciqual (ANSES) food database by name. Returns code and kcal, protein, carbs, fat per 100 g.')]
 class SearchCiqualFoodsTool
 {
     public function __construct(

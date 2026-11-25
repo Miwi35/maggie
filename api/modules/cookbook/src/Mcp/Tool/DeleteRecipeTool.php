@@ -14,7 +14,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'delete_recipe', description: 'Delete a recipe by id. Meals with no other recipe are deleted with it (their shopping leaves the grocery list); other meals keep their recipes. Returns deletedMeals.')]
+#[McpTool(name: 'delete_recipe', description: 'Deletes it for good; taking it off one meal is manage_meals update. Delete a recipe by id. Meals with no other recipe are deleted with it (their shopping leaves the grocery list); other meals keep their recipes. Returns deletedMeals.')]
 class DeleteRecipeTool
 {
     public function __construct(

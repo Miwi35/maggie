@@ -19,7 +19,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'update_stock', description: 'Sets what is left of a product at home: state in_stock, low or out; product is an id or a name. An autoRestock product with a restockQuantity is added to the list. Returns what was added or why not, and the next 7 days\' meals using it.')]
+#[McpTool(name: 'update_stock', description: 'Sets what is left of a product at home: state in_stock, low or out; product is an id or a name. An autoRestock product with a restockQuantity is added to the list. Returns what was added or why not, and the next 7 days\' meals using it. What is left at home, not the list: a thing to buy is add_grocery_item.')]
 class UpdateStockTool
 {
     private const MEAL_WINDOW_DAYS = 7;

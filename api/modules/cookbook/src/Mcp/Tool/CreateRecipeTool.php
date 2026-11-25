@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'create_recipe', description: 'Create a recipe; with no ingredients and no steps it is refused, the error saying what is missing. ingredients: JSON array of {quantity, unit, ingredientId or ciqualAlimCode (creates the Ingredient from that Ciqual food), pieceWeightGrams?}; nutrition counts only ingredients with Ciqual values, and piece lines with pieceWeightGrams. steps: JSON array in order of {text, durationMinutes?, background? (timer runs while the cook moves on), ingredientIds? (recipe ids or names), utensils?, waitsFor? (earlier step positions)}. utensils: JSON array of ids or names; unknown names are added. tags: comma-separated.')]
+#[McpTool(name: 'create_recipe', description: 'A recipe is how to cook a dish; planning it on a day is a meal (manage_meals). Before: search_recipes, an existing recipe is updated, not created again. Create a recipe; with no ingredients and no steps it is refused, the error saying what is missing. ingredients: JSON array of {quantity, unit, ingredientId or ciqualAlimCode (creates the Ingredient from that Ciqual food), pieceWeightGrams?}; nutrition counts only ingredients with Ciqual values, and piece lines with pieceWeightGrams. steps: JSON array in order of {text, durationMinutes?, background? (timer runs while the cook moves on), ingredientIds? (recipe ids or names), utensils?, waitsFor? (earlier step positions)}. utensils: JSON array of ids or names; unknown names are added. tags: comma-separated.')]
 class CreateRecipeTool
 {
     public function __construct(
