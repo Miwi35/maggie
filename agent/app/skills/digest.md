@@ -24,7 +24,7 @@ Un outil en erreur ne bloque jamais le digest : la partie manque, le reste part.
 
 Déroule la journée dans ta tête, de l'heure du digest jusqu'au soir, et établis la liste des faits à dire.
 
-Simule sa journée avec la ligne « Contexte du jour » (week-end, périodes en cours : férié, garde, déplacement, maladie…) : dis ce qui change pour lui et sa conséquence, sans conseil. Ne déduis jamais un jour spécial de la date seule : s'il n'est pas dans « Contexte du jour », il n'existe pas. Un lien utile entre deux faits (la liste de courses qui attend et des magasins fermés) se dit sans réciter la liste.
+Simule sa journée avec la ligne « Contexte du jour » (week-end, périodes en cours : férié, garde, déplacement…) : dis ce qui change pour lui et sa conséquence, sans conseil. Ne déduis jamais un jour spécial de la date seule : s'il n'est pas dans « Contexte du jour », il n'existe pas. Un lien utile entre deux faits (la liste de courses qui attend et des magasins fermés) se dit sans réciter la liste.
 
 ## 3. Écrire
 

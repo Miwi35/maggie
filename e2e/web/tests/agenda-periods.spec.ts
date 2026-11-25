@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/index.js'
-import { parisDay } from '../fixtures/clock.js'
+import { e2eNow, parisDay } from '../fixtures/clock.js'
 import { calledTools } from '../helpers/agui.js'
 import { getCollection } from '../helpers/api.js'
 import { ChatPanel } from '../pages/ChatPanel.js'
@@ -87,8 +87,8 @@ test('the chat reads the custody in progress in the day context line', async ({ 
     data: {
       name: 'Garde de Léo',
       agenda: agendaIri,
-      startAt: new Date(Date.now() - day).toISOString(),
-      endAt: new Date(Date.now() + 3 * day).toISOString(),
+      startAt: new Date(e2eNow().getTime() - day).toISOString(),
+      endAt: new Date(e2eNow().getTime() + 3 * day).toISOString(),
     },
   })
   expect(created.status(), await created.text()).toBe(201)

@@ -34,7 +34,10 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.db.agent_engine import agent_engine
+from app.db.skill_repository import skill_repo
 from app.llm.client import FAKE, create_llm_client
+from app.skills.document import parse_markdown
+from app.skills.index import BUILTIN_SKILLS_DIR
 
 logger = logging.getLogger("evals")
 
@@ -228,6 +231,12 @@ class Stack:
                     "LOOP EXECUTE format('TRUNCATE TABLE %I CASCADE', t); END LOOP; END $$;"
                 )
             )
+        # The shipped skills are only written at start-up: put them back, or the index is empty at turn one.
+        for path in sorted(BUILTIN_SKILLS_DIR.glob("*.md")):
+            parsed = parse_markdown(path)
+            if parsed is not None:
+                entry, body = parsed
+                await skill_repo.upsert(entry.name, entry.description, entry.tags, body.strip())
 
     async def chat(self, message: str, spoken: bool = False, in_car: bool = False) -> Answer:
         response = await self.http.post(

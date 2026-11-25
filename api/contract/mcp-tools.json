@@ -123,7 +123,7 @@
                 "productId"
             ]
         },
-        "description": "Sets a product's preferredStoreId, fallbackStoreId, shelfLifeDays (null: non-perishable) and aisle: id or name (an unknown name creates it, see manage_aisles; empty string: none). The aisle applies to aisleStoreId, else the preferred store."
+        "description": "productId: the one add_grocery_item returns, not the list item id. Sets a product's preferredStoreId, fallbackStoreId, shelfLifeDays (null: non-perishable) and aisle: id or name (an unknown name creates it, see manage_aisles; empty string: none). The aisle applies to aisleStoreId, else the preferred store."
     },
     "cancel_proaction": {
         "name": "cancel_proaction",
@@ -168,7 +168,7 @@
                 "time"
             ]
         },
-        "description": "Check for scheduling conflicts at a given date (YYYY-MM-DD), time (HH:MM) and duration in minutes (default 60)."
+        "description": "Call it before create_event, or before update_event moves a timed event. Returns the timed events overlapping the slot; any means the slot is taken. Periods, whole-day events and proactions never conflict. Slot: a given date (YYYY-MM-DD), time (HH:MM) and duration in minutes (default 60)."
     },
     "check_grocery_item": {
         "name": "check_grocery_item",
@@ -348,7 +348,7 @@
                 "title"
             ]
         },
-        "description": "Create an event. Give a start and an end, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date; end_date is EXCLUDED (1 January alone: 2037-01-01 to 2037-01-02). An incomplete schedule or an end not after the start creates nothing and returns an error. agenda_id: agenda name or id; omitted, inferred. Two equally plausible agendas, or a name matching none: error naming them, nothing created. reminders: minutes before start, e.g. [10, 1440]. rrule: RFC 5545 without the RRULE: prefix, e.g. FREQ=WEEKLY;BYDAY=MO; status: tentative or confirmed. Returns the saved event in its own time zone: allDay; startAt, endAt (timed); startDate, endDate, lastDay (whole-day); agenda; status; weekday, startWeekday, endWeekday, lastDayWeekday for each local date."
+        "description": "An event is an appointment or a dated activity on one of the owner's agendas, possibly inside a period; what fills the whole time and makes him unavailable is an event even over several days. A context during which other things happen and get planned (a trip, holidays, custody, a stay away) is a period (manage_periods), never a long event; a planned meal is a meal (manage_meals); a thing he has to do is a task (create_task). Before a timed event, call check_conflicts on its slot; a conflict: create nothing, tell him and ask. A period over the slot is no conflict. Give a start and an end, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date; end_date is EXCLUDED (1 January alone: 2037-01-01 to 2037-01-02). An incomplete schedule or an end not after the start creates nothing and returns an error. agenda_id: agenda name or id; omitted, inferred. Two equally plausible agendas, or a name matching none: error naming them, nothing created. reminders: minutes before start, e.g. [10, 1440]. rrule: RFC 5545 without the RRULE: prefix, e.g. FREQ=WEEKLY;BYDAY=MO; status: tentative or confirmed. Returns the saved event in its own time zone: allDay; startAt, endAt (timed); startDate, endDate, lastDay (whole-day); agenda; status; weekday, startWeekday, endWeekday, lastDayWeekday for each local date."
     },
     "create_recipe": {
         "name": "create_recipe",
@@ -499,7 +499,7 @@
                 "title"
             ]
         },
-        "description": "Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates YYYY-MM-DD. parentId: a top-level task. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before, 0 at it. timed=true: timer. rrule (RFC 5545, no \"RRULE:\", DAILY-YEARLY, UNTIL not COUNT) repeats from scheduledDate, else dueDate, a day of the rule; done or past, the next task takes it."
+        "description": "A task is something the owner has to do, once or again and again; what Maggie herself must do or say at a time is a proaction (schedule_proaction), a standing preference a directive (add_instruction). What comes back is one task with rrule, never one per date. A list of things goes in description as Markdown boxes, never as subtasks. dueDate is the limit, scheduledDate the day he plans to do it; a time is promised only with scheduledTime. timed only when the duration is the task. Its card shows under the answer: copy nothing of it. Creates a task. priority: low, medium, high. criticality: low, medium, high, critical. Dates YYYY-MM-DD. parentId: a top-level task. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before, 0 at it. timed=true: timer. rrule (RFC 5545, no \"RRULE:\", DAILY-YEARLY, UNTIL not COUNT) repeats from scheduledDate, else dueDate, a day of the rule; done or past, the next task takes it."
     },
     "delete_event": {
         "name": "delete_event",
@@ -799,7 +799,7 @@
                 }
             }
         },
-        "description": "Gets events from all agendas, recurring events expanded: one day, a range, or a search by name. from: first day (YYYY-MM-DD), default now. to: last day, included; default from + 6 days (from + 365 days with query). At most 31 days without query, 366 with. query: word(s) of a title or place; a recurring series comes back once, as master (id, rrule, first occurrence of the window in startAt). agendas: names (case and accents ignored) or ids; a name matching no agenda returns an error listing the agendas. Omit to read all. A whole-day event (allDay true) has startDate, endDate (EXCLUDED: the day after its last day) and lastDay, no startAt/endAt. Local dates come with their weekday (startWeekday, endWeekday; whole-day: startWeekday, lastDayWeekday). Each event has agenda (name) and timeZone. Returns {from, to, events, count}."
+        "description": "The only source for the dates and times of the owner's events: read it in the turn, never from memory or history. Gets events from all agendas, recurring events expanded: one day, a range, or a search by name. A named event: query without to, all agendas; agendas only when the owner limits them in that message or a saved directive does, never for a search by name. A dictated name with no result: retry a variant before asking. Follow hint. A planned meal is not an event: manage_meals. from: first day (YYYY-MM-DD), default now. to: last day, included; default from + 6 days (from + 365 days with query). At most 31 days without query, 366 with. query: word(s) of a title or place; a recurring series comes back once, as master (id, rrule, first occurrence of the window in startAt). agendas: names (case and accents ignored) or ids; a name matching no agenda returns an error listing the agendas. Omit to read all. A whole-day event (allDay true) has startDate, endDate (EXCLUDED: the day after its last day) and lastDay, no startAt/endAt. Local dates come with their weekday (startWeekday, endWeekday; whole-day: startWeekday, lastDayWeekday). Each event has agenda (name) and timeZone. Returns {from, to, events, count}."
     },
     "get_exercises": {
         "name": "get_exercises",
@@ -1065,7 +1065,7 @@
                 }
             }
         },
-        "description": "Gets tasks, filters combined with AND. status: pending (default), done, all. day (YYYY-MM-DD): planned that day, or planned or due that day or before and not done. dueFrom/dueTo, scheduledFrom/scheduledTo: inclusive bounds. dated: false = no due nor planned day, true = one of them. parentId: the subtasks of a task. limit: 50, at most 200. Highest orderScore first; done: most recently done first. Returns {tasks, count, total}; a task has urgency (low, normal, high, critical), orderScore and overdueDays (null if not late)."
+        "description": "A task is something the owner has to do. His day is get_events of the day plus get_tasks day, presented in the order returned. dated false: the tasks with no day; on a light day (few events, no high or critical task) propose the first, and set its dueDate only after his yes. Gets tasks, filters combined with AND. status: pending (default), done, all. day (YYYY-MM-DD): planned that day, or planned or due that day or before and not done. dueFrom/dueTo, scheduledFrom/scheduledTo: inclusive bounds. dated: false = no due nor planned day, true = one of them. parentId: the subtasks of a task. limit: 50, at most 200. Highest orderScore first; done: most recently done first. Returns {tasks, count, total}; a task has urgency (low, normal, high, critical), orderScore and overdueDays (null if not late)."
     },
     "get_training_status": {
         "name": "get_training_status",
@@ -2613,7 +2613,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete. A meal is a date (YYYY-MM-DD) and a slot (lunch, dinner); recipeIds comma-separated. list needs fromDate and toDate, or query (title words, tolerant to case, accents, typos; all agendas, next year when no dates). create needs date and slot, returns groceryPreview (ingredients with stock), to choose from with manage_meal_groceries. guests (1 or more) scales recipes and, on update, the grocery list; unset follows the manage_meal_settings default, useDefaultGuests true restores it. update and delete need mealId."
+        "description": "A planned meal is a meal, not an event: find it with list and query, no dates. Actions: list, create, update, delete. A meal is a date (YYYY-MM-DD) and a slot (lunch = noon, dinner = evening); recipeIds comma-separated. list needs fromDate and toDate, or query (title words, tolerant to case, accents, typos; all agendas, next year when no dates). create needs date and slot, returns groceryPreview (ingredients with stock), to choose from with manage_meal_groceries. guests (1 or more) scales recipes and, on update, the grocery list; unset follows the manage_meal_settings default, useDefaultGuests true restores it. update and delete need mealId."
     },
     "manage_notifications": {
         "name": "manage_notifications",
@@ -3110,7 +3110,7 @@
                 "action"
             ]
         },
-        "description": "Manage periods: stretches of life (custody, holidays, a trip), not events, never synced with Google. Fields: name, agenda_id (id or name), schedule given whole: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date (EXCLUDED), rrule: RFC 5545 without the RRULE: prefix, e.g. FREQ=WEEKLY;INTERVAL=2. list: from, to (YYYY-MM-DD, to included) returns periods meeting those days, repeats unfolded; else every period as stored. create: name, agenda_id, schedule. update: period_id, only given fields (rrule \"\" stops repeating). delete: period_id, removes the series. Refused: error plus current. Returns what was saved in the period's zone, with startWeekday, endWeekday or lastDayWeekday, and lastDay for days."
+        "description": "A period links a context to a stretch of time (a place, a situation, custody, holidays, a trip, a public holiday): it records the fact and Maggie reads it to adapt her answers, reminders and proactions over that stretch. It sits beside the events, not a long event: events are planned inside it and it never conflicts with them. A context during which other things happen and get planned (a trip, holidays, custody, a stay away) is a period; what fills the whole time and makes the owner unavailable (a festival, a seminar, a trade fair) is an event, even over several days. A state of health is not a period. One period per stretch, never one event per day. After create, read the stretch with get_events and say which planned events it affects. Never synced with Google. Fields: name, agenda_id (id or name), schedule given whole: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date (EXCLUDED), rrule: RFC 5545 without the RRULE: prefix, e.g. FREQ=WEEKLY;INTERVAL=2. list: from, to (YYYY-MM-DD, to included) returns periods meeting those days, repeats unfolded; else every period as stored. create: name, agenda_id, schedule. update: period_id, only given fields (rrule \"\" stops repeating). delete: period_id, removes the series. Refused: error plus current. Returns what was saved in the period's zone, with startWeekday, endWeekday or lastDayWeekday, and lastDay for days."
     },
     "manage_placements": {
         "name": "manage_placements",
@@ -4659,7 +4659,7 @@
                 "scheduled_at"
             ]
         },
-        "description": "Schedules a run of Maggie, or a series of runs with rrule (RFC 5545 without RRULE:, FREQ HOURLY to YEARLY, 500 characters at most; scheduled_at must be its first occurrence, else an error names it): at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. kind: reminder (default — the owner asked to be told at that time; always interrupts) or check (verifies or watches; speaks only when useful, triaged). Returns the proaction (proaction.scheduledAt)."
+        "description": "For what Maggie herself must do or say at that time; a thing the owner has to do is a task (create_task). Schedules a run of Maggie, or a series of runs with rrule (RFC 5545 without RRULE:, FREQ HOURLY to YEARLY, 500 characters at most; scheduled_at must be its first occurrence, else an error names it): at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. kind: reminder (default — the owner asked to be told at that time; always interrupts) or check (verifies or watches; speaks only when useful, triaged). Returns the proaction (proaction.scheduledAt)."
     },
     "search": {
         "name": "search",
@@ -4969,7 +4969,7 @@
                 "id"
             ]
         },
-        "description": "Update an event by id (master id for a series); only given fields change. Schedule, given whole, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date; end_date is EXCLUDED. An incomplete schedule or an end not after the start changes nothing and returns an error with currentSchedule. clear: fields to empty (description, location, rrule, reminders). agenda_id: name or id; unknown or ambiguous: error listing the agendas. status: tentative or confirmed. reminders: minutes before start; replaces the set. Returns the saved event in its own time zone: allDay; startAt, endAt (timed); startDate, endDate, lastDay (whole-day); status; weekday, startWeekday, endWeekday, lastDayWeekday for each local date."
+        "description": "Update an event by id (master id for a series); only given fields change. Moving a timed event: check_conflicts on the new slot first. Schedule, given whole, never a duration: start_date (YYYY-MM-DD) + start_time (HH:MM) + end_date + end_time, or all_day true + start_date + end_date; end_date is EXCLUDED. An incomplete schedule or an end not after the start changes nothing and returns an error with currentSchedule. clear: fields to empty (description, location, rrule, reminders). agenda_id: name or id; unknown or ambiguous: error listing the agendas. status: tentative or confirmed. reminders: minutes before start; replaces the set. Returns the saved event in its own time zone: allDay; startAt, endAt (timed); startDate, endDate, lastDay (whole-day); status; weekday, startWeekday, endWeekday, lastDayWeekday for each local date."
     },
     "update_health_day": {
         "name": "update_health_day",
@@ -5367,6 +5367,6 @@
                 "id"
             ]
         },
-        "description": "Updates a task; only given fields change. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; a moved day moves this occurrence only. clear: fields to empty (description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule)."
+        "description": "Updates a task; only given fields change. done with no clear task: its id comes from get_tasks day. done=true completes, false reopens. Dates YYYY-MM-DD. parentId makes it a subtask (one level), position orders siblings. estimatedMinutes 1-1440; firstStep. dueDate: deadline; scheduledDate: planned day. scheduledMoment: morning/afternoon/evening, or time with scheduledTime HH:MM; reminders (time only): minutes before; another moment drops them. timed=true: timer. rrule: new rule from the current day; a moved day moves this occurrence only. clear: fields to empty (description, dueDate, parent, estimatedMinutes, firstStep, scheduledDate, scheduledMoment, rrule)."
     }
 }

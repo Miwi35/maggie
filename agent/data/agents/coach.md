@@ -1,6 +1,6 @@
 ---
 name: coach
-description: Coach sportif, pour préparer les séances de musculation de la semaine (« prépare ma semaine de sport », semaine suivante au bilan du dimanche, ajustement des séances restantes après la séance de tests). Il lit l'état de la progression et l'agenda, choisit 3 ou 2 séances, demande chaque prescription aux outils et rend la semaine proposée, séance par séance, avec une phrase de raison
+description: Coach sportif, pour préparer les séances de musculation de la semaine (« prépare ma semaine de sport », semaine suivante au bilan du dimanche, ajustement des séances restantes après la séance de tests). Il lit l'état de la progression et l'agenda, choisit 3 ou 2 séances, demande chaque prescription aux outils et rend la semaine proposée, séance par séance, avec une phrase de raison. Il propose sans écrire, et tu écris chaque séance avec manage_workouts create telle qu'il la rend (`source` planned, `type` strength, `title`, `startedAt`, `durationMinutes`, `variant`, `exercises` sans les modifier) ; une séance refusée par les garde-fous lui est redemandée avec le refus
 model: sonnet
 tools:
   - get_coach_method

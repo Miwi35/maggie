@@ -35,6 +35,7 @@ SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
     ),
     "digest": frozenset(
         {
+            "657ce662163ac8c41a38b0eac225c76618e1a0f2f7ca7ddd047f94fff7d8a8e1",
             "bc2f376bbaadcda64d1549e0eef3873c3116258d1c6be567301617de4a344cbd",
             "e811cba94733145c73397a1d6bff2d2a7ecd8b833d3f52598bb91e061afb3609",
             "edad938cdc10aad3cb738726f77f93eb11c214f7e843c2c99890b92e775bc6b1",
@@ -44,6 +45,17 @@ SUPERSEDED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
             "6c79d72a78d6fed17d333c7c5d98a52a2d5f35f264a844b9b20d8826853f9eec",
         }
     ),
+}
+
+# Skills that are no longer shipped (MAG-1012): their rules live in the tool descriptions. A stored copy whose body
+# still matches one of these hashes was never edited by the owner and is deleted at start-up; an edited one stays.
+RETIRED_BUILTIN_BODIES: dict[str, frozenset[str]] = {
+    "agenda": frozenset({"f97af73f9ed0462655f6368ddbdb03b46dd7fcd688a8504381c21bf43f5c4c9b"}),
+    "courses": frozenset({"3ce2a717463f25cc258429f6bdbe8bf2c8c8cd7b2742f7398fd391b21b2d62b8"}),
+    "periodes": frozenset({"cdcfc43a91a0fc27bb616523640d79c4635e6656ede2437366ab01fbab3e036f"}),
+    "sport": frozenset({"1d65ad34fbc09eb333c3350faa973ec7aba7ca6805256e0bc5a4837067d51ae8"}),
+    "taches": frozenset({"20c73584cd47202a8e6b0ed1caf20827f8c01285249dda870c63f61f4f2437cc"}),
+    "trajectoire": frozenset({"89e24363567f28c87f30748c5fdd3d6e188fff155a949b7ed75385e4b303d42c"}),
 }
 
 # When a skill applies, as its tags say (MAG-345): `moment:chat`, `moment:proaction`, `moment:planification`.
@@ -114,6 +126,22 @@ class SkillIndex:
             except Exception as e:
                 logger.warning(f"Failed to import legacy skill file {path}: {e}")
         return imported
+
+    async def retire_builtin(self) -> list[str]:
+        """Delete the stored copies of the skills no longer shipped that the owner never edited; the names deleted."""
+        retired: list[str] = []
+        for name, bodies in RETIRED_BUILTIN_BODIES.items():
+            try:
+                existing = await self.repo.get(name)
+                if existing is None:
+                    continue
+                digest = hashlib.sha256((existing.content or "").strip().encode("utf-8")).hexdigest()
+                if digest in bodies:
+                    await self.delete(name)
+                    retired.append(name)
+            except Exception as e:
+                logger.warning(f"Failed to retire the shipped skill {name}: {e}")
+        return retired
 
     async def seed_builtin(self, directory: Path = BUILTIN_SKILLS_DIR) -> list[str]:
         """Write the shipped skills that are missing into the skills folder and the table; the names written.

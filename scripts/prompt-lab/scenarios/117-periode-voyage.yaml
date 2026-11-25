@@ -1,0 +1,25 @@
+# Un voyage est une période, à côté des événements (MAG-1012) : on y planifie sans conflit.
+name: periode-voyage
+description: A trip becomes a period; an event planned inside it conflicts with nothing.
+channel: chat
+
+steps:
+  - user_message: "Je pars aux Antilles de demain jusqu'à dans deux semaines."
+    expected_tools: [manage_periods]
+    forbidden_tools: [create_event]
+    expected_behavior: >
+      Elle crée une période de voyage sur ces jours, sans poser de question, et confirme en une phrase.
+
+  - user_message: "J'ai quelque chose de prévu pendant ?"
+    expected_tools: [get_events]
+    expected_behavior: >
+      Elle signale la réunion d'équipe du seed, demain à 10 h, comme tombant pendant le voyage,
+      propose de l'annuler ou de l'ignorer, et mentionne le décalage horaire.
+
+  - user_message: "Note-moi une plongée dans quatre jours à 9 h, deux heures."
+    expected_tools: [create_event]
+    forbidden_tools: [ask_owner]
+    expected_absent: ["conflit", "déjà pris"]
+    expected_behavior: >
+      Elle crée l'événement normalement, à l'intérieur de la période, sans voir de conflit avec
+      le voyage et sans créer d'événement « voyage ».

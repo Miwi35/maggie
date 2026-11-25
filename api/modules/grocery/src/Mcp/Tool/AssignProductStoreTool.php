@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'assign_product_store', description: 'Sets a product\'s preferredStoreId, fallbackStoreId, shelfLifeDays (null: non-perishable) and aisle: id or name (an unknown name creates it, see manage_aisles; empty string: none). The aisle applies to aisleStoreId, else the preferred store.')]
+#[McpTool(name: 'assign_product_store', description: 'productId: the one add_grocery_item returns, not the list item id. Sets a product\'s preferredStoreId, fallbackStoreId, shelfLifeDays (null: non-perishable) and aisle: id or name (an unknown name creates it, see manage_aisles; empty string: none). The aisle applies to aisleStoreId, else the preferred store.')]
 class AssignProductStoreTool
 {
     public function __construct(

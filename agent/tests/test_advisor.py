@@ -154,13 +154,10 @@ async def test_maggie_hands_a_trajectory_question_to_the_advisor():
     assert api.calls == []
 
 
-async def test_the_prompt_sends_trajectory_questions_to_the_advisor_as_facts_never_advice():
-    from app.skills.document import parse_markdown
-    from app.skills.index import BUILTIN_SKILLS_DIR
+async def test_the_advisor_description_gives_its_facts_never_advice_rule():
+    from pathlib import Path
 
-    parsed = parse_markdown(BUILTIN_SKILLS_DIR / "trajectoire.md")
-    assert parsed is not None
-    line = next(line for line in parsed[1].splitlines() if line.startswith("Trajectoire :"))
-    assert "`advisor`" in line and "revue mensuelle" in line
-    assert "champ du possible" in line and "jamais comme un conseil" in line
-    assert "ne rends jamais un scénario courant" in line
+    text = (Path(__file__).parent.parent / "data" / "agents" / "advisor.md").read_text(encoding="utf-8")
+    assert "Décris-lui la question en entier" in text
+    assert "champ du possible" in text and "jamais comme un conseil" in text
+    assert "ne rends un scénario courant que sur demande" in text

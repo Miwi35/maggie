@@ -192,7 +192,7 @@
     },
     {
       "name": "add_instruction",
-      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs — a one-off request for this reply needs no directive. 'planning' is for when MAGGIE acts on her own; something the owner does that comes back is a task (create_task with rrule), not a directive.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -338,7 +338,7 @@
     },
     {
       "name": "get_skill",
-      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "description": "Charge une compétence de l'index « Compétences disponibles ». Quand sa description couvre la demande, charge-la au premier round, en même temps que tes premières lectures, et suis-la avant d'écrire.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -769,7 +769,7 @@
     },
     {
       "name": "add_instruction",
-      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs — a one-off request for this reply needs no directive. 'planning' is for when MAGGIE acts on her own; something the owner does that comes back is a task (create_task with rrule), not a directive.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -915,7 +915,7 @@
     },
     {
       "name": "get_skill",
-      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "description": "Charge une compétence de l'index « Compétences disponibles ». Quand sa description couvre la demande, charge-la au premier round, en même temps que tes premières lectures, et suis-la avant d'écrire.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1364,7 +1364,7 @@
     },
     {
       "name": "add_instruction",
-      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs — a one-off request for this reply needs no directive. 'planning' is for when MAGGIE acts on her own; something the owner does that comes back is a task (create_task with rrule), not a directive.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1510,7 +1510,7 @@
     },
     {
       "name": "get_skill",
-      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "description": "Charge une compétence de l'index « Compétences disponibles ». Quand sa description couvre la demande, charge-la au premier round, en même temps que tes premières lectures, et suis-la avant d'écrire.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1965,7 +1965,7 @@
     },
     {
       "name": "add_instruction",
-      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — a one-off request for this reply needs no directive.",
+      "description": "Store a standing directive from the user. Two kinds, and the kind decides who reads it: 'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; 'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is injected into the system prompt of every chat reply and proaction. Use this for a lasting preference or a rule that recurs — a one-off request for this reply needs no directive. 'planning' is for when MAGGIE acts on her own; something the owner does that comes back is a task (create_task with rrule), not a directive.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2111,7 +2111,7 @@
     },
     {
       "name": "get_skill",
-      "description": "Charge une compétence AVANT d'exécuter une tâche qu'elle couvre (voir l'index des compétences du system prompt).",
+      "description": "Charge une compétence de l'index « Compétences disponibles ». Quand sa description couvre la demande, charge-la au premier round, en même temps que tes premières lectures, et suis-la avant d'écrire.",
       "input_schema": {
         "type": "object",
         "properties": {

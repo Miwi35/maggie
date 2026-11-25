@@ -16,8 +16,10 @@ INSTRUCTION_TOOLS = [
             "at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; "
             "'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is "
             "injected into the system prompt of every chat reply and proaction. "
-            "Use this for a lasting preference or a rule that recurs (e.g. 'le mardi, je pars plus tôt') — "
-            "a one-off request for this reply needs no directive."
+            "Use this for a lasting preference or a rule that recurs — "
+            "a one-off request for this reply needs no directive. "
+            "'planning' is for when MAGGIE acts on her own; something the owner does that comes back is a "
+            "task (create_task with rrule), not a directive."
         ),
         "input_schema": {
             "type": "object",

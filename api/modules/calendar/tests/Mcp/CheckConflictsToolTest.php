@@ -5,6 +5,7 @@ namespace Maggie\Calendar\Tests\Mcp;
 use App\Tests\Support\FixtureLoaderTrait;
 use App\Tests\Support\SecurityTokenTrait;
 use Maggie\Calendar\Mcp\Tool\CheckConflictsTool;
+use Maggie\Calendar\Mcp\Tool\ManagePeriodsTool;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -173,6 +174,21 @@ class CheckConflictsToolTest extends KernelTestCase
             self::assertArrayHasKey('error', $data, sprintf('duration %d', $duration));
             self::assertArrayNotHasKey('conflicts', $data);
         }
+    }
+
+    public function testAPeriodOverTheSlotIsNoConflict(): void
+    {
+        $this->loadFixtures('CheckConflictsToolTest.yaml');
+        $this->loginFixtureUser();
+
+        $periods = self::getContainer()->get(ManagePeriodsTool::class);
+        $created = json_decode($periods('create', name: 'Voyage', agenda_id: 'Own agenda', start_date: '2037-05-04', start_time: '08:00', end_date: '2037-05-18', end_time: '20:00'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey('error', $created);
+
+        $data = $this->check('2037-05-06', '10:00', 120);
+
+        self::assertFalse($data['hasConflicts']);
+        self::assertSame([], $data['conflicts']);
     }
 
     /** @return array<string, mixed> */

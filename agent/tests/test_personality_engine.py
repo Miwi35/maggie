@@ -182,46 +182,9 @@ class TestPersonalityEngine:
         assert "Nous sommes le" not in prompt
         assert "Cap summary" in prompt
 
-    @pytest.mark.asyncio
-    async def test_the_shipped_prompt_sends_agenda_questions_to_the_agenda(self):
-        """The half of MAG-349 that lives in the prompt: no fake LLM can read it, so it is pinned here."""
-        engine = PersonalityEngine()
 
-        with patch("app.personality.engine.personality_repo") as mock_repo:
-            mock_repo.get = AsyncMock(return_value=None)
-            prompt = await engine.get_system_prompt("user-1")
 
-        agenda = _skill("agenda")
-        assert "get_events" in agenda
-        assert "de mémoire ni d'après l'historique" in agenda
-        assert "— le mardi 6 octobre —" in agenda
-        assert "memory_open" in prompt and "n'en invente jamais" in prompt
 
-    @pytest.mark.asyncio
-    async def test_a_standing_agenda_limit_never_narrows_a_search_by_name(self):
-        """MAG-639: a stored « ne me parle que de … » hid the meal she was asked to move; no fake LLM reads the prompt."""
-        by_name = _rule("agenda", "Agenda, un événement par son nom")
-        assert "tous les agendas" in by_name and "Repas" in by_name
-        assert "Ne passe pas agendas" in by_name and "même si une règle" in by_name
-        assert "dans CE message" in by_name
-        assert "manage_meals" in by_name and "n'est pas un événement" in by_name
-        limit = _rule("agenda", "Agenda, se limiter à certains agendas")
-        assert "jamais une recherche par nom" in limit
-
-    @pytest.mark.asyncio
-    async def test_the_prompt_asks_to_manage_periods_and_confirm_in_one_sentence(self):
-        """MAG-812: one generic rule, no rule per kind of period."""
-        rule = _rule("periodes", "PÉRIODES : une période")
-        assert "manage_periods" in rule and "Confirme en une phrase" in rule
-        assert "ne demande que la date qui manque" in rule
-        assert "ask_owner" in rule and "UNE question" in rule
-        assert "garde =" not in rule and "férié =" not in rule and "malade =" not in rule
-
-    @pytest.mark.asyncio
-    async def test_the_prompt_sends_public_dates_to_web_search(self):
-        rule = _rule("periodes", "PÉRIODES : une période")
-        assert "recherche web" in rule and "jours fériés" in rule
-        assert rule.index("recherche web") < rule.rindex("manage_periods")
 
     @pytest.mark.asyncio
     async def test_the_shipped_prompt_tells_her_to_file_a_tone_preference(self):
@@ -305,7 +268,7 @@ class TestPersonalityEngine:
             prompt = await engine.get_system_prompt("user-1")
 
         assert "une recette à structurer" not in prompt
-        assert "get_skill dans ce tour" in prompt
+        assert "get_skill au premier round" in prompt
         assert "waitsFor" not in prompt and "non rapproché" not in prompt
 
     @pytest.mark.asyncio
@@ -317,21 +280,8 @@ class TestPersonalityEngine:
             prompt = await engine.get_system_prompt("user-1")
 
         assert "compétence trajets" not in prompt and "list_trips" not in prompt
-        assert "get_skill dans ce tour" in prompt
+        assert "get_skill au premier round" in prompt
 
-    @pytest.mark.asyncio
-    async def test_the_shipped_prompt_has_her_cite_late_tasks_first_and_offer_one_someday_task(self):
-        """MAG-409: the half that lives in the skill — the fake LLM calls whatever its fixture says."""
-        day = _rule("taches", "TÂCHES, LA JOURNÉE")
-        assert "get_tasks et day (la date du jour)" in day
-        assert "cite d'abord celles en retard" in day
-        assert "overdueDays" in day and "orderScore" in day
-        one = _rule("taches", "TÂCHES, UNE POUR UN JOUR")
-        assert "dated false" in one
-        assert "UNE seule tâche" in one
-        assert "aucune tâche high ou critical" in one
-        # Writing waits for the user's yes.
-        assert "qu'après l'accord de l'utilisateur" in one
 
     @pytest.mark.asyncio
     async def test_the_shipped_prompt_opens_with_who_she_is_and_how_she_speaks(self):
@@ -426,58 +376,12 @@ class TestLastExchangeLine:
         assert "(à l'instant)" in last_exchange_line(NOW + timedelta(minutes=3), None, NOW)
 
 
-@pytest.mark.asyncio
-async def test_the_shipped_prompt_files_a_remind_me_to_do_as_a_task():
-    """MAG-703: no fake LLM reads the prompt, so the rules are pinned here."""
-    engine = PersonalityEngine()
-
-    with patch("app.personality.engine.personality_repo") as mock_repo:
-        mock_repo.get = AsyncMock(return_value=None)
-        prompt = await engine.get_system_prompt("user-1")
-
-    errand = _rule("taches", "d'aller FAIRE X")
-    assert "create_task" in errand and "dueDate" in errand and "entre minuit et 5 h" in errand
-    assert "ce matin ou vendredi" in errand
-    assert "compétence taches" in next(line for line in prompt.splitlines() if "d'aller FAIRE X" in line)
-    assert "schedule_proaction" in next(line for line in prompt.splitlines() if "ce que MAGGIE doit faire" in line)
-    mandatory = next(line for line in prompt.splitlines() if "ACTIONS :" in line)
-    assert "une tâche à une heure" in mandatory and "une proaction" in mandatory and "date_time" in mandatory
 
 
-@pytest.mark.asyncio
-async def test_the_shipped_prompt_tells_the_planned_day_from_the_deadline():
-    """MAG-718: « vendredi soir » and « à 18 h » schedule the task, « au plus tard » sets its deadline."""
-    rule = _rule("taches", "TÂCHES, PROGRAMMÉE OU ÉCHÉANCE :")
-    assert "scheduledDate" in rule and "scheduledMoment evening" in rule
-    assert 'scheduledTime "18:00"' in rule and "[30]" in rule
-    assert "pour samedi au plus tard" in rule and "dueDate" in rule
-    errand = _rule("taches", "d'aller FAIRE X")
-    assert "alerte du matin" not in errand
 
 
-@pytest.mark.asyncio
-async def test_the_shipped_prompt_tells_a_timed_task_from_an_estimate():
-    """MAG-766: « méditer 20 min » is done with a timer, « appeler le garage, 10 min » only estimated."""
-    rule = _rule("taches", "TÂCHES, CHRONOMÉTRÉE :")
-    assert "timed true" in rule and "estimatedMinutes" in rule
-    assert "méditer 20 min" in rule and "appeler le garage, 10 min" in rule and "jamais timed" in rule
 
 
-@pytest.mark.asyncio
-async def test_the_shipped_prompt_files_a_repeating_reminder_as_one_recurring_task():
-    """MAG-870: « un mardi sur deux » is one task with an rrule, never a task per date nor a directive."""
-    rule = _rule("taches", "TÂCHES, RÉPÉTÉE :")
-    assert "create_task" in rule and "rrule" in rule and "scheduledDate" in rule
-    assert "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU" in rule
-    assert "UNTIL" in rule and "jamais COUNT" in rule
-    assert "Jamais une tâche par date" in rule and "routine" in rule and "directive" in rule
-    assert 'clear ["rrule"]' in rule
-    engine = PersonalityEngine()
-    with patch("app.personality.engine.personality_repo") as mock_repo:
-        mock_repo.get = AsyncMock(return_value=None)
-        prompt = await engine.get_system_prompt("user-1")
-    planning = next(line for line in prompt.splitlines() if 'kind="planning"' in line and "date fixe" in line)
-    assert "compétence taches" in planning
 
 
 class TestShippedPromptRules:
@@ -598,8 +502,3 @@ class TestGenericRules:
         ):
             assert gone not in prompt, gone
 
-    async def test_the_grocery_ids_stay_in_their_module(self, prompt):
-        courses = _rule("courses", "Identifiants et lecture :")
-        assert "productId" in courses and "assign_product_store" in courses
-        assert "c'est fait" in _rule("taches", "c'est fait")
-        assert "Identifiants et lecture :" not in prompt

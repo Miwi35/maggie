@@ -362,3 +362,34 @@ class TestTheReport:
         assert "`agenda` | 2 | ✅ pass" in markdown
         assert "`courses` | 1 | ❌ 1 problem(s)" in markdown
         assert "**courses**, step 1 — tools not called: add_grocery_item (called: none)" in markdown
+
+
+class TestResetPutsTheShippedSkillsBack:
+    @pytest.mark.asyncio
+    async def test_reset_puts_the_shipped_skills_back_in_the_index(self, agent_db):
+        from contextlib import asynccontextmanager
+        from unittest.mock import patch
+
+        from app.db.skill_repository import skill_repo
+        from app.skills.index import SkillIndex
+
+        await skill_repo.upsert("recette", "d", [], "body")
+
+        class Connection:
+            async def execute(self, _statement):
+                for skill in await skill_repo.list_all():
+                    await skill_repo.delete(skill.name)
+
+        @asynccontextmanager
+        async def begin():
+            yield Connection()
+
+        engine = MagicMock()
+        engine.begin = begin
+        stack = Stack("http://api", "http://agent", MagicMock())
+        with patch("evals.runner.agent_engine", engine):
+            await stack.reset_agent_state()
+
+        index = SkillIndex()
+        await index.rebuild()
+        assert {"recette", "digest", "trajets"} <= {entry.name for entry in index.entries}

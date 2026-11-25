@@ -133,7 +133,7 @@ final class McpToolsContractTest extends KernelTestCase
         foreach ($this->tools() as $name => $tool) {
             $length = self::descriptionLength($tool);
             self::assertLessThanOrEqual(self::DESCRIPTION_BUDGET_PER_TOOL, $length, sprintf(
-                'The tool "%s" describes itself in %d characters (description + arguments), over the %d budget. Say what it does, its arguments, its return and its refusals — not how Maggie should use it (agent-os/standards/api/mcp-tools.md § Descriptions).',
+                'The tool "%s" describes itself in %d characters (description + arguments), over the %d budget. Say what its object is, when to use it rather than a neighbouring tool, what to call before it, generic terms only (agent-os/standards/api/mcp-tools.md § Descriptions).',
                 $name,
                 $length,
                 self::DESCRIPTION_BUDGET_PER_TOOL,
@@ -150,6 +150,30 @@ final class McpToolsContractTest extends KernelTestCase
             $total,
             self::TOTAL_DESCRIPTION_BUDGET,
         ));
+    }
+
+    /**
+     * The usage of a tool lives in its description, which is always sent to the model:
+     * what its object is, and the neighbour to prefer (MAG-1012).
+     */
+    public function testEachToolSaysWhatItsObjectIs(): void
+    {
+        $expected = [
+            'manage_periods' => ['A period links a context to a stretch of time', 'not a long event', 'makes the owner unavailable', 'A state of health is not a period', 'get_events'],
+            'create_event' => ['An event is', 'makes him unavailable is an event even over several days', 'manage_periods', 'never a long event', 'check_conflicts'],
+            'check_conflicts' => ['create_event'],
+            'create_task' => ['A task is', 'schedule_proaction'],
+            'get_events' => ['manage_meals'],
+            'schedule_proaction' => ['create_task'],
+            'assign_product_store' => ['add_grocery_item'],
+        ];
+        $tools = $this->tools();
+
+        foreach ($expected as $name => $excerpts) {
+            foreach ($excerpts as $excerpt) {
+                self::assertStringContainsString($excerpt, (string) $tools[$name]['description'], sprintf('The description of "%s" no longer says "%s".', $name, $excerpt));
+            }
+        }
     }
 
     public function testNoDescriptionRepeatsThePromptsDateRule(): void
