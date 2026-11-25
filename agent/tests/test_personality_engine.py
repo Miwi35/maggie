@@ -204,7 +204,7 @@ class TestPersonalityEngine:
 
         assert 'kind="behavior"' in prompt
         assert 'kind="planning"' in prompt
-        assert "tutoie-moi" in prompt.lower()
+        assert "le ton, la façon de lui parler → directive" in prompt.lower()
         # And that the stored preference outranks the personality's own register: two
         # rules below claim the register is the personality's to decide, and « tutoie-moi »
         # is exactly the kind of preference that contradicts a vouvoyant backstory.
