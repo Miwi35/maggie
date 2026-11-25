@@ -78,4 +78,23 @@ class CuisineHomeTest {
         assertEquals("Déjeuner", CuisineHomeSlot("lunch").label())
         assertEquals("Dîner", CuisineHomeSlot("dinner").label())
     }
+
+    @Test
+    fun `shortLabel says Midi and Soir`() {
+        assertEquals("Midi", CuisineHomeSlot("lunch").shortLabel())
+        assertEquals("Soir", CuisineHomeSlot("dinner").shortLabel())
+    }
+
+    @Test
+    fun `headline is the first recipe, the title without recipe`() {
+        assertEquals("Pâtes", CuisineHomeMeal(id = "a", title = "Repas", recipes = listOf("Pâtes", "Salade")).headline())
+        assertEquals("Restaurant", CuisineHomeMeal(id = "b", title = "Restaurant").headline())
+    }
+
+    @Test
+    fun `recipesLine lists the recipes from two on, nothing for one or none`() {
+        assertEquals("Pâtes · Salade", CuisineHomeMeal(id = "a", recipes = listOf("Pâtes", "Salade")).recipesLine())
+        assertNull(CuisineHomeMeal(id = "b", recipes = listOf("Pâtes")).recipesLine())
+        assertNull(CuisineHomeMeal(id = "c", title = "Restaurant").recipesLine())
+    }
 }

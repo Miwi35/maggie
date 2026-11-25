@@ -66,3 +66,16 @@ fun CuisineHomeSlot.label(): String = when (slot) {
     "dinner" -> "Dîner"
     else -> slot
 }
+
+/** « Midi » / « Soir » on the Accueil card; the morning summary and the drawer keep [label]. */
+fun CuisineHomeSlot.shortLabel(): String = when (slot) {
+    "lunch" -> "Midi"
+    "dinner" -> "Soir"
+    else -> slot
+}
+
+/** The meal's name on the card: its first recipe, its title when it has none. */
+fun CuisineHomeMeal.headline(): String = recipes.firstOrNull() ?: title
+
+/** All the recipes on one line, from two recipes on; null otherwise. */
+fun CuisineHomeMeal.recipesLine(): String? = if (recipes.size >= 2) recipesLabel() else null

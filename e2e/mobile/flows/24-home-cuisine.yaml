@@ -8,9 +8,10 @@ tags:
 # dinner has two recipes, tomorrow's lunch one that asks for a parmesan the user is out of,
 # tomorrow's dinner is empty. What the card holds in each state is `CuisineHomeCardScreenTest`'s.
 #
-# Given tonight's meal has two recipes, when the user opens the Accueil, then the card shows
-# both on one line. When they tap « Demain », then it shows tomorrow's lunch with
-# « manque : parmesan » and « — » for the dinner.
+# Given tonight's meal has two recipes, when the user opens the Accueil, then the card reads
+# « Soir », the first recipe, then both recipes on one line (MAG-1024). When they tap
+# « Demain », then it reads « Midi », tomorrow's lunch with « manque : parmesan » and « — »
+# for the dinner.
 
 - launchApp:
     clearState: true
@@ -35,6 +36,8 @@ tags:
 - extendedWaitUntil:
     visible: "Pâtes au pesto · Salade de saison"
     timeout: 20000
+- assertVisible: "Soir"
+- assertVisible: "Pâtes au pesto"
 - assertNotVisible: "manque.*"
 
 # Demain: the lunch with what its recipe lacks.
@@ -43,6 +46,7 @@ tags:
 - extendedWaitUntil:
     visible: "Soupe de potiron"
     timeout: 20000
+- assertVisible: "Midi"
 - assertVisible: "manque : parmesan"
 - assertNotVisible: "Pâtes au pesto · Salade de saison"
 - assertVisible:
