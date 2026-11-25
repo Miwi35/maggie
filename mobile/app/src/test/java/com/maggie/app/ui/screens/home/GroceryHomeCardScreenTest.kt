@@ -17,6 +17,7 @@ import com.maggie.app.data.model.GroceryHomeState
 import com.maggie.app.data.model.GroceryHomeStore
 import com.maggie.app.data.model.Need
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -77,7 +78,7 @@ class GroceryHomeCardScreenTest {
         draw(GroceryHomeUiState(GroceryHomeState(count = 6, stores = listOf(store("Supermarché", 5, more = 1))), isLoading = false))
 
         compose.onNodeWithText("Courses").assertIsDisplayed()
-        compose.onNodeWithText("Supermarché").assertIsDisplayed()
+        compose.onNodeWithText("SUPERMARCHÉ").assertIsDisplayed()
         compose.onAllNodesWithTag(UiTags.HOME_GROCERY_ITEM).assertCountEquals(5)
         compose.onNodeWithTag(UiTags.HOME_GROCERY_MORE).assertIsDisplayed()
         compose.onNodeWithText("+ 1").assertIsDisplayed()
@@ -100,7 +101,7 @@ class GroceryHomeCardScreenTest {
         )
 
         compose.onAllNodesWithTag(UiTags.HOME_GROCERY_STORE).assertCountEquals(3)
-        compose.onNodeWithText("Non assigné").assertIsDisplayed()
+        compose.onNodeWithText("NON ASSIGNÉ").assertIsDisplayed()
     }
 
     @Test
@@ -124,16 +125,40 @@ class GroceryHomeCardScreenTest {
     }
 
     @Test
-    fun `what the meals lack heads the card, before the shops`() {
+    fun `the recipes block is headed « POUR LES RECETTES », one row per product with its moment and meal`() {
         val state = GroceryHomeState(
             count = 1,
-            forRecipes = listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner"), GroceryHomeRecipeNeed("Crème fraîche", "tomorrow", "lunch")),
+            forRecipes = listOf(
+                GroceryHomeRecipeNeed("Parmesan", "today", "dinner", "Pâtes aux légumes"),
+                GroceryHomeRecipeNeed("Crème fraîche", "tomorrow", "lunch"),
+            ),
             stores = listOf(store("Supermarché", 1)),
         )
         draw(GroceryHomeUiState(state, isLoading = false))
 
         compose.onNodeWithTag(UiTags.HOME_GROCERY_RECIPES).assertIsDisplayed()
-        compose.onNodeWithText("Pour les recettes · parmesan (ce soir), crème fraîche (demain)").assertIsDisplayed()
+        compose.onNodeWithText("POUR LES RECETTES").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.HOME_GROCERY_RECIPE_NEED).assertCountEquals(2)
+        compose.onNodeWithText("Parmesan").assertIsDisplayed()
+        compose.onNodeWithText("ce soir · pâtes aux légumes").assertIsDisplayed()
+        compose.onNodeWithText("demain").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the card says how many lines and shops under its title`() {
+        val state = GroceryHomeState(
+            count = 6,
+            forRecipes = listOf(GroceryHomeRecipeNeed("Parmesan", "today", "dinner", "Pâtes")),
+            stores = listOf(store("Supermarché", 5, more = 1)),
+        )
+        draw(GroceryHomeUiState(state, isLoading = false))
+
+        compose.onNodeWithText("6 articles · 1 magasin").assertIsDisplayed()
+        assertTopToBottom(
+            "count" to compose.onNodeWithTag(UiTags.HOME_GROCERY_COUNT),
+            "recipes" to compose.onNodeWithTag(UiTags.HOME_GROCERY_RECIPES),
+            "shop" to compose.onNodeWithTag(UiTags.HOME_GROCERY_STORE),
+        )
     }
 
     @Test

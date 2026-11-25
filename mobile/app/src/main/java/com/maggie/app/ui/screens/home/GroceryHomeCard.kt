@@ -2,11 +2,13 @@ package com.maggie.app.ui.screens.home
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,27 +17,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.GroceryHomeLine
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.GroceryHomeState
 import com.maggie.app.data.model.GroceryHomeStore
 import com.maggie.app.data.model.neededLabel
-import com.maggie.app.data.model.recipeNeedsLabel
+import com.maggie.app.data.model.countLabel
+import com.maggie.app.data.model.whenLabel
 import com.maggie.app.data.model.toCookbookUnit
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.cookbook.grocery.formatQuantity
 import com.maggie.app.ui.screens.cookbook.grocery.unitLabel
 import com.maggie.app.ui.screens.grocery.run.GroceryRunResumeViewModel
+import com.maggie.app.ui.theme.maggieSurface
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -81,6 +84,12 @@ internal fun GroceryHomeCardContent(
         ) {
             when {
                 state != null && !state.isEmpty -> {
+                    Text(
+                        text = state.countLabel(),
+                        fontSize = 12.sp,
+                        color = maggieSurface().caption,
+                        modifier = Modifier.testTag(UiTags.HOME_GROCERY_COUNT),
+                    )
                     GroceryHomeBody(state)
                     // « ▶ Lancer » the tour (MAG-762), « ▶ Reprendre » when one is in progress.
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -104,15 +113,36 @@ internal fun GroceryHomeCardContent(
 @Composable
 private fun GroceryHomeBody(state: GroceryHomeState) {
     if (state.forRecipes.isNotEmpty()) {
-        Text(
-            text = buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append("Pour les recettes") }
-                append(" · ")
-                append(state.forRecipes.recipeNeedsLabel())
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.testTag(UiTags.HOME_GROCERY_RECIPES),
-        )
+        val courses = homeModuleColor(HomeModules.GROCERY)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(courses.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .testTag(UiTags.HOME_GROCERY_RECIPES),
+        ) {
+            Text("Pour les recettes".uppercase(), fontSize = 11.sp, letterSpacing = 0.88.sp, color = courses)
+            state.forRecipes.forEach { need ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 26.dp)
+                        .testTag(UiTags.HOME_GROCERY_RECIPE_NEED),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = need.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(text = need.whenLabel(), fontSize = 12.sp, color = courses, maxLines = 1)
+                }
+            }
+        }
     }
     state.stores.forEach { store -> key(store.id ?: "none") { GroceryHomeStoreSection(store) } }
 }
@@ -121,9 +151,11 @@ private fun GroceryHomeBody(state: GroceryHomeState) {
 private fun GroceryHomeStoreSection(store: GroceryHomeStore) {
     Column(modifier = Modifier.testTag(UiTags.HOME_GROCERY_STORE)) {
         Text(
-            text = store.name ?: "Non assigné",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = (store.name ?: "Non assigné").uppercase(),
+            fontSize = 11.sp,
+            letterSpacing = 0.88.sp,
+            color = homeModuleColor(HomeModules.GROCERY),
+            modifier = Modifier.padding(top = 4.dp),
         )
         store.items.forEach { line ->
             key(line.id) { GroceryHomeLineRow(line) }
@@ -144,9 +176,10 @@ private fun GroceryHomeLineRow(line: GroceryHomeLine) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp)
+            .heightIn(min = 26.dp)
             .testTag(UiTags.HOME_GROCERY_ITEM),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = line.name,
