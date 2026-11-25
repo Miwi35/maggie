@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { composeHealthState, isHealthEmpty } from './healthCardState'
-import type { HealthReads } from './healthCardState'
+import { composeHealthState, isHealthEmpty, windowSegment } from './healthCardState'
+import type { HealthFast, HealthReads } from './healthCardState'
 import type { HealthProfile } from '../../health/healthProfileApi'
 import type { FastingDay } from '../../health/fasting'
 import type { Workout } from '../../health/workoutFormat'
@@ -81,5 +81,23 @@ describe('composeHealthState', () => {
 
     expect(state.fast?.state).toBe('fasting')
     expect(state.fast?.minutesToEdge).toBe(15 * 60)
+  })
+})
+
+describe('windowSegment', () => {
+  const fast = (windowStart: string, windowEnd: string) => ({ state: null, windowStart, windowEnd, minutesToEdge: null, progress: null }) as HealthFast
+
+  test('windowSegment places 12:00 – 20:00 at half the day for a third of it', () => {
+    const { start, length } = windowSegment(fast('12:00', '20:00'))
+
+    expect(start).toBeCloseTo(0.5, 5)
+    expect(length).toBeCloseTo(1 / 3, 5)
+  })
+
+  test('windowSegment stops a window past midnight at the end of the day', () => {
+    const { start, length } = windowSegment(fast('20:00', '04:00'))
+
+    expect(start).toBeCloseTo(20 / 24, 5)
+    expect(start + length).toBeCloseTo(1, 5)
   })
 })
