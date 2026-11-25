@@ -102,7 +102,7 @@ describe('RecipeList — the table of the mockup (MAG-629)', { timeout: 30_000 }
     const row = within(rowOf('Gratin dauphinois'))
     expect(row.getByText('1 h 40')).toBeInTheDocument()
     await waitFor(() => expect(row.getByText('300')).toBeInTheDocument())
-    expect(row.getByText('24 oct.')).toBeInTheDocument()
+    expect(row.getByText('sam. 24 oct.')).toBeInTheDocument()
     expect(row.getByText('4')).toBeInTheDocument()
   })
 

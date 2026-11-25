@@ -44,9 +44,9 @@ export const stepsMinutes = (steps: readonly { durationMinutes?: number | null; 
   return total > 0 ? total : null
 }
 
-/** « 24 oct. »: the day of the last meal; a dash for a recipe never served. */
+/** « sam. 24 oct. »: the day of the last meal; a dash for a recipe never served. */
 export const lastMealLabel = (day: string | null | undefined): string => {
   if (!day) return '—'
 
-  return parseDay(day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return parseDay(day).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
 }
