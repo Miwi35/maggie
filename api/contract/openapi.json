@@ -30575,6 +30575,16 @@
                         ],
                         "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
                     },
+                    "nextOccurrence": {
+                        "readOnly": true,
+                        "description": "The next occurrence of the series, set on a done occurrence once its rule passed to it, read only. Reopening this occurrence while the next one is open, still carries the rule and has no subtask gives the rule back and deletes the next one.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "completedAt": {
                         "type": [
                             "string",
@@ -30804,6 +30814,16 @@
                         ],
                         "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
                     },
+                    "nextOccurrence": {
+                        "readOnly": true,
+                        "description": "The next occurrence of the series, set on a done occurrence once its rule passed to it, read only. Reopening this occurrence while the next one is open, still carries the rule and has no subtask gives the rule back and deletes the next one.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
+                    },
                     "completedAt": {
                         "type": [
                             "string",
@@ -31032,6 +31052,16 @@
                             "null"
                         ],
                         "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
+                    },
+                    "nextOccurrence": {
+                        "readOnly": true,
+                        "description": "The next occurrence of the series, set on a done occurrence once its rule passed to it, read only. Reopening this occurrence while the next one is open, still carries the rule and has no subtask gives the rule back and deletes the next one.",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "iri-reference",
+                        "example": "https://example.com/"
                     },
                     "completedAt": {
                         "type": [
@@ -31263,6 +31293,16 @@
                                     "null"
                                 ],
                                 "example": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"
+                            },
+                            "nextOccurrence": {
+                                "readOnly": true,
+                                "description": "The next occurrence of the series, set on a done occurrence once its rule passed to it, read only. Reopening this occurrence while the next one is open, still carries the rule and has no subtask gives the rule back and deletes the next one.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "iri-reference",
+                                "example": "https://example.com/"
                             },
                             "completedAt": {
                                 "type": [

@@ -29,6 +29,7 @@
                 30
             ],
             "rrule": null,
+            "nextOccurrence": null,
             "completedAt": null,
             "parent": null,
             "position": "00000000000000000000",
@@ -63,6 +64,7 @@
             "scheduledTime": null,
             "reminders": [],
             "rrule": null,
+            "nextOccurrence": null,
             "completedAt": null,
             "parent": "/api/tasks/01ARZ3NDEKTSV4RRFFQ69G5FAV",
             "position": "00000000000000000001",
