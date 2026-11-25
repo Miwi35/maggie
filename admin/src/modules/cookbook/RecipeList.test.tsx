@@ -97,6 +97,15 @@ describe('RecipeList — the table of the mockup (MAG-629)', { timeout: 30_000 }
     expect(screen.getByRole('link', { name: '+ Recette' })).toHaveAttribute('href', expect.stringContaining('/recipes/create'))
   })
 
+  test('keeps the search at 280 px and the header on one line', async () => {
+    renderList()
+    await screen.findByText('Gratin dauphinois')
+
+    const search = screen.getByRole('searchbox', { name: 'Rechercher une recette' }).closest('.MuiTextField-root')
+    expect(search).toHaveStyle({ width: '280px' })
+    expect(screen.getByRole('heading', { level: 1, name: 'Recettes' }).parentElement).not.toHaveStyle({ flexWrap: 'wrap' })
+  })
+
   test('aligns no cell to the right', async () => {
     const { container } = renderList()
     await screen.findByText('Gratin dauphinois')

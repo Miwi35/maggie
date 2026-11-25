@@ -938,6 +938,14 @@ test.describe('Recipes and meals', () => {
     // The breadcrumb is also an h1 « Recettes »; the page's own title comes after it.
     await expect(shell.content.getByRole('heading', { level: 1, name: 'Recettes' }).last()).toBeVisible()
     await expect(shell.content.getByRole('link', { name: '+ Recette' })).toBeVisible()
+    const title = (await shell.content.getByRole('heading', { level: 1, name: 'Recettes' }).last().boundingBox())!
+    const search = (await shell.content.getByRole('searchbox', { name: 'Rechercher une recette' }).boundingBox())!
+    const add = (await shell.content.getByRole('link', { name: '+ Recette' }).boundingBox())!
+    // One row: the search and « + Recette » sit to the right of the title, not under it.
+    expect(search.width).toBeLessThan(400)
+    expect(search.x).toBeGreaterThan(title.x + title.width)
+    expect(add.x).toBeGreaterThan(search.x + search.width)
+    expect(Math.abs(add.y - search.y)).toBeLessThan(20)
     const row = (name: string): Locator => shell.content.getByRole('row').filter({ hasText: name })
     await expect(row(quick)).toBeVisible()
     await expect(row(baked)).toBeVisible()

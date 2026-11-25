@@ -86,7 +86,7 @@ const RecipeBrowser = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
         <Typography variant="h5" component="h1" sx={{ fontWeight: 500, fontSize: 26 }}>
           Recettes
         </Typography>
@@ -97,8 +97,10 @@ const RecipeBrowser = () => {
           placeholder="Rechercher une recette"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          fullWidth={false}
           sx={{
-            minWidth: 280,
+            width: 280,
+            flexShrink: 0,
             '& .MuiInputBase-root': { height: 40, borderRadius: '10px', bgcolor: 'background.paper' },
             '& fieldset': { border: 0 },
           }}
@@ -117,7 +119,7 @@ const RecipeBrowser = () => {
           component={RouterLink}
           to={createPath({ resource: 'recipes', type: 'create' })}
           variant="contained"
-          sx={{ height: 40, borderRadius: '10px', bgcolor: 'module.cuisine', color: 'background.default', boxShadow: 'none' }}
+          sx={{ flexShrink: 0, height: 40, borderRadius: '10px', bgcolor: 'module.cuisine', color: 'background.default', boxShadow: 'none' }}
         >
           + Recette
         </Button>
