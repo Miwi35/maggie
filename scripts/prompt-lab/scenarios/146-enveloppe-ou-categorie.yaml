@@ -1,0 +1,12 @@
+# A monthly limit is an envelope on a category, not a new category (MAG-1018).
+name: enveloppe-ou-categorie
+description: Asked to cap a spending at a monthly amount, she sets an envelope on the existing category instead of creating a category.
+channel: chat
+
+steps:
+  - user_message: "Je veux limiter les restaurants à 150 euros par mois."
+    expected_tools: [manage_envelopes]
+    expected_behavior: >
+      Elle fixe une enveloppe mensuelle de 150 euros sur la catégorie existante
+      (manage_envelopes, action set) après avoir regardé son état. Elle ne crée
+      pas de catégorie.
