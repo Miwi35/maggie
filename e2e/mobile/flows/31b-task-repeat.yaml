@@ -11,8 +11,12 @@ tags:
 # Alors la fiche lit « Répéter » « Un mardi sur deux », l'API tient rrule = FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,
 # et dans Tâches › Tâches sa ligne porte ↻
 # Quand je la coche dans la liste
-# Alors l'API a une tâche ouverte du même titre au mardi + 14 jours, avec la même rrule, et sa ligne
-# apparaît dans la liste avec ↻
+# Alors le bandeau « Fait · prochaine le … » apparaît et l'API a une tâche ouverte du même titre au
+# mardi + 14 jours, avec la même rrule (MAG-1033)
+# Quand je touche « Annuler »
+# Alors l'API ne tient plus qu'une tâche ouverte de ce titre : le mardi, avec la règle
+# Quand je la recoche et que le bandeau se ferme
+# Alors la ligne de l'occurrence suivante apparaît avec ↻
 #
 # A new user; the task is written by `scripts/task-schedule-api.js` and opened by its link, as in
 # `31-task-schedule`. The rule is the one the form writes for a Tuesday anchor.
@@ -116,7 +120,38 @@ tags:
       id: "tasks_repeat_${output.taskId}"
     timeout: 30000
 
-# Ticking the row: the next occurrence is born, ↻ on its row too.
+# Ticking the row: the banner says when the next one is, and the next occurrence is born.
+- tapOn:
+    id: "tasks_check_${output.taskId}"
+- extendedWaitUntil:
+    visible:
+      id: "tasks_recurring_done"
+    timeout: 20000
+- assertVisible: ".*Fait · prochaine le.*"
+- runScript:
+    file: ../scripts/task-schedule-api.js
+    env:
+      ACTION: expect-next
+      EMAIL: ${output.journeyEmail}
+      TITLE: ${output.title}
+      TODAY: ${TODAY}
+
+# « Annuler »: the series is back as it was, its next occurrence gone, the row unticked.
+- tapOn:
+    id: "tasks_recurring_done_undo"
+- runScript:
+    file: ../scripts/task-schedule-api.js
+    env:
+      ACTION: expect-rewound
+      EMAIL: ${output.journeyEmail}
+      TITLE: ${output.title}
+      TODAY: ${TODAY}
+- extendedWaitUntil:
+    visible:
+      id: "tasks_check_${output.taskId}"
+    timeout: 30000
+
+# Ticked again: one next occurrence, ↻ on its row once the banner has closed.
 - tapOn:
     id: "tasks_check_${output.taskId}"
 - runScript:

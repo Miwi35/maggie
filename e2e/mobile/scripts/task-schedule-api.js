@@ -11,8 +11,10 @@
 // output.taskId and output.tuesday; `expect-rule` polls until the task holds FREQ=WEEKLY;INTERVAL=2;BYDAY=TU;
 // `expect-next` polls until an open task of the same title waits on tuesday + 14 with the same rule, and
 // sets output.nextId.
+// MAG-1033 adds `expect-rewound`: after « Annuler », polls until one open task only of that title is left,
+// on tuesday, with the rule.
 //
-//   ACTION   create | expect | create-tuesday | expect-rule | expect-next
+//   ACTION   create | expect | create-tuesday | expect-rule | expect-next | expect-rewound
 //   EMAIL    the journey's user (`${output.journeyEmail}`)
 //   TITLE    the task's title
 //   TODAY    the day the phone opens on, YYYY-MM-DD
@@ -135,6 +137,23 @@ if (ACTION === 'create') {
     pause(500)
   }
   fail('no open task on ' + wanted + ' with ' + RULE + ': ' + JSON.stringify(last))
+} else if (ACTION === 'expect-rewound') {
+  const tuesday = nextTuesday(TODAY)
+  let open = []
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const response = http.get(base + '/api/tasks?itemsPerPage=100', { headers: LD_HEADERS })
+    if (!response.ok) {
+      fail('GET /api/tasks answered ' + response.status + ': ' + response.body)
+    }
+    open = JSON.parse(response.body).member.filter(function (task) {
+      return task.title === TITLE && !task.completedAt
+    })
+    if (open.length === 1 && open[0].scheduledDate === tuesday && open[0].rrule === RULE) {
+      return
+    }
+    pause(500)
+  }
+  fail('not one open task on ' + tuesday + ' with ' + RULE + ': ' + JSON.stringify(open))
 } else {
   fail('unknown action')
 }
