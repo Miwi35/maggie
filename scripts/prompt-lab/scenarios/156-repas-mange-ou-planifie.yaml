@@ -1,0 +1,12 @@
+# A meal told as eaten is an intake, not a planned meal (MAG-1020).
+name: repas-mange-ou-planifie
+description: Told what was eaten at noon, she notes an intake today and plans no meal.
+channel: chat
+
+steps:
+  - user_message: "J'ai mangé une salade composée à midi."
+    expected_tools: [manage_food_intakes]
+    forbidden_tools: [manage_meals]
+    expected_behavior: >
+      Elle note la prise d'aujourd'hui à midi avec manage_food_intakes et
+      confirme en une phrase. Elle ne planifie pas de repas.

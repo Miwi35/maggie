@@ -30,7 +30,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * call that lacks a field is refused with `current`, the journal as it is:
  * nothing is completed.
  */
-#[McpTool(name: 'manage_food_intakes', description: 'Actions: list, create, update, delete. list needs date (YYYY-MM-DD): {intakes, plannedMeals (not yet eaten)}. create, one of: mealId alone (eats the planned meal, eatenAt defaults to now); else eatenAt (ISO 8601 with offset, required) + label + kcal (0-10000), optional proteinG, carbsG, fatG (grams), quantityGrams; ciqualCode (search_ciqual_foods) + eatenAt + quantityGrams, kcal and macros from Ciqual unless given. update, delete need foodIntakeId; update changes only fields given, nothing recomputed; deleting a meal\'s intake makes the meal planned again. Returns {success, intake}. Refusal: {error, field?, current?}, nothing changes.')]
+#[McpTool(name: 'manage_food_intakes', description: 'An intake is what the owner ate; a meal planned on a day is manage_meals, eaten with create and its mealId. Actions: list, create, update, delete. list needs date (YYYY-MM-DD): {intakes, plannedMeals (not yet eaten)}. create, one of: mealId alone (eats the planned meal, eatenAt defaults to now); else eatenAt (ISO 8601 with offset, required) + label + kcal (0-10000), optional proteinG, carbsG, fatG (grams), quantityGrams; ciqualCode (search_ciqual_foods) + eatenAt + quantityGrams, kcal and macros from Ciqual unless given. update, delete need foodIntakeId; update changes only fields given, nothing recomputed; deleting a meal\'s intake makes the meal planned again. Returns {success, intake}. Refusal: {error, field?, current?}, nothing changes.')]
 final class ManageFoodIntakesTool
 {
     public function __construct(

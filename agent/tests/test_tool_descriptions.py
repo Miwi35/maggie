@@ -34,6 +34,7 @@ EXPECTED: dict[str, list[str]] = {
     "answer_approval": ["approval card", "answer_task_reminder"],
     "send_voice_message": ["Only when he asks for a vocal", "manage_notifications"],
     "date_time": ["schedules nothing", "create_task", "schedule_proaction"],
+    "get_coach_method": ["manage_workouts"],
 }
 
 EXPECTED_DELEGATE = ["ne parle pas au propriétaire"]
