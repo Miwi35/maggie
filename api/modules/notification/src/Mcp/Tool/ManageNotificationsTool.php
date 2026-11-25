@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_notifications', description: 'Actions: create, list, delete, and mark as read (unknown ones refused, valid listed). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri, the screen a tap opens (/api/events/{id}, /api/tasks/{id}, /finance/banks, message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId.')]
+#[McpTool(name: 'manage_notifications', description: 'A notification is a push sent now to the owner\'s devices; it schedules nothing. Later is a proaction (schedule_proaction); a question with options is ask_owner, which notifies by itself; in a live chat the reply needs none. Actions: create, list, delete, and mark as read (unknown ones refused, valid listed). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri, the screen a tap opens (/api/events/{id}, /api/tasks/{id}, /finance/banks, message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId.')]
 class ManageNotificationsTool
 {
     public function __construct(

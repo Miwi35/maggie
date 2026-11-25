@@ -14,7 +14,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'answer_task_reminder', description: 'Answers a task reminder, as the notification button would. reminderId comes with the user\'s message. Actions: done (ticks the task), in10 (reminder in ten minutes), tonight (after dinner), tomorrow (into tomorrow\'s five), start (begins it now), open. A reminder is answered once and not every kind accepts every action: a refusal says why.')]
+#[McpTool(name: 'answer_task_reminder', description: 'For the owner\'s answer to a task reminder he received; a task changed outside such an answer is update_task, an approval card answer_approval. Answers a task reminder, as the notification button would. reminderId comes with the user\'s message. Actions: done (ticks the task), in10 (reminder in ten minutes), tonight (after dinner), tomorrow (into tomorrow\'s five), start (begins it now), open. A reminder is answered once and not every kind accepts every action: a refusal says why.')]
 class AnswerTaskReminderTool
 {
     public function __construct(

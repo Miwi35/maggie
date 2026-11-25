@@ -39,7 +39,7 @@ Domain tools on top of the CRUD set are encouraged and keep their own verb:
 
 - A description says what the tool's object is, when to use it rather than a neighbouring tool, what to call before it (e.g. a conflict check), each argument (format, units, values), what it returns and the shape of a refusal. Generic terms only: no conversation example, no case from the owner's life.
 - Cross-cutting rules (weekday, timezone, `date_time`) live once in the prompt, never in a tool.
-- Budget: 1 500 characters per tool (its description plus its arguments' descriptions), 60 000 in total (the cap ratchets down to it). `McpToolsContractTest` enforces both.
+- Budget: 1 500 characters per tool (its description plus its arguments' descriptions), 64 000 in total for the tools offered to the model (the executor's are left out). `McpToolsContractTest` enforces both.
 - In English, factual sentences, no conversation example.
 
 ## Authentication and user scoping

@@ -12,7 +12,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'list_proactions', description: 'Lists the proactions scheduled for the user, by time, in three keys: proactions (one-off runs and the occurrences of a series that have their own run), series (the repeating ones, with their rrule) and, only when from and to are both given, occurrences (the coming runs of the series in the window with no run of their own yet: seriesId, occurrence, scheduledAt, prompt, summary, kind). Each proaction has its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters proactions only.')]
+#[McpTool(name: 'list_proactions', description: 'A proaction is a run of Maggie herself at a set time (a reminder she gives, a check she makes); the owner\'s to-dos are tasks (get_tasks), his appointments events (get_events). Lists the proactions scheduled for the user, by time, in three keys: proactions (one-off runs and the occurrences of a series that have their own run), series (the repeating ones, with their rrule) and, only when from and to are both given, occurrences (the coming runs of the series in the window with no run of their own yet: seriesId, occurrence, scheduledAt, prompt, summary, kind). Each proaction has its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters proactions only.')]
 class ListProactionsTool
 {
     public function __construct(

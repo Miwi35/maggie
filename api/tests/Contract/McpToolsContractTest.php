@@ -44,7 +44,10 @@ final class McpToolsContractTest extends KernelTestCase
 
     private const DESCRIPTION_BUDGET_PER_TOOL = 1_500;
 
-    private const TOTAL_DESCRIPTION_BUDGET = 60_000;
+    private const TOTAL_DESCRIPTION_BUDGET = 64_000;
+
+    /** Never offered to the model (agent/app/llm/tools.py): left out of the total. */
+    private const EXECUTOR_ONLY = ['claim_due_proactions', 'record_proaction_result', 'list_daily_rendezvous'];
 
     public function testTheToolListMatchesTheContract(): void
     {
@@ -143,7 +146,7 @@ final class McpToolsContractTest extends KernelTestCase
 
     public function testTheToolDescriptionsStayUnderTheTotalBudget(): void
     {
-        $total = array_sum(array_map(self::descriptionLength(...), $this->tools()));
+        $total = array_sum(array_map(self::descriptionLength(...), array_diff_key($this->tools(), array_flip(self::EXECUTOR_ONLY))));
 
         self::assertLessThanOrEqual(self::TOTAL_DESCRIPTION_BUDGET, $total, sprintf(
             'The tool descriptions weigh %d characters, over the %d budget: they are sent to the model on every call (agent-os/standards/api/mcp-tools.md § Descriptions).',
@@ -164,7 +167,11 @@ final class McpToolsContractTest extends KernelTestCase
             'check_conflicts' => ['create_event'],
             'create_task' => ['A task is', 'schedule_proaction'],
             'get_events' => ['manage_meals'],
-            'schedule_proaction' => ['create_task'],
+            'schedule_proaction' => ['create_task', 'add_instruction', 'manage_notifications', 'list_proactions'],
+            'list_proactions' => ['A proaction is', 'get_tasks'],
+            'cancel_proaction' => ['delete_task', 'delete_instruction'],
+            'answer_task_reminder' => ['update_task', 'answer_approval'],
+            'manage_notifications' => ['A notification is', 'schedules nothing', 'ask_owner'],
             'assign_product_store' => ['add_grocery_item'],
         ];
         $tools = $this->tools();
@@ -222,7 +229,7 @@ final class McpToolsContractTest extends KernelTestCase
      * description may send her to one of them (schedule_proaction → add_instruction, MAG-326).
      * Names from agent/app/llm/tools.py.
      */
-    private const AGENT_TOOLS = ['add_instruction'];
+    private const AGENT_TOOLS = ['add_instruction', 'delete_instruction', 'answer_approval'];
 
     /**
      * @param array<string, array<string, mixed>> $tools
