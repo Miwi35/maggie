@@ -125,11 +125,12 @@ object UiTags {
     fun homeFinanceRing(period: String) = HOME_FINANCE_RING_PREFIX + period
 
     /**
-     * Accueil › Tâches (MAG-561) — the ring « x sur n », the « n en retard » line, the « + n autres » link,
+     * Accueil › Tâches (MAG-561) — the ring « x sur n », the sentence beside it, the « + n autres » link,
      * the saga line, the bar of routines, the failure message and the retry of a failed read.
      */
     const val HOME_TASKS_RING = "home_tasks_ring"
-    const val HOME_TASKS_OVERDUE = "home_tasks_overdue"
+    const val HOME_TASKS_NEXT = "home_tasks_next"
+    const val HOME_TASKS_ROUTINES_COUNT = "home_tasks_routines_count"
     const val HOME_TASKS_MORE = "home_tasks_more"
     const val HOME_TASKS_SAGA = "home_tasks_saga"
     const val HOME_TASKS_ROUTINES = "home_tasks_routines"
@@ -142,6 +143,16 @@ object UiTags {
     const val HOME_ROUTINE_CHECK_PREFIX = "home_routine_check_"
 
     fun homeTaskCheck(id: String) = HOME_TASK_CHECK_PREFIX + id
+
+    const val HOME_TASK_WHEN_PREFIX = "home_task_when_"
+    const val HOME_TASK_URGENCY_PREFIX = "home_task_urgency_"
+    const val HOME_TASK_META_PREFIX = "home_task_meta_"
+
+    fun homeTaskWhen(id: String) = HOME_TASK_WHEN_PREFIX + id
+
+    fun homeTaskUrgency(id: String) = HOME_TASK_URGENCY_PREFIX + id
+
+    fun homeTaskMeta(id: String) = HOME_TASK_META_PREFIX + id
 
     fun homeRoutineCheck(id: String) = HOME_ROUTINE_CHECK_PREFIX + id
 

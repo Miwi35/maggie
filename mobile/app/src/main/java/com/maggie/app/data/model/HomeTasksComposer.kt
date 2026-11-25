@@ -1,6 +1,12 @@
 package com.maggie.app.data.model
 
+import com.maggie.app.ui.screens.tasks.TodayRows
+import com.maggie.app.ui.screens.tasks.WhenChip
+import com.maggie.app.ui.screens.tasks.WhenKind
+import com.maggie.app.util.DateRanges
+import java.time.LocalDate
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -15,13 +21,13 @@ object HomeTasksComposer {
      * Today: the open tasks as the today view orders them, the last tasks done today, the routines of the current moment
      * of the day, which the user's [dayMoments] (settings: anchor → `HH:MM`) say.
      */
-    fun today(open: List<Task>, done: List<Task>, routines: RoutineDayView, dayMoments: Map<String, String>, now: LocalTime): HomeTasks {
+    fun today(open: List<Task>, done: List<Task>, routines: RoutineDayView, dayMoments: Map<String, String>, now: LocalTime, day: LocalDate = LocalDate.now(DateRanges.zone)): HomeTasks {
         val doneRows = done.take(SLOTS)
         val openRows = open.take(SLOTS - doneRows.size)
         return HomeTasks(
             day = HomeDay.TODAY.apiValue,
             editable = true,
-            tasks = openRows.map { it.toRow(done = false) } + doneRows.map { it.toRow(done = true) },
+            tasks = openRows.map { it.toRow(done = false, day = day) } + doneRows.map { it.toRow(done = true, day = day) },
             done = doneRows.size,
             total = doneRows.size + openRows.size,
             more = open.size - openRows.size,
@@ -31,13 +37,13 @@ object HomeTasksComposer {
     }
 
     /** Tomorrow: the open tasks due that day, the way the API orders the Tâches, and every routine due; nothing can be ticked. */
-    fun tomorrow(open: List<Task>, routines: RoutineDayView): HomeTasks {
+    fun tomorrow(open: List<Task>, routines: RoutineDayView, day: LocalDate = LocalDate.now(DateRanges.zone).plusDays(1)): HomeTasks {
         val sorted = open.sortedWith(Task.SCORE_ORDER)
         val rows = sorted.take(SLOTS)
         return HomeTasks(
             day = HomeDay.TOMORROW.apiValue,
             editable = false,
-            tasks = rows.map { it.toRow(done = false) },
+            tasks = rows.map { it.toRow(done = false, day = day, tomorrow = true) },
             done = 0,
             total = rows.size,
             more = sorted.size - rows.size,
@@ -63,14 +69,26 @@ object HomeTasksComposer {
         return (sorted.lastOrNull { it.value <= nowText } ?: sorted.firstOrNull())?.key
     }
 
-    private fun Task.toRow(done: Boolean) = HomeTask(
+    private fun Task.toRow(done: Boolean, day: LocalDate, tomorrow: Boolean = false) = HomeTask(
         id = id,
         title = title,
         done = done,
         overdueDays = if (done) null else overdueDays,
         parentId = parent?.substringAfterLast('/')?.takeIf { it.isNotBlank() },
         time = scheduledAt?.toString(),
+        whenChip = TodayRows.whenOf(this, day).let { if (tomorrow) tomorrowChip(it, day) else it },
+        urgency = TodayRows.urgencyOf(this),
+        meta = TodayRows.metaOf(this, day),
     )
+
+    private val dueDay = DateTimeFormatter.ofPattern("EEE d", Locale.FRENCH)
+
+    /** Tomorrow's pills speak of that day: « le matin », « limite ven. 24 », never « ce matin » or « avant ce soir ». */
+    private fun tomorrowChip(chip: WhenChip?, day: LocalDate): WhenChip? = when (chip?.kind) {
+        WhenKind.MOMENT -> chip.copy(label = chip.label.replace("ce matin", "le matin").replace("cet après-midi", "l'après-midi").replace("ce soir", "le soir"))
+        WhenKind.DUE_TODAY -> WhenChip(WhenKind.DUE, "limite " + day.format(dueDay))
+        else -> chip
+    }
 
     private fun DayRoutine.toRow() = HomeRoutine(id = id, title = title, anchor = anchor, time = time, checked = checked)
 }

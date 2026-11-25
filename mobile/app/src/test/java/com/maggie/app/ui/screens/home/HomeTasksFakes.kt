@@ -8,6 +8,9 @@ import com.maggie.app.data.model.HomeTasks
 import com.maggie.app.data.repository.RoutineRepository
 import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.TasksCardRepository
+import com.maggie.app.ui.screens.tasks.UrgencyChip
+import com.maggie.app.ui.screens.tasks.WhenChip
+import com.maggie.app.ui.screens.tasks.WhenKind
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -45,7 +48,10 @@ class HomeTasksFakes(
         val TODAY_CARD = HomeTasks(
             editable = true,
             tasks = listOf(
-                HomeTask("t1", "Appeler le garage", done = false, overdueDays = 2),
+                HomeTask(
+                    "t1", "Appeler le garage", done = false, overdueDays = 2,
+                    whenChip = WhenChip(WhenKind.DUE_TODAY, "avant ce soir"), urgency = UrgencyChip.CRITICAL, meta = "reportée depuis lundi",
+                ),
                 HomeTask("t2", "Réserver le train", done = false),
                 HomeTask("t2a", "Choisir l'horaire", done = false, parentId = "t2"),
                 HomeTask("t3", "Payer la cantine", done = true),
@@ -55,8 +61,8 @@ class HomeTasksFakes(
             more = 2,
             overdue = 1,
             routines = listOf(
-                HomeRoutine("r1", "Boire un verre d'eau", anchor = "wake", time = "07:30", checked = false),
-                HomeRoutine("r2", "Vitamines", anchor = "afterBreakfast", time = "08:00", checked = true),
+                HomeRoutine("r1", "Boire un verre d'eau", anchor = "afterDinner", time = "20:00", checked = false),
+                HomeRoutine("r2", "Vitamines", anchor = "afterDinner", time = "20:00", checked = true),
             ),
             saga = HomeSaga("Déménagement", done = 2, total = 6),
         )
