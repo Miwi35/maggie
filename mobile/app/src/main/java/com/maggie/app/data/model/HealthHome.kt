@@ -92,7 +92,7 @@ data class HealthHomeState(
             return HealthHomeFast(state, windowStart, windowEnd, left, progress)
         }
 
-        private fun windowLength(windowStart: String, windowEnd: String): Int {
+        internal fun windowLength(windowStart: String, windowEnd: String): Int {
             val length = minutes(windowEnd) - minutes(windowStart)
             return if (length <= 0) length + DAY else length
         }
@@ -105,7 +105,7 @@ data class HealthHomeState(
             return if (sinceStart < windowLength(windowStart, windowEnd)) FastingStatus.STATE_OPEN else state
         }
 
-        private fun minutes(time: String): Int = time.split(":").let { it[0].toInt() * 60 + it[1].toInt() }
+        internal fun minutes(time: String): Int = time.split(":").let { it[0].toInt() * 60 + it[1].toInt() }
 
         /** Minutes to the edge the window faces now (its end when open, its start when fasting); null when closed. */
         internal fun minutesToEdge(state: String, windowStart: String, windowEnd: String, now: LocalTime): Int? {
@@ -119,6 +119,13 @@ data class HealthHomeState(
             return max(0, (if (edge < at) edge + DAY else edge) - at)
         }
 
-        private const val DAY = 24 * 60
+        internal const val DAY = 24 * 60
     }
+}
+
+/** The window as a segment of the day: where it starts and how much of the day it covers, both 0..1; a window past midnight stops at the end. */
+fun HealthHomeFast.daySegment(): Pair<Float, Float> {
+    val start = HealthHomeState.minutes(windowStart).toFloat() / HealthHomeState.DAY
+    val length = HealthHomeState.windowLength(windowStart, windowEnd).toFloat() / HealthHomeState.DAY
+    return start to length.coerceAtMost(1f - start)
 }

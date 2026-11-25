@@ -1,6 +1,18 @@
 package com.maggie.app.ui.screens.home
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import com.maggie.app.data.model.RoutineText
+import com.maggie.app.data.model.daySegment
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,7 +34,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +52,24 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.navigation.Screen
 import com.maggie.app.ui.screens.health.formatCount
 import org.koin.androidx.compose.koinViewModel
+
+/** What a line's bar draws: a share of the track from its start, or a segment placed on the day. */
+internal sealed interface HealthBarShape {
+    data class Share(val fraction: Float, val soft: Boolean) : HealthBarShape
+    data class Segment(val start: Float, val length: Float) : HealthBarShape
+}
+
+internal fun stepsBar(steps: HealthHomeSteps): HealthBarShape = HealthBarShape.Share(steps.count.toFloat() / steps.goal, soft = false)
+
+internal fun balanceBar(balance: HealthHomeBalance, today: Boolean): HealthBarShape? =
+    balance.needKcal?.takeIf { it > 0 }?.let { HealthBarShape.Share(balance.kcal.toFloat() / it, soft = !today) }
+
+internal fun fastBar(fast: HealthHomeFast, today: Boolean): HealthBarShape? =
+    if (today) {
+        fast.progress?.let { HealthBarShape.Share(it, soft = true) }
+    } else {
+        fast.daySegment().let { HealthBarShape.Segment(it.first, it.second) }
+    }
 
 /**
  * The Santé card of the Accueil (MAG-566): the planned session, the steps against the goal, the day's calories against
@@ -82,7 +111,7 @@ internal fun HealthHomeCardContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInput(onOpen) { detectTapGestures { onOpen() } },
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
                 state != null && !state.isEmpty -> HealthHomeBody(state, sportResume, onLaunch)
@@ -103,7 +132,7 @@ private fun HealthHomeBody(state: HealthHomeState, sportResume: SportResume?, on
         state.fast?.let { { HealthHomeFastRow(it, state.today) } },
     )
     rows.forEachIndexed { index, row ->
-        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isMaggieDark()) MaggieTokens.Divider.DARK else MaggieTokens.Divider.LIGHT))
         row()
     }
 }
@@ -111,12 +140,12 @@ private fun HealthHomeBody(state: HealthHomeState, sportResume: SportResume?, on
 @Composable
 private fun HealthHomeWorkoutRow(workout: HealthHomeWorkout, today: Boolean, sportResume: SportResume?, onLaunch: (String) -> Unit) {
     val line: @Composable (Modifier) -> Unit = {
-        HealthLine(
-            label = workout.title,
-            value = "${workout.time} · ${homeDuration(workout.durationMinutes)}",
-            fraction = null,
-            tag = UiTags.HOME_HEALTH_WORKOUT,
-            modifier = it,
+        Text(
+            text = "${workout.title} · ${RoutineText.hourOf(workout.time)} · ${homeDuration(workout.durationMinutes)}",
+            fontSize = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = it.fillMaxWidth().testTag(UiTags.HOME_HEALTH_WORKOUT),
         )
     }
     if (!today || !workout.launchable) return line(Modifier)
@@ -137,7 +166,7 @@ private fun HealthHomeStepsRow(steps: HealthHomeSteps) {
     HealthLine(
         label = "Pas",
         value = "${formatCount(steps.count)} · objectif ${formatCount(steps.goal)}",
-        fraction = steps.count.toFloat() / steps.goal,
+        bar = stepsBar(steps),
         tag = UiTags.HOME_HEALTH_STEPS,
     )
 }
@@ -148,7 +177,7 @@ private fun HealthHomeBalanceRow(balance: HealthHomeBalance, today: Boolean) {
     HealthLine(
         label = if (today) "Bilan du jour" else "Calories projetées",
         value = if (today) "${formatCount(balance.kcal)} mangées$need" else "${formatCount(balance.kcal)} kcal$need",
-        fraction = balance.needKcal?.takeIf { it > 0 }?.let { balance.kcal.toFloat() / it },
+        bar = balanceBar(balance, today),
         tag = UiTags.HOME_HEALTH_BALANCE,
     )
 }
@@ -162,44 +191,54 @@ private fun HealthHomeFastRow(fast: HealthHomeFast, today: Boolean) {
         fast.state == FastingStatus.STATE_OPEN -> "Fenêtre ouverte" to "ferme à ${fast.windowEnd}$left"
         else -> "Jeûne en cours" to "ouvre à ${fast.windowStart}$left"
     }
-    HealthLine(label = label, value = value, fraction = fast.progress, tag = UiTags.HOME_HEALTH_FAST)
+    HealthLine(label = label, value = value, bar = fastBar(fast, today), tag = UiTags.HOME_HEALTH_FAST)
 }
 
 /** The mockup's line: the label on the left, its grey value on the right, a 6 dp bar under it when there is a share. */
 @Composable
-private fun HealthLine(label: String, value: String, fraction: Float?, tag: String, modifier: Modifier = Modifier) {
+private fun HealthLine(label: String, value: String, bar: HealthBarShape?, tag: String, modifier: Modifier = Modifier) {
+    val text = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp)
     Column(
         modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.testTag(tag),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            Text(text = label, style = text)
             if (value.isNotEmpty()) {
                 Spacer(Modifier.width(12.dp))
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = text,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.End,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
-        fraction?.let { HealthBar(it) }
+        bar?.let { HealthTrack(it) }
     }
 }
 
 @Composable
-private fun HealthBar(fraction: Float) {
-    LinearProgressIndicator(
-        progress = { fraction.coerceIn(0f, 1f) },
-        modifier = Modifier.fillMaxWidth().height(6.dp),
-        color = homeModuleColor(HomeModules.HEALTH),
-        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        strokeCap = StrokeCap.Round,
-        gapSize = 0.dp,
-        drawStopIndicator = {},
-    )
+private fun HealthTrack(shape: HealthBarShape) {
+    val track = maggieSurface().track
+    val coral = homeModuleColor(HomeModules.HEALTH)
+    Canvas(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+        val radius = CornerRadius(3.dp.toPx())
+        drawRoundRect(color = track, cornerRadius = radius)
+        val (start, length, soft) = when (shape) {
+            is HealthBarShape.Share -> Triple(0f, shape.fraction.coerceIn(0f, 1f), shape.soft)
+            is HealthBarShape.Segment -> Triple(shape.start.coerceIn(0f, 1f), shape.length.coerceIn(0f, 1f), true)
+        }
+        clipRect(left = 0f, top = 0f, right = size.width, bottom = size.height) {
+            drawRoundRect(
+                color = if (soft) coral.copy(alpha = 0.55f) else coral,
+                topLeft = Offset(start * size.width, 0f),
+                size = Size(length * size.width, size.height),
+                cornerRadius = radius,
+            )
+        }
+    }
 }
 
 /** « 45 min », « 3 h 18 ». */
