@@ -25,7 +25,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
  * weightKg 72.4 and nothing else: the moment is now, the source manual. A
  * partial update is refused with `current`, the measurement as it is.
  */
-#[McpTool(name: 'manage_body_measurements', description: 'Actions: list, create, update, delete, exclude. Fields: measuredAt (ISO 8601 with offset, default now), weightKg (max 500), bodyFatPercent (<100), waistCm (max 300), all >0, at least one on create; source (manual default, health_connect, withings), externalId, excluded (kept, not counted). update, delete, exclude need measurementId; update changes only fields given. list: after, before, limit (max 366). Returns {measurements} or {success, measurement}. Refusal changes nothing: {error, field?, current?}.')]
+#[McpTool(name: 'manage_body_measurements', description: 'A measurement is one weighing or body measure at an instant. Actions: list, create, update, delete, exclude. Fields: measuredAt (ISO 8601 with offset, default now), weightKg (max 500), bodyFatPercent (<100), waistCm (max 300), all >0, at least one on create; source (manual default, health_connect, withings), externalId, excluded (kept, not counted). update, delete, exclude need measurementId; update changes only fields given. list: after, before, limit (max 366). Returns {measurements} or {success, measurement}. Refusal changes nothing: {error, field?, current?}.')]
 final class ManageBodyMeasurementsTool
 {
     public function __construct(

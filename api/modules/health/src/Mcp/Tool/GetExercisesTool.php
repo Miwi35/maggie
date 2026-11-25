@@ -12,7 +12,7 @@ use Maggie\Health\Service\ExerciseCatalog;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 
-#[McpTool(name: 'get_exercises', description: 'Reads the exercise catalogue. Optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior, core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall; empty = bodyweight only), slug. Returns {exercises}: {slug, name, pattern, primaryMuscles, secondaryMuscles, kind, equipment, nervousCost, eccentric, unit (reps, seconds, meters), perSide, loadable, ladders}. Unknown value: {error}.')]
+#[McpTool(name: 'get_exercises', description: 'The slugs manage_workouts and get_next_prescription take. Reads the exercise catalogue. Optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior, core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall; empty = bodyweight only), slug. Returns {exercises}: {slug, name, pattern, primaryMuscles, secondaryMuscles, kind, equipment, nervousCost, eccentric, unit (reps, seconds, meters), perSide, loadable, ladders}. Unknown value: {error}.')]
 final class GetExercisesTool
 {
     public function __construct(

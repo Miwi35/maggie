@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'choose_workout_makeup', description: 'Plans the make-up chosen for a missed-session proposal. makeup_id: proposal id or IRI. option: softer (same session tonight, next quarter hour), shorter (shorter one tonight), tomorrow (same session tomorrow); softer and shorter only while offered (day of the miss, until 23:00). Creates a planned workout: {success, makeup, workout}. A proposal answers once: already chosen, obsolete or option too late → {error, status}.')]
+#[McpTool(name: 'choose_workout_makeup', description: 'Only for a missed-session proposal the owner answers; another session is manage_workouts. Plans the make-up chosen for a missed-session proposal. makeup_id: proposal id or IRI. option: softer (same session tonight, next quarter hour), shorter (shorter one tonight), tomorrow (same session tomorrow); softer and shorter only while offered (day of the miss, until 23:00). Creates a planned workout: {success, makeup, workout}. A proposal answers once: already chosen, obsolete or option too late → {error, status}.')]
 final class ChooseWorkoutMakeupTool
 {
     public function __construct(

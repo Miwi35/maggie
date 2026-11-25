@@ -9,7 +9,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Maggie\Health\Service\DailyEnergyReader;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_daily_energy', description: 'Reads energy expenditure per day, from and to included (YYYY-MM-DD, max 400 days). Returns {days}: per local day {date, steps, activeKcal (Health Connect), bmrKcal, workoutKcal, stepsKcal (activeKcal minus sessions Health Connect counted), expendedKcal = bmrKcal + activeKcal + sessions Health Connect did not see}. Null without data; bmrKcal and expendedKcal null while the profile is incomplete.')]
+#[McpTool(name: 'get_daily_energy', description: 'Read-only. Reads energy expenditure per day, from and to included (YYYY-MM-DD, max 400 days). Returns {days}: per local day {date, steps, activeKcal (Health Connect), bmrKcal, workoutKcal, stepsKcal (activeKcal minus sessions Health Connect counted), expendedKcal = bmrKcal + activeKcal + sessions Health Connect did not see}. Null without data; bmrKcal and expendedKcal null while the profile is incomplete.')]
 final class GetDailyEnergyTool
 {
     public function __construct(

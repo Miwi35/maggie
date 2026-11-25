@@ -232,6 +232,20 @@ final class McpToolsContractTest extends KernelTestCase
             'manage_placements' => ['A placement is', 'manage_accounts', 'never advice'],
             'manage_loans' => ['A loan is', 'manage_peer_debts'],
             'manage_scenarios' => ['A scenario orders', 'advisor'],
+            'get_health_day' => ['get_daily_balance'],
+            'update_health_day' => ['manage_body_measurements', 'update_health_profile'],
+            'get_health_profile' => ['stable health data'],
+            'update_health_profile' => ['get_health_profile', 'manage_body_measurements'],
+            'manage_body_measurements' => ['A measurement is'],
+            'manage_food_intakes' => ['An intake is', 'manage_meals'],
+            'get_daily_balance' => ['manage_food_intakes'],
+            'get_daily_energy' => ['Read-only'],
+            'get_fasting' => ['update_health_profile'],
+            'manage_workouts' => ['A workout is', 'coach', 'get_next_prescription'],
+            'get_next_prescription' => ['writes nothing'],
+            'get_training_status' => ['Read-only'],
+            'get_exercises' => ['manage_workouts'],
+            'choose_workout_makeup' => ['missed-session proposal', 'manage_workouts'],
         ];
         $tools = $this->tools();
 

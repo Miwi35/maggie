@@ -232,7 +232,7 @@
                 "option"
             ]
         },
-        "description": "Plans the make-up chosen for a missed-session proposal. makeup_id: proposal id or IRI. option: softer (same session tonight, next quarter hour), shorter (shorter one tonight), tomorrow (same session tomorrow); softer and shorter only while offered (day of the miss, until 23:00). Creates a planned workout: {success, makeup, workout}. A proposal answers once: already chosen, obsolete or option too late → {error, status}."
+        "description": "Only for a missed-session proposal the owner answers; another session is manage_workouts. Plans the make-up chosen for a missed-session proposal. makeup_id: proposal id or IRI. option: softer (same session tonight, next quarter hour), shorter (shorter one tonight), tomorrow (same session tomorrow); softer and shorter only while offered (day of the miss, until 23:00). Creates a planned workout: {success, makeup, workout}. A proposal answers once: already chosen, obsolete or option too late → {error, status}."
     },
     "claim_due_proactions": {
         "name": "claim_due_proactions",
@@ -695,7 +695,7 @@
                 "date"
             ]
         },
-        "description": "Reads one day's calorie balance, date YYYY-MM-DD. Returns {date, eatenKcal, plannedKcal (planned meals not yet eaten), expendedKcal (get_daily_energy), balanceKcal = eaten + planned - expended, proteinG, carbsG, fatG, plannedMeals: [{mealId, slot, label, kcal, proteinG, carbsG, fatG}]}. expendedKcal, balanceKcal are null while the profile is incomplete."
+        "description": "Read-only; an intake is written with manage_food_intakes. Reads one day's calorie balance, date YYYY-MM-DD. Returns {date, eatenKcal, plannedKcal (planned meals not yet eaten), expendedKcal (get_daily_energy), balanceKcal = eaten + planned - expended, proteinG, carbsG, fatG, plannedMeals: [{mealId, slot, label, kcal, proteinG, carbsG, fatG}]}. expendedKcal, balanceKcal are null while the profile is incomplete."
     },
     "get_daily_energy": {
         "name": "get_daily_energy",
@@ -714,7 +714,7 @@
                 "to"
             ]
         },
-        "description": "Reads energy expenditure per day, from and to included (YYYY-MM-DD, max 400 days). Returns {days}: per local day {date, steps, activeKcal (Health Connect), bmrKcal, workoutKcal, stepsKcal (activeKcal minus sessions Health Connect counted), expendedKcal = bmrKcal + activeKcal + sessions Health Connect did not see}. Null without data; bmrKcal and expendedKcal null while the profile is incomplete."
+        "description": "Read-only. Reads energy expenditure per day, from and to included (YYYY-MM-DD, max 400 days). Returns {days}: per local day {date, steps, activeKcal (Health Connect), bmrKcal, workoutKcal, stepsKcal (activeKcal minus sessions Health Connect counted), expendedKcal = bmrKcal + activeKcal + sessions Health Connect did not see}. Null without data; bmrKcal and expendedKcal null while the profile is incomplete."
     },
     "get_day_context": {
         "name": "get_day_context",
@@ -840,7 +840,7 @@
                 }
             }
         },
-        "description": "Reads the exercise catalogue. Optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior, core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall; empty = bodyweight only), slug. Returns {exercises}: {slug, name, pattern, primaryMuscles, secondaryMuscles, kind, equipment, nervousCost, eccentric, unit (reps, seconds, meters), perSide, loadable, ladders}. Unknown value: {error}."
+        "description": "The slugs manage_workouts and get_next_prescription take. Reads the exercise catalogue. Optional: pattern (vertical_pull, horizontal_pull, vertical_push, horizontal_push, squat, hinge, lunge, core_anterior, core_lateral), equipment (list of pull_up_bar, weighted_bag, chair, table, band, parallel_bars, wall; empty = bodyweight only), slug. Returns {exercises}: {slug, name, pattern, primaryMuscles, secondaryMuscles, kind, equipment, nervousCost, eccentric, unit (reps, seconds, meters), perSide, loadable, ladders}. Unknown value: {error}."
     },
     "get_fasting": {
         "name": "get_fasting",
@@ -855,7 +855,7 @@
                 "date"
             ]
         },
-        "description": "Reads one day's intermittent fast, date YYYY-MM-DD, derived from the food journal. Returns {date, protocol (14:10, 16:8, 18:6, 20:4; null if none), windowStart, windowEnd (HH:MM), openedAt (first intake), lastIntakeAt, state (fasting: nothing eaten yet; open: until windowEnd; closed), nightFastMinutes (previous day's last intake to this day's first)}. A future day gives its window only."
+        "description": "Read-only; the protocol is set with update_health_profile. Reads one day's intermittent fast, date YYYY-MM-DD, derived from the food journal. Returns {date, protocol (14:10, 16:8, 18:6, 20:4; null if none), windowStart, windowEnd (HH:MM), openedAt (first intake), lastIntakeAt, state (fasting: nothing eaten yet; open: until windowEnd; closed), nightFastMinutes (previous day's last intake to this day's first)}. A future day gives its window only."
     },
     "get_finance_projection": {
         "name": "get_finance_projection",
@@ -915,7 +915,7 @@
                 "date"
             ]
         },
-        "description": "Reads one local day of the health journal, date YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt (first weighing of the day not set aside), steps, eatenKcal, expendedKcal, balanceKcal (eaten - expended; today live, planned meals included), sportMinutes, mood, fatigue (1-10), note, notedBy (user, maggie), notedAt}}. Null when nothing is recorded."
+        "description": "The day's journal; calorie detail is get_daily_balance, energy get_daily_energy. Reads one local day of the health journal, date YYYY-MM-DD. Returns {day: {id, date, weightKg, bodyFatPercent, weighedAt (first weighing of the day not set aside), steps, eatenKcal, expendedKcal, balanceKcal (eaten - expended; today live, planned meals included), sportMinutes, mood, fatigue (1-10), note, notedBy (user, maggie), notedAt}}. Null when nothing is recorded."
     },
     "get_health_profile": {
         "name": "get_health_profile",
@@ -923,7 +923,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Reads the health profile. Returns {id (null if never written), sex, birthYear, age, heightCm, weightKg (latest weighing not set aside), activityLevel (sedentary x1.2 to very_active x1.9), mode (computed, entered), bmrKcal, needKcal, factor (need / bmr), stepGoal, suggestionWindowStart, suggestionWindowEnd, sessionMinutes, stepSource}. bmrKcal, needKcal null while sex, age, height or weight is missing."
+        "description": "The owner's stable health data. Reads the health profile. Returns {id (null if never written), sex, birthYear, age, heightCm, weightKg (latest weighing not set aside), activityLevel (sedentary x1.2 to very_active x1.9), mode (computed, entered), bmrKcal, needKcal, factor (need / bmr), stepGoal, suggestionWindowStart, suggestionWindowEnd, sessionMinutes, stepSource}. bmrKcal, needKcal null while sex, age, height or weight is missing."
     },
     "get_my_location": {
         "name": "get_my_location",
@@ -950,7 +950,7 @@
                 "exercise"
             ]
         },
-        "description": "Returns the next prescription for one exercise from the coded progression rules. exercise: catalogue slug; variant: normal (default), soft (one set less, 3 reps in reserve), deload (half the sets, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription = an exercise line for manage_workouts (its exercise may differ from the one asked); reason = the rule applied; basedOn = ids of the sessions read. Unknown slug or variant: {error}."
+        "description": "Computes, writes nothing. Returns the next prescription for one exercise from the coded progression rules. exercise: catalogue slug; variant: normal (default), soft (one set less, 3 reps in reserve), deload (half the sets, 3 reps in reserve). Returns {prescription, reason, basedOn}: prescription = an exercise line for manage_workouts (its exercise may differ from the one asked); reason = the rule applied; basedOn = ids of the sessions read. Unknown slug or variant: {error}."
     },
     "get_purchase_suggestions": {
         "name": "get_purchase_suggestions",
@@ -1080,7 +1080,7 @@
                 "date"
             ]
         },
-        "description": "Reads the strength program status, date YYYY-MM-DD. Returns {date, programWeek (from the first done calibration session), phase (calibration weeks 1-2, ramp_up 3-4, normal), deload {due, reason (scheduled, stagnation, hard_sessions, null), weeksSinceLast}, stagnating (slugs without gain for over 14 days), week {planned, done}, hardSetsByPattern}. Invalid date: {error}."
+        "description": "Read-only. Reads the strength program status, date YYYY-MM-DD. Returns {date, programWeek (from the first done calibration session), phase (calibration weeks 1-2, ramp_up 3-4, normal), deload {due, reason (scheduled, stagnation, hard_sessions, null), weeksSinceLast}, stagnating (slugs without gain for over 14 days), week {planned, done}, hardSetsByPattern}. Invalid date: {error}."
     },
     "get_user_timezone": {
         "name": "get_user_timezone",
@@ -1542,7 +1542,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete, exclude. Fields: measuredAt (ISO 8601 with offset, default now), weightKg (max 500), bodyFatPercent (<100), waistCm (max 300), all >0, at least one on create; source (manual default, health_connect, withings), externalId, excluded (kept, not counted). update, delete, exclude need measurementId; update changes only fields given. list: after, before, limit (max 366). Returns {measurements} or {success, measurement}. Refusal changes nothing: {error, field?, current?}."
+        "description": "A measurement is one weighing or body measure at an instant. Actions: list, create, update, delete, exclude. Fields: measuredAt (ISO 8601 with offset, default now), weightKg (max 500), bodyFatPercent (<100), waistCm (max 300), all >0, at least one on create; source (manual default, health_connect, withings), externalId, excluded (kept, not counted). update, delete, exclude need measurementId; update changes only fields given. list: after, before, limit (max 366). Returns {measurements} or {success, measurement}. Refusal changes nothing: {error, field?, current?}."
     },
     "manage_categories": {
         "name": "manage_categories",
@@ -2047,7 +2047,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete. list needs date (YYYY-MM-DD): {intakes, plannedMeals (not yet eaten)}. create, one of: mealId alone (eats the planned meal, eatenAt defaults to now); else eatenAt (ISO 8601 with offset, required) + label + kcal (0-10000), optional proteinG, carbsG, fatG (grams), quantityGrams; ciqualCode (search_ciqual_foods) + eatenAt + quantityGrams, kcal and macros from Ciqual unless given. update, delete need foodIntakeId; update changes only fields given, nothing recomputed; deleting a meal's intake makes the meal planned again. Returns {success, intake}. Refusal: {error, field?, current?}, nothing changes."
+        "description": "An intake is what the owner ate; a meal planned on a day is manage_meals, eaten with create and its mealId. Actions: list, create, update, delete. list needs date (YYYY-MM-DD): {intakes, plannedMeals (not yet eaten)}. create, one of: mealId alone (eats the planned meal, eatenAt defaults to now); else eatenAt (ISO 8601 with offset, required) + label + kcal (0-10000), optional proteinG, carbsG, fatG (grams), quantityGrams; ciqualCode (search_ciqual_foods) + eatenAt + quantityGrams, kcal and macros from Ciqual unless given. update, delete need foodIntakeId; update changes only fields given, nothing recomputed; deleting a meal's intake makes the meal planned again. Returns {success, intake}. Refusal: {error, field?, current?}, nothing changes."
     },
     "manage_ingredients": {
         "name": "manage_ingredients",
@@ -4113,7 +4113,7 @@
                 "action"
             ]
         },
-        "description": "Actions: list, create, update, delete. Fields: type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 with offset), durationMinutes, distanceMeters (metres), kcal, avgHeartRate, feeling (very_good, good, hard, very_hard), source (manual default, watch, activity, estimated, planned = still to do), externalId, difficulty (1-10), variant (normal, calibration, soft, deload), exercises: ordered list, always sent WHOLE, replaces the previous one. Exercise: exercise (slug), step, sets, target (per set), targetMin, targetMax, restSeconds, tempo (true = 3 s down, 1 s pause), loadKg, targetRir, cue, feeling (too_easy, right, too_hard), done (list of {reps}, {seconds} or {meters}, plus loadKg); both done only. create needs type, title, startedAt, durationMinutes. update, delete need workoutId; update changes given fields only. list filters type, source, exercise (slug), after, before (on startedAt), limit (max 100). Returns {workouts} or {success, workout}. Refusal (nothing changes): {error, field?, current?}. A planned strength session is refused (current = the week's strength sessions) if the week has 3, it is under 24 h from another, or it is the 3rd with an eccentric exercise or under 48 h from another."
+        "description": "A workout is a sport session, done or planned; a week of strength sessions is prepared by the coach (delegate), each line from get_next_prescription. Actions: list, create, update, delete. Fields: type (run, walk, bike, swim, strength, climbing, other), title, startedAt (ISO 8601 with offset), durationMinutes, distanceMeters (metres), kcal, avgHeartRate, feeling (very_good, good, hard, very_hard), source (manual default, watch, activity, estimated, planned = still to do), externalId, difficulty (1-10), variant (normal, calibration, soft, deload), exercises: ordered list, always sent WHOLE, replaces the previous one. Exercise: exercise (slug), step, sets, target (per set), targetMin, targetMax, restSeconds, tempo (true = 3 s down, 1 s pause), loadKg, targetRir, cue, feeling (too_easy, right, too_hard), done (list of {reps}, {seconds} or {meters}, plus loadKg); both done only. create needs type, title, startedAt, durationMinutes. update, delete need workoutId; update changes given fields only. list filters type, source, exercise (slug), after, before (on startedAt), limit (max 100). Returns {workouts} or {success, workout}. Refusal (nothing changes): {error, field?, current?}. A planned strength session is refused (current = the week's strength sessions) if the week has 3, it is under 24 h from another, or it is the 3rd with an eccentric exercise or under 48 h from another."
     },
     "mark_grocery_item_missing": {
         "name": "mark_grocery_item_missing",
@@ -5005,7 +5005,7 @@
                 "date"
             ]
         },
-        "description": "Writes a day of the health journal: date (YYYY-MM-DD) and at least one of mood (1-10, 10 best), fatigue (1-10, 10 most tired), note (max 2000 characters; blank removes it). Only arguments given change; a missing day is created, marked as written by Maggie. Returns {success, day} or {error, field, current}."
+        "description": "The owner's mood, fatigue or a note for a day; body numbers are manage_body_measurements, stable data update_health_profile. Writes a day of the health journal: date (YYYY-MM-DD) and at least one of mood (1-10, 10 best), fatigue (1-10, 10 most tired), note (max 2000 characters; blank removes it). Only arguments given change; a missing day is created, marked as written by Maggie. Returns {success, day} or {error, field, current}."
     },
     "update_health_profile": {
         "name": "update_health_profile",
@@ -5143,7 +5143,7 @@
                 }
             }
         },
-        "description": "Changes the health profile: given arguments only, at least one. sex (male, female), birthYear, heightCm (100-250), weightKg (max 500, also recorded as a weighing), activityLevel (sedentary, light, moderate, active, very_active), mode (computed, entered), enteredNeedKcal (1000-5000), stepGoal (500-50000), suggestionWindowStart, suggestionWindowEnd (HH:MM, end after start), sessionMinutes (15, 20, 30), stepSource (health_connect, none), fastingProtocol (14:10, 16:8, 18:6, 20:4, none), fastingWindowStart (HH:MM). Returns {success, profile}, or {error, field}."
+        "description": "Before: get_health_profile. A weighing alone is manage_body_measurements. Changes the health profile: given arguments only, at least one. sex (male, female), birthYear, heightCm (100-250), weightKg (max 500, also recorded as a weighing), activityLevel (sedentary, light, moderate, active, very_active), mode (computed, entered), enteredNeedKcal (1000-5000), stepGoal (500-50000), suggestionWindowStart, suggestionWindowEnd (HH:MM, end after start), sessionMinutes (15, 20, 30), stepSource (health_connect, none), fastingProtocol (14:10, 16:8, 18:6, 20:4, none), fastingWindowStart (HH:MM). Returns {success, profile}, or {error, field}."
     },
     "update_recipe": {
         "name": "update_recipe",
