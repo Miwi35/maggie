@@ -1,14 +1,13 @@
 package com.maggie.app.ui.screens.home
 
-import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
@@ -57,22 +56,50 @@ class TasksCardScreenTest {
     }
 
     @Test
-    fun `the card draws the ring, what is late, the tasks, the saga and the routines`() {
+    fun `the ring holds the done count, « n sur N » and the sentence beside it`() {
         show()
 
         compose.onNodeWithText("Tâches").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.HOME_TASKS_RING).assertContentDescriptionEquals("1 sur 4")
-        compose.onNodeWithText("1 sur 4").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.HOME_TASKS_OVERDUE).assertIsDisplayed()
-        compose.onNodeWithText("1 en retard").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HOME_TASKS_RING).assertTextEquals("1 sur 4")
+        compose.onNodeWithTag(UiTags.HOME_TASKS_NEXT).assertTextEquals("Le reste peut attendre une pause")
+        compose.onNodeWithText("1", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("Appeler le garage").assertIsDisplayed()
-        compose.onNodeWithText("En retard de 2 j").assertIsDisplayed()
         compose.onNodeWithText("Choisir l'horaire").assertIsDisplayed()
         compose.onNodeWithText("+ 2 autres").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.HOME_TASKS_SAGA).assertIsDisplayed()
         compose.onNodeWithText("Déménagement · 2/6").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.HOME_TASKS_ROUTINES).assertIsDisplayed()
+        compose.onNodeWithText("En retard de 2 j").assertDoesNotExist()
+        compose.onNodeWithText("1 en retard").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the sentence follows the count none, some, all, tomorrow`() {
+        assertEquals("Une seule suffit pour lancer la journée", ringNext(0, 3, tomorrow = false))
+        assertEquals("Le reste peut attendre une pause", ringNext(1, 3, tomorrow = false))
+        assertEquals("Journée bouclée", ringNext(3, 3, tomorrow = false))
+        assertEquals("Prévues demain", ringNext(0, 3, tomorrow = true))
+    }
+
+    @Test
+    fun `a row reads its when pill, its urgency and its meta under a one-line title`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.homeTaskWhen("t1")).assertExists()
+        compose.onNodeWithText("avant ce soir").assertExists()
+        compose.onNodeWithTag(UiTags.homeTaskUrgency("t1")).assertExists()
+        compose.onNodeWithText("Critique").assertExists()
+        compose.onNodeWithTag(UiTags.homeTaskMeta("t1")).assertTextEquals("reportée depuis lundi")
+        compose.onNodeWithTag(UiTags.homeTaskWhen("t2")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the routines are rows under « Routines · après le dîner » with « 1 sur 2 »`() {
+        show()
+
+        compose.onNodeWithText("Routines · après le dîner").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.HOME_TASKS_ROUTINES_COUNT).assertTextEquals("1 sur 2")
         compose.onNodeWithText("Boire un verre d'eau").assertIsDisplayed()
+        compose.onNodeWithText("Vitamines").assertIsDisplayed()
     }
 
     @Test
@@ -81,8 +108,8 @@ class TasksCardScreenTest {
 
         compose.onNodeWithTag(UiTags.homeTaskCheck("t3")).assertIsOn()
         compose.onNodeWithTag(UiTags.homeTaskCheck("t1")).assertIsOff()
-        compose.onNodeWithTag(UiTags.homeRoutineCheck("r2")).assertIsSelected()
-        compose.onNodeWithTag(UiTags.homeRoutineCheck("r1")).assertIsNotSelected()
+        compose.onNodeWithTag(UiTags.homeRoutineCheck("r2")).assertIsOn()
+        compose.onNodeWithTag(UiTags.homeRoutineCheck("r1")).assertIsOff()
     }
 
     @Test
@@ -117,14 +144,14 @@ class TasksCardScreenTest {
     }
 
     @Test
-    fun `ticking a routine checks the chip and puts today's date to the API`() {
+    fun `ticking a routine checks its row and puts today's date to the API`() {
         show()
         fakes.answers(HomeDay.TODAY, TODAY_CARD.withRoutineChecked("r1", true))
 
         compose.onNodeWithTag(UiTags.homeRoutineCheck("r1")).performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithTag(UiTags.homeRoutineCheck("r1")).assertIsSelected()
+        compose.onNodeWithTag(UiTags.homeRoutineCheck("r1")).assertIsOn()
         coVerify(exactly = 1) { fakes.routineRepository.setChecked("r1", LocalDate.of(2026, 10, 23), true) }
     }
 
@@ -196,7 +223,6 @@ class TasksCardScreenTest {
         show()
 
         compose.onNodeWithTag(UiTags.HOME_TASKS_RING).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.HOME_TASKS_OVERDUE).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.HOME_TASKS_MORE).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.HOME_TASKS_SAGA).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.HOME_TASKS_ROUTINES).assertIsDisplayed()
