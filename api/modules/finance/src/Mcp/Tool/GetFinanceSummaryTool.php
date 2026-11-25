@@ -16,7 +16,7 @@ use Maggie\Finance\UseCase\GetSavingsAdvances;
 use Maggie\Finance\UseCase\PlanningPeriod;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_finance_summary', description: 'Reads the financial state of a period (period: YYYY-MM, default current month, or YYYY). spending: every debit against what was planned, with the daily curve. envelopes: consumed vs budgeted. satisfaction: worth keeping vs avoidable. savings: put aside vs planned capacity. cushion. toQualify: unqualified lines. scores: week, month and global colours with their reasons (null for a year). salary: reference monthly salary, its source (declared, expected, measured, unknown) and the delay. advances: money taken from savings, outstanding per source. independence: how far the rentes cover the lifestyle. Integer cents.')]
+#[McpTool(name: 'get_finance_summary', description: 'What happened over a past or current period, read-only; what comes is get_finance_projection, a what-if over years manage_scenarios. Reads the financial state of a period (period: YYYY-MM, default current month, or YYYY). spending: every debit against what was planned, with the daily curve. envelopes: consumed vs budgeted. satisfaction: worth keeping vs avoidable. savings: put aside vs planned capacity. cushion. toQualify: unqualified lines. scores: week, month and global colours with their reasons (null for a year). salary: reference monthly salary, its source (declared, expected, measured, unknown) and the delay. advances: money taken from savings, outstanding per source. independence: how far the rentes cover the lifestyle. Integer cents.')]
 class GetFinanceSummaryTool
 {
     public function __construct(

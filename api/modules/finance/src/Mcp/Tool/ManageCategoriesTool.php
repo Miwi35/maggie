@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_categories', description: 'List, create, update or delete budget categories. A tree of at most three levels (parentId; a level-3 category has no children, none moves under its own descendants or past level 3). Read with depth (1-3) and path (names joined by « › »). obligation (deprecated, only the default qualification of a new transaction line): mandatory, optional, saving, investment, debt or income. passiveIncome flags an income category whose money comes in without work (rent, dividends, interest, royalties): the independence counter counts it; refused on any other category. On update only provided fields change; list parentId, color or icon in clear to empty them.')]
+#[McpTool(name: 'manage_categories', description: 'A category classifies movements; the amount allowed to one over a period is an envelope (manage_envelopes). List, create, update or delete budget categories. A tree of at most three levels (parentId; a level-3 category has no children, none moves under its own descendants or past level 3). Read with depth (1-3) and path (names joined by « › »). obligation (deprecated, only the default qualification of a new transaction line): mandatory, optional, saving, investment, debt or income. passiveIncome flags an income category whose money comes in without work (rent, dividends, interest, royalties): the independence counter counts it; refused on any other category. On update only provided fields change; list parentId, color or icon in clear to empty them.')]
 class ManageCategoriesTool
 {
     public function __construct(
