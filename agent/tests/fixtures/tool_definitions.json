@@ -2,7 +2,7 @@
   "no_subagents/None": [
     {
       "name": "memory_search",
-      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "description": "Search the memory: what Maggie knows of the owner and the people around him, as fiches (what is known) and whole past conversations (what was said). It is not his app data (events, tasks, money: their own tools, or search). Returns the path, the summary and an excerpt of each match; an excerpt is not the fiche: open it with memory_open before stating anything from it.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -15,7 +15,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+            "description": "Associated terms you choose: synonyms, the things the subject calls to mind. Each is searched too and the results are merged."
           },
           "limite": {
             "type": "integer",
@@ -29,7 +29,7 @@
     },
     {
       "name": "memory_open",
-      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "description": "Open a file of the memory folder, whole or a passage (path from memory_search or memory_write_fiche, as given). A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from. Read-only: a change goes through memory_write_fiche.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -53,13 +53,13 @@
     },
     {
       "name": "memory_write_fiche",
-      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "description": "Write or rewrite a fiche: durable knowledge about the owner, a person around him, a story, a habit, a place. Not for something he has to do (a task), how Maggie should answer (add_instruction), how to carry out a kind of request (create_skill), nor data the app already holds. The title is a TRUE SENTENCE about the subject, not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). Before: memory_search; a fiche that exists is opened, then rewritten with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason; it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The conversation is already on file whole: this is for what is worth knowing again later. Refused outside a turn the owner started.",
       "input_schema": {
         "type": "object",
         "properties": {
           "titre": {
             "type": "string",
-            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+            "description": "A true sentence about the subject, not a label"
           },
           "dossiers": {
             "type": "array",
@@ -168,7 +168,7 @@
     },
     {
       "name": "memory_log_miss",
-      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "description": "Log a recall miss: the owner says Maggie should have remembered something he had told her. Call it as soon as he says so, without waiting for a command. The miss is replayed every night against the memory so its cause gets fixed. Before: find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`); then log `demande` = his words at the moment it should have come back (not the reproach) and `chemin` = that fiche. It corrects no fact: a wrong fiche is rewritten with memory_write_fiche. The night and its follow-up are never mentioned to him.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -401,7 +401,7 @@
     },
     {
       "name": "date_time",
-      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Lisbon', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task when the owner has something to do, schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -487,7 +487,7 @@
     },
     {
       "name": "answer_approval",
-      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "description": "For the owner's answer to an approval card: approve or deny an action held for his validation (its approvalId is given with the message he is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval he is answering in this message, never decided on your own: any other call is refused. A task reminder he answers is answer_task_reminder.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -511,7 +511,7 @@
     },
     {
       "name": "ask_owner",
-      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. For a hesitation that fits options: two plausible readings that lead to different actions, what he expects from a request, whether to go ahead with something irreversible. Never for a clear request (do it), never as a free-text question. Outside a live chat it reaches him as an interruption by itself: add no notification. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -538,7 +538,7 @@
     },
     {
       "name": "send_voice_message",
-      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "description": "Send the owner a voice message: the text is spoken in his chosen voice, recorded, and lands in the thread as audio he can play now or later. Only when he asks for a vocal, or a directive or a skill asks for one; otherwise the written reply is enough, and a push without audio is manage_notifications. Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -579,7 +579,7 @@
   "no_subagents/proaction": [
     {
       "name": "memory_search",
-      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "description": "Search the memory: what Maggie knows of the owner and the people around him, as fiches (what is known) and whole past conversations (what was said). It is not his app data (events, tasks, money: their own tools, or search). Returns the path, the summary and an excerpt of each match; an excerpt is not the fiche: open it with memory_open before stating anything from it.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -592,7 +592,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+            "description": "Associated terms you choose: synonyms, the things the subject calls to mind. Each is searched too and the results are merged."
           },
           "limite": {
             "type": "integer",
@@ -606,7 +606,7 @@
     },
     {
       "name": "memory_open",
-      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "description": "Open a file of the memory folder, whole or a passage (path from memory_search or memory_write_fiche, as given). A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from. Read-only: a change goes through memory_write_fiche.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -630,13 +630,13 @@
     },
     {
       "name": "memory_write_fiche",
-      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "description": "Write or rewrite a fiche: durable knowledge about the owner, a person around him, a story, a habit, a place. Not for something he has to do (a task), how Maggie should answer (add_instruction), how to carry out a kind of request (create_skill), nor data the app already holds. The title is a TRUE SENTENCE about the subject, not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). Before: memory_search; a fiche that exists is opened, then rewritten with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason; it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The conversation is already on file whole: this is for what is worth knowing again later. Refused outside a turn the owner started.",
       "input_schema": {
         "type": "object",
         "properties": {
           "titre": {
             "type": "string",
-            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+            "description": "A true sentence about the subject, not a label"
           },
           "dossiers": {
             "type": "array",
@@ -745,7 +745,7 @@
     },
     {
       "name": "memory_log_miss",
-      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "description": "Log a recall miss: the owner says Maggie should have remembered something he had told her. Call it as soon as he says so, without waiting for a command. The miss is replayed every night against the memory so its cause gets fixed. Before: find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`); then log `demande` = his words at the moment it should have come back (not the reproach) and `chemin` = that fiche. It corrects no fact: a wrong fiche is rewritten with memory_write_fiche. The night and its follow-up are never mentioned to him.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -978,7 +978,7 @@
     },
     {
       "name": "date_time",
-      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Lisbon', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task when the owner has something to do, schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1064,7 +1064,7 @@
     },
     {
       "name": "answer_approval",
-      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "description": "For the owner's answer to an approval card: approve or deny an action held for his validation (its approvalId is given with the message he is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval he is answering in this message, never decided on your own: any other call is refused. A task reminder he answers is answer_task_reminder.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1088,7 +1088,7 @@
     },
     {
       "name": "ask_owner",
-      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. For a hesitation that fits options: two plausible readings that lead to different actions, what he expects from a request, whether to go ahead with something irreversible. Never for a clear request (do it), never as a free-text question. Outside a live chat it reaches him as an interruption by itself: add no notification. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1115,7 +1115,7 @@
     },
     {
       "name": "send_voice_message",
-      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "description": "Send the owner a voice message: the text is spoken in his chosen voice, recorded, and lands in the thread as audio he can play now or later. Only when he asks for a vocal, or a directive or a skill asks for one; otherwise the written reply is enough, and a push without audio is manage_notifications. Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1174,7 +1174,7 @@
   "subagents/None": [
     {
       "name": "memory_search",
-      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "description": "Search the memory: what Maggie knows of the owner and the people around him, as fiches (what is known) and whole past conversations (what was said). It is not his app data (events, tasks, money: their own tools, or search). Returns the path, the summary and an excerpt of each match; an excerpt is not the fiche: open it with memory_open before stating anything from it.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1187,7 +1187,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+            "description": "Associated terms you choose: synonyms, the things the subject calls to mind. Each is searched too and the results are merged."
           },
           "limite": {
             "type": "integer",
@@ -1201,7 +1201,7 @@
     },
     {
       "name": "memory_open",
-      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "description": "Open a file of the memory folder, whole or a passage (path from memory_search or memory_write_fiche, as given). A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from. Read-only: a change goes through memory_write_fiche.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1225,13 +1225,13 @@
     },
     {
       "name": "memory_write_fiche",
-      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "description": "Write or rewrite a fiche: durable knowledge about the owner, a person around him, a story, a habit, a place. Not for something he has to do (a task), how Maggie should answer (add_instruction), how to carry out a kind of request (create_skill), nor data the app already holds. The title is a TRUE SENTENCE about the subject, not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). Before: memory_search; a fiche that exists is opened, then rewritten with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason; it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The conversation is already on file whole: this is for what is worth knowing again later. Refused outside a turn the owner started.",
       "input_schema": {
         "type": "object",
         "properties": {
           "titre": {
             "type": "string",
-            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+            "description": "A true sentence about the subject, not a label"
           },
           "dossiers": {
             "type": "array",
@@ -1340,7 +1340,7 @@
     },
     {
       "name": "memory_log_miss",
-      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "description": "Log a recall miss: the owner says Maggie should have remembered something he had told her. Call it as soon as he says so, without waiting for a command. The miss is replayed every night against the memory so its cause gets fixed. Before: find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`); then log `demande` = his words at the moment it should have come back (not the reproach) and `chemin` = that fiche. It corrects no fact: a wrong fiche is rewritten with memory_write_fiche. The night and its follow-up are never mentioned to him.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1573,7 +1573,7 @@
     },
     {
       "name": "date_time",
-      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Lisbon', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task when the owner has something to do, schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1659,7 +1659,7 @@
     },
     {
       "name": "answer_approval",
-      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "description": "For the owner's answer to an approval card: approve or deny an action held for his validation (its approvalId is given with the message he is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval he is answering in this message, never decided on your own: any other call is refused. A task reminder he answers is answer_task_reminder.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1683,7 +1683,7 @@
     },
     {
       "name": "ask_owner",
-      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. For a hesitation that fits options: two plausible readings that lead to different actions, what he expects from a request, whether to go ahead with something irreversible. Never for a clear request (do it), never as a free-text question. Outside a live chat it reaches him as an interruption by itself: add no notification. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1710,7 +1710,7 @@
     },
     {
       "name": "send_voice_message",
-      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "description": "Send the owner a voice message: the text is spoken in his chosen voice, recorded, and lands in the thread as audio he can play now or later. Only when he asks for a vocal, or a directive or a skill asks for one; otherwise the written reply is enough, and a push without audio is manage_notifications. Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1733,7 +1733,7 @@
     },
     {
       "name": "delegate",
-      "description": "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation.\nAgents disponibles :\n- researcher : Cherche",
+      "description": "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation. Il ne parle pas au propriétaire : tu présentes sa synthèse.\nAgents disponibles :\n- researcher : Cherche",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1775,7 +1775,7 @@
   "subagents/proaction": [
     {
       "name": "memory_search",
-      "description": "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with memory_open before stating anything from it.",
+      "description": "Search the memory: what Maggie knows of the owner and the people around him, as fiches (what is known) and whole past conversations (what was said). It is not his app data (events, tasks, money: their own tools, or search). Returns the path, the summary and an excerpt of each match; an excerpt is not the fiche: open it with memory_open before stating anything from it.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1788,7 +1788,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+            "description": "Associated terms you choose: synonyms, the things the subject calls to mind. Each is searched too and the results are merged."
           },
           "limite": {
             "type": "integer",
@@ -1802,7 +1802,7 @@
     },
     {
       "name": "memory_open",
-      "description": "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from.",
+      "description": "Open a file of the memory folder, whole or a passage (path from memory_search or memory_write_fiche, as given). A fiche comes back with the claims it holds you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the conversation behind a claim when asked where it comes from. Read-only: a change goes through memory_write_fiche.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1826,13 +1826,13 @@
     },
     {
       "name": "memory_write_fiche",
-      "description": "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). To correct a fiche that exists, open it, then rewrite it with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation is already on file whole: this is for what is worth knowing again later.",
+      "description": "Write or rewrite a fiche: durable knowledge about the owner, a person around him, a story, a habit, a place. Not for something he has to do (a task), how Maggie should answer (add_instruction), how to carry out a kind of request (create_skill), nor data the app already holds. The title is a TRUE SENTENCE about the subject, not a label. Folders are yours to choose, few and shallow. Every claim carries its provenance and its source. `dit` = the owner said it (source: the conversation, with the minute; also needs `citation`: the owner's words, copied from his message at that minute); `observé` = seen in the app's data (source: `app : <la donnée>`; a habit the night read over a period, `app : …, sur la période du A au B`, is announced as deduced from an observation, like `déduit`); `déduit` = you inferred it (always announced as such when used). Before: memory_search; a fiche that exists is opened, then rewritten with `chemin`: send every claim that stays true in `affirmations`, and move what stopped being true to `remplacees` with the reason; it is dated and kept, never erased. Never write as `dit` or `observé` what you added yourself. The conversation is already on file whole: this is for what is worth knowing again later. Refused outside a turn the owner started.",
       "input_schema": {
         "type": "object",
         "properties": {
           "titre": {
             "type": "string",
-            "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"
+            "description": "A true sentence about the subject, not a label"
           },
           "dossiers": {
             "type": "array",
@@ -1941,7 +1941,7 @@
     },
     {
       "name": "memory_log_miss",
-      "description": "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. It keeps the miss as a case that is replayed every night against the memory, the cause is looked for and fixed, and it is reported. First find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the words the owner said when it should have come back (the sentence where you missed it, not the reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … je le retiens. » — do not mention the night or any follow-up.",
+      "description": "Log a recall miss: the owner says Maggie should have remembered something he had told her. Call it as soon as he says so, without waiting for a command. The miss is replayed every night against the memory so its cause gets fixed. Before: find the fiche with memory_search (or write it with memory_write_fiche if it never existed, and describe it in `souvenir`); then log `demande` = his words at the moment it should have come back (not the reproach) and `chemin` = that fiche. It corrects no fact: a wrong fiche is rewritten with memory_write_fiche. The night and its follow-up are never mentioned to him.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2174,7 +2174,7 @@
     },
     {
       "name": "date_time",
-      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Fort-de-France', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task with a dueDate when the user has something to do (« rappelle-moi d'aller faire X »), schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
+      "description": "Exact date and time calculations — USE IT instead of computing in your head whenever a timezone, a daylight saving change, a weekday or a duration is involved. Never write an offset yourself. Actions: 'now' (current time in a place), 'convert' (an instant from one place to another), 'add' (instant + duration, negative to go back), 'diff' (time between two instants), 'weekday' (day of the week of a date). Places ('timezone', 'to_timezone', 'end_timezone') are a city, a region, a country or an IANA name ('Lisbon', 'New York', 'Europe/Paris'); omit them for the user's own timezone. A 'datetime' without offset is read as local time in 'timezone'; omit it for the current instant. Every result carries an 'iso' value with its offset, ready to pass as 'scheduled_at' to schedule_proaction or to build an event. This tool only computes: it schedules nothing, so a reminder still needs a tool call: create_task when the owner has something to do, schedule_proaction when Maggie herself must act or speak at that time. Calendar units (years, months, weeks, days) keep the wall-clock time across a clock change; clock units (hours, minutes, seconds) are real elapsed time.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2260,7 +2260,7 @@
     },
     {
       "name": "answer_approval",
-      "description": "Approve or deny an action held for the user's validation (its approvalId is given with the message the user is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval the user is answering in this message — never decide one on your own: any other call is refused.",
+      "description": "For the owner's answer to an approval card: approve or deny an action held for his validation (its approvalId is given with the message he is answering), exactly as the « Autoriser » / « Refuser » buttons do. Only for an approval he is answering in this message, never decided on your own: any other call is refused. A task reminder he answers is answer_task_reminder.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2284,7 +2284,7 @@
     },
     {
       "name": "ask_owner",
-      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. Use it for any hesitation that fits options — what he expects from his request (« je dois penser à prendre… » : a task with the list, planned, or just a note?), which of two plausible readings, whether to go ahead with something irreversible — never to ask a free-text question and never for a clear request. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
+      "description": "Ask the owner a short question with options to tick, and stop there: his answer comes back as his next message. For a hesitation that fits options: two plausible readings that lead to different actions, what he expects from a request, whether to go ahead with something irreversible. Never for a clear request (do it), never as a free-text question. Outside a live chat it reaches him as an interruption by itself: add no notification. 'text' is one natural sentence without Markdown; 'options' are 2 to 6 short labels; 'multiple' is true when several can be ticked together.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2311,7 +2311,7 @@
     },
     {
       "name": "send_voice_message",
-      "description": "Send the user a voice message: the text is spoken in their chosen voice, recorded, and lands in the thread as an audio message they can play now or later. Use it when the user asks for a vocal (« envoie-moi un vocal… ») or a directive asks for one (a morning digest « en vocal »). Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
+      "description": "Send the owner a voice message: the text is spoken in his chosen voice, recorded, and lands in the thread as audio he can play now or later. Only when he asks for a vocal, or a directive or a skill asks for one; otherwise the written reply is enough, and a push without audio is manage_notifications. Write the text for the ear: plain sentences, no Markdown, no list, no table, no URL. The message is in the thread once the tool answers: reply nothing else.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -2334,7 +2334,7 @@
     },
     {
       "name": "delegate",
-      "description": "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation.\nAgents disponibles :\n- researcher : Cherche",
+      "description": "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation. Il ne parle pas au propriétaire : tu présentes sa synthèse.\nAgents disponibles :\n- researcher : Cherche",
       "input_schema": {
         "type": "object",
         "properties": {

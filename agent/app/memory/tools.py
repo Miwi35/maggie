@@ -35,9 +35,10 @@ MEMORY_TOOLS = [
     {
         "name": "memory_search",
         "description": (
-            "Search the memory folder: fiches (what is known) and conversations (what was said, whole). Returns "
-            "the path, the summary and an excerpt of each match — an excerpt is not the fiche: open it with "
-            "memory_open before stating anything from it."
+            "Search the memory: what Maggie knows of the owner and the people around him, as fiches (what is "
+            "known) and whole past conversations (what was said). It is not his app data (events, tasks, money: "
+            "their own tools, or search). Returns the path, the summary and an excerpt of each match; an excerpt "
+            "is not the fiche: open it with memory_open before stating anything from it."
         ),
         "input_schema": {
             "type": "object",
@@ -47,8 +48,8 @@ MEMORY_TOOLS = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": (
-                        "Associated terms you choose — synonyms, the things the subject calls to mind (« fête des "
-                        "mères » → roses, bouquet, fleuriste). Each is searched too and the results are merged."
+                        "Associated terms you choose: synonyms, the things the subject calls to mind. Each is "
+                        "searched too and the results are merged."
                     ),
                 },
                 "limite": {
@@ -62,9 +63,11 @@ MEMORY_TOOLS = [
     {
         "name": "memory_open",
         "description": (
-            "Open a file of the memory folder, whole or a passage. A fiche comes back with the claims it holds "
-            "you must announce as deduced (`a_annoncer`). Always open the fiche before answering what you know, "
-            "and open the conversation behind a claim when asked where it comes from."
+            "Open a file of the memory folder, whole or a passage (path from memory_search or "
+            "memory_write_fiche, as given). A fiche comes back with the claims it holds you must announce as "
+            "deduced (`a_annoncer`). Always open the fiche before answering what you know, and open the "
+            "conversation behind a claim when asked where it comes from. Read-only: a change goes through "
+            "memory_write_fiche."
         ),
         "input_schema": {
             "type": "object",
@@ -79,18 +82,20 @@ MEMORY_TOOLS = [
     {
         "name": "memory_write_fiche",
         "description": (
-            "Write or rewrite a fiche: durable knowledge about a person, a story, a habit, a place. The title is a "
-            "TRUE SENTENCE (« Françoise n'aime pas les roses »), not a label. Folders are yours to choose, few and "
-            "shallow. Every claim carries its provenance and its source. " + _PROVENANCE_HELP + " To correct a fiche "
-            "that exists, open it, then rewrite it with `chemin`: send every claim that stays true in "
-            "`affirmations`, and move what stopped being true to `remplacees` with the reason — it is dated and "
-            "kept, never erased. Never write as `dit` or `observé` what you added yourself. The owner's conversation "
-            "is already on file whole: this is for what is worth knowing again later."
+            "Write or rewrite a fiche: durable knowledge about the owner, a person around him, a story, a habit, a "
+            "place. Not for something he has to do (a task), how Maggie should answer (add_instruction), how to "
+            "carry out a kind of request (create_skill), nor data the app already holds. The title is a TRUE "
+            "SENTENCE about the subject, not a label. Folders are yours to choose, few and shallow. Every claim "
+            "carries its provenance and its source. " + _PROVENANCE_HELP + " Before: memory_search; a fiche that "
+            "exists is opened, then rewritten with `chemin`: send every claim that stays true in `affirmations`, "
+            "and move what stopped being true to `remplacees` with the reason; it is dated and kept, never erased. "
+            "Never write as `dit` or `observé` what you added yourself. The conversation is already on file "
+            "whole: this is for what is worth knowing again later. Refused outside a turn the owner started."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "titre": {"type": "string", "description": "A true sentence, e.g. « Françoise n'aime pas les roses »"},
+                "titre": {"type": "string", "description": "A true sentence about the subject, not a label"},
                 "dossiers": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -156,14 +161,13 @@ MEMORY_TOOLS = [
     {
         "name": "memory_log_miss",
         "description": (
-            "Call it when the owner tells you that you should have remembered something (« tu aurais dû t'en "
-            "souvenir », « je te l'avais dit », « tu ne te rappelles pas ? ») — without waiting for a command. "
-            "It keeps the miss as a case that is replayed every night against the memory, the cause is looked for "
-            "and fixed, and it is reported. First find the fiche with memory_search (or write it with "
-            "memory_write_fiche if it never existed, and describe it in `souvenir`), then log: `demande` = the "
-            "words the owner said when it should have come back (the sentence where you missed it, not the "
-            "reproach), `chemin` = the fiche that should have come back. Then answer « Vous avez raison, pardon. … "
-            "je le retiens. » — do not mention the night or any follow-up."
+            "Log a recall miss: the owner says Maggie should have remembered something he had told her. Call it as "
+            "soon as he says so, without waiting for a command. The miss is replayed every night against the "
+            "memory so its cause gets fixed. Before: find the fiche with memory_search (or write it with "
+            "memory_write_fiche if it never existed, and describe it in `souvenir`); then log `demande` = his words "
+            "at the moment it should have come back (not the reproach) and `chemin` = that fiche. It corrects no "
+            "fact: a wrong fiche is rewritten with memory_write_fiche. The night and its follow-up are never "
+            "mentioned to him."
         ),
         "input_schema": {
             "type": "object",

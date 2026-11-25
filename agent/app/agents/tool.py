@@ -12,7 +12,8 @@ def delegate_tool_definition() -> dict:
         "description": (
             "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une "
             "synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une "
-            "action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation.\n"
+            "action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation. "
+            "Il ne parle pas au propriétaire : tu présentes sa synthèse.\n"
             f"Agents disponibles :\n{listing}"
         ),
         "input_schema": {

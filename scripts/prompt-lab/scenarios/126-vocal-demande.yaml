@@ -1,0 +1,11 @@
+# A vocal is sent only when asked, with the tool made for it, and nothing else is said after.
+name: vocal-demande
+description: A requested vocal goes through send_voice_message, not a push notification.
+channel: chat
+
+steps:
+  - user_message: "Envoie-moi un vocal avec la météo de demain."
+    expected_tools: [get_weather, send_voice_message]
+    forbidden_tools: [manage_notifications]
+    expected_behavior: >
+      Elle lit la météo, envoie le vocal, et ne répond rien d'autre une fois le vocal envoyé.

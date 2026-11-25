@@ -1,0 +1,12 @@
+# A hesitation that fits options is asked with ask_owner, not guessed into a task or a fiche.
+name: hesitation-a-options
+description: An ambiguous remark gets a short question with options, then she stops.
+channel: chat
+
+steps:
+  - user_message: "Il faut que je pense aux papiers de la voiture."
+    expected_tools: [ask_owner]
+    forbidden_tools: [create_task, memory_write_fiche]
+    expected_behavior: >
+      Elle pose une question courte avec 2 à 4 options (une tâche, un rappel, une
+      simple note) et s'arrête.
