@@ -5,9 +5,9 @@ import { HomePage } from '../pages/HomePage.js'
  * Accueil › carte Santé — MAG-566.
  *
  * Given une séance prévue ce soir, When j'ouvre l'accueil,
- * Then la carte Santé la montre.
+ * Then la carte Santé la montre en une seule ligne « titre · HH:MM · 45 min » (MAG-1026).
  *
- * Nouveau parcours: the card is new, no earlier Accueil journey to extend.
+ * Parcours étendu par MAG-1026: la séance tient sur une ligne.
  */
 
 // The account of this journey alone: the card reads the planned session it wrote.
@@ -27,6 +27,6 @@ test('the Accueil Santé card shows the session planned today — MAG-566', asyn
   const home = new HomePage(page)
   await home.open()
 
-  // Then the Santé card shows it.
-  await expect(home.card('health').getByTestId('home-health-workout')).toContainText(title)
+  // Then the Santé card shows it on one line.
+  await expect(home.card('health').getByTestId('home-health-workout')).toHaveText(new RegExp(`^${title} · \\d{2}:\\d{2} · 45 min$`))
 })
