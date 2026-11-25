@@ -92,7 +92,7 @@ describe('TasksCard', () => {
     expect(cardRegistry.tasks).toBe(TasksCard)
   })
 
-  test('shows the skeleton, then the tasks, the ring, what is late and the routines', async () => {
+  test('shows the skeleton, then the tasks, the ring with its count, « n sur N » and its sentence, and the routines', async () => {
     stubApi(base)
     renderCard()
 
@@ -102,13 +102,13 @@ describe('TasksCard', () => {
     expect(await screen.findByRole('checkbox', { name: 'Appeler le plombier : fait' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Payer la cantine : fait' })).toBeChecked()
     expect(screen.getByTestId('home-tasks-ring')).toHaveTextContent('1 sur 4')
-    expect(screen.getByRole('progressbar', { name: 'Tâches faites' })).toHaveAttribute('aria-valuetext', '1 sur 4')
-    expect(screen.getByText('1 en retard')).toBeInTheDocument()
-    expect(screen.getByText('2 j de retard')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '1 tâches faites sur 4' })).toBeInTheDocument()
+    expect(screen.getByTestId('home-tasks-next')).toHaveTextContent('Le reste peut attendre une pause')
+    expect(screen.queryByText(/de retard|en retard/)).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Tâches' })).toHaveAttribute('href', '/tasks')
 
     const routines = screen.getByRole('region', { name: 'Routines' })
-    expect(within(routines).getByRole('link', { name: 'Routines' })).toHaveAttribute('href', '/tasks/routines')
+    expect(within(routines).getByRole('link', { name: 'Routines · au réveil' })).toHaveAttribute('href', '/tasks/routines')
     expect(within(routines).getByRole('checkbox', { name: 'Étirements : fait' })).not.toBeChecked()
     expect(within(routines).getByRole('checkbox', { name: 'Vitamines : fait' })).toBeChecked()
     expect(screen.queryByText(/autres?$/)).not.toBeInTheDocument()
@@ -151,8 +151,56 @@ describe('TasksCard', () => {
     renderCard()
 
     await screen.findByRole('checkbox', { name: 'Appeler le plombier : fait' })
-    expect(screen.queryByText(/en retard/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/en retard|de retard/)).not.toBeInTheDocument()
     expect(screen.queryByText(/ · \d+\/\d+/)).not.toBeInTheDocument()
+  })
+
+  test('a row reads its urgency pill and its meta under a one-line title, its box ringed in the urgency\'s colour', async () => {
+    stubApi({
+      ...base,
+      open: [
+        task('U1', 'Déclarer les impôts', { urgency: 'critical', postponedSince: '2020-01-01' }),
+        task('U2', 'Payer le garage', { urgency: 'high', estimatedMinutes: 5 }),
+        task('U3', 'Ranger le bureau', { urgency: 'normal' }),
+      ],
+      done: [],
+    })
+    renderCard()
+
+    const row = async (title: string) => (await screen.findByRole('checkbox', { name: `${title} : fait` })).closest('li') as HTMLElement
+    const critical = await row('Déclarer les impôts')
+    expect(within(critical).getByTestId('home-task-urgency')).toHaveTextContent('Critique')
+    expect(within(critical).queryByTestId('home-task-meta')).not.toBeInTheDocument()
+    const high = await row('Payer le garage')
+    expect(within(high).getByTestId('home-task-urgency')).toHaveTextContent('Haute')
+    expect(within(high).getByTestId('home-task-meta')).toHaveTextContent('5 min')
+    const normal = await row('Ranger le bureau')
+    expect(within(normal).queryByTestId('home-task-urgency')).not.toBeInTheDocument()
+    expect(within(normal).queryByTestId('home-task-meta')).not.toBeInTheDocument()
+  })
+
+  test('the routines are rows under « Routines · après le dîner » with « 1 sur 3 »', async () => {
+    const at = (id: string, title: string, checked: boolean) => ({
+      id,
+      title,
+      anchor: 'afterDinner' as const,
+      anchorTime: null,
+      time: '20:30',
+      remind: false,
+      recurrence: { kind: 'daily' as const },
+      checked,
+    })
+    stubApi({
+      ...base,
+      moments: [{ anchor: 'afterDinner', time: '20:30', routines: [at('A', 'Vaisselle', true), at('B', 'Lecture', false), at('C', 'Tisane', false)] }],
+      dayMoments: { wake: '00:00', afterBreakfast: '00:00', afterLunch: '00:00', afterDinner: '00:00' },
+    })
+    renderCard()
+
+    const routines = await screen.findByRole('region', { name: 'Routines' })
+    expect(within(routines).getByRole('link', { name: 'Routines · après le dîner' })).toBeInTheDocument()
+    expect(within(routines).getByTestId('home-routines-count')).toHaveTextContent('1 sur 3')
+    expect(within(routines).getAllByRole('listitem')).toHaveLength(3)
   })
 
   test('says the tasks left out, which open the tasks', async () => {
@@ -297,7 +345,8 @@ describe('TasksCard', () => {
     const boxes = screen.getAllByRole('checkbox')
     expect(boxes).toHaveLength(5)
     for (const box of boxes) expect(box).toBeDisabled()
-    expect(screen.queryByTestId('home-tasks-ring')).not.toBeInTheDocument()
+    expect(screen.getByTestId('home-tasks-ring')).toHaveTextContent('0 sur 3')
+    expect(screen.getByTestId('home-tasks-next')).toHaveTextContent('Prévues demain')
     expect(reads(calls, '/tasks/view/today')).toHaveLength(0)
     expect(reads(calls, 'completedAt%5B')).toHaveLength(0)
     expect(reads(calls, '/task-settings/me')).toHaveLength(0)

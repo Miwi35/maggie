@@ -1,13 +1,16 @@
 import { useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Checkbox from '@mui/material/Checkbox'
-import CircularProgress from '@mui/material/CircularProgress'
+import CheckIcon from '@mui/icons-material/Check'
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
+import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp'
 import Link from '@mui/material/Link'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
+import { alpha } from '@mui/material/styles'
+import type { Theme } from '@mui/material/styles'
 import { Link as RouterLink } from 'react-router-dom'
 import { localDay } from '../../../dates'
-import { TOKENS } from '../../../design/tokens'
 import { checkRoutine } from '../../calendar/routinesApi'
 import { setTaskDone } from '../../calendar/taskViews'
 import { HomeCard } from '../HomeCard'
@@ -16,7 +19,7 @@ import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
 import { moduleColor } from '../moduleColor'
 import type { HomeDay } from '../homeDay'
 import { useTasksCardState } from '../useTasksCardState'
-import { withRoutineChecked, withTaskDone } from './tasksCardState'
+import { ringNext, routinesHeading, taskMeta, withRoutineChecked, withTaskDone } from './tasksCardState'
 import type { HomeRoutine, HomeTask, TasksHomeState } from './tasksCardState'
 
 const calm = {
@@ -120,21 +123,24 @@ interface BodyProps {
 
 const TasksBody = ({ state, pending, onTask, onRoutine }: BodyProps) => {
   const disabled = !state.editable
+  const today = localDay(new Date())
+  const routinesDone = state.routines.filter((r) => r.checked).length
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {state.tasks.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-          {state.editable && state.total > 0 && <Ring done={state.done} total={state.total} />}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            {state.overdue > 0 && (
-              <Typography variant="caption" color="error" component="p" sx={{ mb: 0.5 }}>
-                {state.overdue} en retard
-              </Typography>
-            )}
+        <>
+          {state.total > 0 && <Ring done={state.done} total={state.total} tomorrow={!state.editable} />}
+          <Box>
             <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
               {state.tasks.map((task) => (
-                <TaskRow key={task.id} task={task} disabled={disabled || pending.has(`task:${task.id}`)} onToggle={onTask} />
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  today={today}
+                  disabled={disabled || pending.has(`task:${task.id}`)}
+                  onToggle={onTask}
+                />
               ))}
             </Box>
             {state.more > 0 && (
@@ -143,7 +149,7 @@ const TasksBody = ({ state, pending, onTask, onRoutine }: BodyProps) => {
               </Link>
             )}
           </Box>
-        </Box>
+        </>
       )}
       {state.saga && (
         <Typography variant="caption" color="text.secondary">
@@ -151,15 +157,20 @@ const TasksBody = ({ state, pending, onTask, onRoutine }: BodyProps) => {
         </Typography>
       )}
       {state.routines.length > 0 && (
-        <Box component="section" aria-label="Routines">
-          <Typography variant="overline" color="text.secondary" component="h3">
-            <Link component={RouterLink} to="/tasks/routines" color="inherit" underline="hover">
-              Routines
-            </Link>
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+        <Box component="section" aria-label="Routines" sx={{ borderTop: 1, borderColor: 'divider', pt: '6px' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12, color: 'text.disabled' }}>
+            <Typography component="h3" sx={{ fontSize: 12, color: 'inherit' }}>
+              <Link component={RouterLink} to="/tasks/routines" color="inherit" underline="hover">
+                {routinesHeading(state.routines)}
+              </Link>
+            </Typography>
+            <Typography data-testid="home-routines-count" sx={{ fontSize: 12, color: 'inherit' }}>
+              {`${routinesDone} sur ${state.routines.length}`}
+            </Typography>
+          </Box>
+          <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
             {state.routines.map((routine) => (
-              <RoutineChip key={routine.id} routine={routine} disabled={disabled || pending.has(`routine:${routine.id}`)} onToggle={onRoutine} />
+              <RoutineRow key={routine.id} routine={routine} disabled={disabled || pending.has(`routine:${routine.id}`)} onToggle={onRoutine} />
             ))}
           </Box>
         </Box>
@@ -168,69 +179,184 @@ const TasksBody = ({ state, pending, onTask, onRoutine }: BodyProps) => {
   )
 }
 
-const Ring = ({ done, total }: { done: number; total: number }) => (
-  <Box
-    data-testid="home-tasks-ring"
-    sx={(theme) => ({ position: 'relative', display: 'inline-flex', flexShrink: 0, color: moduleColor(theme, 'tasks') })}
-  >
-    <CircularProgress
-      variant="determinate"
-      value={Math.min(100, (done / total) * 100)}
-      size={56}
-      thickness={4}
-      color="inherit"
-      aria-label="Tâches faites"
-      aria-valuetext={`${done} sur ${total}`}
-          />
-    <Typography
-      variant="caption"
-      color="text.primary"
-      sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', lineHeight: 1.1, px: 0.5 }}
-    >
-      {`${done} sur ${total}`}
-    </Typography>
-  </Box>
-)
+const RING = 52
+const STROKE = 6
+const RADIUS = (RING - STROKE) / 2
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
-const TaskRow = ({ task, disabled, onToggle }: { task: HomeTask; disabled: boolean; onToggle: (task: HomeTask) => void }) => (
-  <Box
-    component="li"
-    sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: task.parentId ? 4 : 0, minHeight: 32 }}
-  >
-    <Checkbox
-      size="small"
-      checked={task.done}
-      disabled={disabled}
-      onChange={() => onToggle(task)}
-      slotProps={{ input: { 'aria-label': `${task.title} : fait` } }}
-      sx={(theme) => ({
-        p: 0.5,
-        [theme.breakpoints.down('md')]: { p: 1.25 },
-        ...calm,
-      })}
-    />
-    <Box sx={{ minWidth: 0, flex: 1 }}>
-      <Typography
-        variant="body2"
-        noWrap
-        sx={{
-          ...calm,
-          textDecoration: task.done ? 'line-through' : 'none',
-          color: task.done ? 'text.disabled' : 'text.primary',
-        }}
+const Ring = ({ done, total, tomorrow }: { done: number; total: number; tomorrow: boolean }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+    <Box sx={{ position: 'relative', width: RING, height: RING, flexShrink: 0 }}>
+      <svg
+        width={RING}
+        height={RING}
+        viewBox={`0 0 ${RING} ${RING}`}
+        role="img"
+        aria-label={`${done} tâches faites sur ${total}`}
+        style={{ transform: 'rotate(-90deg)', display: 'block' }}
       >
-        {task.title}
+        <Box component="circle" cx={RING / 2} cy={RING / 2} r={RADIUS} fill="none" strokeWidth={STROKE} sx={(theme) => ({ stroke: theme.palette.veilleuse.track })} />
+        <Box
+          component="circle"
+          cx={RING / 2}
+          cy={RING / 2}
+          r={RADIUS}
+          fill="none"
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          strokeDasharray={`${CIRCUMFERENCE * Math.min(1, done / total)} ${CIRCUMFERENCE}`}
+          sx={(theme) => ({ stroke: moduleColor(theme, 'tasks') })}
+        />
+      </svg>
+      <Typography
+        aria-hidden
+        sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 500 }}
+      >
+        {done}
       </Typography>
     </Box>
-    {!task.done && task.overdueDays != null && task.overdueDays > 0 && (
-      <Typography variant="caption" color="error" sx={{ flexShrink: 0 }}>
-        {task.overdueDays} j de retard
+    <Box sx={{ minWidth: 0 }}>
+      <Typography data-testid="home-tasks-ring" sx={{ fontSize: 16, fontWeight: 500 }}>
+        {`${done} sur ${total}`}
       </Typography>
-    )}
+      <Typography data-testid="home-tasks-next" sx={{ fontSize: 13, color: 'text.secondary' }}>
+        {ringNext(done, total, tomorrow)}
+      </Typography>
+    </Box>
   </Box>
 )
 
-const RoutineChip = ({
+const urgencyRing = (theme: Theme, urgency?: string | null): string =>
+  urgency === 'critical' ? theme.palette.error.main : urgency === 'high' ? theme.palette.warning.main : alpha(theme.palette.text.primary, 0.24)
+
+const BOX = 26
+
+const Tick = ({
+  checked,
+  disabled,
+  label,
+  urgency,
+  routine,
+  onChange,
+}: {
+  checked: boolean
+  disabled: boolean
+  label: string
+  urgency?: string | null
+  routine?: boolean
+  onChange: () => void
+}) => (
+  <Checkbox
+    checked={checked}
+    disabled={disabled}
+    onChange={onChange}
+    slotProps={{ input: { 'aria-label': label } }}
+    icon={<Box sx={(theme) => ({ width: BOX, height: BOX, borderRadius: '9px', boxShadow: `inset 0 0 0 2px ${urgencyRing(theme, urgency)}`, ...calm })} />}
+    checkedIcon={
+      <Box
+        sx={(theme) => ({
+          width: BOX,
+          height: BOX,
+          borderRadius: '9px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: routine ? theme.palette.module.comptes : moduleColor(theme, 'tasks'),
+          color: 'background.default',
+          ...calm,
+        })}
+      >
+        <CheckIcon sx={{ fontSize: 15 }} />
+      </Box>
+    }
+    sx={(theme) => ({ p: 0, [theme.breakpoints.down('md')]: { p: 0 }, '&.Mui-disabled': { opacity: 1 } })}
+  />
+)
+
+const URGENCY_PILLS: Record<string, { label: string; Icon: typeof KeyboardArrowUpIcon; color: 'error' | 'warning' }> = {
+  critical: { label: 'Critique', Icon: KeyboardDoubleArrowUpIcon, color: 'error' },
+  high: { label: 'Haute', Icon: KeyboardArrowUpIcon, color: 'warning' },
+}
+
+const UrgencyPill = ({ urgency }: { urgency: string }) => {
+  const pill = URGENCY_PILLS[urgency]
+  if (!pill) return null
+  const { label, Icon, color } = pill
+
+  return (
+    <Box
+      component="span"
+      data-testid="home-task-urgency"
+      sx={(theme) => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '3px',
+        height: 22,
+        px: 1,
+        borderRadius: '999px',
+        fontSize: 12,
+        fontWeight: 500,
+        color: theme.palette[color].main,
+        bgcolor: alpha(theme.palette[color].main, 0.16),
+      })}
+    >
+      <Icon aria-hidden sx={{ fontSize: 11 }} />
+      {label}
+    </Box>
+  )
+}
+
+const TaskRow = ({
+  task,
+  today,
+  disabled,
+  onToggle,
+}: {
+  task: HomeTask
+  today: string
+  disabled: boolean
+  onToggle: (task: HomeTask) => void
+}) => {
+  const meta = taskMeta(task, today)
+  const pill = !task.done && task.urgency ? task.urgency : null
+
+  return (
+    <Box component="li" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pl: task.parentId ? 4 : 0, minHeight: 48 }}>
+      <Tick
+        checked={task.done}
+        disabled={disabled}
+        label={`${task.title} : fait`}
+        urgency={task.urgency}
+        onChange={() => onToggle(task)}
+      />
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography
+          noWrap
+          sx={{
+            ...calm,
+            fontSize: 15,
+            textDecoration: task.done ? 'line-through' : 'none',
+            color: task.done ? 'text.disabled' : 'text.primary',
+          }}
+        >
+          {task.title}
+        </Typography>
+        {(pill || meta) && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+            {pill && <UrgencyPill urgency={pill} />}
+            {meta && (
+              <Typography data-testid="home-task-meta" sx={{ fontSize: 12, color: 'text.disabled' }}>
+                {meta}
+              </Typography>
+            )}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+const RoutineRow = ({
   routine,
   disabled,
   onToggle,
@@ -239,36 +365,16 @@ const RoutineChip = ({
   disabled: boolean
   onToggle: (routine: HomeRoutine) => void
 }) => (
-  <Box
-    component="label"
-    sx={(theme) => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      pr: 1.5,
-      borderRadius: `${TOKENS.radius.pill}px`,
-      border: 1,
-      borderColor: routine.checked ? 'transparent' : 'divider',
-      bgcolor: routine.checked ? 'action.selected' : 'transparent',
-      cursor: disabled ? 'default' : 'pointer',
-      opacity: disabled && !routine.checked ? 0.7 : 1,
-      ...calm,
-      [theme.breakpoints.down('md')]: { minHeight: 48 },
-    })}
-  >
-    <Checkbox
-      size="small"
-      checked={routine.checked}
-      disabled={disabled}
-      onChange={() => onToggle(routine)}
-      slotProps={{ input: { 'aria-label': `${routine.title} : fait` } }}
-      sx={{ p: 0.5 }}
-    />
+  <Box component="li" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minHeight: 48 }}>
+    <Tick checked={routine.checked} disabled={disabled} routine label={`${routine.title} : fait`} onChange={() => onToggle(routine)} />
     <Typography
-      variant="body2"
+      noWrap
       sx={{
         ...calm,
+        fontSize: 14,
+        minWidth: 0,
         textDecoration: routine.checked ? 'line-through' : 'none',
-        color: routine.checked ? 'text.secondary' : 'text.primary',
+        color: routine.checked ? 'text.disabled' : 'text.primary',
       }}
     >
       {routine.title}
