@@ -53,6 +53,7 @@ tags:
       id: "grocery_run_tour"
     timeout: 20000
 # Android's own « Viewing full screen » notice covers the top until dismissed.
+# Et quand j'ouvre ⋮ puis « Courses passées », le titre et « Halles du voisin · n article(s) » s'affichent ; « Liste » ramène à Courses › Liste (MAG-1038)
 - tapOn:
     text: "Got it"
     optional: true
@@ -203,3 +204,19 @@ tags:
     visible:
       text: ".*Poireau du voisin.*"
     timeout: 20000
+- tapOn:
+    id: "grocery_menu"
+- tapOn:
+    id: "past_errands_open"
+- extendedWaitUntil:
+    visible:
+      text: "Courses passées"
+    timeout: 10000
+- assertVisible:
+    text: "Halles du voisin · [0-9]+ articles?"
+- tapOn:
+    text: "Liste"
+- extendedWaitUntil:
+    visible:
+      text: ".*Poireau du voisin.*"
+    timeout: 10000

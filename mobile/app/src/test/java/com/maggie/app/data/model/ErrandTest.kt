@@ -2,6 +2,7 @@ package com.maggie.app.data.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.LocalDate
 import java.time.ZoneId
 
 class ErrandTest {
@@ -16,6 +17,25 @@ class ErrandTest {
     @Test
     fun `a value that is no date is shown as it came`() {
         assertEquals("hier", errand.copy(endedAt = "hier").endedAtLabel(ZoneId.of("Europe/Paris")))
+    }
+
+    private val paris = ZoneId.of("Europe/Paris")
+    private val today = LocalDate.of(2026, 11, 25)
+
+    @Test
+    fun `the day of an errand reads « Vendredi 2 octobre », without the hour`() {
+        assertEquals("Vendredi 2 octobre", errand.endedDayLabel(paris, today))
+    }
+
+    @Test
+    fun `the day of an errand of another year carries its year`() {
+        val old = errand.copy(endedAt = "2025-09-20T10:00:00+02:00")
+        assertEquals("Samedi 20 septembre 2025", old.endedDayLabel(paris, today))
+    }
+
+    @Test
+    fun `the day of something that is no date is given back as it came`() {
+        assertEquals("hier", errand.copy(endedAt = "hier").endedDayLabel(paris, today))
     }
 
     @Test

@@ -12,7 +12,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Errand
 import com.maggie.app.data.model.PurchasedItem
-import com.maggie.app.data.model.endedAtLabel
+import com.maggie.app.data.model.endedDayLabel
 import com.maggie.app.screentest.FakeGrocery
 import com.maggie.app.screentest.FakePastErrands
 import com.maggie.app.screentest.ScreenRule
@@ -56,8 +56,8 @@ class PastErrandsScreenTest {
     )
     private val noStore = Errand(id = "errand-none", storeName = null, endedAt = "2026-08-01T09:00:00+02:00", itemCount = 1)
 
-    private fun show(fake: FakePastErrands) {
-        compose.setContent { PastErrandsScreen(viewModel = fake.viewModel, onBack = {}) }
+    private fun show(fake: FakePastErrands, onBack: () -> Unit = {}) {
+        compose.setContent { PastErrandsScreen(viewModel = fake.viewModel, onBack = onBack) }
     }
 
     @Test
@@ -65,12 +65,38 @@ class PastErrandsScreenTest {
         show(FakePastErrands(listOf(lidl, noStore, carrefour)))
 
         assertTopToBottom(
-            "Carrefour" to compose.onNodeWithText("Carrefour"),
-            "Lidl" to compose.onNodeWithText("Lidl"),
-            "Sans magasin" to compose.onNodeWithText("Sans magasin"),
+            "Carrefour" to compose.onNodeWithText("Carrefour · 2 articles"),
+            "Lidl" to compose.onNodeWithText("Lidl · 1 article"),
+            "Sans magasin" to compose.onNodeWithText("Sans magasin · 1 article"),
         )
-        compose.onNodeWithText(carrefour.endedAtLabel()).assertIsDisplayed()
-        compose.onNodeWithContentDescription("2 articles").assertIsDisplayed()
+        compose.onNodeWithText(carrefour.endedDayLabel()).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the page is titled « Courses passées » under « Liste »`() {
+        show(FakePastErrands(listOf(carrefour)))
+
+        assertTopToBottom(
+            "Liste" to compose.onNodeWithText("Liste"),
+            "Courses passées" to compose.onNodeWithText("Courses passées"),
+        )
+    }
+
+    @Test
+    fun `« Liste » goes back`() {
+        var back = 0
+        show(FakePastErrands(listOf(carrefour)), onBack = { back++ })
+
+        compose.onNodeWithText("Liste").performClick()
+
+        assertEquals(1, back)
+    }
+
+    @Test
+    fun `no store icon nor basket badge on the list`() {
+        show(FakePastErrands(listOf(carrefour)))
+
+        compose.onNodeWithContentDescription("2 articles").assertDoesNotExist()
     }
 
     @Test
@@ -93,7 +119,7 @@ class PastErrandsScreenTest {
     fun `a tap on an errand opens its lines in a sheet, with what was bought of each`() {
         show(FakePastErrands(listOf(lidl, carrefour)))
 
-        compose.onNodeWithText("Carrefour").performClick()
+        compose.onNodeWithText("Carrefour · 2 articles").performClick()
 
         val inSheet = hasAnyAncestor(hasTestTag(UiTags.PAST_ERRAND_SHEET))
         compose.onNode(hasText("Riz") and inSheet).assertIsDisplayed()

@@ -1,5 +1,6 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,23 +10,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ShoppingBasket
-import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -33,7 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -42,16 +43,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.Errand
 import com.maggie.app.data.model.PurchasedItem
 import com.maggie.app.data.model.endedAtLabel
+import com.maggie.app.data.model.endedDayLabel
 import com.maggie.app.data.model.itemCountLabel
 import com.maggie.app.data.model.storeLabel
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.uiTagRoot
 
 /** « Courses passées » (MAG-488): the errands « Terminer la course » archived, the most recent first. */
@@ -66,68 +73,90 @@ fun PastErrandsScreen(
     Scaffold(
         modifier = Modifier.testTag(UiTags.PAST_ERRANDS),
         topBar = {
-            TopAppBar(
-                title = { Text("Courses passées") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable(role = Role.Button, onClick = onBack)
+                        .minimumInteractiveComponentSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.ChevronLeft,
+                        contentDescription = null,
+                        tint = maggieSurface().textMuted,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Text("Liste", fontSize = 15.sp, color = maggieSurface().textMuted)
+                }
+            }
         },
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isLoading && uiState.hasLoaded,
-            onRefresh = { viewModel.refresh() },
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
-        ) {
-            when {
-                uiState.errands.isEmpty() && uiState.error != null -> CenteredMessage(
-                    text = uiState.error!!,
-                    actionLabel = "Réessayer",
-                    onAction = { viewModel.refresh() },
-                )
+        Column(Modifier.fillMaxSize().padding(paddingValues)) {
+            Text(
+                text = "Courses passées",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = (-0.02).em,
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            PullToRefreshBox(
+                isRefreshing = uiState.isLoading && uiState.hasLoaded,
+                onRefresh = { viewModel.refresh() },
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            ) {
+                when {
+                    uiState.errands.isEmpty() && uiState.error != null -> CenteredMessage(
+                        text = uiState.error!!,
+                        actionLabel = "Réessayer",
+                        onAction = { viewModel.refresh() },
+                    )
 
-                uiState.isEmpty -> CenteredMessage(
-                    text = "Aucune course passée",
-                    detail = "Les articles cochés y sont gardés quand tu termines une course.",
-                )
+                    uiState.isEmpty -> CenteredMessage(
+                        text = "Aucune course passée",
+                        detail = "Les articles cochés y sont gardés quand tu termines une course.",
+                    )
 
-                !uiState.hasLoaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                    !uiState.hasLoaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
 
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    uiState.error?.let { message ->
-                        item(key = "error") {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = message,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                TextButton(onClick = viewModel::dismissError) { Text("Fermer") }
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        uiState.error?.let { message ->
+                            item(key = "error") {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = message,
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    TextButton(onClick = viewModel::dismissError) { Text("Fermer") }
+                                }
                             }
                         }
-                    }
-                    items(uiState.errands, key = { it.id }) { errand ->
-                        ErrandRow(errand = errand, onClick = { viewModel.openDetail(errand) })
-                    }
-                    if (uiState.canLoadMore) {
-                        item(key = "more") {
-                            Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
-                                if (uiState.isLoadingMore) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                } else {
-                                    OutlinedButton(onClick = { viewModel.loadMore() }) {
-                                        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Voir les courses plus anciennes")
+                        items(uiState.errands, key = { it.id }) { errand ->
+                            ErrandRow(errand = errand, onClick = { viewModel.openDetail(errand) })
+                        }
+                        if (uiState.canLoadMore) {
+                            item(key = "more") {
+                                Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) {
+                                    if (uiState.isLoadingMore) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    } else {
+                                        OutlinedButton(onClick = { viewModel.loadMore() }) {
+                                            Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("Voir les courses plus anciennes")
+                                        }
                                     }
                                 }
                             }
@@ -183,38 +212,29 @@ private fun CenteredMessage(
     }
 }
 
-/** One errand: the store, the day and hour, and how many lines were bought. A tap opens its sheet. */
+/** One errand: its day, then the store and how many lines were bought. A tap opens its sheet. */
 @Composable
 private fun ErrandRow(errand: Errand, onClick: () -> Unit) {
-    Card(
+    val surface = maggieSurface()
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .background(surface.paper, RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .heightIn(min = 68.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.Storefront,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = errand.endedDayLabel(), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(
+                text = "${errand.storeLabel} · ${itemCountLabel(errand.itemCount)}",
+                fontSize = 13.sp,
+                color = surface.caption,
             )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = errand.storeLabel, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = errand.endedAtLabel(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            ItemCountBadge(errand.itemCount)
         }
+        Spacer(Modifier.width(8.dp))
+        Text(text = "›", fontSize = 20.sp, color = surface.caption)
     }
 }
 

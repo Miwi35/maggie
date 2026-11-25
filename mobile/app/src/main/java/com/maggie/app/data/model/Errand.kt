@@ -1,9 +1,11 @@
 package com.maggie.app.data.model
 
 import kotlinx.serialization.Serializable
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 
 /**
@@ -48,6 +50,19 @@ fun Errand.endedAtLabel(zone: ZoneId = ZoneId.systemDefault()): String {
     val at = endedAtOrNull()?.atZoneSameInstant(zone) ?: return endedAt
     val day = at.format(DAY_FORMAT).replaceFirstChar { it.titlecase(Locale.FRANCE) }
     return "$day · ${at.format(TIME_FORMAT)}"
+}
+
+/** « Vendredi 2 octobre », the year only when it is not [today]'s; the raw value when it is no date. */
+fun Errand.endedDayLabel(
+    zone: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate = LocalDate.now(zone),
+): String {
+    val day = endedAtOrNull()?.atZoneSameInstant(zone)?.toLocalDate() ?: return endedAt
+    val weekday = day.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.FRENCH).replaceFirstChar { it.uppercase() }
+    val month = day.month.getDisplayName(TextStyle.FULL, Locale.FRENCH)
+    val number = if (day.dayOfMonth == 1) "1er" else day.dayOfMonth.toString()
+    val year = if (day.year != today.year) " ${day.year}" else ""
+    return "$weekday $number $month$year"
 }
 
 /** « 1 article », « 3 articles ». */
