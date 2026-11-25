@@ -1,0 +1,13 @@
+# A non-food item belongs to the product catalogue, not to the ingredients nor to the list (MAG-1017).
+name: ingredient-ou-produit
+description: Add dish soap to the product catalogue after checking it is not already there.
+channel: chat
+
+steps:
+  - user_message: "Ajoute le liquide vaisselle à mes produits."
+    expected_tools: [search_products, manage_products]
+    forbidden_tools: [manage_ingredients, add_grocery_item]
+    expected_behavior: >
+      Elle vérifie d'abord le catalogue des produits, puis crée le produit non alimentaire avec
+      l'outil des produits, sans passer par les ingrédients ni par la liste de courses, et le
+      confirme en une phrase.

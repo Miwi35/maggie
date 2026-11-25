@@ -1,0 +1,14 @@
+# A dish planned on a day is a meal, not a recipe and not an event (MAG-1017).
+# The tool descriptions say it: create_recipe is how to cook a dish, manage_meals plans it.
+name: recette-ou-repas
+description: Plan a dish for a given dinner as a meal, looking the recipe up first.
+channel: chat
+
+steps:
+  - user_message: "Prévois des lasagnes pour le dîner de jeudi."
+    expected_tools: [manage_meals]
+    forbidden_tools: [create_event, create_recipe]
+    expected_behavior: >
+      Elle cherche d'abord la recette dans les recettes du propriétaire, puis planifie un repas
+      jeudi soir avec l'outil des repas, et le confirme en une phrase, sans créer d'événement ni
+      de nouvelle recette.
