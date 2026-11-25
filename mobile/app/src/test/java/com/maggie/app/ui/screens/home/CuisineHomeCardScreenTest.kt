@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -17,6 +18,7 @@ import com.maggie.app.data.model.CuisineHomeMeal
 import com.maggie.app.data.model.CuisineHomeSlot
 import com.maggie.app.data.model.CuisineHomeState
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.assertTopToBottom
 import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.cookbook.cooking.CookingOrigin
 import com.maggie.app.ui.screens.cookbook.cooking.CookingPhase
@@ -73,8 +75,8 @@ class CuisineHomeCardScreenTest {
         draw(CuisineHomeUiState(state(lunch = listOf(meal("m", names("Soupe")))), isLoading = false))
 
         compose.onNodeWithText("Cuisine").assertIsDisplayed()
-        compose.onNodeWithText("Déjeuner").assertIsDisplayed()
-        compose.onNodeWithText("Dîner").assertIsDisplayed()
+        compose.onNodeWithText("Midi").assertIsDisplayed()
+        compose.onNodeWithText("Soir").assertIsDisplayed()
         compose.onAllNodesWithTag(UiTags.HOME_CUISINE_SLOT).assertCountEquals(2)
     }
 
@@ -95,22 +97,38 @@ class CuisineHomeCardScreenTest {
     }
 
     @Test
-    fun `a meal of three recipes shows all three on one line, with its guests`() {
+    fun `a meal shows its first recipe, then all its recipes on one line, and its guests`() {
         draw(CuisineHomeUiState(state(dinner = listOf(meal("m", names("Salade", "Tarte", "Fruits")))), isLoading = false))
 
+        compose.onNodeWithText("Salade").assertIsDisplayed()
         compose.onNodeWithText("Salade · Tarte · Fruits").assertIsDisplayed()
         compose.onNodeWithText("4 pers.").assertIsDisplayed()
     }
 
     @Test
-    fun `the guests sit under the recipe name so a long name keeps the row's width`() {
-        val ui = CuisineHomeUiState(state(dinner = listOf(meal("m", names("Bœuf bourguignon")))), isLoading = false)
+    fun `the guests sit at the end of the name's row, a long name ends in an ellipsis`() {
+        val ui = CuisineHomeUiState(state(dinner = listOf(meal("m", names("Bœuf bourguignon aux carottes et aux pommes de terre")))), isLoading = false)
         compose.setContent { Box(Modifier.width(328.dp)) { CuisineHomeCardContent(ui, onOpen = {}, onRetry = {}) } }
 
-        val name = compose.onNodeWithText("Bœuf bourguignon").getBoundsInRoot()
+        val name = compose.onNodeWithText("Bœuf bourguignon aux carottes et aux pommes de terre").getBoundsInRoot()
         val guests = compose.onNodeWithText("4 pers.").getBoundsInRoot()
 
-        assertTrue("« 4 pers. » (top ${guests.top}) shares the name's line (bottom ${name.bottom})", guests.top >= name.bottom)
+        assertTrue("« 4 pers. » (top ${guests.top}) shares the name's line (bottom ${name.bottom})", guests.top < name.bottom)
+        assertTrue("« 4 pers. » (left ${guests.left}) is after the name (right ${name.right})", guests.left >= name.right)
+    }
+
+    @Test
+    fun `the slots read Midi then Soir`() {
+        draw(CuisineHomeUiState(state(lunch = listOf(meal("a", names("Soupe"))), dinner = listOf(meal("b", names("Tarte")))), isLoading = false))
+
+        assertTopToBottom("Midi" to compose.onNodeWithText("Midi"), "Soir" to compose.onNodeWithText("Soir"))
+    }
+
+    @Test
+    fun `a meal of one recipe has no second line`() {
+        draw(CuisineHomeUiState(state(lunch = listOf(meal("a", names("Soupe")))), isLoading = false))
+
+        compose.onAllNodesWithText("Soupe").assertCountEquals(1)
     }
 
     @Test
@@ -135,7 +153,7 @@ class CuisineHomeCardScreenTest {
         draw(
             CuisineHomeUiState(
                 state(
-                    lunch = listOf(meal("a", names("Soupe"), missing = names("Parmesan", "Basilic"))),
+                    lunch = listOf(meal("a", names("Soupe", "Tarte"), missing = names("Parmesan", "Basilic"))),
                     dinner = listOf(meal("b", names("Pâtes"))),
                 ),
                 isLoading = false,
@@ -144,6 +162,7 @@ class CuisineHomeCardScreenTest {
 
         compose.onAllNodesWithTag(UiTags.HOME_CUISINE_MISSING).assertCountEquals(1)
         compose.onNodeWithText("manque : parmesan, basilic").assertIsDisplayed()
+        assertTopToBottom("recettes" to compose.onNodeWithText("Soupe · Tarte"), "pastille" to compose.onNodeWithTag(UiTags.HOME_CUISINE_MISSING))
     }
 
     @Test
