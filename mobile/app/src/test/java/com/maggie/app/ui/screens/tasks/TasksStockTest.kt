@@ -116,4 +116,14 @@ class TasksStockTest {
     fun `a task done has no when pill`() {
         assertNull(TasksStock.whenOf(task("a", due = "2026-10-16", done = true), today))
     }
+
+    @Test
+    fun `doneLabel says the next day in French`() {
+        assertEquals("Fait · prochaine le 8 déc.", TasksStock.doneLabel(LocalDate.of(2026, 12, 8)))
+    }
+
+    @Test
+    fun `doneLabel without a next day says Fait`() {
+        assertEquals("Fait", TasksStock.doneLabel(null))
+    }
 }

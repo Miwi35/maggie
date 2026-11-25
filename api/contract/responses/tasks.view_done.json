@@ -26,6 +26,7 @@
             "scheduledTime": null,
             "reminders": [],
             "rrule": null,
+            "nextOccurrence": null,
             "completedAt": "2026-03-19T10:00:00+00:00",
             "parent": null,
             "position": null,

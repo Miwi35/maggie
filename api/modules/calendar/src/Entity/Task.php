@@ -189,6 +189,16 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $recurrenceDate = null;
 
+    /**
+     * The occurrence this done one handed its rule to (MAG-1033): reopening
+     * this one takes the rule back and deletes that one, while it is untouched.
+     */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[IndexedRelation(targetEntity: self::class, sourceField: 'nextOccurrenceId')]
+    #[ApiProperty(writable: false, description: 'The next occurrence of the series, set on a done occurrence once its rule passed to it, read only. Reopening this occurrence while the next one is open, still carries the rule and has no subtask gives the rule back and deletes the next one.')]
+    private ?self $nextOccurrence = null;
+
     #[ORM\Column(type: Types::DATETIMETZ_IMMUTABLE, nullable: true)]
     #[IndexedField(type: 'date')]
     private ?\DateTimeImmutable $completedAt = null;
@@ -441,6 +451,32 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
         return $this;
     }
 
+    public function getNextOccurrence(): ?self
+    {
+        return $this->nextOccurrence;
+    }
+
+    /**
+     * The rule goes to $next (none when it ran out): this occurrence keeps the
+     * day of the rule it stood for, so taking the rule back keeps the phase.
+     */
+    public function handOverTo(?self $next): static
+    {
+        $this->rrule = null;
+        $this->nextOccurrence = $next;
+
+        return $this;
+    }
+
+    /** The rule comes back from the next occurrence, on the day of the rule this one kept. */
+    public function takeBackRule(string $rrule): static
+    {
+        $this->rrule = $rrule;
+        $this->nextOccurrence = null;
+
+        return $this;
+    }
+
     public function getCompletedAt(): ?\DateTimeImmutable
     {
         return $this->completedAt;
@@ -615,6 +651,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'rrule' => $this->rrule,
             'completedAt' => $this->completedAt?->format('c'),
             'parentId' => null !== $this->parent ? (string) $this->parent->getId() : null,
+            'nextOccurrenceId' => null !== $this->nextOccurrence ? (string) $this->nextOccurrence->getId() : null,
             'position' => $this->position,
             'links' => $this->links,
             'estimatedMinutes' => $this->estimatedMinutes,
@@ -640,6 +677,7 @@ class Task implements MercurePublishable, OwnedByUserInterface, IndexableInterfa
             'rrule' => $this->rrule,
             'isDone' => $this->isDone(),
             'parent' => null !== $this->parent ? '/api/tasks/'.$this->parent->getId() : null,
+            'nextOccurrence' => null !== $this->nextOccurrence ? '/api/tasks/'.$this->nextOccurrence->getId() : null,
             'position' => $this->position,
             'links' => $this->links,
             'estimatedMinutes' => $this->estimatedMinutes,

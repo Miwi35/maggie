@@ -78,6 +78,9 @@ object TasksStock {
         return WhenChip(WhenKind.DUE, "limite " + dayLabel(due, today))
     }
 
+    /** The banner of a repeated task ticked (MAG-1033): « Fait · prochaine le 8 déc. », or « Fait » when the rule ended. */
+    fun doneLabel(next: LocalDate?): String = next?.let { "Fait · prochaine le " + it.format(dayOtherMonth) } ?: "Fait"
+
     private fun dayLabel(date: LocalDate, today: LocalDate): String =
         date.format(if (date.month == today.month && date.year == today.year) day else dayOtherMonth)
 

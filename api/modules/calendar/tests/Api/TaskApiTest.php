@@ -383,4 +383,68 @@ class TaskApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
         self::assertSame([], $this->bins());
     }
+
+    public function testPatchCompletingARecurringTaskAnswersItsNextOccurrence(): void
+    {
+        $task = $this->postRecurring();
+
+        $this->patchTask($task, ['completedAt' => '2026-11-24T08:00:00+01:00']);
+
+        self::assertResponseIsSuccessful();
+        $next = $this->bins()[1];
+        self::assertSame('/api/tasks/'.$next->getId(), $this->json()['nextOccurrence'] ?? null);
+        $this->client->request('GET', '/api/tasks/'.$task->getId(), [], [], array_merge(['HTTP_ACCEPT' => 'application/ld+json'], $this->authHeaders()));
+        self::assertResponseIsSuccessful();
+        self::assertSame('/api/tasks/'.$next->getId(), $this->json()['nextOccurrence'] ?? null);
+    }
+
+    public function testPatchReopeningAHandedOverOccurrenceRestoresTheSeries(): void
+    {
+        $task = $this->postRecurring();
+        $this->patchTask($task, ['completedAt' => '2026-11-24T08:00:00+01:00']);
+        $next = $this->bins()[1];
+        $this->resetMercure();
+        $this->resetAsyncTransport();
+
+        $this->patchTask($task, ['completedAt' => null]);
+
+        self::assertResponseIsSuccessful();
+        $bins = $this->bins();
+        self::assertCount(1, $bins);
+        self::assertSame((string) $task->getId(), (string) $bins[0]->getId());
+        self::assertFalse($bins[0]->isDone());
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $bins[0]->getRrule());
+        self::assertSame('2026-11-24', $bins[0]->getRecurrenceDate()?->format('Y-m-d'));
+        $this->assertMercureUpdatePublished('/tasks/'.$task->getId());
+        $this->assertMercureUpdatePublished('/tasks/'.$next->getId());
+        $this->assertElasticsearchIndexDispatched(Task::class);
+    }
+
+    public function testPatchReopeningWithoutTokenIs401AndKeepsTheSeries(): void
+    {
+        $task = $this->postRecurring();
+        $this->patchTask($task, ['completedAt' => '2026-11-24T08:00:00+01:00']);
+
+        $this->client->request('PATCH', '/api/tasks/'.$task->getId(), [], [], [
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+        ], json_encode(['completedAt' => null], JSON_THROW_ON_ERROR));
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertCount(2, $this->bins());
+    }
+
+    public function testPatchReopeningWithABadCompletedAtIs400AndKeepsTheSeries(): void
+    {
+        $task = $this->postRecurring();
+        $this->patchTask($task, ['completedAt' => '2026-11-24T08:00:00+01:00']);
+        $this->resetMercure();
+
+        $this->patchTask($task, ['completedAt' => 'hier']);
+
+        self::assertResponseStatusCodeSame(400);
+        $bins = $this->bins();
+        self::assertCount(2, $bins);
+        self::assertTrue($bins[0]->isDone());
+        $this->assertMercureUpdateCount(0);
+    }
 }

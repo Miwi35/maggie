@@ -676,6 +676,10 @@ object UiTags {
 
     fun tasksCheck(id: String) = TASKS_CHECK_PREFIX + id
 
+    /** « Fait · prochaine le … » of a repeated task ticked in « Tâches » (MAG-1033), and its « Annuler ». */
+    const val TASKS_RECURRING_DONE = "tasks_recurring_done"
+    const val TASKS_RECURRING_DONE_UNDO = "tasks_recurring_done_undo"
+
     /**
      * « Aujourd'hui » (MAG-766): the list, the ring; each task of the day by id — its row, its box, its « quand »
      * pill, its urgency pill and the timer of a timed task.

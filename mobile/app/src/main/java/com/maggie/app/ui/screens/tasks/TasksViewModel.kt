@@ -24,6 +24,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -80,6 +81,8 @@ data class TasksUiState(
     val routinesPending: Set<String> = emptySet(),
     /** « Routines » of the home widget asked for: the screen opens that tab and clears it. */
     val routinesTabRequested: Boolean = false,
+    /** A repeated task ticked in « Tâches » (MAG-1033): its row stays struck under « Fait · prochaine le … » until it closes. */
+    val recurringDone: RecurringDone? = null,
 ) {
     /** What the open tab draws has arrived: the tasks of the day in « Aujourd'hui », the list elsewhere. */
     val hasContent: Boolean
@@ -105,6 +108,12 @@ data class TasksUiState(
     /** Only « Archives » is paged: more is out there when the page held back some of the view. */
     val hasMore: Boolean get() = section == TasksSection.ARCHIVES && tasks.size < totalItems
 }
+
+/** The occurrence [taskId] of a series just ticked, and the day of the next one, `null` when the rule ended. */
+data class RecurringDone(val taskId: String, val next: LocalDate?)
+
+/** How long « Fait · prochaine le … » stays before the list shows the series at its next date (MAG-1033). */
+const val RECURRING_DONE_MS = 6_000L
 
 /**
  * The tasks screen (MAG-408): one of three sections at a time (« Tâches » reads two views), read from `/api/tasks/view/{view}`.
@@ -133,6 +142,13 @@ class TasksViewModel(
     private var routinesJob: Job? = null
     private var moreJob: Job? = null
     private var listenJob: Job? = null
+    private var recurringDoneJob: Job? = null
+
+    /** The repeated task whose tick is in flight: its struck row must not be read away before the banner. */
+    private var recurringTicking: String? = null
+
+    /** A read asked for while the struck row is held, done once it is let go. */
+    private var reloadHeld = false
 
     /**
      * The screen came on: the list is read again, without blanking what is already there, and a
@@ -248,6 +264,7 @@ class TasksViewModel(
 
     fun selectSection(section: TasksSection) {
         if (section == _uiState.value.section) return
+        dropRecurringDone()
         // The other tab's tasks must not stay under this one's label while the read is in flight.
         _uiState.update { it.copy(section = section, tasks = emptyList(), stock = null, totalItems = 0, message = null, page = 1) }
         load(spinner = true)
@@ -255,10 +272,17 @@ class TasksViewModel(
 
     /**
      * Ticks a task, or unticks it; the view is read again since the task changes view. A task ticked
-     * here, out of the day, shows its reward as a banner (MAG-508).
+     * here, out of the day, shows its reward as a banner (MAG-508). A repeated task ticked in « Tâches » is
+     * [tickRecurring]; its struck row ticked again is [undoRecurringDone].
      */
     fun toggleDone(task: Task) {
+        val shown = _uiState.value.recurringDone
+        if (task.id == shown?.taskId) return undoRecurringDone()
+        if (task.id == recurringTicking) return
+        // Another row ticked lets the struck one go.
+        if (shown != null) closeRecurringDone()
         val done = !task.isDone
+        if (done && task.rrule != null && _uiState.value.section == TasksSection.STOCK) return tickRecurring(task)
         viewModelScope.launch {
             taskRepository.toggleDone(task.id, done)
                 .onSuccess {
@@ -266,6 +290,91 @@ class TasksViewModel(
                     if (done) rewards.celebrate(task.id)?.let { reward -> _uiState.update { it.copy(reward = reward) } }
                 }
                 .onFailure { _uiState.update { it.copy(message = "Impossible de modifier la tâche.") } }
+        }
+    }
+
+    /**
+     * A repeated task ticked in « Tâches » (MAG-1033): struck at once, then « Fait · prochaine le … » for
+     * [RECURRING_DONE_MS], the row held in place, even through a push; the list is read again once the banner closes.
+     * A refusal puts the row back.
+     */
+    private fun tickRecurring(task: Task) {
+        val before = _uiState.value.stock ?: return
+        recurringTicking = task.id
+        // A read already in flight would unstrike the row: it is done once the banner closes instead.
+        if (loadJob?.isActive == true) {
+            loadJob?.cancel()
+            reloadHeld = true
+        }
+        strike(task.id, Instant.now().toString())
+        viewModelScope.launch {
+            taskRepository.toggleDone(task.id, true)
+                .onSuccess { done ->
+                    // The occurrence ticked is done; its series goes on in the next one, whose day the banner says.
+                    val next = done.nextOccurrenceId?.let { id -> taskRepository.fetchTask(id).getOrNull()?.let { it.scheduledDay ?: it.dueDay } }
+                    rewards.celebrate(task.id)?.let { reward -> _uiState.update { it.copy(reward = reward) } }
+                    // The tab changed meanwhile: it was read without the row.
+                    if (recurringTicking != task.id) return@onSuccess
+                    recurringTicking = null
+                    _uiState.update { it.copy(recurringDone = RecurringDone(task.id, next)) }
+                    recurringDoneJob = viewModelScope.launch {
+                        delay(RECURRING_DONE_MS)
+                        recurringDoneJob = null
+                        closeRecurringDone()
+                    }
+                }
+                .onFailure {
+                    if (recurringTicking != task.id) return@onFailure
+                    recurringTicking = null
+                    _uiState.update { it.copy(stock = before, message = "Impossible de modifier la tâche.") }
+                    if (reloadHeld) {
+                        reloadHeld = false
+                        reload()
+                    }
+                }
+        }
+    }
+
+    /** The banner of a repeated task closed: the list shows the series at its next date. */
+    fun closeRecurringDone() {
+        if (_uiState.value.recurringDone == null) return
+        dropRecurringDone()
+        reload()
+    }
+
+    /**
+     * « Annuler », or the struck row ticked again: the occurrence is reopened — the API then gives the series back to
+     * it — and the list read again.
+     */
+    fun undoRecurringDone() {
+        val done = _uiState.value.recurringDone ?: return
+        dropRecurringDone()
+        recurringTicking = done.taskId
+        strike(done.taskId, null)
+        viewModelScope.launch {
+            val undone = taskRepository.toggleDone(done.taskId, false)
+            recurringTicking = null
+            reloadHeld = false
+            undone.onFailure { _uiState.update { it.copy(message = "Impossible d'annuler.") } }
+            reload()
+        }
+    }
+
+    /** The banner goes without a read: the caller reads what it needs. */
+    private fun dropRecurringDone() {
+        recurringDoneJob?.cancel()
+        recurringDoneJob = null
+        recurringTicking = null
+        reloadHeld = false
+        _uiState.update { it.copy(recurringDone = null) }
+    }
+
+    private fun strike(taskId: String, completedAt: String?) {
+        _uiState.update { s ->
+            s.copy(
+                stock = s.stock?.map { g -> g.copy(tasks = g.tasks.map { if (it.id == taskId) it.copy(completedAt = completedAt) else it }) },
+                message = null,
+            )
         }
     }
 
@@ -356,7 +465,14 @@ class TasksViewModel(
         _uiState.update { it.copy(message = null) }
     }
 
-    private fun reload() = load(spinner = !_uiState.value.hasContent)
+    /** Every read but a change of tab: held while a repeated task's struck row is on screen (MAG-1033), pushes included. */
+    private fun reload() {
+        if (_uiState.value.recurringDone != null || recurringTicking != null) {
+            reloadHeld = true
+            return
+        }
+        load(spinner = !_uiState.value.hasContent)
+    }
 
     private fun load(spinner: Boolean) {
         loadJob?.cancel()

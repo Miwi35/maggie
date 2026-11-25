@@ -56,7 +56,8 @@ final class AdvanceTaskRecurrenceHandlerTest extends KernelTestCase
         self::assertSame((string) $current->getId(), (string) $done->getId());
         self::assertTrue($done->isDone());
         self::assertNull($done->getRrule(), 'a past occurrence has no rule');
-        self::assertNull($done->getRecurrenceDate());
+        self::assertSame('2026-11-24', $done->getRecurrenceDate()?->format('Y-m-d'), 'the day of the rule it stood for, to give the series back');
+        self::assertSame((string) $next->getId(), (string) $done->getNextOccurrence()?->getId());
         self::assertFalse($next->isDone());
         self::assertSame('2026-12-08', $next->getScheduledDate()?->format('Y-m-d'));
         self::assertSame('2026-12-08', $next->getRecurrenceDate()?->format('Y-m-d'));
@@ -78,6 +79,7 @@ final class AdvanceTaskRecurrenceHandlerTest extends KernelTestCase
         self::assertFalse($stillOpen->isDone(), 'a missed occurrence stays to be done');
         self::assertSame('2026-11-24', $stillOpen->getScheduledDate()?->format('Y-m-d'), 'never moved in silence');
         self::assertNull($stillOpen->getRrule());
+        self::assertNull($stillOpen->getNextOccurrence(), 'only a done occurrence gives the series back');
         $marked = self::getContainer()->get(TaskUrgency::class)->mark($stillOpen);
         self::assertSame('2026-11-24', $marked->getPostponedSince()?->format('Y-m-d'), '« reportée »');
         self::assertSame('2026-12-08', $next->getScheduledDate()?->format('Y-m-d'));
@@ -131,13 +133,17 @@ final class AdvanceTaskRecurrenceHandlerTest extends KernelTestCase
         self::assertNull($series[0]->getRrule());
     }
 
-    public function testReopeningTheDoneOccurrenceCreatesNothing(): void
+    public function testReopeningTheDoneOccurrenceGivesTheRuleBack(): void
     {
         $current = $this->createRecurring($this->user);
         $this->complete($current);
 
         $this->handled(new UpdateTaskCommand(taskId: (string) $current->getId(), clearFields: ['completedAt']));
-        $this->complete($this->series()[0]);
+        $series = $this->series();
+        self::assertCount(1, $series);
+        self::assertSame(self::EVERY_OTHER_TUESDAY, $series[0]->getRrule());
+
+        $this->complete($series[0]);
 
         self::assertCount(2, $this->series());
     }
