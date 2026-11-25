@@ -83,17 +83,20 @@ describe('CuisineHomeCard', () => {
     vi.unstubAllGlobals()
   })
 
-  test('shows lunch then dinner, a meal with all its recipes on one line and its guests', async () => {
+  test('shows Midi then Soir beside their meal, the first recipe then all the recipes, and the guests', async () => {
     vi.stubGlobal('fetch', reads())
     renderCard()
 
     const dinner = await screen.findByTestId('home-cuisine-dinner')
 
-    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Déjeuner', 'Dîner'])
+    expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0)
+    expect(screen.getByTestId('home-cuisine-lunch')).toHaveTextContent('Midi')
+    expect(dinner).toHaveTextContent('Soir')
     const [first, second] = within(dinner).getAllByTestId('home-cuisine-meal')
+    expect(within(first).getByTestId('home-cuisine-name')).toHaveTextContent('Lasagnes')
     expect(within(first).getByTestId('home-cuisine-recipes')).toHaveTextContent('Lasagnes · Salade verte · Tiramisu')
     expect(within(first).getByTestId('home-cuisine-guests')).toHaveTextContent('4 pers.')
-    expect(within(second).getByTestId('home-cuisine-recipes')).toHaveTextContent('Soupe')
+    expect(within(second).getByTestId('home-cuisine-name')).toHaveTextContent('Soupe')
     expect(within(second).getByTestId('home-cuisine-guests')).toHaveTextContent('1 pers.')
   })
 
@@ -158,7 +161,7 @@ describe('CuisineHomeCard', () => {
 
     const [first, second] = await screen.findAllByTestId('home-cuisine-meal')
 
-    expect(within(first).getByTestId('home-cuisine-missing')).toHaveTextContent('manque : Parmesan, Basilic')
+    expect(within(first).getByTestId('home-cuisine-missing')).toHaveTextContent('manque : parmesan, basilic')
     expect(within(second).queryByTestId('home-cuisine-missing')).toBeNull()
     expect(screen.getAllByTestId('home-cuisine-missing')).toHaveLength(1)
   })
@@ -167,7 +170,8 @@ describe('CuisineHomeCard', () => {
     vi.stubGlobal('fetch', reads({ meals: [meal('m9', 'lunch', [], { summary: 'Restaurant' })], needs: [] }))
     renderCard()
 
-    expect(await screen.findByTestId('home-cuisine-recipes')).toHaveTextContent('Restaurant')
+    expect(await screen.findByTestId('home-cuisine-name')).toHaveTextContent('Restaurant')
+    expect(screen.queryByTestId('home-cuisine-recipes')).toBeNull()
     expect(screen.queryByRole('link', { name: /^Lancer/ })).toBeNull()
   })
 
@@ -175,7 +179,36 @@ describe('CuisineHomeCard', () => {
     vi.stubGlobal('fetch', reads({ meals: [meal('m8', 'dinner', ['Pâtes', 'Salade'], { summary: 'Repas de fête' })], needs: [] }))
     renderCard()
 
-    expect(await screen.findByTestId('home-cuisine-recipes')).toHaveTextContent('Pâtes · Salade')
+    expect(await screen.findByTestId('home-cuisine-name')).toHaveTextContent('Pâtes')
+    expect(screen.getByTestId('home-cuisine-recipes')).toHaveTextContent('Pâtes · Salade')
+  })
+
+  test('a meal of one recipe has no second line', async () => {
+    vi.stubGlobal('fetch', reads({ meals: [meal('m7', 'dinner', ['Soupe'])], needs: [] }))
+    renderCard()
+
+    expect(await screen.findByTestId('home-cuisine-name')).toHaveTextContent('Soupe')
+    expect(screen.queryByTestId('home-cuisine-recipes')).toBeNull()
+  })
+
+  test('two meals in a slot: the slot is written once, a hairline above each meal', async () => {
+    vi.stubGlobal('fetch', reads())
+    renderCard()
+    const [first, second] = await screen.findAllByTestId('home-cuisine-meal')
+
+    expect(first).toHaveTextContent('Soir')
+    expect(second).not.toHaveTextContent('Soir')
+    for (const row of [first, second]) expect(getComputedStyle(row).borderTopStyle).toBe('solid')
+  })
+
+  test('the missing pill carries the cart, under the recipes', async () => {
+    vi.stubGlobal('fetch', reads())
+    renderCard()
+    const [first] = await screen.findAllByTestId('home-cuisine-meal')
+    const pill = within(first).getByTestId('home-cuisine-missing')
+
+    expect(pill.querySelector('svg')).not.toBeNull()
+    expect(within(first).getByTestId('home-cuisine-recipes').compareDocumentPosition(pill) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   test('asks for tomorrow, the user’s day plus one, when the selector is on Demain', async () => {

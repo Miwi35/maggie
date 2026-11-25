@@ -2,8 +2,9 @@ import { test, expect } from '../fixtures/index.js'
 import { HomePage } from '../pages/HomePage.js'
 
 /**
- * The Cuisine card of the Accueil (MAG-564, extends MAG-99): the meals of the
- * day, lunch then dinner, and what the stock lacks for them.
+ * The Cuisine card of the Accueil (MAG-564, MAG-1025, extends MAG-99): the meals
+ * of the day, Midi then Soir beside their meal (first recipe, then all the
+ * recipes), and what the stock lacks for them in a pill.
  *
  * An account of its own, `e2e-cuisine@maggie.local` (65-cuisine-home.yaml):
  * tonight's dinner has two recipes, tomorrow's lunch asks for a parmesan the
@@ -22,6 +23,8 @@ test('the Cuisine card shows tonight’s meal with its recipes, then tomorrow’
 
   // …the card shows that meal and its two recipes, and « — » for lunch.
   await expect(slot('dinner').getByTestId('home-cuisine-meal')).toHaveCount(1)
+  await expect(slot('dinner')).toContainText('Soir')
+  await expect(slot('dinner').getByTestId('home-cuisine-name')).toHaveText('Pâtes au pesto')
   await expect(slot('dinner').getByTestId('home-cuisine-recipes')).toHaveText('Pâtes au pesto · Salade de saison')
   await expect(slot('dinner').getByTestId('home-cuisine-missing')).toHaveCount(0)
   await expect(slot('lunch').getByTestId('home-cuisine-empty')).toHaveText('—')
@@ -29,7 +32,9 @@ test('the Cuisine card shows tonight’s meal with its recipes, then tomorrow’
   // When I switch to Demain, tomorrow's lunch comes with what is missing, and dinner is empty.
   await home.day('Demain').click()
 
-  await expect(slot('lunch').getByTestId('home-cuisine-recipes')).toHaveText('Soupe de potiron')
-  await expect(slot('lunch').getByTestId('home-cuisine-missing')).toHaveText('manque : Parmesan')
+  await expect(slot('lunch')).toContainText('Midi')
+  await expect(slot('lunch').getByTestId('home-cuisine-name')).toHaveText('Soupe de potiron')
+  await expect(slot('lunch').getByTestId('home-cuisine-recipes')).toHaveCount(0)
+  await expect(slot('lunch').getByTestId('home-cuisine-missing')).toHaveText('manque : parmesan')
   await expect(slot('dinner').getByTestId('home-cuisine-empty')).toHaveText('—')
 })
