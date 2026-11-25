@@ -18,7 +18,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'save_routine', description: 'Creates a routine (without id; title, anchor, recurrence required) or changes one (with id; given fields only). title: 255 characters max. anchor: wake, afterBreakfast, afterLunch, afterDinner, or time (needs anchorTime HH:MM, only this anchor). recurrence: {kind: daily}, {kind: weekdays}, {kind: weekly, weekday: 1 Monday to 7 Sunday} or {kind: monthly, monthDay: 1 to 31}. active=false pauses; remind=true asks a reminder. Refused call changes nothing, answers {error}. Returns {success, routine}.')]
+#[McpTool(name: 'save_routine', description: 'For a habit ticked day after day at a moment of the day; a chore with a date, even a repeating one, is a task (create_task with rrule). Before: list_routines, a habit is changed, not created twice. Creates a routine (without id; title, anchor, recurrence required) or changes one (with id; given fields only). title: 255 characters max. anchor: wake, afterBreakfast, afterLunch, afterDinner, or time (needs anchorTime HH:MM, only this anchor). recurrence: {kind: daily}, {kind: weekdays}, {kind: weekly, weekday: 1 Monday to 7 Sunday} or {kind: monthly, monthDay: 1 to 31}. active=false pauses; remind=true asks a reminder. Refused call changes nothing, answers {error}. Returns {success, routine}.')]
 final class SaveRoutineTool
 {
     public function __construct(

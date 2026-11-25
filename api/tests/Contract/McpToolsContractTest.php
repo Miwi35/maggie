@@ -173,12 +173,36 @@ final class McpToolsContractTest extends KernelTestCase
             'answer_task_reminder' => ['update_task', 'answer_approval'],
             'manage_notifications' => ['A notification is', 'schedules nothing', 'ask_owner'],
             'assign_product_store' => ['add_grocery_item'],
+            'delete_task' => ['get_tasks', 'update_task'],
+            'get_day_plan' => ['The day plan is', 'get_events'],
+            'set_day_plan' => ['get_day_plan'],
+            'list_routines' => ['A routine is', 'is a task'],
+            'save_routine' => ['create_task with rrule', 'list_routines'],
+            'check_routine' => ['update_task'],
+            'get_event' => ['get_events'],
+            'delete_event' => ['manage_periods', 'cancel_proaction'],
+            'manage_agendas' => ['An agenda holds', 'never an event'],
+            'get_day_context' => ['manage_periods', 'Read-only'],
         ];
         $tools = $this->tools();
 
         foreach ($expected as $name => $excerpts) {
             foreach ($excerpts as $excerpt) {
                 self::assertStringContainsString($excerpt, (string) $tools[$name]['description'], sprintf('The description of "%s" no longer says "%s".', $name, $excerpt));
+            }
+        }
+    }
+
+    public function testNoDescriptionCountsSicknessAsAPeriod(): void
+    {
+        foreach ($this->tools() as $name => $tool) {
+            $text = strtolower(json_encode($tool['description'] ?? '').json_encode(array_column($tool['inputSchema']['properties'] ?? [], 'description')));
+            foreach (['sickness', 'illness', 'malad'] as $word) {
+                self::assertStringNotContainsString($word, $text, sprintf(
+                    'The tool "%s" mentions "%s": a state of health is not a period (agent-os/standards/api/mcp-tools.md § Descriptions).',
+                    $name,
+                    $word,
+                ));
             }
         }
     }
