@@ -2,6 +2,7 @@ package com.maggie.app.ui.screens.home
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,10 +41,30 @@ class HealthHomeCardScreenTest {
     fun `today reads the mockup's labels`() {
         draw(HealthHomeUiState(today, isLoading = false))
 
-        compose.onNodeWithTag(UiTags.HOME_HEALTH_WORKOUT).assertTextContains("Course")
+        compose.onNodeWithTag(UiTags.HOME_HEALTH_WORKOUT).assertTextEquals("Course · 18 h 30 · 45 min")
         compose.onNodeWithTag(UiTags.HOME_HEALTH_STEPS).assertTextContains("6 240 · objectif 8 000")
         compose.onNodeWithTag(UiTags.HOME_HEALTH_BALANCE).assertTextContains("1 240 mangées · besoin 1 980 kcal")
         compose.onNodeWithTag(UiTags.HOME_HEALTH_FAST).assertTextContains("ferme à 20:00 · 3 h 18")
+    }
+
+    @Test
+    fun `a session on the hour reads 18 h`() {
+        draw(HealthHomeUiState(today.copy(workout = HealthHomeWorkout("W1", "Course", "18:00", 45)), isLoading = false))
+
+        compose.onNodeWithTag(UiTags.HOME_HEALTH_WORKOUT).assertTextEquals("Course · 18 h · 45 min")
+    }
+
+    @Test
+    fun `the bars - steps and balance full, the window soft, tomorrow's balance soft and the planned window a segment`() {
+        assertEquals(HealthBarShape.Share(6240f / 8000, soft = false), stepsBar(HealthHomeSteps(6240, 8000)))
+        assertEquals(HealthBarShape.Share(1240f / 1980, soft = false), balanceBar(HealthHomeBalance(1240, 1980), today = true))
+        assertEquals(HealthBarShape.Share(1800f / 1980, soft = true), balanceBar(HealthHomeBalance(1800, 1980), today = false))
+        assertEquals(null, balanceBar(HealthHomeBalance(1240, null), today = true))
+        assertEquals(HealthBarShape.Share(0.4f, soft = true), fastBar(HealthHomeFast("open", "12:00", "20:00", 198, 0.4f), today = true))
+        assertEquals(null, fastBar(HealthHomeFast("closed", "12:00", "20:00", null), today = true))
+        val segment = fastBar(HealthHomeFast(null, "12:00", "20:00", null), today = false) as HealthBarShape.Segment
+        assertEquals(0.5f, segment.start, 0.001f)
+        assertEquals(1f / 3f, segment.length, 0.001f)
     }
 
     @Test
