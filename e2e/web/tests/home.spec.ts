@@ -83,6 +83,7 @@ test('the Courses card shows five lines of a six-line list and « + 1 »', async
   await home.open()
 
   const card = home.groceryCard
+  await expect(card.getByTestId('home-grocery-count')).toHaveText('6 articles · 1 magasin')
   await expect(card.getByTestId('home-grocery-store')).toHaveCount(1)
   await expect(card.getByTestId('home-grocery-store')).toContainText("Biocoop de l'Accueil")
   await expect(card.getByTestId('home-grocery-item')).toHaveCount(5)

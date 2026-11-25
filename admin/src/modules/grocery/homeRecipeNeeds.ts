@@ -1,5 +1,6 @@
 export interface RecipeNeed {
   name: string
+  mealName: string
   day: 'today' | 'tomorrow'
   slot: 'lunch' | 'dinner'
 }
@@ -12,6 +13,6 @@ const whenLabel = ({ day, slot }: RecipeNeed): string => {
 
 const lowerFirst = (text: string): string => text.charAt(0).toLocaleLowerCase('fr') + text.slice(1)
 
-/** « parmesan (ce soir), crème fraîche (demain) » */
-export const recipeNeedsLabel = (needs: RecipeNeed[]): string =>
-  needs.map((need) => `${lowerFirst(need.name)} (${whenLabel(need)})`).join(', ')
+/** « ce soir · pâtes », or the moment alone when the meal has no name. */
+export const recipeNeedWhen = (need: RecipeNeed): string =>
+  need.mealName ? `${whenLabel(need)} · ${lowerFirst(need.mealName)}` : whenLabel(need)

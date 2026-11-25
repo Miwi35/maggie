@@ -24,6 +24,7 @@ export interface ApiGroceryItem {
 export interface ApiRecipeNeed {
   productId: string
   name: string
+  mealName?: string
   date: string
   slot: 'lunch' | 'dinner'
 }
@@ -102,7 +103,22 @@ export function composeGroceryState(today: string, items: ApiGroceryItem[], need
   const seen = new Set<string>()
   const forRecipes = needs
     .filter((need) => !seen.has(need.productId) && seen.add(need.productId))
-    .map((need): RecipeNeed => ({ name: need.name, day: need.date === today ? 'today' : 'tomorrow', slot: need.slot }))
+    .map(
+      (need): RecipeNeed => ({
+        name: need.name,
+        mealName: need.mealName ?? '',
+        day: need.date === today ? 'today' : 'tomorrow',
+        slot: need.slot,
+      }),
+    )
 
   return { count: open.length, forRecipes, stores }
+}
+
+/** « 6 articles · 1 magasin »; lines with no store count no store. */
+export const groceryCountLabel = (state: GroceryHomeState): string => {
+  const shops = state.stores.filter((store) => store.id !== null).length
+  const articles = `${state.count} ${state.count > 1 ? 'articles' : 'article'}`
+
+  return shops > 0 ? `${articles} · ${shops} ${shops > 1 ? 'magasins' : 'magasin'}` : articles
 }
