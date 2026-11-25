@@ -17,7 +17,8 @@ GET_COACH_METHOD_TOOL = {
     "name": "get_coach_method",
     "description": (
         "Lit la méthode du coach sportif, une section à la fois. section : principes · semaine · echelles · "
-        "progression · seance · degradees · calibrage · sources. Sans section : la table des sections."
+        "progression · seance · degradees · calibrage · sources. Sans section : la table des sections. "
+        "Lecture seule : une séance s'écrit avec manage_workouts."
     ),
     "input_schema": {
         "type": "object",
