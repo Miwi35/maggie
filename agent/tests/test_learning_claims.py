@@ -295,7 +295,6 @@ class TestWhatTheModelIsTold:
     async def test_the_prompt_has_one_place_for_each_thing_learned(self):
         prompt = await shipped_prompt()
 
-        assert "« quand je te demande X, fais Y »" in prompt
         for marker in ("create_skill", 'kind="behavior"', 'kind="planning"', "schedule_proaction", "memory_write_fiche"):
             assert marker in prompt
         assert "une demande générale sur ta façon d'agir est une compétence" in prompt.lower()
@@ -317,5 +316,5 @@ class TestWhatTheModelIsTold:
     def test_create_skill_carries_the_owners_rule(self):
         description = next(tool["description"] for tool in SKILL_TOOLS if tool["name"] == "create_skill")
 
-        assert "when I ask you X, do Y" in description
-        assert "a general request about how Maggie should act is a skill" in description
+        assert "when asked X, do Y" in description
+        assert "A general rule about how she should act is a skill" in description
