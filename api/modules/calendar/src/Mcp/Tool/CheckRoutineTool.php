@@ -15,7 +15,7 @@ use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-#[McpTool(name: 'check_routine', description: 'Ticks a routine as done on a day, or removes the tick (done=false). id is from list_routines. date is YYYY-MM-DD, today in the user\'s timezone by default; a future day or one before the routine existed is refused. Repeating a tick or removing an absent one changes nothing. Returns {success, date, checked, routine}.')]
+#[McpTool(name: 'check_routine', description: 'Ticks a routine as done on a day, or removes the tick (done=false). id is from list_routines. date is YYYY-MM-DD, today in the user\'s timezone by default; a future day or one before the routine existed is refused. Repeating a tick or removing an absent one changes nothing. Returns {success, date, checked, routine}. A task is ticked with update_task.')]
 final class CheckRoutineTool
 {
     public function __construct(

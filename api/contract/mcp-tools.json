@@ -213,7 +213,7 @@
                 "id"
             ]
         },
-        "description": "Ticks a routine as done on a day, or removes the tick (done=false). id is from list_routines. date is YYYY-MM-DD, today in the user's timezone by default; a future day or one before the routine existed is refused. Repeating a tick or removing an absent one changes nothing. Returns {success, date, checked, routine}."
+        "description": "Ticks a routine as done on a day, or removes the tick (done=false). id is from list_routines. date is YYYY-MM-DD, today in the user's timezone by default; a future day or one before the routine existed is refused. Repeating a tick or removing an absent one changes nothing. Returns {success, date, checked, routine}. A task is ticked with update_task."
     },
     "choose_workout_makeup": {
         "name": "choose_workout_makeup",
@@ -514,7 +514,7 @@
                 "id"
             ]
         },
-        "description": "Delete a calendar event by its ID. Returns confirmation of deletion. A recurring series is designated by its master event's id; deleting it removes every occurrence."
+        "description": "Deletes an event of the owner's agendas (id from get_events); a period goes with manage_periods, a run of Maggie with cancel_proaction, a task with delete_task. Delete a calendar event by its ID. Returns confirmation of deletion. A recurring series is designated by its master event's id; deleting it removes every occurrence."
     },
     "delete_recipe": {
         "name": "delete_recipe",
@@ -544,7 +544,7 @@
                 "id"
             ]
         },
-        "description": "Deletes a task by its id. Returns a confirmation."
+        "description": "Deletes one of the owner's tasks by its id (from get_tasks) for good; a task done is update_task done=true, a routine paused save_routine active=false. Returns a confirmation."
     },
     "end_errand": {
         "name": "end_errand",
@@ -730,7 +730,7 @@
                 }
             }
         },
-        "description": "Describes a day as {date, weekend, periods: [{id, name, agenda: {id, name}, allDay, start, end}]}. date is YYYY-MM-DD, today by default, read in Paris. periods are all those covering the day (custody, holidays, sickness…); start and end are the occurrence bounds, instants or days with the end day included."
+        "description": "Reads the periods covering a day, so Maggie adapts to that context; events are get_events, tasks get_tasks. Read-only: periods are written with manage_periods. Describes a day as {date, weekend, periods: [{id, name, agenda: {id, name}, allDay, start, end}]}. date is YYYY-MM-DD, today by default, read in Paris. periods are all those covering the day (custody, holidays, a trip…); start and end are the occurrence bounds, instants or days with the end day included."
     },
     "get_day_plan": {
         "name": "get_day_plan",
@@ -746,7 +746,7 @@
                 }
             }
         },
-        "description": "Reads the day: at most 5 slots. date YYYY-MM-DD, today by default. Returns slots [{position, type, task}], now (first slot not done, or null), reserve (other open non-subtasks by orderScore), done, total, confirmedAt (null while proposed). A task has id, title, estimatedMinutes, firstStep, completedAt, dueDate, scheduledDate, postponedSince, urgency, criticality, rrule."
+        "description": "The day plan is the ordered short list of tasks chosen for a day, with its reserve; it holds no event (get_events), and every task stays readable with get_tasks. Reads the day: at most 5 slots. date YYYY-MM-DD, today by default. Returns slots [{position, type, task}], now (first slot not done, or null), reserve (other open non-subtasks by orderScore), done, total, confirmedAt (null while proposed). A task has id, title, estimatedMinutes, firstStep, completedAt, dueDate, scheduledDate, postponedSince, urgency, criticality, rrule."
     },
     "get_event": {
         "name": "get_event",
@@ -761,7 +761,7 @@
                 "id"
             ]
         },
-        "description": "Get one calendar event by its ID: summary, start, end, all-day flag and agenda. Works for past events too. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate (EXCLUDED, as in Google's API: the day after its last day) and lastDay. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one)."
+        "description": "One event whose id a result gave; events by day or by name are get_events. Get one calendar event by its ID: summary, start, end, all-day flag and agenda. Works for past events too. A whole-day event (allDay true) has no startAt/endAt but startDate, endDate (EXCLUDED, as in Google's API: the day after its last day) and lastDay. Every local date comes with its day of the week (startWeekday, endWeekday for a timed event; startWeekday and lastDayWeekday for a whole-day one)."
     },
     "get_events": {
         "name": "get_events",
@@ -1226,7 +1226,7 @@
                 }
             }
         },
-        "description": "Reads routines. Without date: all, as {routines}. With date (YYYY-MM-DD): active routines due that day, as {date, moments: [{anchor, time, routines}]}. A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner, time), anchorTime HH:MM, time, recurrence ({kind, weekday, monthDay}), active, remind, createdAt, checkedToday, dueToday, monthCount, totalCount."
+        "description": "A routine is a habit kept at a moment of the day and ticked each day it is due, with totals, never a streak; a thing to do, even one that comes back, is a task (get_tasks). Reads routines. Without date: all, as {routines}. With date (YYYY-MM-DD): active routines due that day, as {date, moments: [{anchor, time, routines}]}. A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner, time), anchorTime HH:MM, time, recurrence ({kind, weekday, monthDay}), active, remind, createdAt, checkedToday, dueToday, monthCount, totalCount."
     },
     "list_trips": {
         "name": "list_trips",
@@ -1388,7 +1388,7 @@
                 }
             }
         },
-        "description": "Lists, creates, updates or deletes agendas. An agenda has a name, description, IANA time zone, colour and a default flag. On update, an optional field is emptied by listing its name in clear (description, color). A Google-connected agenda is renamed in Google too: if Google refuses the name, the update fails with an error and the agenda keeps its name."
+        "description": "An agenda holds events and periods (one per person or domain), with its time zone; it is never an event itself. Lists, creates, updates or deletes agendas. An agenda has a name, description, IANA time zone, colour and a default flag. On update, an optional field is emptied by listing its name in clear (description, color). A Google-connected agenda is renamed in Google too: if Google refuses the name, the update fails with an error and the agenda keeps its name."
     },
     "manage_aisles": {
         "name": "manage_aisles",
@@ -4597,7 +4597,7 @@
                 }
             }
         },
-        "description": "Creates a routine (without id; title, anchor, recurrence required) or changes one (with id; given fields only). title: 255 characters max. anchor: wake, afterBreakfast, afterLunch, afterDinner, or time (needs anchorTime HH:MM, only this anchor). recurrence: {kind: daily}, {kind: weekdays}, {kind: weekly, weekday: 1 Monday to 7 Sunday} or {kind: monthly, monthDay: 1 to 31}. active=false pauses; remind=true asks a reminder. Refused call changes nothing, answers {error}. Returns {success, routine}."
+        "description": "For a habit ticked day after day at a moment of the day; a chore with a date, even a repeating one, is a task (create_task with rrule). Before: list_routines, a habit is changed, not created twice. Creates a routine (without id; title, anchor, recurrence required) or changes one (with id; given fields only). title: 255 characters max. anchor: wake, afterBreakfast, afterLunch, afterDinner, or time (needs anchorTime HH:MM, only this anchor). recurrence: {kind: daily}, {kind: weekdays}, {kind: weekly, weekday: 1 Monday to 7 Sunday} or {kind: monthly, monthDay: 1 to 31}. active=false pauses; remind=true asks a reminder. Refused call changes nothing, answers {error}. Returns {success, routine}."
     },
     "schedule_proaction": {
         "name": "schedule_proaction",
@@ -4783,7 +4783,7 @@
                 "taskIds"
             ]
         },
-        "description": "Sets the user's day. taskIds is the whole ordered list of the day's tasks, 5 at most: it replaces the slots, so keeping a task means listing it, and a task listed in place of another sends the other back to the reserve. A task appears once. date is YYYY-MM-DD, today when left out; a future day is allowed. confirm=false writes a proposal (confirmedAt stays null). Returns the day as get_day_plan does."
+        "description": "Sets the user's day. Before: get_day_plan, since the list replaces the slots; confirm only what the owner agreed to. taskIds is the whole ordered list of the day's tasks, 5 at most: it replaces the slots, so keeping a task means listing it, and a task listed in place of another sends the other back to the reserve. A task appears once. date is YYYY-MM-DD, today when left out; a future day is allowed. confirm=false writes a proposal (confirmedAt stays null). Returns the day as get_day_plan does."
     },
     "set_trip": {
         "name": "set_trip",

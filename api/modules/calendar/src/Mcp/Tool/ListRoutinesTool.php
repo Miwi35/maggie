@@ -11,7 +11,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'list_routines', description: 'Reads routines. Without date: all, as {routines}. With date (YYYY-MM-DD): active routines due that day, as {date, moments: [{anchor, time, routines}]}. A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner, time), anchorTime HH:MM, time, recurrence ({kind, weekday, monthDay}), active, remind, createdAt, checkedToday, dueToday, monthCount, totalCount.')]
+#[McpTool(name: 'list_routines', description: 'A routine is a habit kept at a moment of the day and ticked each day it is due, with totals, never a streak; a thing to do, even one that comes back, is a task (get_tasks). Reads routines. Without date: all, as {routines}. With date (YYYY-MM-DD): active routines due that day, as {date, moments: [{anchor, time, routines}]}. A routine has id, title, anchor (wake, afterBreakfast, afterLunch, afterDinner, time), anchorTime HH:MM, time, recurrence ({kind, weekday, monthDay}), active, remind, createdAt, checkedToday, dueToday, monthCount, totalCount.')]
 final class ListRoutinesTool
 {
     public function __construct(

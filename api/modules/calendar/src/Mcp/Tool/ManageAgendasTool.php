@@ -16,7 +16,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'manage_agendas', description: 'Lists, creates, updates or deletes agendas. An agenda has a name, description, IANA time zone, colour and a default flag. On update, an optional field is emptied by listing its name in clear (description, color). A Google-connected agenda is renamed in Google too: if Google refuses the name, the update fails with an error and the agenda keeps its name.')]
+#[McpTool(name: 'manage_agendas', description: 'An agenda holds events and periods (one per person or domain), with its time zone; it is never an event itself. Lists, creates, updates or deletes agendas. An agenda has a name, description, IANA time zone, colour and a default flag. On update, an optional field is emptied by listing its name in clear (description, color). A Google-connected agenda is renamed in Google too: if Google refuses the name, the update fails with an error and the agenda keeps its name.')]
 class ManageAgendasTool
 {
     public function __construct(

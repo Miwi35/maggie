@@ -11,7 +11,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Ulid;
 
-#[McpTool(name: 'delete_event', description: 'Delete a calendar event by its ID. Returns confirmation of deletion. A recurring series is designated by its master event\'s id; deleting it removes every occurrence.')]
+#[McpTool(name: 'delete_event', description: 'Deletes an event of the owner\'s agendas (id from get_events); a period goes with manage_periods, a run of Maggie with cancel_proaction, a task with delete_task. Delete a calendar event by its ID. Returns confirmation of deletion. A recurring series is designated by its master event\'s id; deleting it removes every occurrence.')]
 class DeleteEventTool
 {
     public function __construct(

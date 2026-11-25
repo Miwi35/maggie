@@ -10,7 +10,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_day_context', description: 'Describes a day as {date, weekend, periods: [{id, name, agenda: {id, name}, allDay, start, end}]}. date is YYYY-MM-DD, today by default, read in Paris. periods are all those covering the day (custody, holidays, sickness…); start and end are the occurrence bounds, instants or days with the end day included.')]
+#[McpTool(name: 'get_day_context', description: 'Reads the periods covering a day, so Maggie adapts to that context; events are get_events, tasks get_tasks. Read-only: periods are written with manage_periods. Describes a day as {date, weekend, periods: [{id, name, agenda: {id, name}, allDay, start, end}]}. date is YYYY-MM-DD, today by default, read in Paris. periods are all those covering the day (custody, holidays, a trip…); start and end are the occurrence bounds, instants or days with the end day included.')]
 final class GetDayContextTool
 {
     public function __construct(
