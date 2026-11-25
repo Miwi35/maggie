@@ -93,6 +93,24 @@ final class ElasticsearchReindexOrphansTest extends KernelTestCase
         self::assertSame([], $this->bulkOperations(), 'Only the agendas index is looked at.');
     }
 
+    /** MAG-1032: the index name is accepted as an argument, as an operator types it. */
+    public function testAnIndexNameGivenAsArgumentIsReindexedAlone(): void
+    {
+        $tester = $this->execute(['index' => 'tasks'], static fn (): array => [200, ['acknowledged' => true, 'errors' => false, 'items' => []]]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('→ tasks', $tester->getDisplay());
+        self::assertStringNotContainsString('→ events', $tester->getDisplay());
+    }
+
+    public function testAnUnknownIndexNameFails(): void
+    {
+        $tester = $this->execute(['index' => 'nope'], static fn (): array => [200, []]);
+
+        self::assertSame(1, $tester->getStatusCode());
+        self::assertStringContainsString('Unknown index "nope"', $tester->getDisplay());
+    }
+
     /**
      * @return \Closure(string, string): array{int, array<string, mixed>}
      */

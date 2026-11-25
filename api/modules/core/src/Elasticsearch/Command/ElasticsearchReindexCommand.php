@@ -14,6 +14,7 @@ use Maggie\Core\Identifier\CanonicalId;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -39,6 +40,7 @@ final class ElasticsearchReindexCommand extends Command
     protected function configure(): void
     {
         $this
+            ->addArgument('index', InputArgument::OPTIONAL, 'Index name (e.g. tasks): reindex this index only')
             ->addOption('all', null, InputOption::VALUE_NONE, 'Reindex all entities')
             ->addOption('entity', null, InputOption::VALUE_REQUIRED, 'Entity short name (e.g. Event)')
             ->addOption('module', null, InputOption::VALUE_REQUIRED, 'Module name (e.g. calendar)')
@@ -54,6 +56,18 @@ final class ElasticsearchReindexCommand extends Command
         $moduleName = $input->getOption('module');
 
         $orphans = (bool) $input->getOption('orphans');
+        $indexArgument = $input->getArgument('index');
+
+        if (null !== $indexArgument) {
+            $indices = $this->registry->getAll();
+            if (!isset($indices[$indexArgument])) {
+                $io->error(sprintf('Unknown index "%s". Known: %s', $indexArgument, implode(', ', array_keys($indices))));
+
+                return Command::FAILURE;
+            }
+
+            return $this->reindex($input, $output, $io, [$indexArgument => $indices[$indexArgument]], $orphans);
+        }
 
         if (!$all && !$orphans && null === $entityName && null === $moduleName) {
             $io->error('Specify --all, --entity, --module or --orphans');
@@ -69,6 +83,14 @@ final class ElasticsearchReindexCommand extends Command
             return Command::SUCCESS;
         }
 
+        return $this->reindex($input, $output, $io, $entities, $orphans);
+    }
+
+    /**
+     * @param array<string, class-string<IndexableInterface>> $entities
+     */
+    private function reindex(InputInterface $input, OutputInterface $output, SymfonyStyle $io, array $entities, bool $orphans): int
+    {
         if ($orphans) {
             return $this->purgeOrphans($io, $entities);
         }
