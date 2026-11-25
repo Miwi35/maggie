@@ -1,0 +1,12 @@
+# Money lent by a relative is a debt between people, not a bank loan (MAG-1019).
+name: pret-ou-dette
+description: Told a relative lent money, she records a debt between people and creates no bank loan.
+channel: chat
+
+steps:
+  - user_message: "Mon frère m'a prêté 300 euros."
+    forbidden_tools: [manage_loans]
+    expected_behavior: >
+      Elle range la somme en dette envers un proche (manage_contacts puis
+      manage_peer_debts), ou demande le virement reçu si aucun ne correspond.
+      Elle ne crée pas de prêt bancaire.

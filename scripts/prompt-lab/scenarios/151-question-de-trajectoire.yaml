@@ -1,0 +1,12 @@
+# A trajectory question goes to the advisor, who writes nothing (MAG-1019).
+name: question-de-trajectoire
+description: Asked what an earlier repayment would change, she delegates and presents a range of the possible.
+channel: chat
+
+steps:
+  - user_message: "Et si je remboursais mon prêt plus tôt ?"
+    expected_tools: [delegate]
+    forbidden_tools: [manage_scenarios]
+    expected_behavior: >
+      Elle délègue au conseiller et présente son résultat comme un champ du
+      possible, sans verdict ni conseil. Elle n'écrit aucun scénario de son chef.
