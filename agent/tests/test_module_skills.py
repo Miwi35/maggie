@@ -71,3 +71,8 @@ async def test_the_learning_systems_quote_no_conversation(base):
         "envoie un résumé ce soir", "dans X minutes",
     ]:
         assert phrase not in block, phrase
+
+
+async def test_the_memory_rules_name_no_one(base):
+    for phrase in ["Françoise", "roses", "je te l'avais dit"]:
+        assert phrase not in base, phrase
