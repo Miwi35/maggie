@@ -226,6 +226,12 @@ final class McpToolsContractTest extends KernelTestCase
             'manage_peer_debts' => ['tied to real movements', 'manage_loans'],
             'manage_contacts' => ['A contact is', 'manage_peer_debts'],
             'manage_finance_settings' => ['not his figures'],
+            'manage_projects' => ['A project is', 'manage_project_funding', 'manage_scenarios'],
+            'manage_project_funding' => ['options'],
+            'manage_investments' => ['manage_placements'],
+            'manage_placements' => ['A placement is', 'manage_accounts', 'never advice'],
+            'manage_loans' => ['A loan is', 'manage_peer_debts'],
+            'manage_scenarios' => ['A scenario orders', 'advisor'],
         ];
         $tools = $this->tools();
 
