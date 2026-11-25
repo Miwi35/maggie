@@ -241,10 +241,10 @@ private fun AddMealButton(label: String, onClick: () -> Unit, modifier: Modifier
             .clip(shape)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp), tint = surface.caption)
+        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp), tint = cuisineHue())
         Text(label, fontSize = 14.sp, color = surface.caption)
     }
 }
