@@ -1,8 +1,7 @@
 import Box from '@mui/material/Box'
-import Divider from '@mui/material/Divider'
-import LinearProgress from '@mui/material/LinearProgress'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
+import { alpha } from '@mui/material/styles'
 import { HEALTH_SUIVI_PATH } from '../../../components/layout/navigation'
 import { formatInteger } from '../../health/healthProfileApi'
 import { formatDuration } from '../../health/workoutFormat'
@@ -12,7 +11,7 @@ import { homeCardStatus, useReportHomeCard } from '../homeCardStatus'
 import { moduleColor } from '../moduleColor'
 import type { HomeDay } from '../homeDay'
 import { useHealthCardState } from '../useHealthCardState'
-import { isHealthEmpty } from './healthCardState'
+import { isHealthEmpty, windowSegment } from './healthCardState'
 import type { HealthBalance, HealthFast, HealthHomeState, HealthSteps, HealthWorkout } from './healthCardState'
 
 /** The « Santé » card of the Accueil (MAG-566): the planned session, steps, calorie balance and fasting window; no verdict. */
@@ -39,50 +38,74 @@ export const HealthCard = ({ day }: { day: HomeDay }) => {
 }
 
 const Body = ({ state }: { state: HealthHomeState }) => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-    {[
-      state.workout && <Workout key="workout" workout={state.workout} />,
-      state.steps && <Steps key="steps" steps={state.steps} />,
-      state.balance && <Balance key="balance" balance={state.balance} day={state.day} />,
-      state.fast && <Fast key="fast" fast={state.fast} day={state.day} />,
-    ]
-      .filter(Boolean)
-      .flatMap((row, index) => (index === 0 ? [row] : [<Divider key={`d${index}`} />, row]))}
+  <Box
+    sx={(theme) => ({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1,
+      '& > * + *': { pt: '8px', borderTop: `1px solid ${theme.palette.divider}` },
+    })}
+  >
+    {state.workout && <Workout workout={state.workout} />}
+    {state.steps && <Steps steps={state.steps} />}
+    {state.balance && <Balance balance={state.balance} day={state.day} />}
+    {state.fast && <Fast fast={state.fast} day={state.day} />}
   </Box>
 )
 
-const Line = ({ label, value, fraction, testId }: { label: string; value: string; fraction: number | null; testId: string }) => (
+type BarSpec = { fraction: number; soft: boolean } | { segment: { start: number; length: number } }
+
+const Line = ({ label, value, bar, testId }: { label: string; value: string; bar: BarSpec | null; testId: string }) => (
   <Box data-testid={testId} sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.5 }}>
-      <Typography variant="body2">{label}</Typography>
+      <Typography variant="body2" sx={{ fontSize: 13 }}>
+        {label}
+      </Typography>
       {value && (
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13, textAlign: 'right' }}>
           {value}
         </Typography>
       )}
     </Box>
-    {fraction !== null && <Bar value={fraction * 100} label={label} />}
+    {bar && <Bar bar={bar} label={label} />}
   </Box>
 )
 
-const Bar = ({ value, label }: { value: number; label: string }) => (
-  <LinearProgress
-    variant="determinate"
-    value={Math.min(100, Math.max(0, value))}
-    aria-label={label}
-    sx={(theme) => ({ height: 6, borderRadius: 3, color: moduleColor(theme, 'health'), '& .MuiLinearProgress-bar': { backgroundColor: 'currentColor' } })}
-  />
-)
+const Bar = ({ bar, label }: { bar: BarSpec; label: string }) => {
+  const clamp = (share: number) => Math.min(100, Math.max(0, share * 100))
+  const [left, width] = 'segment' in bar ? [clamp(bar.segment.start), clamp(bar.segment.length)] : [0, clamp(bar.fraction)]
+  const soft = 'segment' in bar || bar.soft
+
+  return (
+    <Box
+      role="img"
+      aria-label={label}
+      data-testid="home-health-bar"
+      sx={(theme) => ({ position: 'relative', height: 6, borderRadius: 999, overflow: 'hidden', bgcolor: theme.palette.veilleuse.track })}
+    >
+      <Box
+        data-testid="home-health-bar-fill"
+        sx={(theme) => {
+          const coral = moduleColor(theme, 'health')
+
+          return { position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${width}%`, backgroundColor: soft ? alpha(coral, 0.55) : coral }
+        }}
+      />
+    </Box>
+  )
+}
 
 const Workout = ({ workout }: { workout: HealthWorkout }) => (
-  <Line label={workout.title} value={`${workout.time} · ${formatDuration(workout.durationMinutes)}`} fraction={null} testId="home-health-workout" />
+  <Typography data-testid="home-health-workout" sx={{ fontSize: 15 }}>
+    {`${workout.title} · ${workout.time} · ${formatDuration(workout.durationMinutes)}`}
+  </Typography>
 )
 
 const Steps = ({ steps }: { steps: HealthSteps }) => (
   <Line
     label="Pas"
     value={`${formatInteger(steps.count)} · objectif ${formatInteger(steps.goal)}`}
-    fraction={steps.count / steps.goal}
+    bar={{ fraction: steps.count / steps.goal, soft: false }}
     testId="home-health-steps"
   />
 )
@@ -94,7 +117,7 @@ const Balance = ({ balance, day }: { balance: HealthBalance; day: HomeDay }) => 
     <Line
       label={day === 'today' ? 'Bilan du jour' : 'Calories projetées'}
       value={day === 'today' ? `${formatInteger(balance.kcal)} mangées${need}` : `${formatInteger(balance.kcal)} kcal${need}`}
-      fraction={balance.needKcal !== null && balance.needKcal > 0 ? balance.kcal / balance.needKcal : null}
+      bar={balance.needKcal !== null && balance.needKcal > 0 ? { fraction: balance.kcal / balance.needKcal, soft: day === 'tomorrow' } : null}
       testId="home-health-balance"
     />
   )
@@ -109,5 +132,9 @@ const Fast = ({ fast, day }: { fast: HealthFast; day: HomeDay }) => {
   else if (fast.state === 'open') [label, value] = ['Fenêtre ouverte', `ferme à ${fast.windowEnd}${left}`]
   else [label, value] = ['Jeûne en cours', `ouvre à ${fast.windowStart}${left}`]
 
-  return <Line label={label} value={value} fraction={day === 'today' ? fast.progress : null} testId="home-health-fast" />
+  let bar: BarSpec | null = null
+  if (day === 'tomorrow') bar = { segment: windowSegment(fast) }
+  else if (fast.progress !== null) bar = { fraction: fast.progress, soft: true }
+
+  return <Line label={label} value={value} bar={bar} testId="home-health-fast" />
 }

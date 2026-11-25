@@ -62,10 +62,17 @@ const hhmm = (instant: Date): string =>
 
 const DAY = 24 * 60
 
-function windowLength(fasting: FastingDay): number {
+function windowLength(fasting: { windowStart: string; windowEnd: string }): number {
   const length = minutesOf(fasting.windowEnd) - minutesOf(fasting.windowStart)
 
   return length <= 0 ? length + DAY : length
+}
+
+/** The window as shares (0–1) of the day: where it starts and how long it lasts, cut at midnight. */
+export function windowSegment(fast: HealthFast): { start: number; length: number } {
+  const start = minutesOf(fast.windowStart) / DAY
+
+  return { start, length: Math.min(windowLength(fast) / DAY, 1 - start) }
 }
 
 /** Without a meal the API says fasting, but inside the window the window is open: it closes at its end. */

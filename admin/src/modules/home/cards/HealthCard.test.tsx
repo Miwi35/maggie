@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter } from 'react-router-dom'
+import { alpha } from '@mui/material/styles'
 import { veilleuseLightTheme } from '../../../theme'
 import { emitMercure } from '../../../test/mercure'
 import { cardRegistry } from '../cardRegistry'
 import homeConfig from '../home.config'
+import { moduleColor } from '../moduleColor'
 import { HealthCard } from './HealthCard'
 import type { HomeDay } from '../homeDay'
 
@@ -71,7 +73,7 @@ describe('HealthCard', () => {
     renderCard()
 
     expect(screen.getByTestId('home-health-loading')).toBeInTheDocument()
-    expect(await screen.findByTestId('home-health-workout')).toHaveTextContent('Course à pied19:00 · 45 min')
+    expect(await screen.findByTestId('home-health-workout')).toHaveTextContent('Course à pied · 19:00 · 45 min')
     expect(screen.getByTestId('home-health-steps')).toHaveTextContent('Pas6 240 · objectif 8 000')
     expect(screen.getByTestId('home-health-balance')).toHaveTextContent('Bilan du jour1 240 mangées · besoin 1 980 kcal')
     expect(screen.getByTestId('home-health-fast')).toHaveTextContent('Fenêtre ouverteferme à 20:00')
@@ -86,6 +88,45 @@ describe('HealthCard', () => {
     expect(screen.queryByTestId('home-health-steps')).not.toBeInTheDocument()
     expect(screen.getByTestId('home-health-fast')).toHaveTextContent('Fenêtre prévue12:00 – 20:00')
     expect(screen.getByTestId('home-health-balance')).toHaveTextContent('Calories projetées')
+  })
+
+  const coral = moduleColor(veilleuseLightTheme, 'health')
+  const fill = (id: string) => within(screen.getByTestId(id)).getByTestId('home-health-bar-fill')
+
+  test('the session is one 15 px line, the other lines 13 px under a hairline', async () => {
+    stubApi(() => ({ ...base, workouts: [session] }))
+    renderCard()
+
+    const workout = await screen.findByTestId('home-health-workout')
+    expect(workout).toHaveStyle({ fontSize: '15px' })
+    expect(workout).toHaveTextContent(/^Course à pied · 19:00 · 45 min$/)
+    expect(within(workout).queryByText('45 min')).not.toBeInTheDocument()
+    expect(screen.getByText('Pas')).toHaveStyle({ fontSize: '13px' })
+    expect(screen.getByText('6 240 · objectif 8 000')).toHaveStyle({ fontSize: '13px' })
+    for (const id of ['home-health-steps', 'home-health-balance', 'home-health-fast'])
+      expect(screen.getByTestId(id)).toHaveStyle({ borderTop: `1px solid ${veilleuseLightTheme.palette.divider}` })
+    expect(workout).not.toHaveStyle({ borderTop: `1px solid ${veilleuseLightTheme.palette.divider}` })
+  })
+
+  test("the window's bar is the soft coral, the steps and the balance the full one", async () => {
+    stubApi(() => ({ ...base, workouts: [session] }))
+    renderCard()
+
+    await screen.findByTestId('home-health-workout')
+    expect(fill('home-health-fast')).toHaveStyle({ backgroundColor: alpha(coral, 0.55) })
+    expect(fill('home-health-steps')).toHaveStyle({ backgroundColor: coral })
+    expect(fill('home-health-balance')).toHaveStyle({ backgroundColor: coral })
+  })
+
+  test('tomorrow: the planned window is a segment placed on the day, the projected calories soft', async () => {
+    stubApi(() => ({ ...base, workouts: [session] }))
+    renderCard('tomorrow')
+
+    await screen.findByTestId('home-health-workout')
+    const segment = fill('home-health-fast')
+    expect(segment).toHaveStyle({ left: '50%', backgroundColor: alpha(coral, 0.55) })
+    expect(parseFloat(getComputedStyle(segment).width)).toBeCloseTo(33.33, 1)
+    expect(fill('home-health-balance')).toHaveStyle({ backgroundColor: alpha(coral, 0.55) })
   })
 
   test('without a protocol there is no window line', async () => {
