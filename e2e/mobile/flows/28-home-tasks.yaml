@@ -11,10 +11,10 @@ onFlowComplete:
         TODAY: ${TODAY}
         EMAIL: e2e-home-tasks-mobile@maggie.local
 ---
-# The Tâches card of the Accueil (MAG-561, extends MAG-99 and MAG-100): a tick from the home.
+# The Tâches card of the Accueil (MAG-561, extended by MAG-1027; extends MAG-99 and MAG-100): a tick from the home.
 #
 # Given three tasks of the day, none done (`scripts/home-tasks-api.js`), when the first one is
-# ticked from the home, then the ring reads « 1 sur 3 » without a reload and the API holds the
+# ticked from the home, then the ring reads « 1 sur 3 » and its sentence « Le reste peut attendre une pause » without a reload (before: « 0 sur 3 », « Une seule suffit pour lancer la journée » and the « avant ce soir » pill) and the API holds the
 # task done. The rows, the routines, Demain's disabled boxes and the error paths are
 # `TasksCardScreenTest`'s and `TasksCardViewModelTest`'s.
 #
@@ -51,6 +51,11 @@ onFlowComplete:
       id: "home_tasks_ring"
       text: "0 sur 3"
     timeout: 20000
+- assertVisible: "Une seule suffit pour lancer la journée"
+- assertVisible:
+    id: "home_task_when_.*"
+    text: "avant ce soir"
+    index: 0
 
 - extendedWaitUntil:
     notVisible:
@@ -81,6 +86,9 @@ onFlowComplete:
     visible:
       id: "home_tasks_ring"
       text: "1 sur 3"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Le reste peut attendre une pause"
     timeout: 20000
 
 - runScript:
