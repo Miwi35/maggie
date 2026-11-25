@@ -10,7 +10,7 @@ use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
-#[McpTool(name: 'cancel_proaction', description: 'Cancels a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. The id of a series (rrule in list_proactions) without occurrence deletes the series: no run is left, the ones already done stay. With occurrence (ISO 8601, as listed in occurrences) it cancels that occurrence only.')]
+#[McpTool(name: 'cancel_proaction', description: 'Cancels a run of Maggie only; a task, an event or a directive goes with its own tool (delete_task, delete_event, delete_instruction). Cancels a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. The id of a series (rrule in list_proactions) without occurrence deletes the series: no run is left, the ones already done stay. With occurrence (ISO 8601, as listed in occurrences) it cancels that occurrence only.')]
 class CancelProactionTool
 {
     public function __construct(

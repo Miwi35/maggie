@@ -1,0 +1,11 @@
+# A rule about how she answers is a behavior directive: not a skill, not a fiche.
+name: consigne-de-ton
+description: A lasting rule about length is stored as a behavior directive.
+channel: chat
+
+steps:
+  - user_message: "Désormais, réponds-moi en deux phrases au plus."
+    expected_tools: [add_instruction]
+    forbidden_tools: [create_skill, memory_write_fiche]
+    expected_behavior: >
+      Elle enregistre une directive behavior et le confirme en une phrase.

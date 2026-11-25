@@ -11,15 +11,16 @@ INSTRUCTION_TOOLS = [
     {
         "name": "add_instruction",
         "description": (
-            "Store a standing directive from the user. Two kinds, and the kind decides who reads it: "
-            "'planning' tells Maggie WHEN to act autonomously (e.g. 'send me a day summary every morning "
-            "at 9', 'don't bother me 9pm-9am') and is read during daily proaction planning; "
-            "'behavior' tells her HOW to answer (e.g. 'tutoie-moi', 'fewer emojis', 'be brief') and is "
-            "injected into the system prompt of every chat reply and proaction. "
-            "Use this for a lasting preference or a rule that recurs — "
-            "a one-off request for this reply needs no directive. "
+            "Store a standing directive: a rule from the owner that lasts beyond this reply. "
+            "Two kinds, and the kind decides who reads it: 'planning' (a moment that comes back, hours not to "
+            "disturb him) is read by her daily planning, which schedules the runs; 'behavior' (tone, register, "
+            "length) is injected into every reply. "
             "'planning' is for when MAGGIE acts on her own; something the owner does that comes back is a "
-            "task (create_task with rrule), not a directive."
+            "task (create_task with rrule), not a directive. "
+            "A way to carry out a kind of request is a skill (create_skill), a fact about him or the people "
+            "around him a fiche (memory_write_fiche), one run at a set time schedule_proaction. "
+            "A request for this reply only needs no directive. "
+            "Before: list_instructions; a directive that says the same is not added twice."
         ),
         "input_schema": {
             "type": "object",
@@ -42,7 +43,10 @@ INSTRUCTION_TOOLS = [
     },
     {
         "name": "list_instructions",
-        "description": "List the current user's standing directives, of one kind or of both.",
+        "description": (
+            "List the owner's standing directives (planning, behavior) with their ids. "
+            "Read it before add_instruction, and to find the id delete_instruction needs."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -56,7 +60,10 @@ INSTRUCTION_TOOLS = [
     },
     {
         "name": "delete_instruction",
-        "description": "Delete a standing directive by its ID.",
+        "description": (
+            "Delete a standing directive by its id (from list_instructions). "
+            "It cancels no run already scheduled (cancel_proaction) and no skill (delete_skill)."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {

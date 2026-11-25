@@ -7,27 +7,25 @@ SKILL_TOOLS = [
     {
         "name": "create_skill",
         "description": (
-            "Create a new skill file. Skills teach Maggie HOW to perform specific tasks "
-            "(e.g. 'when adding a concert, search for the event webpage'). "
-            "The owner's rule: 'when I ask you X, do Y' — a general request about how Maggie should act is a skill, "
-            "even when it is about reminders or notifications (e.g. 'quand je demande un rappel, je veux une "
-            "notification'). Tone and wording go to add_instruction kind='behavior', a fixed schedule to "
-            "kind='planning', a one-off action later to schedule_proaction, knowledge about the user or the "
-            "people around them to memory_write_fiche. "
-            "Use update_skill when a skill already covers it. "
-            "Skills are listed by name and description in the system prompt and loaded on demand with get_skill; "
-            "the user sees and edits them in the admin, Réglages \u203a Agent \u203a Compétences. "
-            "Tag the moment the skill applies, deduced from what the user said: 'moment:chat' (when they ask "
-            "you something), 'moment:proaction' (when a reminder or a proaction comes due), "
-            "'moment:planification' (the daily planning). A skill tagged with a moment is put in full in the "
-            "prompt at that moment; one without stays in the index only."
+            "Create a skill: a procedure Maggie follows for a kind of request (when asked X, do Y), in markdown, "
+            "listed by name and description in the prompt and loaded with get_skill. "
+            "A general rule about how she should act is a skill, even about reminders or notifications. "
+            "Tone and wording are a 'behavior' directive (add_instruction), when she acts on her own a 'planning' "
+            "one, one run at a set time schedule_proaction, knowledge about the owner or the people around him "
+            "a fiche (memory_write_fiche). "
+            "Before: list_skills; a skill that already covers it is changed with update_skill, never doubled. "
+            "The owner sees and edits skills in the admin, Réglages \u203a Agent \u203a Compétences. "
+            "Tag the moment it applies, from what he said: 'moment:chat' (when he asks something), "
+            "'moment:proaction' (when a reminder or a proaction comes due), 'moment:planification' (the daily "
+            "planning). A skill tagged with a moment is put in full in the prompt at that moment; one without "
+            "stays in the index only."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "Unique skill name (kebab-case, e.g. 'concert-event-link')",
+                    "description": "Unique skill name (kebab-case)",
                 },
                 "description": {
                     "type": "string",
@@ -51,7 +49,10 @@ SKILL_TOOLS = [
     },
     {
         "name": "list_skills",
-        "description": "List all available skills (name, description, tags).",
+        "description": (
+            "List the skills (name, description, tags). Read it before create_skill: "
+            "a skill that already covers the request is updated, not created again."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -78,7 +79,8 @@ SKILL_TOOLS = [
     {
         "name": "update_skill",
         "description": (
-            "Update an existing skill's content, description, or tags. Tags replace the old ones: keep them, "
+            "Change a skill that exists (name from list_skills); read it with get_skill first, since content "
+            "replaces the whole text. Tags replace the old ones: keep them, "
             "and add or fix the moment the skill applies ('moment:chat', 'moment:proaction', "
             "'moment:planification') when the user says when it should be applied."
         ),
@@ -108,7 +110,10 @@ SKILL_TOOLS = [
     },
     {
         "name": "delete_skill",
-        "description": "Delete a skill by name.",
+        "description": (
+            "Delete a skill by name (from list_skills). "
+            "A directive goes with delete_instruction, a scheduled run with cancel_proaction."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {

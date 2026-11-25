@@ -20,13 +20,13 @@ CONSIGNE_KINDS = ["reminder", "task", "instruction"]
 BILAN_CONSIGNE_TOOL = {
     "name": "add_bilan_consigne",
     "description": (
-        "Evening review, Consignes step: record ONE consigne the user dictated, in one call. "
-        "kind 'reminder' = something to do or remember at a given time tomorrow (needs scheduled_at); "
-        "'task' = something to do tomorrow without a time (needs due_date), e.g. 'acheter du pain' "
-        "(a task, never a grocery item); 'instruction' = a rule that lasts or comes back "
-        "('le mardi, je pars plus tôt', 'toujours…'). The tool creates the reminder, the task or the learned "
-        "instruction with the provenance 'bilan-soir' and writes it into the review's status: call it once per "
-        "consigne, do NOT call schedule_proaction, create_task, add_instruction or save_bilan_step for it."
+        "Evening review, Consignes step only: record ONE consigne the owner dictated, in one call. "
+        "kind 'reminder' = something he must be told at a set time tomorrow (needs scheduled_at); "
+        "'task' = something he has to do tomorrow without a time (needs due_date), something to buy included, "
+        "never a grocery item; 'instruction' = a rule that lasts or comes back. "
+        "The tool creates the reminder, the task or the directive with the provenance 'bilan-soir' and writes it "
+        "into the review's status: one call per consigne; during the review it replaces schedule_proaction, "
+        "create_task, add_instruction and save_bilan_step for a consigne."
     ),
     "input_schema": {
         "type": "object",

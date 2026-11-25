@@ -62,3 +62,12 @@ def test_add_instruction_sends_what_the_owner_does_to_a_task():
     description = _description(INSTRUCTION_TOOLS, "add_instruction")
     assert "task (create_task with rrule)" in description
     assert "le mardi" not in description
+
+
+async def test_the_learning_systems_quote_no_conversation(base):
+    block = base.split("Tes systèmes d'apprentissage")[1].split("OÙ ÇA SE VOIT")[0]
+    for phrase in [
+        "tutoie-moi", "moins d'emojis", "tous les matins à 8h", "chaque vendredi", "rappelle-moi demain à 10h",
+        "envoie un résumé ce soir", "dans X minutes",
+    ]:
+        assert phrase not in block, phrase

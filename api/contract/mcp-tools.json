@@ -73,7 +73,7 @@
                 "action"
             ]
         },
-        "description": "Answers a task reminder, as the notification button would. reminderId comes with the user's message. Actions: done (ticks the task), in10 (reminder in ten minutes), tonight (after dinner), tomorrow (into tomorrow's five), start (begins it now), open. A reminder is answered once and not every kind accepts every action: a refusal says why."
+        "description": "For the owner's answer to a task reminder he received; a task changed outside such an answer is update_task, an approval card answer_approval. Answers a task reminder, as the notification button would. reminderId comes with the user's message. Actions: done (ticks the task), in10 (reminder in ten minutes), tonight (after dinner), tomorrow (into tomorrow's five), start (begins it now), open. A reminder is answered once and not every kind accepts every action: a refusal says why."
     },
     "assign_product_store": {
         "name": "assign_product_store",
@@ -145,7 +145,7 @@
                 "id"
             ]
         },
-        "description": "Cancels a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. The id of a series (rrule in list_proactions) without occurrence deletes the series: no run is left, the ones already done stay. With occurrence (ISO 8601, as listed in occurrences) it cancels that occurrence only."
+        "description": "Cancels a run of Maggie only; a task, an event or a directive goes with its own tool (delete_task, delete_event, delete_instruction). Cancels a proaction by its id (from list_proactions): it is removed from the « Maggie » agenda and will not run. The id of a series (rrule in list_proactions) without occurrence deletes the series: no run is left, the ones already done stay. With occurrence (ISO 8601, as listed in occurrences) it cancels that occurrence only."
     },
     "check_conflicts": {
         "name": "check_conflicts",
@@ -1210,7 +1210,7 @@
                 }
             }
         },
-        "description": "Lists the proactions scheduled for the user, by time, in three keys: proactions (one-off runs and the occurrences of a series that have their own run), series (the repeating ones, with their rrule) and, only when from and to are both given, occurrences (the coming runs of the series in the window with no run of their own yet: seriesId, occurrence, scheduledAt, prompt, summary, kind). Each proaction has its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters proactions only."
+        "description": "A proaction is a run of Maggie herself at a set time (a reminder she gives, a check she makes); the owner's to-dos are tasks (get_tasks), his appointments events (get_events). Lists the proactions scheduled for the user, by time, in three keys: proactions (one-off runs and the occurrences of a series that have their own run), series (the repeating ones, with their rrule) and, only when from and to are both given, occurrences (the coming runs of the series in the window with no run of their own yet: seriesId, occurrence, scheduledAt, prompt, summary, kind). Each proaction has its prompt, scheduledAt and status (pending, running, completed with its response, failed with its error). from and to (ISO 8601, or YYYY-MM-DD for a whole day, read in Europe/Paris) bound scheduledAt; status filters proactions only."
     },
     "list_routines": {
         "name": "list_routines",
@@ -2678,7 +2678,7 @@
                 "action"
             ]
         },
-        "description": "Actions: create, list, delete, and mark as read (unknown ones refused, valid listed). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri, the screen a tap opens (/api/events/{id}, /api/tasks/{id}, /finance/banks, message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId."
+        "description": "A notification is a push sent now to the owner's devices; it schedules nothing. Later is a proaction (schedule_proaction); a question with options is ask_owner, which notifies by itself; in a live chat the reply needs none. Actions: create, list, delete, and mark as read (unknown ones refused, valid listed). create sends a push: type (proaction, approval, reminder, task_due, grocery, finance, message, question), title, optional body, relatedEntityIri, the screen a tap opens (/api/events/{id}, /api/tasks/{id}, /finance/banks, message: /chat?message={id}). question needs interaction {kind: choice, options, multiple, questionId}. list: unreadOnly, limit. Mark as read and delete need notificationId."
     },
     "manage_operations": {
         "name": "manage_operations",
@@ -4659,7 +4659,7 @@
                 "scheduled_at"
             ]
         },
-        "description": "For what Maggie herself must do or say at that time; a thing the owner has to do is a task (create_task). Schedules a run of Maggie, or a series of runs with rrule (RFC 5545 without RRULE:, FREQ HOURLY to YEARLY, 500 characters at most; scheduled_at must be its first occurrence, else an error names it): at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. kind: reminder (default — the owner asked to be told at that time; always interrupts) or check (verifies or watches; speaks only when useful, triaged). Returns the proaction (proaction.scheduledAt)."
+        "description": "For what Maggie herself must do or say at that time; a thing the owner has to do is a task (create_task). A standing rule about when Maggie acts, which keeps coming back, is a planning directive (add_instruction), read by her daily planning; a push sent now is manage_notifications. Before: list_proactions around that time, a run already there is not doubled. Schedules a run of Maggie, or a series of runs with rrule (RFC 5545 without RRULE:, FREQ HOURLY to YEARLY, 500 characters at most; scheduled_at must be its first occurrence, else an error names it): at scheduled_at she receives prompt as instruction. Filed as a five-minute event of the internal Maggie agenda (not synced with Google). scheduled_at: ISO 8601 with time, e.g. 2037-01-15T08:30:00+01:00, Europe/Paris without offset, in the future. prompt: self-contained. summary: optional agenda label. kind: reminder (default — the owner asked to be told at that time; always interrupts) or check (verifies or watches; speaks only when useful, triaged). Returns the proaction (proaction.scheduledAt)."
     },
     "search": {
         "name": "search",
