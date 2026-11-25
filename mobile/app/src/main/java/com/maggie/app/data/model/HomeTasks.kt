@@ -1,5 +1,8 @@
 package com.maggie.app.data.model
 
+import com.maggie.app.ui.screens.tasks.UrgencyChip
+import com.maggie.app.ui.screens.tasks.WhenChip
+
 /**
  * What the « Tâches » card of the Accueil shows (MAG-561): the tasks of the day, the routines of the moment, and
  * the numbers of the ring. Not a wire object: [HomeTasksComposer] composes it from the tasks and routines
@@ -56,6 +59,10 @@ data class HomeTask(
     val parentId: String? = null,
     /** `HH:MM` when the task is planned at a precise hour (MAG-718), else null. */
     val time: String? = null,
+    /** The « quand » pill, the urgency pill and the meta (« reportée depuis lundi », « faite à 9 h 12 ») of Aujourd'hui. */
+    val whenChip: WhenChip? = null,
+    val urgency: UrgencyChip? = null,
+    val meta: String? = null,
 ) {
     val isSubtask: Boolean get() = parentId != null
 }

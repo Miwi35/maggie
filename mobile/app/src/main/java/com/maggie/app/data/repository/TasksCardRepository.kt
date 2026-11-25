@@ -52,13 +52,13 @@ class TasksCardRepository(
                         }
                         val routines = async { routineRepository.getDay(today).getOrThrow() }
                         val settings = async { taskRepository.getTaskSettings().getOrThrow() }
-                        HomeTasksComposer.today(open.await(), done.await(), routines.await(), settings.await().dayMoments, now)
+                        HomeTasksComposer.today(open.await(), done.await(), routines.await(), settings.await().dayMoments, now, today)
                     }
                     HomeDay.TOMORROW -> {
                         val tomorrow = today.plusDays(1)
                         val open = async { taskRepository.getOpenDueOn(tomorrow, TOMORROW_PAGE) }
                         val routines = async { routineRepository.getDay(tomorrow).getOrThrow() }
-                        HomeTasksComposer.tomorrow(open.await(), routines.await())
+                        HomeTasksComposer.tomorrow(open.await(), routines.await(), tomorrow)
                     }
                 }
             },

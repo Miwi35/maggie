@@ -5,6 +5,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.maggie.app.ui.screens.tasks.TodayRows
+import com.maggie.app.ui.screens.tasks.UrgencyChip
+import com.maggie.app.ui.screens.tasks.WhenChip
+import com.maggie.app.ui.screens.tasks.WhenKind
+import java.time.LocalDate
 import java.time.LocalTime
 
 /** The « Tâches » card composed from the tasks and routines resources (MAG-588), as the API's home answer used to be. */
@@ -217,5 +222,43 @@ class HomeTasksComposerTest {
         val card = HomeTasksComposer.today(listOf(timed, task("b")), emptyList(), noRoutines, dayMoments, LocalTime.NOON)
 
         assertEquals(listOf("10:00", null), card.tasks.map { it.time })
+    }
+
+    @Test
+    fun `a row carries the when pill, the urgency and the meta the today view gives`() {
+        val late = Task(id = "t", title = "Appeler", dueDate = "2026-10-23", urgency = "critical", postponedSince = "2026-10-19", estimatedMinutes = 5)
+        val planned = Task(id = "p", title = "Lire", scheduledDate = "2026-10-23", scheduledMoment = "evening")
+
+        val card = HomeTasksComposer.today(listOf(late, planned), emptyList(), noRoutines, dayMoments, LocalTime.NOON, LocalDate.of(2026, 10, 23))
+
+        val row = card.tasks[0]
+        assertEquals(WhenChip(WhenKind.DUE_TODAY, "avant ce soir"), row.whenChip)
+        assertEquals(UrgencyChip.CRITICAL, row.urgency)
+        assertEquals(TodayRows.metaOf(late, LocalDate.of(2026, 10, 23)), row.meta)
+        assertEquals("ce soir", card.tasks[1].whenChip?.label)
+        assertNull(card.tasks[1].urgency)
+    }
+
+    @Test
+    fun `a done row carries « faite à … » and no pill`() {
+        val done = Task(id = "d", title = "Payer", dueDate = "2026-10-23", urgency = "high", completedAt = "2026-10-23T09:12:00+02:00")
+
+        val card = HomeTasksComposer.today(emptyList(), listOf(done), noRoutines, dayMoments, LocalTime.NOON, LocalDate.of(2026, 10, 23))
+
+        assertEquals("faite à 9 h 12", card.tasks.single().meta)
+        assertNull(card.tasks.single().whenChip)
+        assertNull(card.tasks.single().urgency)
+    }
+
+    @Test
+    fun `tomorrow says « le matin » and « limite » the day, not « ce matin » and « avant ce soir »`() {
+        val day = LocalDate.of(2026, 10, 24)
+        val morning = Task(id = "m", title = "Courir", scheduledDate = "2026-10-24", scheduledMoment = "morning")
+        val due = Task(id = "d", title = "Payer", dueDate = "2026-10-24")
+
+        val card = HomeTasksComposer.tomorrow(listOf(morning, due), noRoutines, day)
+
+        assertEquals("le matin", card.tasks.first { it.id == "m" }.whenChip?.label)
+        assertEquals("limite sam. 24", card.tasks.first { it.id == "d" }.whenChip?.label)
     }
 }
