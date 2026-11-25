@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { AdminContext, ResourceContextProvider, testDataProvider } from 'react-admin'
 import type { DataProvider } from 'react-admin'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { veilleuseDarkTheme } from '../../theme'
 import { RecipeList } from './RecipeList'
 
 vi.mock('../../hooks/useMercure', async () => (await import('../../test/mercure')).mercureModule)
@@ -57,7 +58,7 @@ const renderList = (facts: Response | Promise<never> = { ok: true, json: () => P
 
   return render(
     <MemoryRouter initialEntries={['/recipes']}>
-      <AdminContext dataProvider={dataProvider}>
+      <AdminContext dataProvider={dataProvider} theme={veilleuseDarkTheme}>
         <ResourceContextProvider value="recipes">
           <Routes>
             <Route path="/recipes" element={<RecipeList />} />
@@ -85,6 +86,31 @@ describe('RecipeList — the table of the mockup (MAG-629)', { timeout: 30_000 }
 
     const headers = screen.getAllByRole('columnheader').map((header) => header.textContent)
     expect(headers).toEqual(['Recette', 'Portions', 'Tags', 'Durée', 'kcal / pers.', 'Dernier repas'])
+  })
+
+  test('titles the page « Recettes », with the search and « + Recette » on its row', async () => {
+    renderList()
+    await screen.findByText('Gratin dauphinois')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Recettes' })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Rechercher une recette' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '+ Recette' })).toHaveAttribute('href', expect.stringContaining('/recipes/create'))
+  })
+
+  test('aligns no cell to the right', async () => {
+    const { container } = renderList()
+    await screen.findByText('Gratin dauphinois')
+
+    expect(container.querySelectorAll('.MuiTableCell-alignRight')).toHaveLength(0)
+  })
+
+  test('the active tag pastille wears the Cuisine apricot', async () => {
+    renderList()
+    await screen.findByText('Gratin dauphinois')
+
+    const active = screen.getByRole('button', { name: 'Toutes' })
+    expect(active).toHaveAttribute('aria-pressed', 'true')
+    expect(active).toHaveStyle({ color: veilleuseDarkTheme.palette.module.cuisine, height: '36px' })
   })
 
   test('has no button on a row: no checkbox, no « Afficher », no « Supprimer »', async () => {
