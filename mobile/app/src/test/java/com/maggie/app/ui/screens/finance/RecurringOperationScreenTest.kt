@@ -2,7 +2,10 @@ package com.maggie.app.ui.screens.finance
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertCountEquals
@@ -12,6 +15,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.MissedOccurrence
 import com.maggie.app.data.model.PriceChange
+import com.maggie.app.data.model.RecurringOperationsOverview
 import com.maggie.app.data.model.RecurringProposal
 import com.maggie.app.data.model.RecurringSeries
 import com.maggie.app.data.model.RecurringSuggestion
@@ -19,7 +23,11 @@ import com.maggie.app.data.model.RecurringTotals
 import com.maggie.app.data.model.Transaction
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -222,6 +230,20 @@ class RecurringOperationScreenTest {
         compose.setContent { DueRow(rent.copy(referenceAmountCents = -6500)) }
 
         compose.onNodeWithText("65,00${nbsp}€").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the last due row ends above the floating button`() {
+        val series = (1..8).map { rent.copy(id = "s$it", label = "Série $it", referenceAmountCents = -(1000 * it) - 7, nextOccurrenceOn = "2026-10-%02d".format(it)) }
+        val viewModel = mockk<RecurringOperationViewModel>(relaxed = true)
+        every { viewModel.uiState } returns MutableStateFlow(RecurringOperationUiState(overview = RecurringOperationsOverview(operations = series)))
+        compose.setContent { RecurringOperationListScreen(viewModel = viewModel, onBack = {}) }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Série 8"))
+        val amount = compose.onNodeWithText("80,07${nbsp}€").fetchSemanticsNode().boundsInRoot
+        val button = compose.onNodeWithTag(UiTags.RECURRING_NEW).fetchSemanticsNode().boundsInRoot
+
+        assertTrue("amount ${amount.bottom} below button ${button.top}", amount.bottom <= button.top)
     }
 
     private val line = Transaction(
