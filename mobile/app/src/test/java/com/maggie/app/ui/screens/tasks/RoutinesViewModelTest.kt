@@ -303,13 +303,27 @@ class RoutinesViewModelTest {
     }
 
     @Test
-    fun `a routine not due today cannot be ticked`() = runTest {
+    fun `a routine not due today is ticked for today`() = runTest {
         val notDue = bins.copy(dueToday = false)
         coEvery { repository.getRoutines() } returns Result.success(listOf(water, notDue))
+        coEvery { repository.setChecked(notDue.id, any(), true) } returns Result.success(notDue.copy(checkedToday = true))
         val viewModel = loaded()
         advanceUntilIdle()
 
         viewModel.toggleCheck(notDue)
+        advanceUntilIdle()
+
+        coVerify { repository.setChecked(notDue.id, any(), true) }
+    }
+
+    @Test
+    fun `an inactive routine cannot be ticked`() = runTest {
+        val inactive = bins.copy(active = false)
+        coEvery { repository.getRoutines() } returns Result.success(listOf(water, inactive))
+        val viewModel = loaded()
+        advanceUntilIdle()
+
+        viewModel.toggleCheck(inactive)
         advanceUntilIdle()
 
         coVerify(exactly = 0) { repository.setChecked(any(), any(), any()) }

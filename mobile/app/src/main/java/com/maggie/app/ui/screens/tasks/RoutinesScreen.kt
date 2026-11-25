@@ -209,7 +209,7 @@ private fun RoutineList(
 }
 
 /**
- * A routine: today's round when it is due today, its title, when, the last seven days and its
+ * A routine: today's round on every active routine, due today or not, its title, when, the last seven days and its
  * total. An inactive one is dimmed and has no round. The total keeps its own node, so it stays
  * addressable inside the card's touch area.
  */
@@ -232,7 +232,7 @@ internal fun RoutineCard(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (routine.dueToday && routine.active) {
+        if (routine.active) {
             RoutineRound(
                 checked = routine.checkedToday,
                 title = routine.title,
