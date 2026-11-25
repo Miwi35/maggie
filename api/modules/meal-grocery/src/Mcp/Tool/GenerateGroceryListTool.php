@@ -14,7 +14,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'generate_grocery_list', description: 'Top up the grocery list with recurring items due again (idempotent). Meals add nothing: mealsToChoose lists meals in the date range (YYYY-MM-DD) whose ingredients are not chosen (id, date, slot, summary), to choose with manage_meal_groceries.')]
+#[McpTool(name: 'generate_grocery_list', description: 'Top up the grocery list with recurring items due again (idempotent). Meals add nothing: mealsToChoose lists meals in the date range (YYYY-MM-DD) whose ingredients are not chosen (id, date, slot, summary), to choose with manage_meal_groceries. A one-off item is add_grocery_item.')]
 class GenerateGroceryListTool
 {
     public function __construct(

@@ -14,7 +14,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'add_grocery_item', description: 'Adds an item by label. A matching product\'s preferred store is assigned, else storeId or storeName. A product already on the list (not ticked) accumulates on its line, even in another unit. quantity with unit, or packagings (whole number >= 1, packaged products only), never both. A packaged product is counted in packagings, rounded up (asked quantity kept in desiredQuantity); with neither: restockQuantity, else the 7-day meal need, else 1. Returns productId, recipeNeed (base units, null when none), coversWeek, packagingsToCover.')]
+#[McpTool(name: 'add_grocery_item', description: 'Puts a thing to buy on the grocery list. What is left at home is update_stock, a product\'s catalogue data manage_products or manage_ingredients, an item listed again on its own manage_recurring_groceries. Adds an item by label. A matching product\'s preferred store is assigned, else storeId or storeName. A product already on the list (not ticked) accumulates on its line, even in another unit. quantity with unit, or packagings (whole number >= 1, packaged products only), never both. A packaged product is counted in packagings, rounded up (asked quantity kept in desiredQuantity); with neither: restockQuantity, else the 7-day meal need, else 1. Returns productId, recipeNeed (base units, null when none), coversWeek, packagingsToCover.')]
 class AddGroceryItemTool
 {
     public function __construct(
