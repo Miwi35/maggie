@@ -178,6 +178,11 @@ const MOMENTS: Record<Exclude<Anchor, 'time'>, string> = {
   afterDinner: 'après le dîner',
 }
 
+/** « après le dîner », « à 22 h 30 ». */
+export function anchorLabel(anchor: Anchor, time: string): string {
+  return anchor === 'time' ? `à ${hourLabel(time)}` : MOMENTS[anchor]
+}
+
 /** « Au réveil · 7 h », « 22 h 30 » for a moment of its own hour. */
 export function momentLabel(moment: Pick<DayMoment, 'anchor' | 'time'>): string {
   if (moment.anchor === 'time') return hourLabel(moment.time)

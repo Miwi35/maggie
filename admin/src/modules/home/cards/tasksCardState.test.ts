@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { composeTasksState, localMidnightIso } from './tasksCardState'
+import { composeTasksState, localMidnightIso, ringNext, routinesHeading, taskMeta } from './tasksCardState'
+import type { HomeRoutine, HomeTask } from './tasksCardState'
 import type { Anchor, DayMoment } from '../../calendar/routinesApi'
 import type { ViewTask } from '../../calendar/taskViews'
 
@@ -172,5 +173,37 @@ describe('localMidnightIso', () => {
 
     expect(iso).toMatch(/^2026-10-24T00:00:00[+-]\d\d:\d\d$/)
     expect(new Date(iso).getTime()).toBe(new Date(2026, 9, 24).getTime())
+  })
+})
+
+describe('ringNext', () => {
+  test('says the sentence of none, some, all and tomorrow', () => {
+    expect(ringNext(0, 3, false)).toBe('Une seule suffit pour lancer la journée')
+    expect(ringNext(1, 3, false)).toBe('Le reste peut attendre une pause')
+    expect(ringNext(3, 3, false)).toBe('Journée bouclée')
+    expect(ringNext(0, 3, true)).toBe('Prévues demain')
+  })
+})
+
+describe('taskMeta', () => {
+  const row = (extra: Partial<HomeTask>): HomeTask => ({ id: 'T', title: 'T', done: false, overdueDays: null, parentId: null, ...extra })
+  const completedAt = new Date(2026, 10, 25, 9, 12).toISOString()
+
+  test('says « faite à 9 h 12 » for a done task, « reportée depuis … » for a put-off one, nothing for a critical one, « 5 min » otherwise', () => {
+    expect(taskMeta(row({ done: true, completedAt }), '2026-11-25')).toBe('faite à 9 h 12')
+    expect(taskMeta(row({ postponedSince: '2026-11-24' }), '2026-11-25')).toBe('reportée depuis hier')
+    expect(taskMeta(row({ urgency: 'critical', postponedSince: '2026-11-24' }), '2026-11-25')).toBeNull()
+    expect(taskMeta(row({ estimatedMinutes: 5 }), '2026-11-25')).toBe('5 min')
+    expect(taskMeta(row({}), '2026-11-25')).toBeNull()
+  })
+})
+
+describe('routinesHeading', () => {
+  const routine = (anchor: string, time = '20:30'): HomeRoutine => ({ id: anchor + time, title: 'R', anchor, time, checked: false })
+
+  test('names the moment when the routines share one, « Routines » otherwise', () => {
+    expect(routinesHeading([routine('afterDinner'), routine('afterDinner')])).toBe('Routines · après le dîner')
+    expect(routinesHeading([routine('time', '22:30')])).toBe('Routines · à 22 h 30')
+    expect(routinesHeading([routine('wake'), routine('afterDinner')])).toBe('Routines')
   })
 })

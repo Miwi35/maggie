@@ -7,7 +7,8 @@ import { TasksPage } from '../pages/TasksPage.js'
  * The Tâches card of the Accueil (MAG-561, extends MAG-99): the day's tasks, ticked in place.
  *
  * Given three tasks of the day, when I tick the first one from the home, then the card shows
- * « 1 sur 3 » and the task is done in « Tâches ».
+ * « 1 sur 3 » and the task is done in « Tâches ». The ring also says its sentence (MAG-1028): « Une seule suffit
+ * pour lancer la journée », then « Le reste peut attendre une pause ».
  *
  * On an account of its own (`e2e-home-tasks@maggie.local`, `api/fixtures/e2e/64-home-tasks.yaml`): the
  * ring counts the day's tasks exactly, and the shared account holds those of every other journey. The
@@ -64,6 +65,7 @@ test.describe('the Tâches card of the Accueil', () => {
     // Given three tasks of the day, none done…
     await home.open()
     await expect(home.tasksRing).toHaveText('0 sur 3')
+    await expect(home.card('tasks').getByTestId('home-tasks-next')).toHaveText('Une seule suffit pour lancer la journée')
     for (const title of TITLES) {
       await expect(home.tick(title)).not.toBeChecked()
     }
@@ -74,6 +76,7 @@ test.describe('the Tâches card of the Accueil', () => {
 
     // …then the card shows « 1 sur 3 », without a reload…
     await expect(home.tasksRing).toHaveText('1 sur 3')
+    await expect(home.card('tasks').getByTestId('home-tasks-next')).toHaveText('Le reste peut attendre une pause')
     await expect(home.tick(first)).toBeChecked()
     await expect(home.tick(TITLES[1])).not.toBeChecked()
 

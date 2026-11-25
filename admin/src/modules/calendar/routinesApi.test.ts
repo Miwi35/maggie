@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { bandAt, dayPartOf, momentLabel } from './routinesApi'
+import { anchorLabel, bandAt, dayPartOf, momentLabel } from './routinesApi'
 import type { DayMoment, DayRoutine, RoutinesDay } from './routinesApi'
 
 const routine = (id: string, checked = false): DayRoutine => ({
@@ -75,5 +75,12 @@ describe('momentLabel', () => {
     expect(momentLabel({ anchor: 'wake', time: '07:00' })).toBe('Au réveil · 7 h')
     expect(momentLabel({ anchor: 'afterDinner', time: '20:30' })).toBe('Après le dîner · 20 h 30')
     expect(momentLabel({ anchor: 'time', time: '22:30' })).toBe('22 h 30')
+  })
+})
+
+describe('anchorLabel', () => {
+  test('says « après le dîner » and « à 22 h 30 »', () => {
+    expect(anchorLabel('afterDinner', '20:30')).toBe('après le dîner')
+    expect(anchorLabel('time', '22:30')).toBe('à 22 h 30')
   })
 })

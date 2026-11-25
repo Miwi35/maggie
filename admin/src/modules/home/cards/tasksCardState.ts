@@ -1,4 +1,6 @@
-import type { DayMoment, RoutinesDay } from '../../calendar/routinesApi'
+import { anchorLabel, hourLabel } from '../../calendar/routinesApi'
+import type { Anchor, DayMoment, RoutinesDay } from '../../calendar/routinesApi'
+import { postponedLabel } from '../../calendar/taskViews'
 import type { ViewTask } from '../../calendar/taskViews'
 
 /** What the Tâches card draws, composed from the business resources (MAG-588). */
@@ -15,6 +17,8 @@ export interface HomeTask {
   /** `HH:MM`, with the moment `time`. */
   scheduledTime?: string | null
   postponedSince?: string | null
+  completedAt?: string | null
+  estimatedMinutes?: number | null
 }
 
 export interface HomeRoutine {
@@ -69,6 +73,39 @@ export function withRoutineChecked(state: TasksHomeState, id: string, checked: b
   return { ...state, routines: state.routines.map((r) => (r.id === id ? { ...r, checked } : r)) }
 }
 
+/** The sentence under the ring. */
+export function ringNext(done: number, total: number, tomorrow: boolean): string {
+  if (tomorrow) return 'Prévues demain'
+  if (done >= total) return 'Journée bouclée'
+  if (done === 0) return 'Une seule suffit pour lancer la journée'
+
+  return 'Le reste peut attendre une pause'
+}
+
+const two = (n: number) => String(n).padStart(2, '0')
+
+/** Under a task's title: « faite à 9 h 12 », « reportée depuis lundi », « 5 min »; null when there is nothing to say. */
+export function taskMeta(task: HomeTask, today: string): string | null {
+  if (task.done) {
+    if (!task.completedAt) return null
+    const at = new Date(task.completedAt)
+
+    return Number.isNaN(at.getTime()) ? null : `faite à ${hourLabel(`${two(at.getHours())}:${two(at.getMinutes())}`)}`
+  }
+  const postponed = task.urgency === 'critical' ? null : postponedLabel(task.postponedSince, today)
+  if (postponed) return postponed
+
+  return task.estimatedMinutes != null && task.estimatedMinutes > 0 ? `${task.estimatedMinutes} min` : null
+}
+
+/** « Routines · après le dîner » when the routines share one moment, « Routines » otherwise. */
+export function routinesHeading(routines: HomeRoutine[]): string {
+  const first = routines[0]
+  if (!first || routines.some((r) => r.anchor !== first.anchor || (r.anchor === 'time' && r.time !== first.time))) return 'Routines'
+
+  return `Routines · ${anchorLabel(first.anchor as Anchor, first.time)}`
+}
+
 /** The card lists this many task lines, ticked ones first claimed. */
 const SLOTS = 5
 
@@ -95,6 +132,8 @@ const row = (task: ViewTask, done: boolean): HomeTask => ({
   ...(task.scheduledMoment ? { scheduledMoment: task.scheduledMoment } : {}),
   ...(task.scheduledTime ? { scheduledTime: task.scheduledTime } : {}),
   ...(task.postponedSince ? { postponedSince: task.postponedSince } : {}),
+  ...(task.completedAt ? { completedAt: task.completedAt } : {}),
+  ...(task.estimatedMinutes != null ? { estimatedMinutes: task.estimatedMinutes } : {}),
 })
 
 const compare = <T extends string | number>(a: T, b: T): number => (a < b ? -1 : a > b ? 1 : 0)
