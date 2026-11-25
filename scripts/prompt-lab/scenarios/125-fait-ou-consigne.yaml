@@ -1,0 +1,13 @@
+# A lasting fact about the owner's circle is knowledge (a fiche), not a rule (add_instruction)
+# nor a procedure (create_skill): each memory tool says what its object is.
+name: fait-ou-consigne
+description: A fact about someone close goes to a fiche, not to an instruction or a skill.
+channel: chat
+
+steps:
+  - user_message: "Mon frère ne boit pas d'alcool."
+    expected_tools: [memory_write_fiche]
+    forbidden_tools: [add_instruction, create_skill]
+    expected_behavior: >
+      Elle écrit une fiche dont le titre est une phrase vraie sur le sujet, pas une
+      étiquette, et répond en une phrase.
