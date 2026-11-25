@@ -49,8 +49,8 @@ describe('stepsMinutes', () => {
 })
 
 describe('lastMealLabel', () => {
-  test('reads the day as « 24 oct. »', () => {
-    expect(lastMealLabel('2026-10-24')).toBe('24 oct.')
+  test('reads the day as « sam. 24 oct. »', () => {
+    expect(lastMealLabel('2026-10-24')).toBe('sam. 24 oct.')
   })
 
   test('says nothing of a recipe never served', () => {

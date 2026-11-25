@@ -935,13 +935,18 @@ test.describe('Recipes and meals', () => {
     const shell = new AdminShell(page)
     await shell.goto(ROUTES.recipes)
     await expect(shell.content.getByRole('columnheader')).toHaveText(['Recette', 'Portions', 'Tags', 'Durée', 'kcal / pers.', 'Dernier repas'])
+    // The breadcrumb is also an h1 « Recettes »; the page's own title comes after it.
+    await expect(shell.content.getByRole('heading', { level: 1, name: 'Recettes' }).last()).toBeVisible()
+    await expect(shell.content.getByRole('link', { name: '+ Recette' })).toBeVisible()
     const row = (name: string): Locator => shell.content.getByRole('row').filter({ hasText: name })
     await expect(row(quick)).toBeVisible()
     await expect(row(baked)).toBeVisible()
     await expect(row(quick)).toContainText('25 min')
 
     // And I press the « Rapide » pastille, only the quick one remains
-    await shell.content.getByRole('button', { name: 'Rapide', exact: true }).click()
+    const rapide = shell.content.getByRole('button', { name: 'Rapide', exact: true })
+    await rapide.click()
+    await expect(rapide).toHaveAttribute('aria-pressed', 'true')
     await expect(row(quick)).toBeVisible()
     await expect(row(baked)).toHaveCount(0)
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import ButtonBase from '@mui/material/ButtonBase'
 import Chip from '@mui/material/Chip'
 import InputAdornment from '@mui/material/InputAdornment'
 import Paper from '@mui/material/Paper'
@@ -11,6 +12,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { alpha } from '@mui/material/styles'
 import SearchIcon from '@mui/icons-material/Search'
 import { Pagination, useCreatePath, useListContext } from 'react-admin'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
@@ -36,14 +38,33 @@ const ALL_RECIPES = 100
 
 const COLUMNS = [
   { label: 'Recette', align: 'left' },
-  { label: 'Portions', align: 'right' },
+  { label: 'Portions', align: 'left' },
   { label: 'Tags', align: 'left' },
-  { label: 'Durée', align: 'right' },
-  { label: 'kcal / pers.', align: 'right' },
-  { label: 'Dernier repas', align: 'right' },
+  { label: 'Durée', align: 'left' },
+  { label: 'kcal / pers.', align: 'left' },
+  { label: 'Dernier repas', align: 'left' },
 ] as const
 
 const numeric = { fontVariantNumeric: 'tabular-nums' } as const
+
+const TagPill = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+  <ButtonBase
+    aria-pressed={active}
+    onClick={onClick}
+    sx={(theme) => ({
+      height: 36,
+      px: 1.75,
+      borderRadius: 999,
+      fontSize: 14,
+      fontFamily: 'inherit',
+      fontWeight: active ? 500 : 400,
+      color: active ? 'module.cuisine' : 'text.secondary',
+      bgcolor: active ? alpha(theme.palette.module.cuisine, 0.16) : alpha(theme.palette.text.primary, 0.05),
+    })}
+  >
+    {label}
+  </ButtonBase>
+)
 
 const RecipeBrowser = () => {
   const { data, total, perPage } = useListContext<RecipeRecord>()
@@ -65,14 +86,22 @@ const RecipeBrowser = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 500, fontSize: 26 }}>
+          Recettes
+        </Typography>
+        <Box sx={{ flex: 1 }} />
         <TextField
           type="search"
           size="small"
           placeholder="Rechercher une recette"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          sx={{ flexGrow: 1, maxWidth: 420 }}
+          sx={{
+            minWidth: 280,
+            '& .MuiInputBase-root': { height: 40, borderRadius: '10px', bgcolor: 'background.paper' },
+            '& fieldset': { border: 0 },
+          }}
           slotProps={{
             htmlInput: { 'aria-label': 'Rechercher une recette' },
             input: {
@@ -84,35 +113,25 @@ const RecipeBrowser = () => {
             },
           }}
         />
-        <Button component={RouterLink} to={createPath({ resource: 'recipes', type: 'create' })} variant="contained">
+        <Button
+          component={RouterLink}
+          to={createPath({ resource: 'recipes', type: 'create' })}
+          variant="contained"
+          sx={{ height: 40, borderRadius: '10px', bgcolor: 'module.cuisine', color: 'background.default', boxShadow: 'none' }}
+        >
           + Recette
         </Button>
       </Box>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        <Chip
-          component="button"
-          label="Toutes"
-          aria-pressed={activeTag === null}
-          color={activeTag === null ? 'primary' : 'default'}
-          variant={activeTag === null ? 'filled' : 'outlined'}
-          onClick={() => setTag(null)}
-        />
+        <TagPill label="Toutes" active={activeTag === null} onClick={() => setTag(null)} />
         {pills.map((pill) => (
-          <Chip
-            key={pill.key}
-            component="button"
-            label={pill.label}
-            aria-pressed={activeTag === pill.key}
-            color={activeTag === pill.key ? 'primary' : 'default'}
-            variant={activeTag === pill.key ? 'filled' : 'outlined'}
-            onClick={() => setTag(pill.key)}
-          />
+          <TagPill key={pill.key} label={pill.label} active={activeTag === pill.key} onClick={() => setTag(pill.key)} />
         ))}
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-        <Paper variant="outlined" sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
+        <Paper elevation={0} sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden', borderRadius: '20px', px: 1.5, py: 1, bgcolor: 'background.paper' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -140,26 +159,31 @@ const RecipeBrowser = () => {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' && event.target === event.currentTarget) open(recipe)
                     }}
-                    sx={{ cursor: 'pointer' }}
+                    sx={{ cursor: 'pointer', height: 48 }}
                   >
                     <TableCell sx={{ fontWeight: 500 }}>{recipe.name}</TableCell>
-                    <TableCell align="right" sx={numeric}>
+                    <TableCell sx={numeric}>
                       {recipe.servings}
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                         {(recipe.tags ?? []).map((own) => (
-                          <Chip key={own} label={own} size="small" />
+                          <Chip
+                            key={own}
+                            label={own}
+                            size="small"
+                            sx={(theme) => ({ height: 24, color: 'text.secondary', bgcolor: alpha(theme.palette.text.primary, 0.06) })}
+                          />
                         ))}
                       </Box>
                     </TableCell>
-                    <TableCell align="right" sx={numeric}>
+                    <TableCell sx={numeric}>
                       {minutes !== null ? durationLabel(minutes) : '—'}
                     </TableCell>
-                    <TableCell align="right" sx={numeric}>
+                    <TableCell sx={numeric}>
                       {own?.kcalPerServing != null ? own.kcalPerServing : '—'}
                     </TableCell>
-                    <TableCell align="right" sx={numeric}>
+                    <TableCell sx={numeric}>
                       {lastMealLabel(own?.lastMealDate)}
                     </TableCell>
                   </TableRow>
