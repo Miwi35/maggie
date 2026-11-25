@@ -10,7 +10,7 @@ use Maggie\Finance\UseCase\GetTreasuryOutlook;
 use Maggie\Finance\UseCase\GetUpcomingProjection;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'get_finance_projection', description: 'Projects what comes, from entered data only (nothing is extrapolated). months: 1 to 12 (default: to the end of the month after the expected salary). Integer cents. salary {isConfigured, expectedOn, referenceCents, isLate, delayDays, shortfallCents}, balanceCents (checking today), projection[] day by day, overdraft {isForecast, onDate, worstBalanceCents, limitCents}, outstandingAdvancesCents; nextWeek and nextMonth: the week and month after this one with incomeCents, expenseCents, netCents and their lines. Moves no money.')]
+#[McpTool(name: 'get_finance_projection', description: 'What comes in the next months; what happened is get_finance_summary. Projects what comes, from entered data only (nothing is extrapolated). months: 1 to 12 (default: to the end of the month after the expected salary). Integer cents. salary {isConfigured, expectedOn, referenceCents, isLate, delayDays, shortfallCents}, balanceCents (checking today), projection[] day by day, overdraft {isForecast, onDate, worstBalanceCents, limitCents}, outstandingAdvancesCents; nextWeek and nextMonth: the week and month after this one with incomeCents, expenseCents, netCents and their lines. Moves no money.')]
 class GetFinanceProjectionTool
 {
     public function __construct(

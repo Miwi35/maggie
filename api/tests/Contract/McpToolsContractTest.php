@@ -214,6 +214,18 @@ final class McpToolsContractTest extends KernelTestCase
             'manage_utensils' => ['A utensil is'],
             'manage_cooking_timers' => ['A cooking timer', 'schedule_proaction'],
             'manage_meal_settings' => ['manage_meals'],
+            'get_finance_summary' => ['get_finance_projection', 'read-only'],
+            'get_finance_projection' => ['get_finance_summary'],
+            'read_bank_statement' => ['import_bank_transactions', 'manage_transactions'],
+            'import_bank_transactions' => ['read_bank_statement', 'never a whole history'],
+            'manage_accounts' => ['An account is', 'manage_loans'],
+            'manage_categories' => ['A category classifies', 'manage_envelopes'],
+            'manage_envelopes' => ['An envelope is', 'manage_categories'],
+            'manage_transactions' => ['A transaction is', 'manage_operations'],
+            'manage_operations' => ['manage_transactions', 'preview (before create)'],
+            'manage_peer_debts' => ['tied to real movements', 'manage_loans'],
+            'manage_contacts' => ['A contact is', 'manage_peer_debts'],
+            'manage_finance_settings' => ['not his figures'],
         ];
         $tools = $this->tools();
 
@@ -272,6 +284,13 @@ final class McpToolsContractTest extends KernelTestCase
                 ));
             }
         }
+    }
+
+    public function testManageContactsNamesNoOne(): void
+    {
+        $description = (string) $this->tools()['manage_contacts']['description'];
+        self::assertStringNotContainsString('TOM MARTIN', $description);
+        self::assertStringNotContainsString('VIR. DE', $description);
     }
 
     public function testManageCategoriesDocumentsTheIncomeFlag(): void

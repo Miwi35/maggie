@@ -16,7 +16,7 @@ use Maggie\Finance\Exception\InvalidQualificationException;
 final class QualificationArguments
 {
     /** What every tool that qualifies says about it, after its own description. */
-    public const string DESCRIPTION = ' mandatory (bool, cannot be cut) and kind (none, saving, investment, loan, repayment: debit = I pay back, credit = I am paid back) qualify with the category: all together or none, a partial set is refused with the current qualification. Alone, a new categoryId brings the category\'s qualification.';
+    public const string DESCRIPTION = ' mandatory (bool, cannot be cut) and kind (none, saving, investment, loan, repayment: debit = I pay back, credit = I am paid back) go with categoryId, all or none (a partial set is refused with the current qualification); categoryId alone brings the category\'s.';
 
     /**
      * @param array<string, mixed> $given   each parameter of `Qualification` by name, null when omitted

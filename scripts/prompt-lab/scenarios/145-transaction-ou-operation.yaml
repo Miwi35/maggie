@@ -1,0 +1,12 @@
+# A rule over many movements is an operation, not one transaction (MAG-1018).
+name: transaction-ou-operation
+description: Asked to classify every debit of a merchant from now on, she sets a rule with manage_operations, previewing first, rather than classifying one line.
+channel: chat
+
+steps:
+  - user_message: "Classe désormais tous les prélèvements de la salle de sport en Loisirs."
+    expected_tools: [manage_operations]
+    expected_behavior: >
+      Elle pose une règle de catégorisation avec manage_operations : un aperçu
+      (preview) d'abord, puis la création. Elle ne classe pas une seule ligne
+      avec manage_transactions.

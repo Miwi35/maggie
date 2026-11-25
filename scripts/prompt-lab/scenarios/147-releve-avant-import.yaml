@@ -1,0 +1,12 @@
+# A statement is read before any import; nothing is imported unasked (MAG-1018).
+name: releve-avant-import
+description: Asked to look at last week's movements, she reads the bank statement and imports nothing without the owner's choice.
+channel: chat
+
+steps:
+  - user_message: "Regarde sur mon compte les mouvements de la semaine dernière."
+    expected_tools: [read_bank_statement]
+    forbidden_tools: [import_bank_transactions]
+    expected_behavior: >
+      Elle consulte le relevé avec read_bank_statement et montre les mouvements.
+      Elle n'importe rien : elle propose d'importer ceux que l'utilisateur choisit.
