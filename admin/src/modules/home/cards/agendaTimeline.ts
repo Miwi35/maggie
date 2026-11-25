@@ -159,6 +159,30 @@ export function scheduleLabel(event: AgendaHomeEvent): string {
     : `${day}, ${start} – ${longInstantDay(event.endAt, event.timeZone)}, ${end}`
 }
 
+const dayShortFormat = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: ZONE })
+
+/** « mer. 14 oct. » — the card's day, short. */
+export const dayShort = (date: string): string => dayShortFormat.format(new Date(`${date}T12:00:00Z`))
+
+/** The header's count: « 2 passés · 4 à venir » today (a zero left out), « 3 prévus » on a day with no line. */
+export function countLabel(timeline: Timeline): string {
+  const coming = timeline.allDay.length + timeline.following.length
+  if (!timeline.hasNowLine) return `${coming} ${coming === 1 ? 'prévu' : 'prévus'}`
+
+  const done = timeline.past.length
+  return [
+    done > 0 ? `${done} ${done === 1 ? 'passé' : 'passés'}` : null,
+    coming > 0 ? `${coming} à venir` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/** The line under a row's title: « Salle 2 · Perso », ended by « · fait » for a done event. */
+export function rowSub(event: AgendaHomeEvent, past: boolean): string {
+  return [event.locationShort, event.agendaName, past ? 'fait' : null].filter(Boolean).join(' · ')
+}
+
 /** What a trip line says: « Partir à 18:05 » then « · depuis X », « Parti à » once left; a return keeps its own text. */
 export function tripLine(trip: Trip, nowMs: number | null): { verb: string; from: string; past: boolean } {
   if (isReturn(trip)) return { verb: departureText(trip), from: '', past: nowMs !== null && ms(trip.departAt) <= nowMs }

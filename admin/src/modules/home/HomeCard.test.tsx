@@ -33,6 +33,14 @@ describe('HomeCard', () => {
     expect(screen.getByText('Contenu libre')).toBeInTheDocument()
   })
 
+  test('a trailing takes the chevron\'s place, the title stays the link to the module', () => {
+    renderCard(<HomeCard module="agenda" title="Agenda · mer. 14 oct." to="/calendar" trailing="1 passé · 1 à venir" />)
+
+    expect(screen.getByRole('link', { name: 'Agenda · mer. 14 oct.' })).toHaveAttribute('href', '/calendar')
+    expect(screen.getByTestId('home-card-agenda-trailing')).toHaveTextContent('1 passé · 1 à venir')
+    expect(screen.getByRole('link').querySelector('svg')).toBeNull()
+  })
+
   test('writes the Agenda title in the agenda hue', () => {
     renderCard(<HomeCard module="agenda" title="Agenda" to="/calendar" />)
 
