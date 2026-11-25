@@ -1,0 +1,11 @@
+# An item that comes back at a fixed frequency is a recurring grocery (MAG-1016).
+name: article-recurrent
+description: Coffee on the list every two weeks is a recurring item, not a proaction, task or instruction.
+channel: chat
+
+steps:
+  - user_message: "Mets du café sur la liste toutes les deux semaines."
+    expected_tools: [manage_recurring_groceries]
+    forbidden_tools: [schedule_proaction, create_task, add_instruction]
+    expected_behavior: >
+      Elle crée un article récurrent toutes les deux semaines et confirme en une phrase.

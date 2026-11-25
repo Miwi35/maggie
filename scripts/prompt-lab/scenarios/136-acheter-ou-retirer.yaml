@@ -1,0 +1,16 @@
+# A bought item is ticked, never removed (MAG-1016).
+name: acheter-ou-retirer
+description: After adding an item, saying it was bought ticks it instead of removing it.
+channel: chat
+
+steps:
+  - user_message: "Ajoute des œufs à la liste."
+    expected_tools: [add_grocery_item]
+    expected_behavior: >
+      Elle ajoute les œufs et confirme en une phrase.
+
+  - user_message: "C'est bon, j'ai pris les œufs."
+    expected_tools: [check_grocery_item]
+    forbidden_tools: [remove_grocery_item]
+    expected_behavior: >
+      Elle coche les œufs comme achetés, sans les retirer de la liste.
