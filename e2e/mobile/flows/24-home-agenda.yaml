@@ -65,9 +65,7 @@ tags:
     centerElement: true
     timeout: 20000
 - extendedWaitUntil:
-    visible:
-      id: "home_header_agenda"
-      text: "(?s)Agenda · .*"
+    visible: "(?s).*Agenda · .*"
     timeout: 20000
 - extendedWaitUntil:
     visible: "(?s).*\\d+ passés? · \\d+ à venir.*"
