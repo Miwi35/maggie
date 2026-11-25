@@ -1,0 +1,15 @@
+# Cancelling a run of Maggie goes to cancel_proaction, not to a task, event or directive tool.
+name: annuler-une-proaction
+description: A scheduled run is cancelled with cancel_proaction.
+channel: chat
+
+steps:
+  - user_message: "Dans deux heures, dis-moi le temps qu'il fera demain."
+    expected_tools: [schedule_proaction]
+    expected_behavior: >
+      Elle programme le passage et cite l'heure renvoyée par l'outil.
+  - user_message: "Finalement, annule ça."
+    expected_tools: [cancel_proaction]
+    forbidden_tools: [delete_task, delete_event, delete_instruction]
+    expected_behavior: >
+      Elle annule la proaction qu'elle vient de programmer et le confirme brièvement.

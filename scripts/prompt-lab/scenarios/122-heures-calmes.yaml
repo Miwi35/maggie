@@ -1,0 +1,11 @@
+# Quiet hours are a planning directive: not a run, not a push, not a skill.
+name: heures-calmes
+description: Hours not to disturb the owner become a planning directive.
+channel: chat
+
+steps:
+  - user_message: "Ne m'envoie plus rien après 22 h."
+    expected_tools: [add_instruction]
+    forbidden_tools: [schedule_proaction, manage_notifications, create_skill]
+    expected_behavior: >
+      Elle enregistre une directive planning et le confirme brièvement.
