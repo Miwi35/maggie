@@ -102,7 +102,11 @@ test.describe('Recipes and meals', () => {
         await page.getByRole('menuitem', { name: 'Supprimer' }).click()
         await page.getByRole('dialog').getByRole('button', { name: 'Confirmer' }).click()
       } },
-    { label: 'ingredient', index: 'products', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }), remove: async (_page: Page, row: Locator) => { await row.getByRole('button', { name: 'Supprimer' }).click() } },
+    { label: 'ingredient', index: 'products', route: ROUTES.ingredients, path: '/api/ingredients', data: (name: string) => ({ name, category: 'grain' }), remove: async (page: Page, row: Locator) => {
+        // MAG-1044: the table has no delete button; the ingredient leaves from its edit page.
+        await row.click()
+        await page.getByRole('button', { name: 'Supprimer' }).click()
+      } },
   ]) {
     test(`a deleted ${kind.label} leaves the list, and stays gone after a reload`, async ({ page, api }) => {
       const name = `Suppression MAG-266 ${kind.label} ${Date.now()}`
