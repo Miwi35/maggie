@@ -13,7 +13,7 @@ use Mcp\Capability\Attribute\McpTool;
 
 #[McpTool(
     name: 'read_web_page',
-    description: "Reads a public web page: returns its `title`, its main readable `text` (bounded) and `structured`, the schema.org JSON-LD objects as published (`Recipe`, `Event`, `Product`, `Article`, `LocalBusiness`…). Only public http(s) pages are read, without JavaScript and without the user\'s login; a page that is private, too big, too slow or refused returns an `error` with the reason. Read-only.",
+    description: "For an address the owner or the screen gave. Reading creates nothing: what is found there is created with its own tool once he agrees. Reads a public web page: returns its `title`, its main readable `text` (bounded) and `structured`, the schema.org JSON-LD objects as published (`Recipe`, `Event`, `Product`, `Article`, `LocalBusiness`…). Only public http(s) pages are read, without JavaScript and without the user\'s login; a page that is private, too big, too slow or refused returns an `error` with the reason. Read-only.",
 )]
 class ReadWebPageTool
 {

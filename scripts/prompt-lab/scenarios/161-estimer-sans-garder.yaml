@@ -1,0 +1,12 @@
+# A trip asked about is estimated, not kept: set_trip is for a trip the owner wants to leave on (MAG-1021).
+name: estimer-sans-garder
+description: Asked how long a ride takes to the next appointment, she estimates it and keeps nothing.
+channel: chat
+
+steps:
+  - user_message: "Combien de temps à vélo pour mon prochain rendez-vous ?"
+    expected_tools: [estimate_trip]
+    forbidden_tools: [set_trip]
+    expected_behavior: >
+      Elle estime le trajet à vélo et donne la durée et l'heure de départ. Elle ne garde aucun trajet
+      (pas de set_trip) et ne propose de le garder que si l'utilisateur le demande.

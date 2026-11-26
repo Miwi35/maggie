@@ -17,7 +17,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
-#[McpTool(name: 'save_place', description: 'Creates a place (without id) or changes one (with id, from list_places). name and address required. latitude and longitude (degrees) go together. parkingAddress with parkingLatitude and parkingLongitude (together); empty parkingAddress removes it. isHome=true replaces the home. Omitted fields kept. Refusal changes nothing, answers {error, field}. Returns {success, place}.')]
+#[McpTool(name: 'save_place', description: 'Before: list_places, a place is changed, not created twice. Creates a place (without id) or changes one (with id, from list_places). name and address required. latitude and longitude (degrees) go together. parkingAddress with parkingLatitude and parkingLongitude (together); empty parkingAddress removes it. isHome=true replaces the home. Omitted fields kept. Refusal changes nothing, answers {error, field}. Returns {success, place}.')]
 final class SavePlaceTool
 {
     public function __construct(

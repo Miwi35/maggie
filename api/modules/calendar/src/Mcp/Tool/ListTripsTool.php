@@ -11,7 +11,7 @@ use Maggie\Core\Mcp\McpUserContext;
 use Maggie\Core\Mcp\MissingMcpUserException;
 use Mcp\Capability\Attribute\McpTool;
 
-#[McpTool(name: 'list_trips', description: 'Read the trips kept with set_trip that leave on a day (date, YYYY-MM-DD, read in Paris), by departure time, as {date, trips: [...]}, each as set_trip returns it, with originDecidedBy (user or maggie).')]
+#[McpTool(name: 'list_trips', description: 'Read the trips kept with set_trip that leave on a day (date, YYYY-MM-DD, read in Paris), by departure time, as {date, trips: [...]}, each as set_trip returns it, with originDecidedBy (user or maggie). Read-only; a trip is changed with set_trip.')]
 final class ListTripsTool
 {
     public function __construct(

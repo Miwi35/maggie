@@ -646,7 +646,7 @@
                 "modes"
             ]
         },
-        "description": "Estimate the trip to an event, several modes at once. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. modes: drive, transit, walk, bicycle. origin: position (phone's last position, default), home (the user's home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip's origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable."
+        "description": "Estimates, keeps nothing; the trip kept for the departure alert is set_trip. Estimate the trip to an event, several modes at once. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. modes: drive, transit, walk, bicycle. origin: position (phone's last position, default), home (the user's home), place:<id> or event:<id>. leg: outbound (default) or return (event place to home, origin ignored, departAt required, ISO 8601 Paris time). arriveAt (ISO 8601 Paris time): required for a whole-day event, refused otherwise; departAt counts back from it. carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip's origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {eventId, estimates: [{leg, mode, origin: {kind, id, label, latitude, longitude, capturedAt?}, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, parkingKnown, carLatitude?, carLongitude?}], unavailable: [{mode, reason}], locationRequested}. unavailable: modes with no route. locationRequested: position older than 10 min, used anyway. Refused: {error, field}; {error} alone if no route or Google unavailable."
     },
     "generate_grocery_list": {
         "name": "generate_grocery_list",
@@ -680,7 +680,7 @@
                 "activity"
             ]
         },
-        "description": "Reads the status of an activity left in progress. activity is cuisine, comptes or bilan (the evening review: step, answers, instructions). Returns {activity, origin, state, startedAt, updatedAt}, or null when nothing is in progress. Read-only."
+        "description": "An activity is a guided flow the owner left in progress. Reads the status of an activity left in progress. activity is cuisine, comptes or bilan (the evening review: step, answers, instructions). Returns {activity, origin, state, startedAt, updatedAt}, or null when nothing is in progress. Read-only."
     },
     "get_daily_balance": {
         "name": "get_daily_balance",
@@ -931,7 +931,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Reads the user's phone last GPS position. Returns {position}: {latitude, longitude, accuracy (metres), capturedAt, ageMinutes}, or null when the phone never reported a GPS point (the position must be allowed in the app). Only GPS positions are stored, and the last one stays the position whatever its age."
+        "description": "Where the phone last was; saved places are list_places. Reads the user's phone last GPS position. Returns {position}: {latitude, longitude, accuracy (metres), capturedAt, ageMinutes}, or null when the phone never reported a GPS point (the position must be allowed in the app). Only GPS positions are stored, and the last one stays the position whatever its age."
     },
     "get_next_prescription": {
         "name": "get_next_prescription",
@@ -1088,7 +1088,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Reads the IANA timezone (e.g. Europe/Paris) the user chose in their preferences, and their working hours (HH:MM start and end, ISO days 1 = Monday … 7)."
+        "description": "The owner's own zone and working hours. Reads the IANA timezone (e.g. Europe/Paris) the user chose in their preferences, and their working hours (HH:MM start and end, ISO days 1 = Monday … 7)."
     },
     "get_weather": {
         "name": "get_weather",
@@ -1111,7 +1111,7 @@
                 }
             }
         },
-        "description": "Daily forecast from Open-Meteo: condition (text, `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min/max temperature (°C), rain (mm, probability), wind and gusts (km/h), alerts. Without `date`: today and tomorrow; with `date` (YYYY-MM-DD, up to 15 days ahead): that day. `location`: city, default the user's. Failure returns `error`."
+        "description": "Daily forecast from Open-Meteo: condition (text, `condition_code`: clear, partly_cloudy, cloudy, fog, drizzle, rain, showers, snow, storm), min/max temperature (°C), rain (mm, probability), wind and gusts (km/h), alerts. Without `date`: today and tomorrow; with `date` (YYYY-MM-DD, up to 15 days ahead): that day. `location`: city, default the user's. Failure returns `error`. Read-only."
     },
     "import_bank_transactions": {
         "name": "import_bank_transactions",
@@ -1180,7 +1180,7 @@
             "type": "object",
             "properties": []
         },
-        "description": "Reads the user's places, home (« Maison ») first then by name, as {places: [...]}. A place has id, name, address, latitude and longitude (null until the address is located), parkingAddress, parkingLatitude and parkingLongitude (null when none), and isHome. When there is no home, the address of the owner's Google account is imported as « Maison » if it has one."
+        "description": "A place is an address the owner keeps; where the phone is now is get_my_location. Reads the user's places, home (« Maison ») first then by name, as {places: [...]}. A place has id, name, address, latitude and longitude (null until the address is located), parkingAddress, parkingLatitude and parkingLongitude (null when none), and isHome. When there is no home, the address of the owner's Google account is imported as « Maison » if it has one."
     },
     "list_proactions": {
         "name": "list_proactions",
@@ -1241,7 +1241,7 @@
                 "date"
             ]
         },
-        "description": "Read the trips kept with set_trip that leave on a day (date, YYYY-MM-DD, read in Paris), by departure time, as {date, trips: [...]}, each as set_trip returns it, with originDecidedBy (user or maggie)."
+        "description": "Read the trips kept with set_trip that leave on a day (date, YYYY-MM-DD, read in Paris), by departure time, as {date, trips: [...]}, each as set_trip returns it, with originDecidedBy (user or maggie). Read-only; a trip is changed with set_trip."
     },
     "manage_accounts": {
         "name": "manage_accounts",
@@ -4213,7 +4213,7 @@
                 "url"
             ]
         },
-        "description": "Reads a public web page: returns its `title`, its main readable `text` (bounded) and `structured`, the schema.org JSON-LD objects as published (`Recipe`, `Event`, `Product`, `Article`, `LocalBusiness`…). Only public http(s) pages are read, without JavaScript and without the user\\'s login; a page that is private, too big, too slow or refused returns an `error` with the reason. Read-only."
+        "description": "For an address the owner or the screen gave. Reading creates nothing: what is found there is created with its own tool once he agrees. Reads a public web page: returns its `title`, its main readable `text` (bounded) and `structured`, the schema.org JSON-LD objects as published (`Recipe`, `Event`, `Product`, `Article`, `LocalBusiness`…). Only public http(s) pages are read, without JavaScript and without the user\\'s login; a page that is private, too big, too slow or refused returns an `error` with the reason. Read-only."
     },
     "record_proaction_result": {
         "name": "record_proaction_result",
@@ -4431,7 +4431,7 @@
                 "day"
             ]
         },
-        "description": "Records the evening review state. day: YYYY-MM-DD. step (optional): journee, finance, sante, consignes, demain; omitted keeps the stored step, a bilan prepared before it starts has none. tomorrowTasks, tomorrowSpares (optional): [{taskId, title, reason?}], the tasks Maggie plans for tomorrow and the ones she keeps to swap in; omitted keeps them. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}."
+        "description": "Evening review state only; a consigne of the review is add_bilan_consigne. Records the evening review state. day: YYYY-MM-DD. step (optional): journee, finance, sante, consignes, demain; omitted keeps the stored step, a bilan prepared before it starts has none. tomorrowTasks, tomorrowSpares (optional): [{taskId, title, reason?}], the tasks Maggie plans for tomorrow and the ones she keeps to swap in; omitted keeps them. answers (optional): {tasks: [{taskId, choice: done|tomorrow|later}], mood, fatigue, note}; instructions (optional): [{id, text, kind: reminder|task|instruction, targetId?}]; omitted keeps stored values of that day. Returns the status, or {error}."
     },
     "save_place": {
         "name": "save_place",
@@ -4511,7 +4511,7 @@
                 }
             }
         },
-        "description": "Creates a place (without id) or changes one (with id, from list_places). name and address required. latitude and longitude (degrees) go together. parkingAddress with parkingLatitude and parkingLongitude (together); empty parkingAddress removes it. isHome=true replaces the home. Omitted fields kept. Refusal changes nothing, answers {error, field}. Returns {success, place}."
+        "description": "Before: list_places, a place is changed, not created twice. Creates a place (without id) or changes one (with id, from list_places). name and address required. latitude and longitude (degrees) go together. parkingAddress with parkingLatitude and parkingLongitude (together); empty parkingAddress removes it. isHome=true replaces the home. Omitted fields kept. Refusal changes nothing, answers {error, field}. Returns {success, place}."
     },
     "save_routine": {
         "name": "save_routine",
@@ -4685,7 +4685,7 @@
                 "query"
             ]
         },
-        "description": "Full-text search across the user's own data in Maggie (events, tasks, recipes, products, grocery lists, notifications), any date. Returns matches with highlights. `types` narrows the search (e.g. events); bank transactions are searched only with types=transactions. Event results carry data.startWeekday and endWeekday (timed event), or startWeekday and lastDayWeekday (whole-day event, whose endDate is EXCLUDED; lastDay is its last day). It does not search the Internet."
+        "description": "For the owner's records by words when the tool that owns them cannot find them; memory is memory_search, the Internet web_search. Full-text search across the user's own data in Maggie (events, tasks, recipes, products, grocery lists, notifications), any date. Returns matches with highlights. `types` narrows the search (e.g. events); bank transactions are searched only with types=transactions. Event results carry data.startWeekday and endWeekday (timed event), or startWeekday and lastDayWeekday (whole-day event, whose endDate is EXCLUDED; lastDay is its last day). It does not search the Internet."
     },
     "search_ciqual_foods": {
         "name": "search_ciqual_foods",
@@ -4869,7 +4869,7 @@
                 "mode"
             ]
         },
-        "description": "Set the trip to an event: recomputed now, replaces the trip for that leg and occurrence. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. mode: drive, transit, walk, bicycle. origin: position (phone position), place:<id> or event:<id>. arriveAt: ISO 8601 Paris time, whole-day event only, refused otherwise. decidedBy: user (origin kept) or maggie (default). leg: outbound (default) or return (event place to home: no origin/arriveAt; departAt ISO 8601 Paris time is never moved; alert stops 30 min after). carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip's origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, leg, occurrenceStartAt, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?, carAt?}}, Refused: nothing changes, {error, field}; Google down: {error}."
+        "description": "Keeps the trip of an event, which drives its departure alert; estimate_trip first when the mode is open. Set the trip to an event: recomputed now, replaces the trip for that leg and occurrence. date (YYYY-MM-DD, Paris): the occurrence's day; required for a repeating event, else optional and must match. mode: drive, transit, walk, bicycle. origin: position (phone position), place:<id> or event:<id>. arriveAt: ISO 8601 Paris time, whole-day event only, refused otherwise. decidedBy: user (origin kept) or maggie (default). leg: outbound (default) or return (event place to home: no origin/arriveAt; departAt ISO 8601 Paris time is never moved; alert stops 30 min after). carAt (drive only): parked (where the phone last saw the car parked, refused if never seen) or origin (at the trip's origin, no walk to it); default: parked from position, origin from home or place:<id>, from event:<id> at that event when reached by car. Returns {success, trip: {id, eventId, event: {summary, startAt, location}, leg, occurrenceStartAt, mode, arriveAt?, origin: {kind, id, label, latitude, longitude}, originDecidedBy, steps: [{kind, minutes, label?}], durationMinutes, departAt, navigationUrl, computedAt, carLatitude?, carLongitude?, carAt?}}, Refused: nothing changes, {error, field}; Google down: {error}."
     },
     "update_event": {
         "name": "update_event",
