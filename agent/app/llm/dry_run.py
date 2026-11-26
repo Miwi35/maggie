@@ -6,7 +6,8 @@ from app.llm.tools import A2A_ALLOWED_TOOLS, ToolRouter
 # decides it is read-only, the same rule as A2A_ALLOWED_TOOLS (which is where the MCP reads come from).
 # `get_grocery_list` is left out: it creates the user's list when there is none (a fresh Recette account).
 READ_ONLY_TOOLS = (A2A_ALLOWED_TOOLS - {"get_grocery_list"}) | {
-    # A sub-agent only reads: policy.yaml, ADR-013.
+    # A sub-agent only reads (policy.yaml, ADR-013): the loop and the checker treat `delegate` as a read.
+    # The dry run still simulates it (DRY_RUN_SIMULATED): its tools run for real, `get_grocery_list` creates a list.
     "delegate",
     "date_time",
     "get_coach_method",
@@ -20,6 +21,7 @@ READ_ONLY_TOOLS = (A2A_ALLOWED_TOOLS - {"get_grocery_list"}) | {
     "memory_open",
     "read_web_page",
 }
+DRY_RUN_SIMULATED = {"delegate"}
 # One tool, read and write actions: only these actions read.
 READ_ONLY_ACTIONS = {"list", "get"}
 READ_ONLY_ACTIONS_BY_TOOL = {
@@ -64,7 +66,7 @@ class DryRunToolRouter:
         source: str = "chat",
         context_id: str | None = None,
     ) -> str:
-        if is_read_only(name, arguments):
+        if name not in DRY_RUN_SIMULATED and is_read_only(name, arguments):
             return await self._router.call_tool(name, arguments, user_id=user_id, source=source, context_id=context_id)
 
         self.simulated.append({"name": name, "input": arguments})

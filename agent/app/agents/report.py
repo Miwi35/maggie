@@ -58,6 +58,7 @@ class ReportingToolRouter:
     ) -> str:
         if name != REPORT_TOOL:
             return await self._router.call_tool(name, arguments, user_id=user_id, source=source, context_id=context_id)
+        # Deliberately outside the policy: this tool is the sub-agent's return, it writes nothing (ADR-013).
         self.report = arguments
         return json.dumps({"ok": True, "message": "Retour reçu : termine sans rien ajouter."}, ensure_ascii=False)
 
