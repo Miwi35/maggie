@@ -148,6 +148,55 @@ async def test_a_stop_cancels_the_reads_in_progress():
     assert [call["id"] for call in state.round_calls] == ["done"]
 
 
+def _delegation(call_id):
+    return _use(call_id, "delegate", id=call_id, agent="advisor", task="x")
+
+
+async def test_two_delegations_of_a_round_run_at_the_same_time():
+    gates = {"a": asyncio.Event(), "w": asyncio.Event()}
+    router = TimedRouter(gates)
+    steps = _steps(_delegation("a"), _delegation("b"), _call("w", WRITE))
+    task = asyncio.create_task(_run(steps, router, _blocking()))
+
+    await asyncio.wait_for(router.started_event("b").wait(), 1)
+    await asyncio.sleep(0.01)
+    assert ("end", "a") not in router.log
+    assert ("start", "w") not in router.log
+
+    gates["a"].set()
+    await asyncio.wait_for(router.started_event("w").wait(), 1)
+    assert router.log.index(("end", "a")) < router.log.index(("start", "w"))
+    assert router.log.index(("end", "b")) < router.log.index(("start", "w"))
+    gates["w"].set()
+    await task
+
+
+async def test_a_stop_cancels_the_delegations_in_progress():
+    cancelled = []
+
+    class Hanging(TimedRouter):
+        async def call_tool(self, name, arguments, **kwargs):
+            call_id = arguments["id"]
+            self.started_event(call_id).set()
+            try:
+                await asyncio.sleep(60)
+            except asyncio.CancelledError:
+                cancelled.append(call_id)
+                raise
+
+    router = Hanging()
+    task = asyncio.create_task(
+        _run(_steps(_delegation("a"), _delegation("b")), router, _streaming(stopped=lambda: True), TurnState())
+    )
+    await asyncio.wait_for(router.started_event("b").wait(), 1)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, 1)
+
+    assert sorted(cancelled) == ["a", "b"]
+
+
 async def test_the_classifier_can_be_given_by_the_caller():
     router = TimedRouter()
 

@@ -268,8 +268,9 @@ pure read whose projects carry their purchase month.
 **Advisor** (MAG-559). `91-advisor-delegate.yaml` answers « Et si je remboursais le prêt auto plus tôt ? » by handing the
 question to the `advisor` sub-agent through `delegate`; `90-advisor-loan-early.yaml` is the advisor's own run
 (`system_contains: conseiller financier et comptable`): it lists the projects and the loans, simulates the early repayment
-of the Crédit voiture, files one draft with `manage_scenarios` suggest (`${month}` is the current month) and says the
-figures as a field of the possible. `results_matches` captures the three project ids and the loan's.
+of the Crédit voiture and proposes one draft in `report_to_maggie` (`${month}` is the current month), with the figures as a
+field of the possible; `results_matches` captures the three project ids and the loan's. Maggie then files that draft with
+`manage_scenarios` suggest (`91-advisor-delegate.yaml`, whose `results_matches` reads the ids in the delegation's return).
 
 **Coach** (MAG-778). `89-coach-week-chat.yaml` answers « Prépare ma semaine de sport » by handing the week to the `coach`
 sub-agent through `delegate`, then writes three planned strength sessions with `manage_workouts` create (next Monday,

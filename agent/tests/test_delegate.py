@@ -69,7 +69,7 @@ class TestSelectTools:
     def test_keeps_only_tools_matching_a_pattern(self):
         names = [t["name"] for t in select_tools(RESEARCHER, ALL_TOOLS)]
 
-        assert names == ["search_recipes", "get_events", "list_skills", "memory_search"]
+        assert names == ["search_recipes", "get_events", "list_skills", "memory_search", "report_to_maggie"]
 
     def test_delegate_is_always_removed(self):
         everything = SubagentDefinition(**{**RESEARCHER.__dict__, "tools": ["*"]})
@@ -82,7 +82,7 @@ class TestSelectTools:
     def test_patterns_are_case_sensitive(self):
         shouty = SubagentDefinition(**{**RESEARCHER.__dict__, "tools": ["SEARCH*"]})
 
-        assert select_tools(shouty, ALL_TOOLS) == []
+        assert [t["name"] for t in select_tools(shouty, ALL_TOOLS)] == ["report_to_maggie"]
 
 
 class TestHandleDelegate:
@@ -95,7 +95,13 @@ class TestHandleDelegate:
         assert system.startswith("Tu cherches.")
         assert "allergique aux noix" in system
         assert messages == [{"role": "user", "content": "Ma semaine"}]
-        assert [t["name"] for t in tools] == ["search_recipes", "get_events", "list_skills", "memory_search"]
+        assert [t["name"] for t in tools] == [
+            "search_recipes",
+            "get_events",
+            "list_skills",
+            "memory_search",
+            "report_to_maggie",
+        ]
         assert kwargs["model"] == settings.model_aliases["haiku"]
         assert kwargs["max_iterations"] == 6
         assert kwargs["call_type"] == "subagent"
@@ -103,7 +109,12 @@ class TestHandleDelegate:
         assert kwargs["user_id"] == "user-1"
         assert result == {
             "agent": "researcher",
+            "complete": False,
             "result": "Votre semaine est calme.",
+            "sources": [],
+            "missing": [],
+            "questions": [],
+            "proposals": [],
             "tool_calls": ["get_events", "search_recipes"],
         }
 
@@ -231,6 +242,7 @@ class TestDelegateThroughTheToolRouter:
 
         result = json.loads(raw)
         assert result["result"] == "Rien de prévu."
+        assert result["complete"] is False
         assert result["tool_calls"] == ["create_event", "get_events"]
         # The read ran; the write the model made up was refused before reaching MCP.
         mcp.call_tool.assert_awaited_once_with("get_events", {}, user_id="user-1")
@@ -238,9 +250,100 @@ class TestDelegateThroughTheToolRouter:
         assert metric._value.get() - before == 3
 
 
+REPORT = {
+    "result": "Semaine calme.",
+    "sources": ["get_events"],
+    "missing": ["météo"],
+    "questions": ["Quel jour ?"],
+    "proposals": [{"what": "create_event", "target": "mardi", "values": {"title": "Pause"}, "why": "Journée libre"}],
+}
+
+
+def reporting_loop(report: dict | None, response: str = "Fini."):
+    """A loop mock that makes the sub-agent call `report_to_maggie` through the router it was given."""
+
+    async def run(system, messages, tools, **kwargs):
+        if report is not None:
+            await kwargs["tool_router"].call_tool("report_to_maggie", report, user_id="user-1")
+        return {"response": response, "tool_calls": [{"name": "get_events"}, {"name": "report_to_maggie"}]}
+
+    return AsyncMock(side_effect=run)
+
+
+class TestStructuredReport:
+    async def test_the_subagent_is_offered_report_to_maggie(self, registry, router, loop):
+        await handle_delegate({"agent": "researcher", "task": "x"}, "user-1")
+
+        assert "report_to_maggie" in [t["name"] for t in loop.await_args.args[2]]
+        assert "Termine par report_to_maggie." in loop.await_args.args[0]
+
+    def test_maggie_is_never_offered_report_to_maggie(self):
+        from app.agents.tool import delegate_tool_definition
+        from app.native_tools import build_native_registry
+
+        assert "report_to_maggie" not in build_native_registry().names()
+        assert "report_to_maggie" not in json.dumps(delegate_tool_definition())
+
+    async def test_a_report_follows_the_contract(self, registry, router):
+        with (
+            patch("app.agents.delegate.run_tool_loop", reporting_loop(REPORT)),
+            container.override(llm_client="client"),
+            patch("app.agents.delegate.llm_configured", return_value=True),
+            patch("app.agents.delegate.AgentMemory") as memory,
+        ):
+            memory.return_value.get_memory_context = AsyncMock(return_value="")
+            result = json.loads(await handle_delegate({"agent": "researcher", "task": "x"}, "user-1"))
+
+        assert result == {
+            "agent": "researcher",
+            "complete": True,
+            "result": "Semaine calme.",
+            "sources": ["get_events"],
+            "missing": ["météo"],
+            "questions": ["Quel jour ?"],
+            "proposals": REPORT["proposals"],
+            "tool_calls": ["get_events"],
+        }
+
+    def test_the_report_schema_requires_the_result_and_the_proposal_keys(self):
+        from app.agents.report import report_tool_definition
+
+        schema = report_tool_definition()["input_schema"]
+        assert schema["required"] == ["result"]
+        assert set(schema["properties"]) == {"result", "sources", "missing", "questions", "proposals"}
+        assert schema["properties"]["proposals"]["items"]["required"] == ["what", "target", "values", "why"]
+
+    async def test_an_answer_without_report_is_incomplete(self, registry, router):
+        with (
+            patch("app.agents.delegate.run_tool_loop", reporting_loop(None, "Voici en vrac.")),
+            container.override(llm_client="client"),
+            patch("app.agents.delegate.llm_configured", return_value=True),
+            patch("app.agents.delegate.AgentMemory") as memory,
+        ):
+            memory.return_value.get_memory_context = AsyncMock(return_value="")
+            result = json.loads(await handle_delegate({"agent": "researcher", "task": "x"}, "user-1"))
+
+        assert result["complete"] is False
+        assert result["result"] == "Voici en vrac."
+        assert result["proposals"] == []
+
+    async def test_a_spent_budget_is_incomplete(self, registry, router):
+        from app.llm.runner import ITERATION_LIMIT_MESSAGE
+
+        with (
+            patch("app.agents.delegate.run_tool_loop", reporting_loop(REPORT, ITERATION_LIMIT_MESSAGE)),
+            container.override(llm_client="client"),
+            patch("app.agents.delegate.llm_configured", return_value=True),
+            patch("app.agents.delegate.AgentMemory") as memory,
+        ):
+            memory.return_value.get_memory_context = AsyncMock(return_value="")
+            result = json.loads(await handle_delegate({"agent": "researcher", "task": "x"}, "user-1"))
+
+        assert result["complete"] is False
+
+
 class TestDryRun:
-    def test_delegate_is_never_treated_as_a_read(self):
+    def test_delegate_is_a_read_since_a_subagent_only_reads(self):
         from app.llm.dry_run import is_read_only
 
-        # A sub-agent runs tools on its own router: in a dry run it must be simulated, not run.
-        assert is_read_only("delegate", {"agent": "researcher", "task": "x"}) is False
+        assert is_read_only("delegate", {"agent": "researcher", "task": "x"}) is True
