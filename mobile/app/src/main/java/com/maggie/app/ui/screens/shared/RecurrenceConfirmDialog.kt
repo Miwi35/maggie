@@ -33,6 +33,7 @@ fun RecurrenceConfirmDialog(
     isDelete: Boolean,
     onConfirm: (RecurrenceAction) -> Unit,
     onDismiss: () -> Unit,
+    actions: List<RecurrenceAction> = RecurrenceAction.entries,
 ) {
     var selected by remember { mutableStateOf(RecurrenceAction.THIS) }
 
@@ -41,7 +42,7 @@ fun RecurrenceConfirmDialog(
         RecurrenceAction.THIS to "Cet événement",
         RecurrenceAction.THIS_AND_FOLLOWING to "Cet événement et tous les suivants",
         RecurrenceAction.ALL to "Tous les événements",
-    )
+    ).filter { (action, _) -> action in actions }
 
     AlertDialog(
         onDismissRequest = onDismiss,

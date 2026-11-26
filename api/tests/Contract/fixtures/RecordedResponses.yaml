@@ -196,6 +196,25 @@ Maggie\Calendar\Entity\Proaction:
     __calls:
       - markFailed: ['Recorded error', '<(new \DateTimeImmutable("2026-03-17 18:01"))>']
 
+  # A series of runs and one cancelled pass of it (ADR-012-1, MAG-974): the mobile DTO reads rrule, recurringEvent, originalStartAt and status.
+  recorded_proaction_series:
+    prompt: Recorded series prompt
+    summary: Recorded proaction series
+    startAt: '<(new \DateTimeImmutable("2026-03-06 18:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-06 18:05"))>'
+    rrule: 'FREQ=WEEKLY;BYDAY=FR'
+    agenda: '@recorded_maggie_agenda'
+
+  recorded_proaction_instance:
+    prompt: Recorded series prompt
+    summary: Recorded proaction series
+    startAt: '<(new \DateTimeImmutable("2026-03-13 18:00"))>'
+    endAt: '<(new \DateTimeImmutable("2026-03-13 18:05"))>'
+    recurringEvent: '@recorded_proaction_series'
+    originalStartAt: '<(new \DateTimeImmutable("2026-03-13 18:00"))>'
+    status: '<(Maggie\Calendar\Enum\EventStatus::Cancelled)>'
+    agenda: '@recorded_maggie_agenda'
+
 Maggie\Cookbook\Entity\Meal:
   recorded_meal:
     summary: Recorded meal

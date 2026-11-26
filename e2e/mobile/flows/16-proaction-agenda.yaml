@@ -91,3 +91,65 @@ tags:
     visible: "Aucune proaction"
     timeout: 20000
 - assertNotVisible: ".*Rappel MAG-328.*"
+
+# A weekly series (MAG-1041): tomorrow at 08:30 and the same weekday a week later. The week
+# view shows one of them at a time, and tomorrow can be in next week (on a Sunday): the flow
+# steps forward until the first is on screen, deletes it, then steps once more for the second.
+- runScript:
+    file: ../scripts/proaction-api.js
+    env:
+      ACTION: create
+      SUMMARY: "Série MAG-1041"
+      RRULE: "FREQ=WEEKLY;BYDAY={BYDAY}"
+
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      e2e_journey: e2e/mobile/flows/16-proaction-agenda.yaml
+- runFlow: ../subflows/sign-in.yaml
+- runFlow: ../subflows/open-calendar.yaml
+
+- extendedWaitUntil:
+    visible: ".*08:30 Série MAG-1041.*"
+    timeout: 10000
+    optional: true
+- runFlow:
+    when:
+      notVisible: ".*08:30 Série MAG-1041.*"
+    commands:
+      - tapOn:
+          id: "calendar_next"
+- extendedWaitUntil:
+    visible: ".*08:30 Série MAG-1041.*"
+    timeout: 20000
+
+# « Cet événement » cancels tomorrow's occurrence only.
+- tapOn: ".*08:30 Série MAG-1041.*"
+- extendedWaitUntil:
+    visible:
+      id: "proaction_detail_title"
+    timeout: 20000
+- tapOn:
+    id: "proaction_detail_delete"
+- tapOn:
+    id: "confirm_delete"
+- tapOn: "Cet événement"
+- tapOn: "Supprimer"
+- extendedWaitUntil:
+    notVisible: ".*08:30 Série MAG-1041.*"
+    timeout: 20000
+
+- tapOn:
+    id: "calendar_next"
+- extendedWaitUntil:
+    visible: ".*08:30 Série MAG-1041.*"
+    timeout: 20000
+
+- runScript:
+    file: ../scripts/proaction-api.js
+    env:
+      ACTION: expect
+      SUMMARY: "Série MAG-1041"
+      STATE: present

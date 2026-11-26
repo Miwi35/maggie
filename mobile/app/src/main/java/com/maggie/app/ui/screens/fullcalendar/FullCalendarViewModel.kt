@@ -32,9 +32,11 @@ import com.maggie.app.data.repository.TaskRepository
 import com.maggie.app.data.repository.PeriodRepository
 import com.maggie.app.data.repository.TripRepository
 import com.maggie.app.data.repository.UserPreferenceRepository
+import com.maggie.app.ui.screens.shared.RecurrenceAction
 import com.maggie.app.util.DateRanges
 import com.maggie.app.util.DayPeriod
 import com.maggie.app.util.EventExpander
+import com.maggie.app.util.RruleUtils
 import com.maggie.app.util.SingleFlight
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -50,6 +52,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.DayOfWeek
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -495,7 +498,23 @@ class FullCalendarViewModel(
         if (module != null || !layerShown(layer, _uiState.value.proactionsEnabled)) return emptyList()
         val now = clock.instant()
         val range = getVisibleRange()
-        return proactions.mapNotNull { proaction ->
+        val drawn = mutableListOf<Proaction>()
+        // An instance stands for its occurrence, whatever its status; a cancelled one is simply not drawn.
+        val replaced = proactions.filter { it.isInstance }.mapNotNull { instance ->
+            val original = instance.originalStartAt?.let(::instantOf) ?: return@mapNotNull null
+            instance.seriesId?.let { it to original }
+        }.toSet()
+        proactions.forEach { proaction ->
+            if (proaction.isCancelled) return@forEach
+            if (proaction.isSeries) {
+                occurrencesOf(proaction, range).forEach { occurrence ->
+                    if ((proaction.id to occurrence) !in replaced) drawn += occurrenceOf(proaction, occurrence)
+                }
+            } else {
+                drawn += proaction
+            }
+        }
+        return drawn.mapNotNull { proaction ->
             val start = proaction.startAt?.let(::instantOf) ?: return@mapNotNull null
             if (start < range.start || start >= range.end) return@mapNotNull null
             val end = proaction.endAt?.let(::instantOf) ?: start
@@ -519,17 +538,75 @@ class FullCalendarViewModel(
         }.sortedBy { it.sortKey }
     }
 
-    /** Moves a run to [startAt]; the API keeps it five minutes long. The list is read again either way. */
+    private fun occurrencesOf(series: Proaction, range: com.maggie.app.util.DateRange): List<Instant> {
+        val first = series.startAt?.let(::instantOf) ?: return emptyList()
+        val rule = series.rrule ?: return emptyList()
+        return runCatching {
+            RruleUtils.expandRrule(rule, first, range.start, range.end, series.timeZone ?: DateRanges.zone.id)
+        }.getOrDefault(emptyList()).filter { it < range.end }
+    }
+
+    /** A pass of [series] with no instance yet: a copy of the series at that time, with the id `<series>__<instant>`. */
+    private fun occurrenceOf(series: Proaction, occurrence: Instant) = series.copy(
+        id = "${series.id}$OCCURRENCE_SEPARATOR$occurrence",
+        startAt = occurrence.toString(),
+        endAt = occurrence.plus(Duration.ofMinutes(OCCURRENCE_MINUTES)).toString(),
+        executionStatus = Proaction.STATUS_PENDING,
+        response = null,
+        error = null,
+        completedAt = null,
+    )
+
+    /** The row [id] names, or for the id of a pass of a series with no instance, the series at that time. */
+    fun proactionFor(id: String?): Proaction? {
+        if (id == null) return null
+        proactions.firstOrNull { it.id == id }?.let { return it }
+        val (seriesId, occurrence) = splitOccurrence(id) ?: return null
+        val series = proactions.firstOrNull { it.id == seriesId && it.isSeries } ?: return null
+        return occurrenceOf(series, occurrence)
+    }
+
+    fun isOccurrence(id: String): Boolean = splitOccurrence(id) != null
+
+    private fun splitOccurrence(id: String): Pair<String, Instant>? {
+        val seriesId = id.substringBefore(OCCURRENCE_SEPARATOR)
+        val occurrence = runCatching { Instant.parse(id.substringAfter(OCCURRENCE_SEPARATOR)) }.getOrNull()
+        return if (id.contains(OCCURRENCE_SEPARATOR) && occurrence != null) seriesId to occurrence else null
+    }
+
+    /**
+     * Moves a run to [startAt]; the API keeps it five minutes long. A pass of a series files its own
+     * exception and leaves the series. The list is read again either way.
+     */
     fun moveProaction(id: String, startAt: Instant) {
         viewModelScope.launch {
-            proactionRepository.move(id, startAt.toString())
-                .onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+            val occurrence = splitOccurrence(id)
+            val series = occurrence?.let { (seriesId, _) -> proactions.firstOrNull { it.id == seriesId } }
+            val result = if (occurrence != null && series != null) {
+                proactionRepository.moveOccurrence(series, occurrence.second.toString(), startAt.toString())
+            } else {
+                proactionRepository.move(id, startAt.toString())
+            }
+            result.onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
             reloadProactions()
         }
     }
 
-    fun deleteProaction(id: String) {
+    /** [action] only matters for a pass of a series: THIS cancels it, ALL deletes the series. */
+    fun deleteProaction(id: String, action: RecurrenceAction = RecurrenceAction.THIS) {
         viewModelScope.launch {
+            val occurrence = splitOccurrence(id)
+            val series = occurrence?.let { (seriesId, _) -> proactions.firstOrNull { it.id == seriesId } }
+            if (occurrence != null && series != null) {
+                val result = if (action == RecurrenceAction.ALL) {
+                    proactionRepository.delete(series.id)
+                } else {
+                    proactionRepository.cancelOccurrence(series, occurrence.second.toString())
+                }
+                result.onFailure { _uiState.value = _uiState.value.copy(error = it.message) }
+                reloadProactions()
+                return@launch
+            }
             proactionRepository.delete(id)
                 .onSuccess {
                     proactions = proactions.filterNot { it.id == id }
@@ -716,6 +793,8 @@ class FullCalendarViewModel(
     private companion object {
         val LAYERS = setOf(MODULE_TASKS, MODULE_COOKBOOK, MODULE_AGENT)
         val PROACTION_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+        const val OCCURRENCE_SEPARATOR = "__"
+        const val OCCURRENCE_MINUTES = 5L
 
         // The API may answer with an offset (`+02:00`) where the timeline parses instants.
         fun instantOf(value: String): Instant? =
