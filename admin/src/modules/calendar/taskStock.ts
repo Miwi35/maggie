@@ -1,4 +1,4 @@
-import { addDays } from '../../dates'
+import { addDays, parseDay } from '../../dates'
 import type { TaskGroup } from './TaskList'
 import type { ViewTask } from './taskViews'
 
@@ -51,3 +51,9 @@ export function groupStock(upcoming: ViewTask[], someday: ViewTask[], today: str
         .flatMap(({ block }) => block),
     }))
 }
+
+/** What the row says once a repeated task is ticked (MAG-1033): the next day, or just « Fait ». */
+export const doneLabel = (next: string | null): string =>
+  next
+    ? `Fait · prochaine le ${parseDay(next.slice(0, 10)).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
+    : 'Fait'

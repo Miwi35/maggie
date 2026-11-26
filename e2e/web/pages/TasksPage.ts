@@ -65,6 +65,10 @@ export class TasksPage extends AdminShell {
   readonly pause: Locator
   /** The constellation of the month (MAG-509), in the bravo: « Ta constellation d'octobre · 5 étoiles ». */
   readonly constellationOfBravo: Locator
+  /** « Fait · prochaine le … », above « Tâches » once a repeated task is checked (MAG-1039). */
+  readonly recurringDone: Locator
+  /** Its « Annuler ». */
+  readonly recurringDoneUndo: Locator
   /** « Nouvelle routine », on « Routines » (MAG-511). */
   readonly newRoutine: Locator
   /** The routine's form, new or opened from its card: titled « Nouvelle routine » or by the routine. */
@@ -93,6 +97,8 @@ export class TasksPage extends AdminShell {
     this.bravoMessage = this.bravo.getByTestId('bravo-message')
     this.pause = this.bravo.getByRole('button', { name: 'Pause méritée', exact: true })
     this.constellationOfBravo = this.bravo.getByTestId('constellation')
+    this.recurringDone = page.getByTestId('task-recurring-done')
+    this.recurringDoneUndo = this.recurringDone.getByRole('button', { name: 'Annuler', exact: true })
     this.newRoutine = this.content.getByRole('button', { name: 'Nouvelle routine', exact: true })
     this.routineDialog = page.getByRole('dialog')
   }

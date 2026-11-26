@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { groupStock } from './taskStock'
+import { doneLabel, groupStock } from './taskStock'
 import type { ViewTask } from './taskViews'
 
 // Wednesday: this Sunday is 2026-11-29.
@@ -80,5 +80,16 @@ describe('groupStock', () => {
     const groups = groupStock([task('l', { dueDate: '2026-12-24' }), task('w', { dueDate: TODAY })], [task('s')], TODAY)
 
     expect(groups.map((g) => g.label)).toEqual(['Cette semaine', 'Plus tard', 'Sans date'])
+  })
+})
+
+describe('doneLabel (MAG-1033)', () => {
+  test('says the next day in French (« Fait · prochaine le 8 déc. »)', () => {
+    expect(doneLabel('2026-12-08')).toBe('Fait · prochaine le 8 déc.')
+    expect(doneLabel('2026-12-08T00:00:00+00:00')).toBe('Fait · prochaine le 8 déc.')
+  })
+
+  test('without a next day says Fait', () => {
+    expect(doneLabel(null)).toBe('Fait')
   })
 })
