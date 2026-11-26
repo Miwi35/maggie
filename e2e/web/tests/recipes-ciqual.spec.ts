@@ -160,6 +160,39 @@ test('the ingredient made from a Ciqual code is listed, macros and all, and made
   ).toHaveLength(1)
 })
 
+test("Cuisine › Ingrédients reads the state of each ingredient's values, and « Sans valeurs » narrows the table", async ({ page, api }) => {
+  // MAG-1044: the courgette of the test above comes from the Ciqual; this one has no energy at all.
+  const bare = perAttempt('Sans valeurs MAG-1044')
+  const created = await api.post('/api/ingredients', {
+    headers: { 'Content-Type': 'application/ld+json', Accept: 'application/ld+json' },
+    data: { name: bare, category: 'other' },
+  })
+  expect(created.status(), `POST /api/ingredients answered ${created.status()}: ${await created.text()}`).toBe(201)
+  await waitForIndexed<StoredIngredient>(api, '/api/ingredients?itemsPerPage=100', (candidate) => candidate.name === bare, {
+    what: 'The ingredient without values',
+  })
+
+  const shell = new AdminShell(page)
+  await shell.goto(ROUTES.ingredients)
+  const search = shell.content.getByRole('searchbox', { name: 'Rechercher un ingrédient' })
+
+  await search.fill(COURGETTE.name)
+  const courgette = shell.content.getByRole('row', { name: new RegExp(COURGETTE.name) })
+  await expect(courgette).toContainText('Ciqual')
+  await expect(courgette).toContainText('kcal')
+
+  await search.fill(bare)
+  const other = shell.content.getByRole('row', { name: new RegExp(bare) })
+  await expect(other).toContainText('Sans valeurs')
+  await expect(other).toContainText('—')
+
+  await search.fill('')
+  await shell.content.getByRole('button', { name: /Sans valeurs/ }).click()
+  await expect(shell.content.getByRole('button', { name: /Sans valeurs/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(shell.content.getByRole('row', { name: new RegExp(bare) })).toBeVisible()
+  await expect(shell.content.getByRole('row', { name: new RegExp(COURGETTE.name) })).toHaveCount(0)
+})
+
 test('the ingredient a recipe creates from a Ciqual code is searchable at once, without a reindex', async ({ api }) => {
   // MAG-182: the resolver persisted the ingredient and the recipe handler
   // returned only the recipe, so the ingredient was in Postgres and in neither
