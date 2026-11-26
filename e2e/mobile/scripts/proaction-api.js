@@ -10,6 +10,8 @@
 //   ACTION   create | expect
 //   SUMMARY  the proaction's label in the agenda
 //   STATE    expect: present | absent
+//   RRULE    create: files a series. `{BYDAY}` stands for tomorrow's weekday (MO…SU), so the
+//            first occurrence is the day `scheduled_at` names, as the tool requires.
 //   EMAIL    the account, default the one the app signs in as (e2e@maggie.local)
 //
 // `create` schedules tomorrow at 08:30 (Paris), counted from `TODAY` and not from the
@@ -40,6 +42,11 @@ function tomorrow() {
     return (n < 10 ? '0' : '') + n
   }
   return next.getUTCFullYear() + '-' + pad(next.getUTCMonth() + 1) + '-' + pad(next.getUTCDate())
+}
+
+function tomorrowByDay() {
+  const parts = tomorrow().split('-').map(Number)
+  return ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])).getUTCDay()]
 }
 
 function header(response, name) {
@@ -94,6 +101,7 @@ if (ACTION === 'create') {
           prompt: 'Rappelle à Meven son rendez-vous de demain matin.',
           summary: SUMMARY,
           scheduled_at: tomorrow() + 'T08:30:00',
+          ...(typeof RRULE !== 'undefined' && RRULE ? { rrule: RRULE.replace('{BYDAY}', tomorrowByDay()) } : {}),
         },
       },
     }),
