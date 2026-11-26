@@ -365,6 +365,7 @@ object UiTags {
     fun budgetAdjustApply(name: String) = BUDGET_ADJUST_APPLY_PREFIX + name
 
     /** A transaction's one-off envelope on its detail screen, and the full-screen choice it opens (MAG-414). */
+    const val TRANSACTION_SHEET_BACK = "transaction_sheet_back"
     const val TRANSACTION_ONE_OFF_ENVELOPE = "transaction_one_off_envelope"
     const val TRANSACTION_ONE_OFF_ENVELOPE_SEARCH = "transaction_one_off_envelope_search"
 

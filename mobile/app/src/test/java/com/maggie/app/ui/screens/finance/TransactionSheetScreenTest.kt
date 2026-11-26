@@ -75,14 +75,80 @@ class TransactionSheetScreenTest {
     }
 
     @Test
-    fun `the sheet header writes the day as dd-MM-yyyy, like the list`() {
-        val dated = coffee.copy(bookedAt = "2026-10-20T00:00:00+00:00")
+    fun `the sheet header reads the payee and the day, then the label and the amount, as the mockup`() {
+        val dated = coffee.copy(bookedAt = "2026-10-20T00:00:00+00:00", counterpartyName = "Café Lou")
         show(FakeTransactionTransfers(transactions = listOf(dated)))
 
         open("Café du coin")
 
-        compose.onNodeWithText("20/10/2026 · Dépensée").assertIsDisplayed()
+        compose.onNodeWithText("CAFÉ LOU · 20 octobre", substring = true).assertIsDisplayed()
+        compose.onAllNodesWithText("CAFÉ LOU · 20 octobre · Dépensée").assertCountEquals(0)
         compose.onAllNodesWithText("2026-10-20", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a line with no payee starts with its day`() {
+        val dated = coffee.copy(bookedAt = "2026-10-20")
+        show(FakeTransactionTransfers(transactions = listOf(dated)))
+
+        open("Café du coin")
+
+        compose.onNodeWithText("20 octobre").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a planned line keeps its status after its day`() {
+        val planned = coffee.copy(bookedAt = "2026-10-20", status = "planned")
+        show(FakeTransactionTransfers(transactions = listOf(planned)))
+
+        open("Café du coin")
+
+        compose.onNodeWithText("20 octobre · Planifiée", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the sheet opens under « Livret », and touching it closes the sheet`() {
+        show(FakeTransactionTransfers(transactions = listOf(coffee)))
+
+        open("Café du coin")
+        compose.onNodeWithText("Livret").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.TRANSACTION_SHEET_BACK).performClick()
+        compose.waitForIdle()
+
+        assertEquals(emptyList<String>(), sectionTagsDrawn())
+    }
+
+    @Test
+    fun `the sheet has no « Transaction » bar`() {
+        show(FakeTransactionTransfers(transactions = listOf(coffee)))
+
+        open("Café du coin")
+
+        compose.onAllNodesWithText("Transaction").assertCountEquals(0)
+    }
+
+    @Test
+    fun `an ordinary line numbers its six sections, 1 NATURE to 6 NOTE`() {
+        show(FakeTransactionTransfers(transactions = listOf(coffee)))
+
+        open("Café du coin")
+
+        listOf("NATURE", "CLASSEMENT", "RÉCURRENCE", "PARTAGE", "JUGEMENT", "NOTE").forEachIndexed { i, title ->
+            compose.onNodeWithText(title).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("${i + 1}").assertExists()
+        }
+    }
+
+    @Test
+    fun `an internal transfer numbers its two sections 1 NATURE and 2 NOTE`() {
+        show(FakeTransactionTransfers())
+
+        open("Virement vers Courant")
+
+        compose.onNodeWithText("NATURE").assertExists()
+        compose.onNodeWithText("NOTE").assertExists()
+        compose.onNodeWithText("2").assertExists()
+        compose.onAllNodesWithText("6").assertCountEquals(0)
     }
 
     @Test
