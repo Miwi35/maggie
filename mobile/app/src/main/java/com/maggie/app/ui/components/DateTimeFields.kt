@@ -55,6 +55,7 @@ import java.util.Locale
 
 private val FRENCH_DATE = DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.FRENCH)
 private val FRENCH_DAY_MONTH = DateTimeFormatter.ofPattern("d MMM", Locale.FRENCH)
+private val FRENCH_DAY_MONTH_LONG = DateTimeFormatter.ofPattern("d MMMM", Locale.FRENCH)
 private val FRENCH_TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH)
 
 /** « mer. 8 oct. 2026 » — what a form shows for a date, whatever the phone's language. */
@@ -68,6 +69,12 @@ fun formatBookedDay(bookedAt: String?): String? =
 fun formatShortBookedDay(bookedAt: String?, today: LocalDate = LocalDate.now()): String? =
     bookedAt?.let { raw ->
         bookedDate(raw)?.let { day -> if (day.year == today.year) FRENCH_DAY_MONTH.format(day) else "${FRENCH_DAY_MONTH.format(day)} ${day.year}" } ?: raw
+    }
+
+/** « 2 septembre » for a sheet header: the year only when the day is not in [today]'s year; null without a date, the text itself when it is not one. */
+fun formatLongBookedDay(bookedAt: String?, today: LocalDate = LocalDate.now()): String? =
+    bookedAt?.let { raw ->
+        bookedDate(raw)?.let { day -> if (day.year == today.year) FRENCH_DAY_MONTH_LONG.format(day) else "${FRENCH_DAY_MONTH_LONG.format(day)} ${day.year}" } ?: raw
     }
 
 /** « 19:00 » — 24 h, as the pickers do. */

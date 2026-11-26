@@ -224,6 +224,10 @@ tags:
       id: "transaction_category"
     timeout: 10000
 
+# The sheet opens under its account's back link, sections numbered (MAG-1045).
+- assertVisible:
+    id: "transaction_sheet_back"
+- assertVisible: "NATURE"
 # One sheet for every line (MAG-464): an ordinary line opens on its six sections, in order.
 - assertVisible:
     id: "sheet_section_nature"

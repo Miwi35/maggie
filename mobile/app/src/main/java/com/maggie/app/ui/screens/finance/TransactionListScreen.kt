@@ -233,6 +233,7 @@ fun TransactionListScreen(
         } else {
             TransactionDetailScreen(
                 state = detail,
+                accountName = accountName,
                 actions = TransactionSheetActions(
                     onBack = viewModel::closeDetail,
                     onSearchCounterpart = { searchingCounterpart = true },

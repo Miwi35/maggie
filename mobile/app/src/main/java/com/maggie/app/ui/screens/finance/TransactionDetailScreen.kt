@@ -1,11 +1,17 @@
 package com.maggie.app.ui.screens.finance
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -15,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -41,7 +49,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.Category
 import com.maggie.app.data.model.Envelope
 import com.maggie.app.data.model.Qualification
@@ -51,15 +62,18 @@ import com.maggie.app.data.model.TransferLeg
 import com.maggie.app.data.model.Account
 import com.maggie.app.data.model.accountTypeLabel
 import com.maggie.app.data.model.formatCents
-import com.maggie.app.data.model.showsAdvanceSource
 import com.maggie.app.data.model.formatDay
+import com.maggie.app.data.model.showsAdvanceSource
 import com.maggie.app.data.model.incidentRegularisationLabel
 import com.maggie.app.data.model.transactionStatusLabel
 import com.maggie.app.data.model.transferBadgeLabel
 import com.maggie.app.data.model.transferLegSummary
 import com.maggie.app.data.model.visibleSheetSections
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.theme.maggieSurface
+import java.util.Locale
 import com.maggie.app.ui.components.formatBookedDay
+import com.maggie.app.ui.components.formatLongBookedDay
 import com.maggie.app.ui.components.markdown.MarkdownEditor
 
 /**
@@ -102,20 +116,30 @@ fun TransactionDetailScreen(
     provenance: String? = null,
     seriesName: String? = null,
     oneOffEnvelopeName: String? = null,
+    accountName: String? = null,
 ) {
     BackHandler(onBack = actions.onBack)
     val transaction = state.transaction
 
+    val surface = maggieSurface()
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Transaction") },
-                navigationIcon = {
-                    IconButton(onClick = actions.onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().height(44.dp).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable(role = Role.Button, onClick = actions.onBack)
+                        .minimumInteractiveComponentSize()
+                        .testTag(UiTags.TRANSACTION_SHEET_BACK)
+                        .semantics { contentDescription = "Retour" },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = surface.textMuted, modifier = Modifier.size(20.dp))
+                    accountName?.let { Text(it, fontSize = 15.sp, color = surface.textMuted) }
+                }
+            }
         },
     ) { paddingValues ->
         Column(
@@ -125,29 +149,34 @@ fun TransactionDetailScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
                 .widthIn(max = 720.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Text(transaction.label, style = MaterialTheme.typography.titleLarge)
-            Text(
-                text = formatCents(transaction.amountCents, transaction.currency),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = listOfNotNull(
-                    transaction.bookedAt?.let(::formatDay),
-                    transactionStatusLabel(transaction.status, transaction.amountCents),
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = listOfNotNull(
+                        transaction.counterpartyName?.uppercase(Locale.FRENCH),
+                        formatLongBookedDay(transaction.bookedAt),
+                        transactionStatusLabel(transaction.status, transaction.amountCents).takeIf { transaction.status != "spent" },
+                    ).joinToString(" · "),
+                    fontSize = 15.sp,
+                    color = surface.textMuted,
+                )
+                Text(transaction.label, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    text = formatCents(transaction.amountCents, transaction.currency),
+                    fontSize = 48.sp,
+                    lineHeight = 48.sp,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = (-0.04).em,
+                )
+            }
 
             if (state.isLoading && state.info == null) {
                 CircularProgressIndicator()
             }
 
-            visibleSheetSections(transaction.transferKind).forEach { section ->
-                HorizontalDivider()
-                SheetSection(section) {
+            visibleSheetSections(transaction.transferKind).forEachIndexed { index, section ->
+                SheetSection(section, index + 1) {
                     when (section) {
                         TransactionSheetSection.Nature -> NatureSection(state, actions)
                         TransactionSheetSection.Classement -> ClassementSection(state, actions, categories, provenance, oneOffEnvelopeName)
@@ -168,12 +197,18 @@ fun TransactionDetailScreen(
 
 /** A named slot of the sheet: later lots plug their content into it by its tag. */
 @Composable
-private fun SheetSection(section: TransactionSheetSection, content: @Composable () -> Unit) {
+private fun SheetSection(section: TransactionSheetSection, rank: Int, content: @Composable () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().testTag(UiTags.sheetSection(section.key)),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(section.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        val surface = maggieSurface()
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(20.dp).background(surface.raised, CircleShape), contentAlignment = Alignment.Center) {
+                Text("$rank", fontSize = 11.sp, color = surface.textMuted)
+            }
+            Text(section.title.uppercase(Locale.FRENCH), fontSize = 12.sp, letterSpacing = 1.44.sp, color = surface.caption)
+        }
         content()
     }
 }
