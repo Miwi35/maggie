@@ -18,6 +18,8 @@ export interface ViewTask extends TaskData {
   /** Whole days late; null or absent when the task is not late. */
   overdueDays?: number | null
   orderScore?: number | null
+  /** Read-only (MAG-1033): IRI of the next occurrence, on the done occurrence of a series; null otherwise. */
+  nextOccurrence?: string | null
 }
 
 export type TaskCounts = Record<TaskView, number>
@@ -118,7 +120,7 @@ export function fetchOpenDueOn(day: string): Promise<ViewTask[]> {
 }
 
 /** Ticks a task off (`done`) or reopens it — one merge-patch on `completedAt`. */
-export async function setTaskDone(id: string, done: boolean): Promise<void> {
+export async function setTaskDone(id: string, done: boolean): Promise<ViewTask> {
   const response = await fetch(`${apiUrl}/tasks/${id.split('/').pop()}`, {
     method: 'PATCH',
     headers: headers({ 'Content-Type': 'application/merge-patch+json' }),
@@ -127,6 +129,8 @@ export async function setTaskDone(id: string, done: boolean): Promise<void> {
   if (!response.ok) {
     throw new Error(`Tâche : ${response.status}`)
   }
+
+  return (await response.json()) as ViewTask
 }
 
 /** Moves a task to `day` (`YYYY-MM-DD`), or takes its due day off (`null`) — one merge-patch on `dueDate`. */
