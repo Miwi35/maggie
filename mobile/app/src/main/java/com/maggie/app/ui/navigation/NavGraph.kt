@@ -63,6 +63,7 @@ import androidx.navigation.navArgument
 import com.maggie.app.data.auth.AuthRepository
 import com.maggie.app.data.auth.BiometricLockManager
 import com.maggie.app.ui.screens.lock.LockScreen
+import com.maggie.app.data.model.Proaction
 import com.maggie.app.data.model.ExpandedEvent
 import com.maggie.app.data.model.MODULE_AGENT
 import com.maggie.app.data.model.MODULE_COOKBOOK
@@ -1043,6 +1044,7 @@ fun NavGraph() {
     var deletingTask by remember { mutableStateOf<Task?>(null) }
     // One of Maggie's runs: kept by id and read from the calendar's list, so it follows a move and closes on a delete.
     var selectedProactionId by rememberSaveable { mutableStateOf<String?>(null) }
+    var proactionOccurrenceToDelete by remember { mutableStateOf<String?>(null) }
     var recurrenceConfirm by remember { mutableStateOf<Pair<ExpandedEvent, Boolean>?>(null) }
 
     // Transient state for edit screens
@@ -1102,7 +1104,17 @@ fun NavGraph() {
 
     val calendarUiState by calendarViewModel.uiState.collectAsState()
     val agendas = calendarUiState.agendas
-    val selectedProaction = calendarUiState.proactions.firstOrNull { it.id == selectedProactionId }
+    val selectedProaction = calendarViewModel.proactionFor(selectedProactionId)
+
+    // A pass of a series asks « Cet événement » or « Tous les événements » (ADR-012-1); a lone run goes straight away.
+    val deleteProaction: (Proaction) -> Unit = { proaction ->
+        selectedProactionId = null
+        if (calendarViewModel.isOccurrence(proaction.id)) {
+            proactionOccurrenceToDelete = proaction.id
+        } else {
+            calendarViewModel.deleteProaction(proaction.id)
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -1760,10 +1772,7 @@ fun NavGraph() {
                                     ProactionDetailContent(
                                         proaction = proaction,
                                         onMove = { calendarViewModel.moveProaction(proaction.id, it) },
-                                        onDelete = {
-                                            selectedProactionId = null
-                                            calendarViewModel.deleteProaction(proaction.id)
-                                        },
+                                        onDelete = { deleteProaction(proaction) },
                                         modifier = Modifier.verticalScroll(rememberScrollState()),
                                     )
                                 })
@@ -2753,10 +2762,7 @@ fun NavGraph() {
                 proaction = proaction,
                 onDismiss = { selectedProactionId = null },
                 onMove = { calendarViewModel.moveProaction(proaction.id, it) },
-                onDelete = {
-                    selectedProactionId = null
-                    calendarViewModel.deleteProaction(proaction.id)
-                },
+                onDelete = { deleteProaction(proaction) },
             )
         }
 
@@ -2779,6 +2785,18 @@ fun NavGraph() {
             subtaskCount = if (subtasksState.parentId == task.id) subtasksState.subtasks.size else 0,
             onConfirm = { deleteTask(task) },
             onDismiss = { deletingTask = null },
+        )
+    }
+
+    proactionOccurrenceToDelete?.let { occurrenceId ->
+        RecurrenceConfirmDialog(
+            isDelete = true,
+            actions = listOf(RecurrenceAction.THIS, RecurrenceAction.ALL),
+            onConfirm = { action ->
+                proactionOccurrenceToDelete = null
+                calendarViewModel.deleteProaction(occurrenceId, action)
+            },
+            onDismiss = { proactionOccurrenceToDelete = null },
         )
     }
 

@@ -10,6 +10,7 @@ import com.maggie.app.data.model.Meal
 import com.maggie.app.data.model.Period
 import com.maggie.app.data.model.MealSlot
 import com.maggie.app.data.model.Proaction
+import com.maggie.app.ui.screens.shared.RecurrenceAction
 import com.maggie.app.data.model.Task
 import com.maggie.app.data.model.UserPreference
 import com.maggie.app.data.repository.AgendaRepository
@@ -1032,6 +1033,132 @@ class CalendarViewModelTest {
 
         assertEquals("delete refused", viewModel.uiState.value.error)
         assertEquals(listOf("08:30 Rappel école"), viewModel.uiState.value.expandedEvents.map { it.summary })
+    }
+
+    private fun series(id: String = "01SER", startAt: String = "2026-05-29T18:00:00+02:00") =
+        proaction(id = id, summary = "Rappel hebdo", startAt = startAt).copy(rrule = "FREQ=WEEKLY;BYDAY=FR")
+
+    private fun instance(
+        status: String = "confirmed",
+        original: String = "2026-06-12T18:00:00+02:00",
+        startAt: String = original,
+        executionStatus: String = Proaction.STATUS_PENDING,
+    ) = proaction(id = "01INST", summary = "Rappel hebdo", startAt = startAt, executionStatus = executionStatus)
+        .copy(recurringEvent = "/api/proactions/01SER", originalStartAt = original, status = status)
+
+    private fun drawn(viewModel: FullCalendarViewModel) =
+        viewModel.uiState.value.expandedEvents.filter { it.agendaIri == "__proactions__" }
+
+    @Test
+    fun `a series of proactions that started before the range is read with the range`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(series(startAt = "2026-01-02T18:00:00+01:00")))
+
+        val viewModel = openJune()
+
+        val range = DateRanges.periodOfMonthGrid(june15).asRange()
+        coVerify { proactionRepository.getProactions(range.start.toString(), range.end.toString()) }
+        assertTrue(drawn(viewModel).isNotEmpty())
+    }
+
+    @Test
+    fun `a weekly series of proactions is drawn at each occurrence of the range`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(series()))
+
+        val viewModel = openJune()
+
+        val events = drawn(viewModel)
+        assertEquals(listOf("2026-06-05", "2026-06-12", "2026-06-19", "2026-06-26"), events.map { it.startAt!!.take(10) })
+        assertTrue(events.all { it.summary == "18:00 Rappel hebdo" && it.agendaName == "Maggie" })
+        assertEquals("01SER__2026-06-12T16:00:00Z", events[1].id)
+        assertEquals("2026-06-12T16:05:00Z", events[1].endAt)
+    }
+
+    @Test
+    fun `an instance replaces its occurrence and a cancelled one is not drawn`() = runTest {
+        stubRepositories()
+        val done = instance(executionStatus = Proaction.STATUS_COMPLETED)
+        val cancelled = instance(original = "2026-06-19T18:00:00+02:00", status = "cancelled").copy(id = "01CANC")
+        val moved = instance(original = "2026-06-26T18:00:00+02:00", startAt = "2026-06-27T09:00:00+02:00").copy(id = "01MOVED")
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(series(), done, cancelled, moved))
+
+        val viewModel = openJune()
+
+        val summaries = drawn(viewModel).associate { it.startAt!!.take(16) to it.summary }
+        assertEquals("18:00 Rappel hebdo ✓", summaries["2026-06-12T16:00"])
+        assertEquals(1, drawn(viewModel).count { it.startAt!!.startsWith("2026-06-12") })
+        assertFalse("2026-06-19T16:00" in summaries)
+        assertFalse("2026-06-26T16:00" in summaries)
+        assertEquals("09:00 Rappel hebdo", summaries["2026-06-27T07:00"])
+    }
+
+    @Test
+    fun `moving an occurrence of a series files its exception and leaves the series`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(series()))
+        coEvery { proactionRepository.moveOccurrence(any(), any(), any()) } returns Result.success(Unit)
+        val viewModel = openJune()
+
+        viewModel.moveProaction("01SER__2026-06-19T16:00:00Z", Instant.parse("2026-06-20T07:15:00Z"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { proactionRepository.moveOccurrence(match { it.id == "01SER" }, "2026-06-19T16:00:00Z", "2026-06-20T07:15:00Z") }
+        coVerify(exactly = 0) { proactionRepository.move(any(), any()) }
+    }
+
+    @Test
+    fun `deleting this occurrence files a cancelled exception and the next one stays`() = runTest {
+        stubRepositories()
+        var onServer = listOf(series())
+        coEvery { proactionRepository.getProactions(any(), any()) } answers { Result.success(onServer) }
+        coEvery { proactionRepository.cancelOccurrence(any(), any()) } answers {
+            onServer = listOf(series(), instance(original = "2026-06-19T18:00:00+02:00", status = "cancelled"))
+            Result.success(Unit)
+        }
+        val viewModel = openJune()
+
+        viewModel.deleteProaction("01SER__2026-06-19T16:00:00Z", RecurrenceAction.THIS)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { proactionRepository.cancelOccurrence(match { it.id == "01SER" }, "2026-06-19T16:00:00Z") }
+        coVerify(exactly = 0) { proactionRepository.delete(any()) }
+        val days = drawn(viewModel).map { it.startAt!!.take(10) }
+        assertFalse("2026-06-19" in days)
+        assertTrue("2026-06-26" in days)
+    }
+
+    @Test
+    fun `deleting all of a series deletes the series`() = runTest {
+        stubRepositories()
+        var onServer = listOf(series())
+        coEvery { proactionRepository.getProactions(any(), any()) } answers { Result.success(onServer) }
+        coEvery { proactionRepository.delete("01SER") } answers {
+            onServer = emptyList()
+            Result.success(Unit)
+        }
+        val viewModel = openJune()
+
+        viewModel.deleteProaction("01SER__2026-06-19T16:00:00Z", RecurrenceAction.ALL)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { proactionRepository.delete("01SER") }
+        coVerify(exactly = 0) { proactionRepository.cancelOccurrence(any(), any()) }
+        assertTrue(drawn(viewModel).isEmpty())
+    }
+
+    @Test
+    fun `the sheet of an occurrence opens on the series at the time of the occurrence`() = runTest {
+        stubRepositories()
+        coEvery { proactionRepository.getProactions(any(), any()) } returns Result.success(listOf(series()))
+        val viewModel = openJune()
+
+        val opened = viewModel.proactionFor("01SER__2026-06-19T16:00:00Z")!!
+
+        assertEquals("2026-06-19T16:00:00Z", opened.startAt)
+        assertEquals(Proaction.STATUS_PENDING, opened.executionStatus)
+        assertTrue(viewModel.isOccurrence("01SER__2026-06-19T16:00:00Z"))
+        assertFalse(viewModel.isOccurrence("01SER"))
     }
 
     @Test

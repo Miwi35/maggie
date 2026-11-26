@@ -3719,6 +3719,17 @@ class MaggieApiService(
         }.body<ApiCollection<Proaction>>().member
     }
 
+    /** The series that started before [before] (an ISO-8601 instant): their passes may fall in a range they did not start in. */
+    suspend fun getProactionSeries(before: String): List<Proaction> {
+        return client.get("$baseUrl/api/proactions") {
+            accept(ContentType("application", "ld+json"))
+            withoutPagination()
+            url.parameters.append("order[startAt]", "asc")
+            url.parameters.append("exists[rrule]", "true")
+            url.parameters.append("startAt[strictly_before]", before)
+        }.body<ApiCollection<Proaction>>().member
+    }
+
     // Periods (MAG-809, MAG-815): the custody, the holidays — a series is one row, `expand` unfolds it over a range.
     suspend fun getPeriods(): List<Period> {
         return client.get("$baseUrl/api/periods") {

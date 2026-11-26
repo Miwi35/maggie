@@ -20,7 +20,21 @@ data class Proaction(
     val response: String? = null,
     val error: String? = null,
     val completedAt: String? = null,
+    val rrule: String? = null,
+    val recurringEvent: String? = null,
+    val originalStartAt: String? = null,
+    val status: String = "confirmed",
 ) {
+    /** A series: one row that stands for each of its passes (ADR-012-1). */
+    val isSeries: Boolean get() = rrule != null
+
+    /** One pass of a series that was moved, cancelled or run; it replaces its occurrence. */
+    val isInstance: Boolean get() = recurringEvent != null
+    val isCancelled: Boolean get() = status == "cancelled"
+
+    /** The bare id of the series an instance belongs to, from its IRI. */
+    val seriesId: String? get() = recurringEvent?.substringAfterLast('/')
+
     val isCompleted: Boolean get() = executionStatus == STATUS_COMPLETED
     val isFailed: Boolean get() = executionStatus == STATUS_FAILED
 

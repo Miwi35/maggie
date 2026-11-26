@@ -49,4 +49,24 @@ class ProactionTest {
     fun `a proaction without a status is pending`() {
         assertEquals("pending", json.decodeFromString<Proaction>("""{"id":"x"}""").executionStatus)
     }
+
+    @Test
+    fun `a series, an instance and a cancelled pass are told apart`() {
+        val plain = Proaction(id = "01A")
+        val series = Proaction(id = "01SER", rrule = "FREQ=WEEKLY;BYDAY=FR")
+        val instance = Proaction(
+            id = "01INST",
+            recurringEvent = "/api/proactions/01SER",
+            originalStartAt = "2026-03-13T18:00:00+00:00",
+            status = "cancelled",
+        )
+
+        assertFalse(plain.isSeries || plain.isInstance || plain.isCancelled)
+        assertTrue(series.isSeries)
+        assertFalse(series.isInstance)
+        assertTrue(instance.isInstance)
+        assertTrue(instance.isCancelled)
+        assertEquals("01SER", instance.seriesId)
+        assertNull(plain.seriesId)
+    }
 }
