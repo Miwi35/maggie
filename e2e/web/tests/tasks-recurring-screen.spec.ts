@@ -14,8 +14,12 @@ import { TasksPage } from '../pages/TasksPage.js'
  * Then the API holds rrule FREQ=WEEKLY;INTERVAL=2;BYDAY=TU, its row carries ↻ « Répétée »,
  *   and its sheet reads « Répéter » « Un mardi sur deux »;
  * When I check its row,
- * Then the API has an open task of the same title on that Tuesday + 14 days with the same
- *   rule, the checked one has no rule, and the new row carries ↻.
+ * Then the row « Fait · prochaine le <Tuesday + 14 days> » shows, and the API has an open task
+ *   of the same title on that day with the same rule, the checked one having none (MAG-1039);
+ * When I click « Annuler »,
+ * Then the API holds one open task of that title only: the Tuesday, with the rule, unchecked, with ↻;
+ * When I check it again and the row closes (6 s),
+ * Then one open task of that title exists, on Tuesday + 14 days, and its row carries ↻.
  */
 
 test.use({ journeyAccount: 'empty' })
@@ -92,13 +96,49 @@ test('a task made to repeat every other Tuesday shows ↻ and its rule, and chec
   // When I check its row…
   await tasks.checkbox(title).click()
 
-  // …the next one is open fourteen days later with the same rule, and the done one has none.
+  // …the row says when the next one is, the API holds it fourteen days later with the same rule.
+  const afterTwoWeeks = daysFrom(tuesday, 14)
+  const [year, month, date] = afterTwoWeeks.split('-').map(Number)
+  const label = new Date(year, month - 1, date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  await expect(tasks.recurringDone).toContainText(`Fait · prochaine le ${label}`)
   const next = await waitForIndexed<StoredTask>(api, TASKS, (t) => title === t.title && null === (t.completedAt ?? null) && id !== t.id, {
     what: `The next "${title}"`,
   })
-  expect(next.scheduledDate?.slice(0, 10)).toBe(daysFrom(tuesday, 14))
+  expect(next.scheduledDate?.slice(0, 10)).toBe(afterTwoWeeks)
   expect(next.rrule).toBe(RULE)
   await expect.poll(async () => (await stored(api, id)).rrule ?? null).toBeNull()
   expect((await stored(api, id)).completedAt).not.toBeNull()
+
+  const openOnes = async (): Promise<StoredTask[]> => {
+    const response = await api.get(TASKS, { headers: { Accept: 'application/ld+json' } })
+    const members = ((await response.json()) as { member: StoredTask[] }).member
+
+    return members.filter((t) => title === t.title && null === (t.completedAt ?? null))
+  }
+
+  // When I click « Annuler », the series is given back.
+  await tasks.recurringDoneUndo.click()
+  await expect
+    .poll(async () => {
+      const open = await openOnes()
+
+      return 1 === open.length && id === open[0].id && RULE === open[0].rrule && tuesday === open[0].scheduledDate?.slice(0, 10)
+    })
+    .toBe(true)
+  await expect(tasks.recurringDone).toBeHidden()
+  await expect(tasks.checkbox(title)).not.toBeChecked()
+  await expect(tasks.repeatMark(tasks.row(title))).toBeVisible()
+
+  // When I check it again and the row closes, the series is at its next date.
+  await tasks.checkbox(title).click()
+  await expect(tasks.recurringDone).toBeVisible()
+  await expect(tasks.recurringDone).toBeHidden({ timeout: 10_000 })
+  await expect
+    .poll(async () => {
+      const open = await openOnes()
+
+      return 1 === open.length && afterTwoWeeks === open[0].scheduledDate?.slice(0, 10)
+    })
+    .toBe(true)
   await expect(tasks.repeatMark(tasks.row(title))).toBeVisible()
 })
