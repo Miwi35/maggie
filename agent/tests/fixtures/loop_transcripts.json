@@ -84,6 +84,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t1",
                   "type": "tool_result"
@@ -399,6 +402,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t0",
                   "type": "tool_result"
@@ -503,6 +509,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t1",
                   "type": "tool_result"
@@ -630,6 +639,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t2",
                   "type": "tool_result"
@@ -780,6 +792,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t3",
                   "type": "tool_result"
@@ -978,6 +993,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "text": "[Contrôle automatique] Ta réponse annonce un rappel, mais rien n'a été programmé pendant ce tour.",
                   "type": "text"
                 }
@@ -1257,6 +1275,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "text": "Un fait a été oublié.",
                   "type": "text"
                 }
@@ -1579,6 +1600,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"error\": \"boom\"}\n</donnees_externes>",
                   "tool_use_id": "f1",
                   "type": "tool_result"
@@ -1683,6 +1707,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"error\": \"boom\"}\n</donnees_externes>",
                   "tool_use_id": "f2",
                   "type": "tool_result"
@@ -1815,6 +1842,9 @@
                   "type": "tool_result"
                 },
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "text": "L'outil get_events a échoué 3 fois de suite dans ce tour. Dernière erreur : boom. Ne l'appelle plus. Réponds maintenant au propriétaire, avec tes mots et sans détail technique : ce qui n'a pas pu être fait, et pourquoi.",
                   "type": "text"
                 }
@@ -2036,6 +2066,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t1",
                   "type": "tool_result"
@@ -2501,6 +2534,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t1",
                   "type": "tool_result"
@@ -3673,6 +3709,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t0",
                   "type": "tool_result"
@@ -3797,6 +3836,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t1",
                   "type": "tool_result"
@@ -3949,6 +3991,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t2",
                   "type": "tool_result"
@@ -4129,6 +4174,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t3",
                   "type": "tool_result"
@@ -4419,6 +4467,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "text": "[Contrôle automatique] Ta réponse annonce un rappel, mais rien n'a été programmé pendant ce tour.",
                   "type": "text"
                 }
@@ -6007,6 +6058,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"error\": \"boom\"}\n</donnees_externes>",
                   "tool_use_id": "f1",
                   "type": "tool_result"
@@ -6121,6 +6175,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"error\": \"boom\"}\n</donnees_externes>",
                   "tool_use_id": "f2",
                   "type": "tool_result"
@@ -6263,6 +6320,9 @@
                   "type": "tool_result"
                 },
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "text": "L'outil get_events a échoué 3 fois de suite dans ce tour. Dernière erreur : boom. Ne l'appelle plus. Réponds maintenant au propriétaire, avec tes mots et sans détail technique : ce qui n'a pas pu être fait, et pourquoi.",
                   "type": "text"
                 }
@@ -6629,6 +6689,9 @@
             {
               "content": [
                 {
+                  "cache_control": {
+                    "type": "ephemeral"
+                  },
                   "content": "<donnees_externes source=\"outil\">\n{\"events\": []}\n</donnees_externes>",
                   "tool_use_id": "t1",
                   "type": "tool_result"
