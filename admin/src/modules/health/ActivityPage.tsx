@@ -16,7 +16,7 @@ import type { Workout } from './workoutFormat'
 const SPORT_PATH = '/workouts'
 const caption = { fontSize: 12, color: (theme: Theme) => theme.palette.veilleuse.caption } as const
 
-const activityCardSx = { ...cardSx, borderRadius: '22px', px: 2, py: 1.75 } as const
+const activityCardSx = { ...cardSx, borderRadius: '22px', p: '14px 16px' } as const
 const headerSx = { fontSize: 14, fontWeight: 400, color: 'text.secondary' } as const
 const rowSx = (theme: Theme) => ({ display: 'flex', alignItems: 'center', borderTop: `1px solid ${alpha(theme.palette.text.primary, 0.06)}` })
 
@@ -51,7 +51,7 @@ const StepsCard = ({ day }: { day: ActivityDay }) => {
   const gap = gapToGoal(projected, goal)
 
   return (
-    <Box component="section" aria-label="Pas du jour" sx={{ ...activityCardSx, p: 2.5, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+    <Box component="section" aria-label="Pas du jour" sx={{ ...activityCardSx, p: '20px', flexDirection: 'row', alignItems: 'center', gap: '24px' }}>
       <Box sx={{ position: 'relative', width: RING, height: RING, flexShrink: 0 }} data-testid="activity-ring">
         <svg width={RING} height={RING} aria-hidden="true">
           <Box component="g" sx={(theme) => ({ color: theme.palette.veilleuse.track })}>
@@ -223,7 +223,7 @@ const SessionsCard = ({ day }: { day: ActivityDay }) => {
   const header = [done > 0 && `${done} ${done > 1 ? 'faites' : 'faite'}`, planned > 0 && `${planned} ${planned > 1 ? 'prévues' : 'prévue'}`].filter(Boolean).join(' · ')
 
   return (
-    <Box component="section" aria-label="Sessions actives" sx={{ ...activityCardSx, pb: 0.5 }}>
+    <Box component="section" aria-label="Sessions actives" sx={{ ...activityCardSx, pb: '4px' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Typography component="span" sx={headerSx}>
           Sessions actives

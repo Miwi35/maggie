@@ -182,6 +182,16 @@ describe('ActivityPage', () => {
     }
   })
 
+  test('card paddings are written in px: 20 px, then 14 × 16 px, with 24 px between ring and texts', async () => {
+    stub()
+    renderPage()
+
+    const steps = await screen.findByRole('region', { name: 'Pas du jour' })
+    expect(steps).toHaveStyle({ padding: '20px', gap: '24px' })
+    expect(await screen.findByRole('region', { name: '7 jours' })).toHaveStyle({ padding: '14px 16px' })
+    expect(await screen.findByRole('region', { name: 'Sessions actives' })).toHaveStyle({ paddingTop: '14px', paddingLeft: '16px' })
+  })
+
   test('Relier is a tinted coral pill of 36 px', async () => {
     stub({ profile: { ...PROFILE, stepSource: 'none' }, todaySteps: null })
     renderPage()
