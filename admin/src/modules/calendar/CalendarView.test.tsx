@@ -156,7 +156,7 @@ describe('CalendarView', () => {
       expect(reads()).toEqual(['events', 'events'])
     })
 
-    test('reads a task, a meal or a run of Maggie with one request', { timeout: 15_000 }, async () => {
+    test('reads a task or a meal with one request, a run of Maggie with two (range and series)', { timeout: 15_000 }, async () => {
       let served = 0
       mockGetList.mockImplementation((resource: string) =>
         Promise.resolve({ data: 'agendas' === resource ? [] : [{ id: `/api/x/${served++}` }], total: 1 }),
@@ -169,7 +169,8 @@ describe('CalendarView', () => {
         await waitFor(() => expect(range()).toBeGreaterThan(0), { timeout: 3_000 })
         await new Promise((resolve) => setTimeout(resolve, 300))
 
-        expect(reads()).toEqual([kind])
+        // Proactions: the range, and the series started before it.
+        expect(reads()).toEqual('proactions' === kind ? [kind, kind] : [kind])
       }
     })
 

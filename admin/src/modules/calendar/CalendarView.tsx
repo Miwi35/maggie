@@ -238,6 +238,7 @@ interface CalendarProaction {
   originalStartAt?: string | null
   status?: string
   timeZone?: string
+  agenda?: string
 }
 
 type RecurrenceAction = 'this' | 'thisAndFollowing' | 'all'
@@ -1276,6 +1277,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
                 masterEventId: virtual.master.id,
                 occurrenceStart: virtual.occurrence,
                 rrule: virtual.master.rrule,
+                calendarIri: virtual.master.agenda,
               }
             : {}),
         },
@@ -1554,7 +1556,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             eventId,
             masterEventId: popoverEvent.masterEventId,
             occurrenceStart: occurrence,
-            calendarIri: '',
+            calendarIri: popoverEvent.calendarIri ?? '',
             summary: popoverEvent.title,
             rrule: popoverEvent.rrule || '',
             allDay: false,
@@ -1762,7 +1764,10 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
               data: {
                 recurringEvent: eventIri(proactionUlid(event.extendedProps.masterEventId)),
                 originalStartAt: event.extendedProps.occurrenceStart,
+                summary: event.extendedProps.summary,
+                agenda: event.extendedProps.calendarIri,
                 startAt: event.start?.toISOString(),
+                endAt: event.end?.toISOString() ?? new Date((event.start?.getTime() ?? 0) + 5 * 60_000).toISOString(),
               },
             })
             .then(() => {
@@ -1852,7 +1857,10 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             data: {
               recurringEvent: eventIri(proactionUlid(masterEventId)),
               originalStartAt: occurrenceStart,
+              summary,
+              agenda: calendarIri,
               startAt: occurrenceStart,
+              endAt: new Date(new Date(occurrenceStart).getTime() + 5 * 60_000).toISOString(),
               status: 'cancelled',
             },
           })

@@ -395,11 +395,20 @@ describe('CalendarView — series of proactions (MAG-1040)', { timeout: 60_000 }
       isVirtualOccurrence: true,
       masterEventId: SERIES,
       occurrenceStart: day(0).toISOString(),
+      summary: 'Point du vendredi',
+      calendarIri: '/api/agendas/01MAGGIE',
     })
 
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith('events', {
-        data: { recurringEvent: '/api/events/01SERIE', originalStartAt: day(0).toISOString(), startAt: moved.toISOString() },
+        data: expect.objectContaining({
+          recurringEvent: '/api/events/01SERIE',
+          originalStartAt: day(0).toISOString(),
+          startAt: moved.toISOString(),
+          summary: 'Point du vendredi',
+          agenda: '/api/agendas/01MAGGIE',
+          endAt: expect.any(String),
+        }),
       }),
     )
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -431,7 +440,10 @@ describe('CalendarView — series of proactions (MAG-1040)', { timeout: 60_000 }
         data: {
           recurringEvent: '/api/events/01SERIE',
           originalStartAt: expect.any(String),
+          summary: 'Point du vendredi',
+          agenda: '/api/agendas/01MAGGIE',
           startAt: expect.any(String),
+          endAt: expect.any(String),
           status: 'cancelled',
         },
       }),
