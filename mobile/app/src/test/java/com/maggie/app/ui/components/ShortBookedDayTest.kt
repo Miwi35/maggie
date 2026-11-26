@@ -27,4 +27,20 @@ class ShortBookedDayTest {
         assertNull(formatShortBookedDay(null, today))
         assertEquals("bientôt", formatShortBookedDay("bientôt", today))
     }
+
+    @Test
+    fun `the long day reads « 2 septembre » this year and « 2 septembre 2025 » before`() {
+        assertEquals("2 septembre", formatLongBookedDay("2026-09-02", today))
+        assertEquals("2 septembre 2025", formatLongBookedDay("2025-09-02", today))
+    }
+
+    @Test
+    fun `the long day takes a date-time`() {
+        assertEquals("20 octobre", formatLongBookedDay("2026-10-20T00:00:00+00:00", today))
+    }
+
+    @Test
+    fun `the long day is null without a date`() {
+        assertNull(formatLongBookedDay(null, today))
+    }
 }
