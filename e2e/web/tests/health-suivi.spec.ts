@@ -96,8 +96,8 @@ test('Santé › Suivi opens on today’s balance, which opens Santé › Nutrit
  *
  * Given le seed et un lot `POST /api/health/sync` (aujourd'hui 4 380 pas, une marche faite de 25 min),
  * When j'ouvre Santé › Activité depuis le menu,
- * Then l'anneau affiche 4 380 / 8 000, la ligne « À ce rythme » est présente,
- * And « Sessions actives » montre la marche avec « Fait ».
+ * Then l'anneau affiche 4 380 / 8 000, la carte « Pas du jour » n'a plus de titre et affiche « Pas · aujourd'hui à »,
+ * And « Sessions actives » montre la marche de 25 min avec la pastille « Fait » (MAG-1046).
  */
 test('Santé › Activité shows the synced steps against the goal and the walk as done — MAG-897', async ({ page, api }) => {
   const today = parisDay(e2eNow())
@@ -128,5 +128,9 @@ test('Santé › Activité shows the synced steps against the goal and the walk 
   await expect(suivi.activityRing).toContainText(/8\s000/)
   await expect(page.getByTestId('activity-projection')).toContainText('À ce rythme')
   const session = suivi.activitySessions.getByTestId('activity-session').filter({ hasText: title })
-  await expect(session).toContainText('Fait')
+  await expect(session).toContainText('25 min')
+  await expect(session.getByTestId('activity-session-state')).toHaveText('Fait')
+  const stepsCard = page.getByRole('region', { name: 'Pas du jour' })
+  await expect(stepsCard).toContainText('Pas · aujourd’hui à')
+  await expect(stepsCard.getByText('Pas du jour', { exact: true })).toHaveCount(0)
 })

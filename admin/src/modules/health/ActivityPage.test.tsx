@@ -161,4 +161,64 @@ describe('ActivityPage', () => {
 
     expect(await screen.findByText('Aucune session aujourd’hui')).toBeInTheDocument()
   })
+
+  test('Pas du jour has no title and puts the ring beside « Pas · aujourd’hui à 12 h 40 »', async () => {
+    stub()
+    renderPage()
+
+    const card = await screen.findByRole('region', { name: 'Pas du jour' })
+    expect(within(card).queryByText('Pas du jour')).not.toBeInTheDocument()
+    expect(within(card).getByText(/Pas · aujourd’hui à 12 h 40/)).toHaveStyle({ fontSize: '14px' })
+    expect(within(card).getByTestId('activity-projection')).toHaveStyle({ fontSize: '15px' })
+    expect(card).toHaveStyle({ flexDirection: 'row' })
+  })
+
+  test('every card is rounded to 22 px', async () => {
+    stub()
+    renderPage()
+
+    for (const name of ['Pas du jour', '7 jours', 'Sessions actives']) {
+      expect(await screen.findByRole('region', { name })).toHaveStyle({ borderRadius: '22px' })
+    }
+  })
+
+  test('Relier is a tinted coral pill of 36 px', async () => {
+    stub({ profile: { ...PROFILE, stepSource: 'none' }, todaySteps: null })
+    renderPage()
+
+    const relier = await screen.findByRole('button', { name: 'Relier' })
+    expect(relier).toHaveStyle({ height: '36px', borderRadius: '999px' })
+    expect(relier).not.toHaveClass('MuiButton-outlined')
+  })
+
+  test('week bars are coral: today full, at goal 55 %, under 28 %, auj. not bold', async () => {
+    stub({ todaySteps: 9000 })
+    renderPage()
+
+    const bars = await screen.findAllByTestId('week-bar')
+    const fill = (bar: HTMLElement) => getComputedStyle(bar.firstElementChild as Element).backgroundColor
+    const today = fill(bars[bars.length - 1])
+    expect(today).not.toMatch(/rgba/)
+    expect(fill(bars[0])).toMatch(/rgba\(.*,\s*0\.28\)/)
+    expect(screen.getByText('auj.')).toHaveStyle({ fontWeight: '400', fontSize: '11px' })
+  })
+
+  test('a session row shows its duration under the title and a Fait or Prévue pill', async () => {
+    stub({ workouts: [workout('1', 'walk', 'watch', 'Marche matinale', 9), workout('2', 'bike', 'planned', 'Vélo', 17)] })
+    renderPage()
+
+    const rows = await screen.findAllByTestId('activity-session')
+    expect(within(rows[0]).getByTestId('activity-session-state')).toHaveTextContent('Fait')
+    expect(within(rows[0]).getByText('25 min')).toBeInTheDocument()
+    expect(within(rows[1]).getByTestId('activity-session-state')).toHaveTextContent('Prévue')
+    expect(rows[0]).toHaveStyle({ opacity: '1' })
+    expect(rows[1]).toHaveStyle({ opacity: '0.8' })
+  })
+
+  test('the sessions column keeps 76 px under it', async () => {
+    stub()
+    renderPage()
+
+    expect(await screen.findByTestId('activity-sessions-column')).toHaveStyle({ paddingBottom: '76px' })
+  })
 })

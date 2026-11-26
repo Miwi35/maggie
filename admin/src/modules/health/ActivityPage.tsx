@@ -16,6 +16,10 @@ import type { Workout } from './workoutFormat'
 const SPORT_PATH = '/workouts'
 const caption = { fontSize: 12, color: (theme: Theme) => theme.palette.veilleuse.caption } as const
 
+const activityCardSx = { ...cardSx, borderRadius: '22px', px: 2, py: 1.75 } as const
+const headerSx = { fontSize: 14, fontWeight: 400, color: 'text.secondary' } as const
+const rowSx = (theme: Theme) => ({ display: 'flex', alignItems: 'center', borderTop: `1px solid ${alpha(theme.palette.text.primary, 0.06)}` })
+
 const RING = 168
 const STROKE = 14
 const RADIUS = (RING - STROKE) / 2
@@ -47,45 +51,57 @@ const StepsCard = ({ day }: { day: ActivityDay }) => {
   const gap = gapToGoal(projected, goal)
 
   return (
-    <Box component="section" aria-label="Pas du jour" sx={cardSx}>
-      <Typography sx={{ fontSize: 15, fontWeight: 500 }}>Pas du jour</Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, py: 1 }}>
-        <Box sx={{ position: 'relative', width: RING, height: RING }} data-testid="activity-ring">
-          <svg width={RING} height={RING} aria-hidden="true">
-            <Box component="g" sx={(theme) => ({ color: theme.palette.veilleuse.track })}>
-              <Arc share={1} color="currentColor" />
-            </Box>
-            {!noSource && projected !== null && goal > 0 && (
-              <Box component="g" sx={(theme) => ({ color: alpha(theme.palette.module.sport, 0.3) })}>
-                <Arc share={projected / goal} color="currentColor" label="ring-projection" />
-              </Box>
-            )}
-            {!noSource && goal > 0 && (
-              <Box component="g" sx={(theme) => ({ color: theme.palette.module.sport })}>
-                <Arc share={steps / goal} color="currentColor" label="ring-done" />
-              </Box>
-            )}
-          </svg>
-          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography component="span" data-testid="activity-steps" sx={{ fontSize: 30, fontWeight: 300 }}>
-              {noSource ? NONE : formatInteger(steps)}
-            </Typography>
-            <Typography component="span" sx={caption}>
-              / {formatInteger(goal)}
-            </Typography>
+    <Box component="section" aria-label="Pas du jour" sx={{ ...activityCardSx, p: 2.5, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+      <Box sx={{ position: 'relative', width: RING, height: RING, flexShrink: 0 }} data-testid="activity-ring">
+        <svg width={RING} height={RING} aria-hidden="true">
+          <Box component="g" sx={(theme) => ({ color: theme.palette.veilleuse.track })}>
+            <Arc share={1} color="currentColor" />
           </Box>
+          {!noSource && projected !== null && goal > 0 && (
+            <Box component="g" sx={(theme) => ({ color: alpha(theme.palette.module.sport, 0.3) })}>
+              <Arc share={projected / goal} color="currentColor" label="ring-projection" />
+            </Box>
+          )}
+          {!noSource && goal > 0 && (
+            <Box component="g" sx={(theme) => ({ color: theme.palette.module.sport })}>
+              <Arc share={steps / goal} color="currentColor" label="ring-done" />
+            </Box>
+          )}
+        </svg>
+        <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography component="span" data-testid="activity-steps" sx={{ fontSize: 30, fontWeight: 400, letterSpacing: '-0.02em' }}>
+            {noSource ? NONE : formatInteger(steps)}
+          </Typography>
+          <Typography component="span" sx={caption}>
+            / {formatInteger(goal)}
+          </Typography>
         </Box>
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 0 }}>
         {noSource ? (
           <>
             <Typography sx={caption}>Aucune source de pas</Typography>
-            <Button size="small" variant="outlined" onClick={() => navigate(HEALTH_CONFIGURATION_PATH)}>
+            <Button
+              disableElevation
+              variant="text"
+              onClick={() => navigate(HEALTH_CONFIGURATION_PATH)}
+              sx={(theme) => ({
+                alignSelf: 'flex-start',
+                height: 36,
+                borderRadius: '999px',
+                px: 2,
+                fontSize: 14,
+                bgcolor: alpha(theme.palette.module.sport, 0.16),
+                color: theme.palette.module.sport,
+              })}
+            >
               Relier
             </Button>
           </>
         ) : (
           <>
-            <Typography sx={caption}>Pas · aujourd’hui à {spokenClock(parisClock(now))}</Typography>
-            <Typography data-testid="activity-projection" sx={{ fontSize: 14 }}>
+            <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>Pas · aujourd’hui à {spokenClock(parisClock(now))}</Typography>
+            <Typography data-testid="activity-projection" sx={{ fontSize: 15 }}>
               À ce rythme : {projected === null ? NONE : `~${formatInteger(projected)} / ${formatInteger(goal)} à ${endLabel}`}
             </Typography>
             {gap !== null && (
@@ -105,17 +121,19 @@ const WeekCard = ({ day }: { day: ActivityDay }) => {
   const { bars, goalHeight } = weekBars(day.week, goal, day.today)
 
   return (
-    <Box component="section" aria-label="7 jours" sx={cardSx}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 15, fontWeight: 500 }}>
-        <span>7 jours</span>
-        <Typography component="span" sx={{ ...caption, fontWeight: 400 }}>
+    <Box component="section" aria-label="7 jours" sx={{ ...activityCardSx, flexGrow: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Typography component="span" sx={headerSx}>
+          7 jours
+        </Typography>
+        <Typography component="span" sx={caption}>
           objectif {formatInteger(goal)}
         </Typography>
       </Box>
-      <Box sx={{ position: 'relative', height: 140, display: 'flex', alignItems: 'flex-end', gap: 1 }}>
+      <Box sx={{ position: 'relative', height: 150, display: 'flex', alignItems: 'flex-end', gap: 1 }}>
         <Box
           data-testid="week-goal-line"
-          sx={(theme) => ({ position: 'absolute', left: 0, right: 0, bottom: `${goalHeight}%`, borderTop: `1px dashed ${theme.palette.veilleuse.caption}` })}
+          sx={(theme) => ({ position: 'absolute', left: 0, right: 0, bottom: `${goalHeight}%`, borderTop: `1px dashed ${alpha(theme.palette.text.primary, 0.22)}` })}
         />
         {bars.map((bar) => (
           <Box
@@ -129,8 +147,7 @@ const WeekCard = ({ day }: { day: ActivityDay }) => {
                 width: '100%',
                 height: `${bar.height.toFixed(1)}%`,
                 borderRadius: '3px 3px 1px 1px',
-                bgcolor: bar.today || bar.atGoal ? theme.palette.module.sport : alpha(theme.palette.module.sport, 0.45),
-                opacity: bar.today || bar.atGoal ? 1 : 0.9,
+                bgcolor: bar.today ? theme.palette.module.sport : alpha(theme.palette.module.sport, bar.atGoal ? 0.55 : 0.28),
               })}
             />
           </Box>
@@ -138,7 +155,7 @@ const WeekCard = ({ day }: { day: ActivityDay }) => {
       </Box>
       <Box sx={{ display: 'flex', gap: 1 }}>
         {bars.map((bar) => (
-          <Typography key={bar.date} component="span" sx={{ ...caption, flex: '1 1 0', textAlign: 'center', fontWeight: bar.today ? 600 : 400 }}>
+          <Typography key={bar.date} component="span" sx={{ ...caption, fontSize: 11, flex: '1 1 0', textAlign: 'center', fontWeight: 400 }}>
             {bar.label}
           </Typography>
         ))}
@@ -158,24 +175,41 @@ const SessionRow = ({ workout }: { workout: Workout }) => {
   const kcal = kcalLabel(workout)
 
   return (
-    <Box data-testid="activity-session" sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', opacity: planned ? 0.65 : 1 }}>
-      <Typography component="span" sx={caption}>
+    <Box data-testid="activity-session" sx={(theme) => ({ ...rowSx(theme), minHeight: 56, gap: 1.5, opacity: planned ? 0.8 : 1 })}>
+      <Typography component="span" sx={{ width: 46, flexShrink: 0, fontSize: 13, color: 'text.secondary' }}>
         {parisClock(new Date(workout.startedAt))}
       </Typography>
-      <Typography component="span" sx={{ flex: 1, fontSize: 14, minWidth: 0 }}>
-        {workout.title}
-      </Typography>
-      <Typography component="span" sx={caption}>
-        {workout.durationMinutes} min
-      </Typography>
-      {kcal && (
-        <Typography component="span" sx={caption}>
-          {kcal}
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Typography component="span" sx={{ fontSize: 15 }}>
+          {workout.title}
         </Typography>
-      )}
-      <Typography component="span" sx={{ fontSize: 12, fontWeight: 500 }}>
-        {planned ? 'Prévue' : 'Fait'}
-      </Typography>
+        <Typography component="span" sx={caption}>
+          {workout.durationMinutes} min
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+        {kcal && (
+          <Typography component="span" sx={{ fontSize: 13, color: 'text.secondary' }}>
+            {kcal}
+          </Typography>
+        )}
+        <Box
+          component="span"
+          data-testid="activity-session-state"
+          sx={(theme) => ({
+            display: 'inline-flex',
+            alignItems: 'center',
+            height: 22,
+            px: 1,
+            borderRadius: '999px',
+            fontSize: 11,
+            bgcolor: alpha(theme.palette.text.primary, 0.06),
+            color: planned ? theme.palette.text.secondary : theme.palette.success.main,
+          })}
+        >
+          {planned ? 'Prévue' : 'Fait'}
+        </Box>
+      </Box>
     </Box>
   )
 }
@@ -189,11 +223,13 @@ const SessionsCard = ({ day }: { day: ActivityDay }) => {
   const header = [done > 0 && `${done} ${done > 1 ? 'faites' : 'faite'}`, planned > 0 && `${planned} ${planned > 1 ? 'prévues' : 'prévue'}`].filter(Boolean).join(' · ')
 
   return (
-    <Box component="section" aria-label="Sessions actives" sx={cardSx}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 15, fontWeight: 500 }}>
-        <span>Sessions actives</span>
+    <Box component="section" aria-label="Sessions actives" sx={{ ...activityCardSx, pb: 0.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Typography component="span" sx={headerSx}>
+          Sessions actives
+        </Typography>
         {header && (
-          <Typography component="span" sx={{ ...caption, fontWeight: 400 }}>
+          <Typography component="span" sx={caption}>
             {header}
           </Typography>
         )}
@@ -203,14 +239,14 @@ const SessionsCard = ({ day }: { day: ActivityDay }) => {
         <SessionRow key={workout.id} workout={workout} />
       ))}
       {cited.map((workout) => (
-        <Box key={workout.id} data-testid="activity-sport-session" sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline' }}>
-          <Typography component="span" sx={caption}>
+        <Box key={workout.id} data-testid="activity-sport-session" sx={(theme) => ({ ...rowSx(theme), minHeight: 44, gap: 1.5 })}>
+          <Typography component="span" sx={{ ...caption, fontSize: 13, width: 46, flexShrink: 0 }}>
             {parisClock(new Date(workout.startedAt))}
           </Typography>
-          <Typography component="span" sx={{ flex: 1, fontSize: 14 }}>
+          <Typography component="span" sx={{ ...caption, fontSize: 13, flex: 1, minWidth: 0 }}>
             Séance prévue · {workout.title}
           </Typography>
-          <Button size="small" onClick={() => navigate(SPORT_PATH)}>
+          <Button variant="text" size="small" onClick={() => navigate(SPORT_PATH)} sx={(theme) => ({ color: theme.palette.module.sport, fontSize: 13 })}>
             Sport ›
           </Button>
         </Box>
@@ -240,12 +276,14 @@ export const ActivityPage = () => {
   }
 
   return (
-    <Box data-testid="activity-board" sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1.75, py: 1, alignItems: 'start' }}>
+    <Box data-testid="activity-board" sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1.75, py: 1, alignItems: 'stretch' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, minWidth: 0 }}>
         <StepsCard day={state} />
         <WeekCard day={state} />
       </Box>
-      <SessionsCard day={state} />
+      <Box data-testid="activity-sessions-column" sx={{ pb: '76px', minWidth: 0 }}>
+        <SessionsCard day={state} />
+      </Box>
     </Box>
   )
 }
