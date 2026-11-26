@@ -3,7 +3,7 @@ import { render as renderInto, screen, waitFor, within } from '@testing-library/
 import type { ReactElement } from 'react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
-import { TaskBoard } from './TaskBoard'
+import { RECURRING_DONE_MS, TaskBoard } from './TaskBoard'
 import { TaskStockRedirect } from './TaskStockRedirect'
 import type { ViewTask } from './taskViews'
 import { resetMorningOffer } from './dayPlan'
@@ -806,6 +806,182 @@ describe('TaskBoard', () => {
       expect(url).toBe('http://localhost/api/tasks/01MOVING')
       expect(JSON.parse(init!.body as string)).toEqual({ completedAt: '2026-10-15T08:00:00.000Z' })
       expect(mockNotify).toHaveBeenCalledWith('Tâche terminée', { type: 'success' })
+    })
+
+    describe('a repeated task ticked in « Tâches » (MAG-1033)', () => {
+      let upcoming: ViewTask[]
+      let nextOccurrence: string | null
+      let patchStatus: number[]
+
+      const patches = () =>
+        mockFetch.mock.calls.filter(([, i]) => i?.method === 'PATCH').map(([, i]) => JSON.parse(i!.body as string) as { completedAt: string | null })
+      const upcomingReads = () => viewCalls().filter((url) => url.includes('/upcoming')).length
+      const flush = () => vi.advanceTimersByTimeAsync(0)
+      const row = () => screen.queryByTestId('task-recurring-done')
+      const tick = async (user: ReturnType<typeof setup>) => {
+        await user.click(await screen.findByRole('checkbox', { name: 'Terminer Sortir la poubelle' }))
+        await flush()
+      }
+
+      beforeEach(() => {
+        vi.useRealTimers()
+        vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+        vi.setSystemTime(new Date(2026, 9, 15, 10, 0))
+        // Testing Library only advances faked timers in waitFor when it sees a `jest` global.
+        vi.stubGlobal('jest', { advanceTimersByTime: vi.advanceTimersByTime })
+        upcoming = VIEWS.upcoming
+        VIEWS.upcoming = [
+          task('01BIN', 'Sortir la poubelle', { rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU', scheduledDate: '2026-10-20' }),
+          task('01OTHER', 'Appeler le garage'),
+        ]
+        nextOccurrence = '/api/tasks/01NEXT'
+        patchStatus = []
+        boardUrl = '/tasks/stock'
+        mockFetch.mockImplementation((url, init) => {
+          const u = String(url)
+          if (init?.method === 'PATCH' && u.endsWith('/tasks/01BIN')) {
+            const status = patchStatus.shift() ?? 200
+            if (status !== 200) return Promise.resolve(json({}, status))
+            const { completedAt } = JSON.parse(init.body as string) as { completedAt: string | null }
+            return Promise.resolve(json({ ...VIEWS.upcoming[0], completedAt, nextOccurrence: completedAt ? nextOccurrence : null }))
+          }
+          if (u.endsWith('/tasks/01NEXT')) return Promise.resolve(json(task('01NEXT', 'Sortir la poubelle', { scheduledDate: '2026-12-08' })))
+          return Promise.resolve(respond(u, init))
+        })
+      })
+
+      afterEach(() => {
+        VIEWS.upcoming = upcoming
+      })
+
+      test('is struck at once and says « Fait · prochaine le 8 déc. » with Annuler', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        expect(screen.getByRole('checkbox', { name: 'Rouvrir Sortir la poubelle' })).toBeChecked()
+        expect(row()).toHaveTextContent('Fait · prochaine le 8 déc.')
+        expect(within(row()!).getByRole('button', { name: 'Annuler' })).toBeInTheDocument()
+        expect(patches()).toHaveLength(1)
+        expect(upcomingReads()).toBe(1)
+      })
+
+      test('a push while the row shows does not read Tâches again; it is read once the row closes', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        MockEventSource.last!.onmessage!(new MessageEvent('message', { data: '{}' }))
+        await flush()
+        expect(upcomingReads()).toBe(1)
+        expect(screen.getByRole('checkbox', { name: 'Rouvrir Sortir la poubelle' })).toBeChecked()
+
+        await vi.advanceTimersByTimeAsync(RECURRING_DONE_MS)
+        expect(upcomingReads()).toBe(2)
+      })
+
+      test('the row closes on its own after 6 s and Tâches is read again', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        await vi.advanceTimersByTimeAsync(RECURRING_DONE_MS - 1)
+        expect(row()).not.toBeNull()
+        await vi.advanceTimersByTimeAsync(1)
+        expect(row()).toBeNull()
+        expect(upcomingReads()).toBe(2)
+      })
+
+      test('Annuler sends completedAt null on the occurrence and reads Tâches again', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        await user.click(within(row()!).getByRole('button', { name: 'Annuler' }))
+        await flush()
+
+        expect(patches().map((p) => p.completedAt === null)).toEqual([false, true])
+        expect(row()).toBeNull()
+        expect(upcomingReads()).toBe(2)
+      })
+
+      test('ticking the struck row again is Annuler', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        await user.click(screen.getByRole('checkbox', { name: 'Rouvrir Sortir la poubelle' }))
+        await flush()
+
+        expect(patches().map((p) => p.completedAt === null)).toEqual([false, true])
+        expect(row()).toBeNull()
+      })
+
+      test('ticking another row closes the row', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        await user.click(screen.getByRole('checkbox', { name: 'Terminer Appeler le garage' }))
+        await flush()
+
+        expect(row()).toBeNull()
+        expect(upcomingReads()).toBeGreaterThanOrEqual(2)
+      })
+
+      test('with no next occurrence it says Fait only', async () => {
+        nextOccurrence = null
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        expect(row()).toHaveTextContent(/^Fait\s*Annuler$/)
+      })
+
+      test('the reward banner still shows, the « Tâche terminée » toast does not', async () => {
+        rewards = { '01BIN': reward('01BIN', 'Bravo la poubelle') }
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        await waitFor(() => expect(document.body).toHaveTextContent('Sortir la poubelle · faite — Bravo la poubelle'))
+        expect(mockNotify).not.toHaveBeenCalledWith('Tâche terminée', expect.anything())
+      })
+
+      test('a tick that fails puts the row back and says « Impossible de modifier la tâche. »', async () => {
+        patchStatus = [500]
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        expect(mockNotify).toHaveBeenCalledWith('Impossible de modifier la tâche.', { type: 'error' })
+        expect(screen.getByRole('checkbox', { name: 'Terminer Sortir la poubelle' })).not.toBeChecked()
+        expect(row()).toBeNull()
+      })
+
+      test("an undo that fails says « Impossible d'annuler. » and reads Tâches again", async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await tick(user)
+
+        patchStatus = [500]
+        await user.click(within(row()!).getByRole('button', { name: 'Annuler' }))
+        await flush()
+
+        expect(mockNotify).toHaveBeenCalledWith("Impossible d'annuler.", { type: 'error' })
+        expect(row()).toBeNull()
+        expect(upcomingReads()).toBe(2)
+      })
+
+      test('a task without a rule keeps the usual tick: no row', async () => {
+        const user = setup()
+        render(<TaskBoard />)
+        await user.click(await screen.findByRole('checkbox', { name: 'Terminer Appeler le garage' }))
+        await flush()
+
+        expect(row()).toBeNull()
+        expect(mockNotify).toHaveBeenCalledWith('Tâche terminée', { type: 'success' })
+      })
     })
 
     test('unticking a done task sends completedAt null', async () => {

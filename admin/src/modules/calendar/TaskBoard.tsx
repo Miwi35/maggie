@@ -22,11 +22,14 @@ import { claimMorning, dayTasks, fetchDayPlan, fetchDayTimes, morningDue } from 
 import type { DayPlan } from './dayPlan'
 import { DEFAULT_CHEER, fetchReward, fetchRewardCheer, parseReward, playBravoSound } from './reward'
 import type { Reward, RewardCheer } from './reward'
-import { groupStock } from './taskStock'
+import { doneLabel, groupStock } from './taskStock'
 import { fetchTask, fetchTaskView, findTaskView, setTaskDone, TASK_TOPICS } from './taskViews'
 import type { TaskView, ViewTask } from './taskViews'
 
 const PAGE_SIZE = 30
+
+/** How long « Fait · prochaine le … » stays (MAG-1033). */
+export const RECURRING_DONE_MS = 6_000
 
 /** The views of the tasks, each a route (MAG-644): « Tâches » reads « À venir » and « Un jour » together (MAG-1007). The routines (MAG-511) are no tasks. */
 type BoardView = 'today' | 'stock' | 'done' | 'routines'
@@ -103,6 +106,12 @@ const TasksPage = ({ view }: TasksPageProps) => {
   const [cheer, setCheer] = useState<RewardCheer>(DEFAULT_CHEER)
   const [palier, setPalier] = useState<Reward | null>(null)
   const [banner, setBanner] = useState<{ title: string; reward: Reward | null }>({ title: '', reward: null })
+  const [recurringDone, setRecurringDone] = useState<{ taskId: string; next: string | null } | null>(null)
+  // Refs: callbacks that outlive a render read the state of now (MAG-1033).
+  const rowRef = useRef<{ taskId: string; next: string | null } | null>(null)
+  const ticking = useRef<string | null>(null)
+  const held = useRef(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const today = localDay(new Date())
 
@@ -245,7 +254,12 @@ const TasksPage = ({ view }: TasksPageProps) => {
       .catch(console.error)
   }, [target, ready, listedIds, view, page, navigate])
 
+  // While a repeated task is being ticked or its row shows, a read would bring the series back: it waits.
   const reload = useCallback(() => {
+    if (rowRef.current || ticking.current) {
+      held.current = true
+      return
+    }
     loadRef.current()
     loadDayRef.current()
   }, [])
@@ -281,8 +295,90 @@ const TasksPage = ({ view }: TasksPageProps) => {
     fetchRewardCheer().then(setCheer)
   }, [])
 
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current)
+    },
+    [],
+  )
+
+  const strike = (id: string, completedAt: string | null) => {
+    const apply = (list: ViewTask[]) => list.map((t) => (t.id === id ? { ...t, completedAt } : t))
+    setStock((current) => ({ upcoming: apply(current.upcoming), someday: apply(current.someday) }))
+    setTasks(apply)
+  }
+
+  const openRow = (value: { taskId: string; next: string | null } | null) => {
+    rowRef.current = value
+    setRecurringDone(value)
+  }
+
+  const close = () => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+    openRow(null)
+    held.current = false
+    ticking.current = null
+    reload()
+  }
+
+  const undo = () => {
+    const row = rowRef.current
+    if (!row) return
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+    openRow(null)
+    ticking.current = row.taskId
+    strike(row.taskId, null)
+    setTaskDone(row.taskId, false)
+      .catch(() => notify("Impossible d'annuler.", { type: 'error' }))
+      .finally(() => {
+        ticking.current = null
+        held.current = false
+        reload()
+      })
+  }
+
+  const tickRecurring = (task: ListedTask) => {
+    const before = { stock, tasks }
+    ticking.current = task.id
+    strike(task.id, new Date().toISOString())
+    setTaskDone(task['@id'] ?? task.id, true)
+      .then(async (answer) => {
+        const next = answer.nextOccurrence
+          ? await fetchTask(answer.nextOccurrence.split('/').pop() as string)
+              .then((t) => t.scheduledDate ?? t.dueDate ?? null)
+              .catch(() => null)
+          : null
+        await fetchReward(task['@id'] ?? task.id)
+          .then((reward) => {
+            if (!reward) return
+            if (cheer.sound) playBravoSound()
+            setBanner({ title: task.title, reward })
+          })
+          .catch(() => undefined)
+        ticking.current = null
+        openRow({ taskId: task.id, next })
+        timer.current = setTimeout(close, RECURRING_DONE_MS)
+      })
+      .catch(() => {
+        ticking.current = null
+        setStock(before.stock)
+        setTasks(before.tasks)
+        notify('Impossible de modifier la tâche.', { type: 'error' })
+        if (held.current) {
+          held.current = false
+          reload()
+        }
+      })
+  }
+
   const toggle = (task: ListedTask) => {
+    if (task.id === rowRef.current?.taskId) return undo()
+    if (task.id === ticking.current) return
+    if (rowRef.current) close()
     const done = task.completedAt == null
+    if (view === 'stock' && done && task.rrule) return tickRecurring(task)
     setTaskDone(task['@id'] ?? task.id, done)
       .then(() => {
         reload()
@@ -355,6 +451,17 @@ const TasksPage = ({ view }: TasksPageProps) => {
     )
   } else {
     content = (
+      <>
+        {view === 'stock' && recurringDone && (
+          <Stack direction="row" alignItems="center" gap={1} role="status" data-testid="task-recurring-done" sx={{ mb: 1 }}>
+            <Typography variant="body2" sx={{ flex: 1 }}>
+              {doneLabel(recurringDone.next)}
+            </Typography>
+            <Button size="small" onClick={undo}>
+              Annuler
+            </Button>
+          </Stack>
+        )}
       <TaskList
         groups={view === 'stock' ? groupStock(stock.upcoming, stock.someday, today) : [{ tasks }]}
         today={today}
@@ -364,6 +471,7 @@ const TasksPage = ({ view }: TasksPageProps) => {
         onToggle={toggle}
         onOpen={(task) => setEditing(tasks.find((candidate) => candidate.id === task.id) ?? null)}
       />
+      </>
     )
   }
 
