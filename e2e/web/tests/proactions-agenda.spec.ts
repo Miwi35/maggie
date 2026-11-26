@@ -127,3 +127,38 @@ test('a reminder scheduled twice with two prompts and one summary shows once in 
   await calendar.deleteFromPopover()
   await expect(calendar.chip('Sac e2e')).toHaveCount(0)
 })
+
+test('a weekly series of proactions is drawn each week, and one occurrence is cancelled alone (MAG-1040)', async ({ api, page }) => {
+  const prompt = `${promptOfThisAttempt()} série web`
+  const day = tomorrowInParis()
+  const weekday = new Date(`${day}T12:00:00Z`).getUTCDay()
+  const byday = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][weekday]
+
+  const scheduled = await callMcpTool(api, 'schedule_proaction', {
+    prompt,
+    scheduled_at: `${day}T08:30:00`,
+    rrule: `FREQ=WEEKLY;BYDAY=${byday}`,
+  })
+  expect(scheduled.error, JSON.stringify(scheduled)).toBeUndefined()
+
+  const calendar = new CalendarPage(page)
+  await calendar.open()
+  await calendar.chooseView('Semaine')
+  // Weeks start on Monday: when tomorrow is one, its week is the next one.
+  if (1 === weekday) await calendar.goForward()
+
+  await expect(calendar.chip(prompt)).toHaveCount(1)
+  await expect(calendar.eventBar(prompt)).toContainText('08:30')
+  await calendar.goForward()
+  await expect(calendar.chip(prompt)).toHaveCount(1)
+  await expect(calendar.eventBar(prompt)).toContainText('08:30')
+
+  await calendar.goBack()
+  await calendar.openChip(prompt)
+  await calendar.deleteFromPopover()
+  await calendar.chooseRecurrenceScope('Cet événement')
+  await expect(calendar.chip(prompt)).toHaveCount(0)
+
+  await calendar.goForward()
+  await expect(calendar.chip(prompt)).toHaveCount(1)
+})
