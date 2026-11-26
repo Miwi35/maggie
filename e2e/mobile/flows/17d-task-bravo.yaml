@@ -7,7 +7,7 @@ tags:
 #
 # Given today's day holding five tasks of the journey's own, the first two done
 # (`scripts/bravo-api.js`), when the third is ticked from the list (MAG-766), then the Bravo shows
-# « … · faite », a message and the day bar, the reward is stored as a star, and « Retour à ma
+# « … · FAITE », a message and the day bar, the reward is stored as a star, and « Retour à ma
 # journée » is the only way on — no « Suivante » (MAG-716) — and goes back to the day.
 #
 # A new user (MAG-766): its five tasks are the only ones of the day, so the bar reads « 3 sur 5 ». The message bank, the
@@ -59,7 +59,7 @@ tags:
     timeout: 20000
 - assertVisible:
     id: "bravo_title"
-    text: ".*Bravo 3 MAG-508 · faite.*"
+    text: ".*BRAVO 3 MAG-508 · FAITE.*"
 - assertVisible:
     id: "bravo_message"
 - assertVisible:

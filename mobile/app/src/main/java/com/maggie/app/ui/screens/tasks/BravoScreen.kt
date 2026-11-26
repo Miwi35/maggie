@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -45,18 +47,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.ui.UiTags
+import com.maggie.app.ui.activity.ActivityHalo
+import com.maggie.app.ui.activity.activityHalo
 import com.maggie.app.ui.interruption.rememberReducedMotion
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.screens.cookbook.recipes.savePillColors
 import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.theme.readableTextOn
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 /** « 3 sur 5 aujourd'hui ». */
 internal fun dayBarLabelOf(done: Int, total: Int): String = "${ringLabelOf(done, total)} aujourd'hui"
@@ -95,53 +106,80 @@ internal fun BravoContent(
     onBack: () -> Unit,
 ) {
     val celebration = state.celebration
+    val surface = maggieSurface()
+    val green = doneGreen()
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(surface.background)
+            .activityHalo(tachesPink(), BRAVO_HALO)
             .safeDrawingPadding()
             .testTag(UiTags.BRAVO),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(
-                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .widthIn(max = 480.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // The circle waits for the settings, so it does not move for a user who turned it off.
                 if (!state.isLoading) DoneCircle(animate = animate)
-                Text(
-                    text = "${state.title} · faite",
-                    style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.testTag(UiTags.BRAVO_TITLE),
-                )
-                celebration?.let {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = it.reward.message,
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = "${state.title} · faite".uppercase(Locale.FRENCH),
+                        fontSize = 13.sp,
+                        letterSpacing = 0.14.em,
+                        color = green,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.testTag(UiTags.BRAVO_MESSAGE),
+                        modifier = Modifier.testTag(UiTags.BRAVO_TITLE),
                     )
+                    celebration?.let {
+                        Text(
+                            text = it.reward.message,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = 35.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.testTag(UiTags.BRAVO_MESSAGE),
+                        )
+                    }
                 }
-                state.stars?.let { Constellation(stars = it, animate = animate) }
                 state.day?.takeIf { it.total > 0 }?.let { day -> DayBar(done = day.done, total = day.total) }
-                Button(
-                    onClick = onBack,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.BRAVO_BACK),
-                ) { Text("Retour à ma journée", style = MaterialTheme.typography.titleMedium) }
+                state.stars?.let {
+                    Box(Modifier.fillMaxWidth().background(surface.paper, RoundedCornerShape(24.dp)).padding(18.dp)) {
+                        Constellation(stars = it, animate = animate)
+                    }
+                }
             }
+            val (pillBackground, pillText) = savePillColors(surface)
+            Button(
+                onClick = onBack,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = pillBackground, contentColor = pillText),
+                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.BRAVO_BACK),
+            ) { Text("Retour à ma journée", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
         }
         if (celebration?.reward?.isShootingStar == true) ShootingStar(animate = animate)
     }
 }
+
+/** « Tâches · Bravo »: a 460 × 460 halo at 50 % / 22 %, 24 % in the middle and gone at 72 %, over a 390 × 1300 dp frame. */
+private val BRAVO_HALO = ActivityHalo(width = 460f / 390f, height = 460f / 1300f, x = 0.5f, y = 0.22f, alpha = 0.24f, fade = 0.72f)
+
+@Composable
+private fun tachesPink(): Color = MaggieTokens.Module.taches.let { if (isMaggieDark()) it.second else it.first }
+
+@Composable
+private fun doneGreen(): Color = if (isMaggieDark()) MaggieTokens.feedbackDark.success else MaggieTokens.feedbackLight.success
 
 private val starPlaces = listOf(
     // x, y in dp from the circle's centre, and the star's size.
@@ -155,7 +193,12 @@ private val starPlaces = listOf(
 /** The green circle and its check, popping in with a spring, then the small stars around it. */
 @Composable
 private fun DoneCircle(animate: Boolean) {
-    val green = if (isMaggieDark()) MaggieTokens.feedbackDark.success else MaggieTokens.feedbackLight.success
+    val green = doneGreen()
+    val starTints = listOf(
+        tachesPink(),
+        MaggieTokens.Brand.primaryHover,
+        MaggieTokens.Module.comptes.let { if (isMaggieDark()) it.second else it.first },
+    )
     val scale = remember { Animatable(if (animate) 0f else 1f) }
     val stars = remember { Animatable(if (animate) 0f else 1f) }
     LaunchedEffect(animate) {
@@ -167,12 +210,12 @@ private fun DoneCircle(animate: Boolean) {
         scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
         stars.animateTo(1f, tween(durationMillis = 400))
     }
-    Box(modifier = Modifier.size(220.dp), contentAlignment = Alignment.Center) {
-        starPlaces.forEach { (x, y, size) ->
+    Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
+        starPlaces.forEachIndexed { index, (x, y, size) ->
             Icon(
                 Icons.Default.Star,
                 contentDescription = null,
-                tint = MaggieTokens.Signal.warning,
+                tint = starTints[index % starTints.size],
                 modifier = Modifier
                     .offset(x.dp * stars.value, y.dp * stars.value)
                     .size(size.dp)
@@ -180,15 +223,19 @@ private fun DoneCircle(animate: Boolean) {
             )
         }
         Box(
-            modifier = Modifier
-                .size(120.dp)
-                .scale(scale.value)
-                .background(green, CircleShape)
-                .testTag(UiTags.BRAVO_CIRCLE)
-                .semantics { contentDescription = "Faite" },
+            modifier = Modifier.size(178.dp).scale(scale.value).background(green.copy(alpha = 0.14f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = readableTextOn(green), modifier = Modifier.size(64.dp))
+            Box(
+                modifier = Modifier
+                    .size(150.dp)
+                    .background(green, CircleShape)
+                    .testTag(UiTags.BRAVO_CIRCLE)
+                    .semantics { contentDescription = "Faite" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = readableTextOn(green), modifier = Modifier.size(76.dp))
+            }
         }
     }
 }
@@ -196,24 +243,25 @@ private fun DoneCircle(animate: Boolean) {
 /** [total] segments, [done] of them filled, and the words: the count has its picture. */
 @Composable
 private fun DayBar(done: Int, total: Int) {
-    val filled = MaterialTheme.colorScheme.primary
-    val empty = MaterialTheme.colorScheme.surfaceVariant
+    val surface = maggieSurface()
+    val filled = tachesPink()
     Column(
         modifier = Modifier.fillMaxWidth().testTag(UiTags.BRAVO_DAY_BAR),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
             repeat(total) { segment ->
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1f, fill = false)
+                        .width(36.dp)
                         .height(10.dp)
-                        .background(if (segment < done) filled else empty, RoundedCornerShape(5.dp)),
+                        .background(if (segment < done) filled else surface.track, RoundedCornerShape(999.dp)),
                 )
             }
         }
-        Text(text = dayBarLabelOf(done, total), style = MaterialTheme.typography.titleMedium)
+        Text(text = dayBarLabelOf(done, total), fontSize = 15.sp)
     }
 }
 
