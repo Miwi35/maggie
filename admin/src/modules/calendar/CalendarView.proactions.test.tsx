@@ -37,13 +37,14 @@ vi.mock('@fullcalendar/react', async (importOriginal) => {
 
 const mockGetList = vi.fn()
 const mockUpdate = vi.fn()
+const mockCreate = vi.fn()
 const mockDelete = vi.fn()
 const mockNotify = vi.fn()
 vi.mock('react-admin', () => ({
   useDataProvider: () => ({
     getList: mockGetList,
     getOne: vi.fn(),
-    create: vi.fn(),
+    create: mockCreate,
     update: mockUpdate,
     delete: mockDelete,
   }),
@@ -93,12 +94,12 @@ const serve = () => {
 }
 
 /** The `eventDrop` FullCalendar was given, called the way it calls it. */
-const drop = (id: string, start: Date, allDay = false) => {
+const drop = (id: string, start: Date, allDay = false, extendedProps: Record<string, unknown> = {}) => {
   const props = renderedWith.mock.calls.at(-1)?.[0] as { eventDrop: (arg: unknown) => void }
   const revert = vi.fn()
   act(() => {
     props.eventDrop({
-      event: { id, start, end: null, allDay, extendedProps: { isProaction: true } },
+      event: { id, start, end: null, allDay, extendedProps: { isProaction: true, ...extendedProps } },
       revert,
     })
   })
@@ -113,6 +114,7 @@ describe('CalendarView — proactions', { timeout: 60_000 }, () => {
     vi.stubGlobal('EventSource', MockEventSource)
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: () => Promise.resolve({}) }))
     mockUpdate.mockResolvedValue({ data: {} })
+    mockCreate.mockResolvedValue({ data: {} })
     mockDelete.mockResolvedValue({ data: {} })
     serve()
   })
@@ -297,5 +299,157 @@ describe('CalendarView — proactions', { timeout: 60_000 }, () => {
 
     await waitFor(() => expect(mockGetList).toHaveBeenCalledWith('meals', expect.anything()))
     expect(mockGetList).not.toHaveBeenCalledWith('proactions', expect.anything())
+  })
+})
+
+describe('CalendarView — series of proactions (MAG-1040)', { timeout: 60_000 }, () => {
+  const day = (offset: number, hour = 18, minute = 0) =>
+    new Date(now.getFullYear(), now.getMonth(), 15 + offset, hour, minute)
+  const SERIES = '/api/proactions/01SERIE'
+  const series = (extra: Record<string, unknown> = {}) =>
+    proaction('01SERIE', 'Point du vendredi', 'pending', {
+      startAt: day(-21).toISOString(),
+      endAt: day(-21, 18, 5).toISOString(),
+      rrule: 'FREQ=WEEKLY',
+      ...extra,
+    })
+  const instance = (status: string, extra: Record<string, unknown> = {}) =>
+    proaction('01INST', 'Point du vendredi', status, {
+      startAt: day(0).toISOString(),
+      endAt: day(0, 18, 5).toISOString(),
+      recurringEvent: SERIES,
+      originalStartAt: day(0).toISOString(),
+      ...extra,
+    })
+  const grid = () =>
+    (renderedWith.mock.calls.at(-1)?.[0] as { events: { id: string; start: string; title: string }[] }).events.filter((e) =>
+      e.id.startsWith('proaction-'),
+    )
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    MockEventSource.instances = []
+    vi.stubGlobal('EventSource', MockEventSource)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: () => Promise.resolve({}) }))
+    mockUpdate.mockResolvedValue({ data: {} })
+    mockCreate.mockResolvedValue({ data: {} })
+    mockDelete.mockResolvedValue({ data: {} })
+    proactions = [series()]
+    serve()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  test('asks for the series of Maggie that started before the range', async () => {
+    render(<CalendarView />)
+
+    await waitFor(() =>
+      expect(mockGetList).toHaveBeenCalledWith(
+        'proactions',
+        expect.objectContaining({
+          filter: { 'exists[rrule]': true, 'startAt[strictly_before]': expect.any(String) },
+        }),
+      ),
+    )
+  })
+
+  test('draws a weekly series at each of its occurrences in the range, and not the series itself', async () => {
+    render(<CalendarView />)
+    await screen.findByText('Point du vendredi', {}, { timeout: 10_000 }).catch(() => undefined)
+
+    await waitFor(() => expect(grid().length).toBeGreaterThan(0))
+    const events = grid()
+    expect(events.every((e) => e.id.startsWith('proaction-01SERIE__'))).toBe(true)
+    expect(events.map((e) => new Date(e.start).getTime())).toContain(day(0).getTime())
+    expect(new Set(events.map((e) => e.id)).size).toBe(events.length)
+  })
+
+  test('an instance replaces its occurrence and is marked like a run', async () => {
+    proactions = [series(), instance('completed')]
+    render(<CalendarView />)
+
+    expect(await screen.findByText('✓ Point du vendredi')).toBeInTheDocument()
+    const same = grid().filter((e) => new Date(e.start).getTime() === day(0).getTime())
+    expect(same).toHaveLength(1)
+    expect(same[0].id).toBe('proaction-01INST')
+  })
+
+  test('a cancelled occurrence is not drawn, nor the series itself', async () => {
+    proactions = [series(), instance('pending', { status: 'cancelled' })]
+    render(<CalendarView />)
+
+    await waitFor(() => expect(grid().length).toBeGreaterThan(0))
+    expect(grid().some((e) => new Date(e.start).getTime() === day(0).getTime())).toBe(false)
+    expect(grid().some((e) => e.id === 'proaction-01SERIE')).toBe(false)
+    expect(grid().some((e) => e.id === 'proaction-01INST')).toBe(false)
+  })
+
+  test('dragging an occurrence creates its exception and leaves the series', async () => {
+    render(<CalendarView />)
+    await waitFor(() => expect(grid().length).toBeGreaterThan(0))
+    const moved = day(0, 19, 15)
+
+    const revert = drop(`proaction-01SERIE__${day(0).toISOString()}`, moved, false, {
+      isVirtualOccurrence: true,
+      masterEventId: SERIES,
+      occurrenceStart: day(0).toISOString(),
+    })
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith('events', {
+        data: { recurringEvent: '/api/events/01SERIE', originalStartAt: day(0).toISOString(), startAt: moved.toISOString() },
+      }),
+    )
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(revert).not.toHaveBeenCalled()
+  })
+
+  const openCancel = async () => {
+    render(<CalendarView />)
+    await waitFor(() => expect(grid().length).toBeGreaterThan(0))
+    const chips = await screen.findAllByText('Point du vendredi')
+    await userEvent.click(chips[0])
+    await userEvent.click(await screen.findByRole('button', { name: 'Supprimer' }))
+  }
+
+  test('cancelling an occurrence offers this one or all, never the following ones', async () => {
+    await openCancel()
+
+    expect(await screen.findByLabelText('Cet événement')).toBeInTheDocument()
+    expect(screen.getByLabelText('Tous les événements')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Cet événement et tous les suivants')).not.toBeInTheDocument()
+  })
+
+  test('cancelling this occurrence files a cancelled exception', async () => {
+    await openCancel()
+    await userEvent.click(await screen.findByRole('button', { name: 'OK' }))
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith('events', {
+        data: {
+          recurringEvent: '/api/events/01SERIE',
+          originalStartAt: expect.any(String),
+          startAt: expect.any(String),
+          status: 'cancelled',
+        },
+      }),
+    )
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  test('cancelling all deletes the series', async () => {
+    await openCancel()
+    await userEvent.click(await screen.findByLabelText('Tous les événements'))
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    await waitFor(() =>
+      expect(mockDelete).toHaveBeenCalledWith('events', {
+        id: '/api/events/01SERIE',
+        previousData: { id: '/api/events/01SERIE' },
+      }),
+    )
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 })

@@ -232,6 +232,12 @@ interface CalendarProaction {
   executionStatus: string
   response: string | null
   error: string | null
+  /** A series carries `rrule`; an instance names its series and the occurrence it replaces (MAG-974). */
+  rrule?: string | null
+  recurringEvent?: string | null
+  originalStartAt?: string | null
+  status?: string
+  timeZone?: string
 }
 
 type RecurrenceAction = 'this' | 'thisAndFollowing' | 'all'
@@ -246,6 +252,8 @@ interface RecurrenceConfirm {
   rrule: string
   allDay: boolean
   timeZone: string
+  /** A series of Maggie's proactions: only « this one » and « all » exist. */
+  isProaction?: boolean
   // For updates only:
   newStart?: string
   newEnd?: string
@@ -600,6 +608,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const fetchSeqRef = useRef<Record<LiveKind, number>>({ events: 0, tasks: 0, meals: 0, proactions: 0, trips: 0 })
   const appliedRef = useRef<Partial<Record<LiveKind | 'agendas', string>>>({})
   const seriesRef = useRef<{ id: string }[]>([])
+  const proactionSeriesRef = useRef<{ id: string }[]>([])
   const lastMouseYRef = useRef(0)
   const selectFiredRef = useRef(false)
   const lastSelectionRef = useRef<{ start: Date; end: Date } | null>(null)
@@ -928,10 +937,21 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         // even parse against it (MAG-251).
         meals: () => list('meals', 'date', { 'date[after]': day.after, 'date[before]': day.before }).then((r) => r.data),
         // Maggie's runs of the range: instants, like events, but their own index.
+        // Plus the series that started before the range, expanded here like the events' ones.
         proactions: () =>
           moduleCalendar
             ? nothing.then((r) => r.data)
-            : list('proactions', 'startAt', { 'startAt[after]': start, 'startAt[before]': end }).then((r) => r.data),
+            : Promise.all([
+                list('proactions', 'startAt', { 'startAt[after]': start, 'startAt[before]': end }),
+                retry
+                  ? Promise.resolve({ data: proactionSeriesRef.current })
+                  : list('proactions', 'startAt', { 'exists[rrule]': true, 'startAt[strictly_before]': start }),
+              ]).then(([range, series]) => {
+                proactionSeriesRef.current = series.data
+                const seen = new Set<string>()
+
+                return [...range.data, ...series.data].filter((p) => !seen.has(p.id) && seen.add(p.id))
+              }),
         // The trips leaving on the day shown; no other view draws them. A trip that cannot be
         // read leaves the day without its line, never without its events.
         trips: () =>
@@ -1210,14 +1230,27 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
 
   // --- Map proactions → FullCalendar timed events of the « Maggie » agenda ---
   const proactionEvents: (EventInput & { calendarId: string })[] = useMemo(() => {
-    return rawProactions.map((p) => {
-      const failed = p.executionStatus === 'failed'
+    const rangeStart = activeRange?.start
+    const rangeEnd = activeRange?.end
+    // Instances by series and replaced occurrence, like the events' exceptions.
+    const instances = new Map<string, Map<number, CalendarProaction>>()
+    for (const p of rawProactions) {
+      if (p.recurringEvent && p.originalStartAt) {
+        const key = bareId(p.recurringEvent)
+        if (!instances.has(key)) instances.set(key, new Map())
+        instances.get(key)!.set(new Date(p.originalStartAt).getTime(), p)
+      }
+    }
+
+    const draw = (p: CalendarProaction, id: string, start: string, end: string, virtual?: { master: CalendarProaction; occurrence: string }) => {
+      const status = virtual ? 'pending' : p.executionStatus
+      const failed = status === 'failed'
       const color = failed ? theme.palette.error.main : layers.agent.color || PROACTION_COLOR
       return {
-        id: `${PROACTION_PREFIX}${proactionUlid(p.id)}`,
-        title: `${PROACTION_MARKS[p.executionStatus] ?? ''}${p.summary}`,
-        start: p.startAt,
-        end: p.endAt,
+        id,
+        title: `${PROACTION_MARKS[status] ?? ''}${p.summary}`,
+        start,
+        end,
         allDay: false,
         calendarId: layers.agent.id,
         backgroundColor: color,
@@ -1225,22 +1258,68 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         textColor: getEventTextColor(theme, color),
         // Her run is five minutes long by construction, and is moved only while it has not run.
         durationEditable: false,
-        startEditable: p.executionStatus === 'pending',
-        classNames: [`proaction-${p.executionStatus}`],
+        startEditable: status === 'pending',
+        classNames: [`proaction-${status}`],
         extendedProps: {
           isProaction: true,
           summary: p.summary,
           calendarId: layers.agent.id,
           proaction: {
             prompt: p.prompt,
-            executionStatus: p.executionStatus,
-            response: p.response ?? null,
-            error: p.error ?? null,
+            executionStatus: status,
+            response: virtual ? null : p.response ?? null,
+            error: virtual ? null : p.error ?? null,
           },
+          ...(virtual
+            ? {
+                isVirtualOccurrence: true,
+                masterEventId: virtual.master.id,
+                occurrenceStart: virtual.occurrence,
+                rrule: virtual.master.rrule,
+              }
+            : {}),
         },
       }
-    })
-  }, [rawProactions, theme, layers.agent])
+    }
+
+    const result: (EventInput & { calendarId: string })[] = []
+    for (const p of rawProactions) {
+      // An instance is drawn in place of its occurrence, below, or not at all when cancelled.
+      if (p.recurringEvent) {
+        if (p.status !== 'cancelled') {
+          result.push(draw(p, `${PROACTION_PREFIX}${proactionUlid(p.id)}`, p.startAt, p.endAt))
+        }
+        continue
+      }
+      let occurrences: Date[] | null = null
+      if (p.rrule && rangeStart && rangeEnd) {
+        try {
+          occurrences = expandRrule(p.rrule, new Date(p.startAt), rangeStart, rangeEnd, p.timeZone)
+        } catch {
+          occurrences = null
+        }
+      }
+      if (!occurrences) {
+        // A plain run, or a series whose rule cannot be read: drawn once, at its date.
+        result.push(draw(p, `${PROACTION_PREFIX}${proactionUlid(p.id)}`, p.startAt, p.endAt))
+        continue
+      }
+      const length = new Date(p.endAt).getTime() - new Date(p.startAt).getTime()
+      const duration = Number.isNaN(length) ? 0 : length
+      const exceptions = instances.get(bareId(p.id))
+      for (const occ of occurrences) {
+        if (exceptions?.has(occ.getTime())) continue
+        const iso = occ.toISOString()
+        result.push(
+          draw(p, `${PROACTION_PREFIX}${proactionUlid(p.id)}__${iso}`, iso, new Date(occ.getTime() + duration).toISOString(), {
+            master: p,
+            occurrence: iso,
+          }),
+        )
+      }
+    }
+    return result
+  }, [rawProactions, theme, layers.agent, activeRange])
 
   // --- Filter by enabled calendars ---
   const filteredEvents = useMemo(() => {
@@ -1463,9 +1542,27 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
 
       // A proaction is cancelled through the event route, which is also the one that moves it
       if (eventId.startsWith(PROACTION_PREFIX)) {
-        const id = eventIri(proactionUlid(eventId))
+        const id = eventIri(proactionUlid(eventId.split('__')[0]))
+        const occurrence = eventId.split('__')[1]
         setPopoverAnchorEl(null)
         setPopoverEvent(null)
+        // One occurrence of a series: this one, or all of them
+        if (occurrence && popoverEvent?.masterEventId) {
+          setRecurrenceAction('this')
+          setRecurrenceConfirm({
+            type: 'delete',
+            eventId,
+            masterEventId: popoverEvent.masterEventId,
+            occurrenceStart: occurrence,
+            calendarIri: '',
+            summary: popoverEvent.title,
+            rrule: popoverEvent.rrule || '',
+            allDay: false,
+            timeZone: 'Europe/Paris',
+            isProaction: true,
+          })
+          return
+        }
         dataProvider
           .delete('events', { id, previousData: { id } })
           .then(() => {
@@ -1658,6 +1755,26 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           notify('Une proaction a une heure : elle ne peut pas durer toute la journée', { type: 'warning' })
           return
         }
+        // One occurrence of a series moves alone: its instance is filed at the new time.
+        if (event.extendedProps.isVirtualOccurrence) {
+          dataProvider
+            .create('events', {
+              data: {
+                recurringEvent: eventIri(proactionUlid(event.extendedProps.masterEventId)),
+                originalStartAt: event.extendedProps.occurrenceStart,
+                startAt: event.start?.toISOString(),
+              },
+            })
+            .then(() => {
+              notify('Occurrence déplacée', { type: 'success' })
+              refreshEvents()
+            })
+            .catch((error: Error) => {
+              arg.revert()
+              notify(`Erreur: ${error.message}`, { type: 'error' })
+            })
+          return
+        }
         const id = eventIri(proactionUlid(event.id))
         dataProvider
           .update('events', {
@@ -1720,7 +1837,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
           notify(`Erreur: ${error.message}`, { type: 'error' })
         })
     },
-    [dataProvider, notify],
+    [dataProvider, notify, refreshEvents],
   )
 
   const handleRecurrenceConfirm = useCallback(async () => {
@@ -1729,7 +1846,23 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
     const action = recurrenceAction
 
     try {
-      if (type === 'delete') {
+      if (type === 'delete' && recurrenceConfirm.isProaction) {
+        if (action === 'this') {
+          await dataProvider.create('events', {
+            data: {
+              recurringEvent: eventIri(proactionUlid(masterEventId)),
+              originalStartAt: occurrenceStart,
+              startAt: occurrenceStart,
+              status: 'cancelled',
+            },
+          })
+          notify('Occurrence supprimée', { type: 'success' })
+        } else {
+          const id = eventIri(proactionUlid(masterEventId))
+          await dataProvider.delete('events', { id, previousData: { id } })
+          notify('Proaction annulée', { type: 'success' })
+        }
+      } else if (type === 'delete') {
         if (action === 'this') {
           // Create cancelled exception
           await dataProvider.create('events', {
@@ -2602,7 +2735,9 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
             onChange={(e) => setRecurrenceAction(e.target.value as RecurrenceAction)}
           >
             <FormControlLabel value="this" control={<Radio />} label="Cet événement" />
-            <FormControlLabel value="thisAndFollowing" control={<Radio />} label="Cet événement et tous les suivants" />
+            {!recurrenceConfirm?.isProaction && (
+              <FormControlLabel value="thisAndFollowing" control={<Radio />} label="Cet événement et tous les suivants" />
+            )}
             <FormControlLabel value="all" control={<Radio />} label="Tous les événements" />
           </RadioGroup>
         </DialogContent>
