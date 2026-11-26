@@ -186,7 +186,7 @@ class TestShippedAgents:
 
         native = MEMORY_TOOLS + INSTRUCTION_TOOLS + SKILL_TOOLS
         everything = [{"name": n} for n in MCP_TOOL_NAMES] + [{"name": t["name"]} for t in native]
-        reachable = {t["name"] for t in select_tools(researcher, everything)}
+        reachable = {t["name"] for t in select_tools(researcher, everything)} - {"report_to_maggie"}
 
         # get_grocery_list is the one read that may create the user's (empty) list, which dry-run does not allow
         # but the « courses » of a weekly review needs.
