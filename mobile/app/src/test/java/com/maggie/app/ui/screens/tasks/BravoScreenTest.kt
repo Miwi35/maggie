@@ -135,7 +135,7 @@ class BravoScreenTest {
         show()
 
         compose.onNodeWithTag(UiTags.BRAVO)
-            .assert(SemanticsMatcher.expectValue(HaloColorKey, MaggieTokens.Module.taches.second))
+            .assert(SemanticsMatcher.expectValue(HaloColorKey, MaggieTokens.Module.taches.first))
     }
 
     @Test
