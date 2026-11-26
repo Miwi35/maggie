@@ -36,12 +36,12 @@ rules:
   - tools: ["delete_instruction"]
     mode: allow
 
-  # The advisor (MAG-559) reads, simulates and files a DRAFT scenario — nothing
-  # else: no project, loan, placement or account is written, no scenario is made
-  # current. Read actions first, then every other `manage_*` call is refused.
+  # The advisor (MAG-559) reads and simulates, and proposes a draft scenario that Maggie
+  # files (ADR-013): nothing is written by it. Read actions first, then every other
+  # `manage_*` call is refused.
   - tools: ["manage_scenarios"]
     sources: ["subagent:advisor"]
-    when: { action: ["list", "get", "compare", "timeline", "suggest"] }
+    when: { action: ["list", "get", "compare", "timeline"] }
     mode: allow
   - tools: ["manage_loans"]
     sources: ["subagent:advisor"]

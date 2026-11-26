@@ -224,7 +224,7 @@ class TestTheResearcher:
             await handle_delegate({"agent": "researcher", "task": "Vacances de la Toussaint"}, "user-1")
 
         tools = loop.await_args.args[2]
-        assert [t["name"] for t in tools] == ["search", "web_search"]
+        assert [t["name"] for t in tools] == ["search", "report_to_maggie", "web_search"]
         assert tools[-1]["max_uses"] == settings.web_search_max_uses
 
 

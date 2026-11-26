@@ -10,10 +10,14 @@ def delegate_tool_definition() -> dict:
     return {
         "name": "delegate",
         "description": (
-            "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils et te rend une "
-            "synthèse. À utiliser quand la tâche demande beaucoup de lectures ou de recherches ; pas pour une "
-            "action simple. Décris la tâche en entier : le sous-agent ne voit pas la conversation. "
-            "Il ne parle pas au propriétaire : tu présentes sa synthèse.\n"
+            "Confie une tâche à un sous-agent spécialisé, qui l'exécute avec ses propres outils. À utiliser quand "
+            "la tâche demande beaucoup de lectures ou de recherches ; pas pour une action simple. Décris la "
+            "tâche en entier : le sous-agent ne voit pas la conversation. Lance dans le même tour les "
+            "délégations indépendantes : elles tournent en même temps. Le sous-agent ne fait que lire et "
+            "proposer ; il te rend {complete, result, sources, missing, questions, proposals}. C'est toi qui "
+            "écris chaque proposition retenue, avec tes outils ; une hésitation passe par ask_owner. "
+            "complete: false veut dire un retour incomplet : result porte ce qu'il a dit, présente-le comme "
+            "tel. Il ne parle pas au propriétaire : tu présentes son retour.\n"
             f"Agents disponibles :\n{listing}"
         ),
         "input_schema": {

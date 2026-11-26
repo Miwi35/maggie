@@ -1,16 +1,29 @@
 # « Et si je remboursais le prêt auto plus tôt ? » (MAG-559), Maggie's side: a question of
 # trajectory goes to the `advisor` sub-agent (90-advisor-loan-early.yaml is its run). Her answer
-# presents the facts as a field of the possible, never advice.
+# files the draft the advisor proposes (`manage_scenarios` suggest, kind advisor, never current),
+# then presents the facts as a field of the possible, never advice.
 name: advisor-delegate
-description: A trajectory question is handed to the advisor, whose draft scenario Maggie reports.
+description: A trajectory question is handed to the advisor, whose proposed draft scenario Maggie files.
 
 match:
   user_matches: "et si je remboursais le pr[eê]t auto"
+
+results_matches: 'projectIds\W+([0-9A-HJKMNP-TV-Z]{26})\W+([0-9A-HJKMNP-TV-Z]{26})\W+[\s\S]*?loanId\W+([0-9A-HJKMNP-TV-Z]{26})'
 
 turns:
   - tools:
       - name: delegate
         input:
           agent: advisor
-          task: "L'utilisateur demande : « et si je remboursais le prêt auto plus tôt ? ». Lis ses projets et ses prêts, simule le remboursement anticipé du crédit voiture, dépose un scénario en brouillon et rends les chiffres et les écarts."
+          task: "L'utilisateur demande : « et si je remboursais le prêt auto plus tôt ? ». Lis ses projets et ses prêts, simule le remboursement anticipé du crédit voiture, propose un scénario en brouillon et rends les chiffres et les écarts."
+  - tools:
+      - name: manage_scenarios
+        input:
+          action: suggest
+          name: Remboursement du crédit voiture
+          projectIds: ['\1', '\2']
+          repayments:
+            - loanId: '\3'
+              month: "${month}"
+              amountCents: null
   - text: "J'ai simulé le remboursement anticipé du Crédit voiture et déposé un scénario en brouillon, « Suggestion du conseiller », dans Planification › Scénarios : rembourser les 4 800 € restants ce mois-ci libère 210 € de mensualité et épargne les intérêts restants. C'est un champ du possible : vous pouvez le voir, le comparer, l'ignorer ou le rendre courant, rien n'a changé tant que vous ne le faites pas."

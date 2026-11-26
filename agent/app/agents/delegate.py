@@ -3,9 +3,10 @@ import logging
 from fnmatch import fnmatchcase
 
 from app.agents.registry import SubagentDefinition, subagent_registry
+from app.agents.report import REPORT_TOOL, ReportingToolRouter, report_tool_definition, specialist_report
 from app.container import container
 from app.llm.client import client_for, llm_configured
-from app.llm.runner import run_tool_loop
+from app.llm.runner import ITERATION_LIMIT_MESSAGE, run_tool_loop
 from app.llm.tools import ToolRouter
 from app.llm.web_search import WEB_SEARCH_TOOL, with_web_search
 from app.memory.agent_memory import AgentMemory
@@ -19,12 +20,14 @@ DELEGATE_TOOL = "delegate"
 
 
 def select_tools(definition: SubagentDefinition, tools: list[dict]) -> list[dict]:
-    """The tools matching the agent's patterns — never `delegate`, so a sub-agent cannot spawn another."""
-    return [
+    """The tools matching the agent's patterns plus its return; never `delegate`: no sub-agent spawns another."""
+    selected = [
         tool
         for tool in tools
-        if tool["name"] != DELEGATE_TOOL and any(fnmatchcase(tool["name"], pattern) for pattern in definition.tools)
+        if tool["name"] not in (DELEGATE_TOOL, REPORT_TOOL)
+        and any(fnmatchcase(tool["name"], pattern) for pattern in definition.tools)
     ]
+    return [*selected, report_tool_definition()]
 
 
 class ScopedToolRouter:
@@ -54,7 +57,7 @@ async def _system_prompt(definition: SubagentDefinition, user_id: str, tools: li
         await skill_index.refresh()
         skills = skill_index.get_skills_index()
     now = current_datetime_line(tz=await resolve_user_timezone(user_id))
-    return f"{definition.prompt}{skills}{memory_context}\n\n{now}"
+    return f"{definition.prompt}\n\nTermine par report_to_maggie.{skills}{memory_context}\n\n{now}"
 
 
 async def handle_delegate(arguments: dict, user_id: str) -> str:
@@ -79,23 +82,21 @@ async def handle_delegate(arguments: dict, user_id: str) -> str:
         tools = with_web_search(tools, await resolve_user_timezone(user_id))
     system = await _system_prompt(definition, user_id, tools)
 
+    reporting = ReportingToolRouter(ScopedToolRouter(router, {t["name"] for t in tools}))
     result = await run_tool_loop(
         system,
         [{"role": "user", "content": task}],
         tools,
         client=await client_for(user_id, container.llm_client),
-        tool_router=ScopedToolRouter(router, {t["name"] for t in tools}),
+        tool_router=reporting,
         user_id=user_id,
         model=definition.model_id,
         max_iterations=definition.max_iterations,
         call_type="subagent",
         source=f"subagent:{name}",
     )
+    complete = reporting.report is not None and result["response"] != ITERATION_LIMIT_MESSAGE
+    tool_calls = [call["name"] for call in result["tool_calls"] if call["name"] != REPORT_TOOL]
     return json.dumps(
-        {
-            "agent": name,
-            "result": result["response"],
-            "tool_calls": [call["name"] for call in result["tool_calls"]],
-        },
-        ensure_ascii=False,
+        specialist_report(name, result["response"], reporting.report, tool_calls, complete), ensure_ascii=False
     )

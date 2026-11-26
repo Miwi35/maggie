@@ -1,4 +1,4 @@
-"""The advisor sub-agent reads, simulates and files a draft — it never writes anything else (MAG-559)."""
+"""The advisor sub-agent reads, simulates and proposes a draft — it never writes anything else (MAG-559)."""
 
 import json
 from pathlib import Path
@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from app.agents.delegate import select_tools
+from app.agents.report import ReportingToolRouter
 from app.agents.registry import SubagentRegistry
 from app.llm.fake import DEFAULT_FIXTURES_DIR, FakeAnthropicClient
 from app.llm.runner import run_tool_loop
@@ -18,14 +19,14 @@ from tests.test_subagent_registry import MCP_TOOL_NAMES
 SHIPPED_AGENTS = Path(__file__).parent.parent / "data" / "agents"
 SOURCE = "subagent:advisor"
 WRITES = {
-    "manage_scenarios": ["create", "update", "duplicate", "delete", "make_current", "clear_current"],
+    "manage_scenarios": ["create", "update", "duplicate", "delete", "make_current", "clear_current", "suggest"],
     "manage_loans": ["create", "update", "delete"],
     "manage_placements": ["create", "update", "delete"],
     "manage_projects": ["create", "update", "delete", "reorder"],
     "manage_accounts": ["create", "update", "delete"],
 }
 READS = {
-    "manage_scenarios": ["list", "get", "compare", "timeline", "suggest"],
+    "manage_scenarios": ["list", "get", "compare", "timeline"],
     "manage_loans": ["list", "timeline", "early_repayment"],
     "manage_placements": ["list", "simulate"],
     "manage_projects": ["list", "preview"],
@@ -56,8 +57,13 @@ def test_every_write_action_is_refused_to_the_advisor(tool, action):
 
 
 @pytest.mark.parametrize(("tool", "action"), [(t, a) for t, actions in READS.items() for a in actions])
-def test_reads_simulations_and_the_draft_are_allowed(tool, action):
+def test_reads_and_simulations_are_allowed(tool, action):
     assert policy_engine.evaluate(tool, {"action": action}, SOURCE) is Mode.ALLOW
+
+
+def test_the_policy_refuses_suggest_to_the_advisor():
+    assert policy_engine.evaluate("manage_scenarios", {"action": "suggest"}, SOURCE) is Mode.DENY
+    assert policy_engine.evaluate("manage_scenarios", {"action": "suggest"}, "chat") is Mode.ALLOW
 
 
 def test_a_call_without_action_is_refused_to_the_advisor():
@@ -95,18 +101,19 @@ class FakeFinanceApi:
         return json.dumps({"success": True})
 
 
-async def test_the_advisor_run_simulates_then_files_one_draft_and_nothing_else():
+async def test_the_advisor_simulates_and_proposes_one_draft_without_writing():
     api = FakeFinanceApi()
     definition = advisor()
-    offered = [{"name": n, "input_schema": {}} for n in definition.tools if n.startswith("manage_")]
+    offered = select_tools(definition, [{"name": n, "input_schema": {}} for n in definition.tools])
+    reporting = ReportingToolRouter(ToolRouter(natives=build_native_registry()))
 
     with patch("app.llm.tools.mcp_client", api), patch("app.runtime.loop.record_llm_usage"):
-        result = await run_tool_loop(
+        await run_tool_loop(
             definition.prompt,
             [{"role": "user", "content": "Et si je remboursais le prêt auto plus tôt ?"}],
             offered,
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
-            tool_router=ToolRouter(natives=build_native_registry()),
+            tool_router=reporting,
             user_id="user-1",
             model="fake",
             max_iterations=definition.max_iterations,
@@ -118,22 +125,38 @@ async def test_the_advisor_run_simulates_then_files_one_draft_and_nothing_else()
         ("manage_projects", "list"),
         ("manage_loans", "list"),
         ("manage_loans", "early_repayment"),
-        ("manage_scenarios", "suggest"),
     ]
-    suggest = api.calls[-1][1]
-    assert suggest["projectIds"] == [p["id"] for p in PROJECTS]
-    assert suggest["repayments"][0]["loanId"] == LOAN_ID
     assert "make_current" not in json.dumps(api.calls)
-    assert "vous devriez" not in result["response"].lower()
-    assert "brouillon" in result["response"]
+    report = reporting.report
+    assert report is not None
+    assert "vous devriez" not in report["result"].lower()
+    assert "champ du possible" in report["result"].lower()
+    (proposal,) = report["proposals"]
+    assert proposal["what"] == "manage_scenarios suggest"
+    assert proposal["values"]["projectIds"] == [p["id"] for p in PROJECTS]
+    assert proposal["values"]["repayments"][0]["loanId"] == LOAN_ID
 
 
-async def test_maggie_hands_a_trajectory_question_to_the_advisor():
+async def test_maggie_files_the_draft_the_advisor_proposed():
     api = FakeFinanceApi()
+    ids = [p["id"] for p in PROJECTS]
+    returned = {
+        "agent": "advisor",
+        "complete": True,
+        "result": "champ du possible",
+        "proposals": [
+            {
+                "what": "manage_scenarios suggest",
+                "target": "Planification",
+                "values": {"name": "x", "projectIds": ids, "repayments": [{"loanId": LOAN_ID, "month": "2026-12"}]},
+                "why": "y",
+            }
+        ],
+    }
 
     async def delegate(arguments: dict, ctx) -> str:
         assert arguments["agent"] == "advisor"
-        return json.dumps({"agent": "advisor", "result": "brouillon déposé"})
+        return json.dumps(returned)
 
     with (
         patch("app.llm.tools.mcp_client", api),
@@ -142,7 +165,7 @@ async def test_maggie_hands_a_trajectory_question_to_the_advisor():
         result = await run_tool_loop(
             "Tu es Maggie.",
             [{"role": "user", "content": "Et si je remboursais le prêt auto plus tôt ?"}],
-            [{"name": "delegate", "input_schema": {}}],
+            [{"name": "delegate", "input_schema": {}}, {"name": "manage_scenarios", "input_schema": {}}],
             client=FakeAnthropicClient(fixtures_dir=DEFAULT_FIXTURES_DIR),
             tool_router=ToolRouter(natives=build_native_registry().with_handler("delegate", delegate)),
             user_id="user-1",
@@ -151,7 +174,10 @@ async def test_maggie_hands_a_trajectory_question_to_the_advisor():
         )
 
     assert "champ du possible" in result["response"]
-    assert api.calls == []
+    (name, suggest), = api.calls
+    assert (name, suggest["action"]) == ("manage_scenarios", "suggest")
+    assert suggest["projectIds"] == ids
+    assert suggest["repayments"][0]["loanId"] == LOAN_ID
 
 
 async def test_the_advisor_description_gives_its_facts_never_advice_rule():

@@ -87,6 +87,9 @@ class TestDryRunToolRouter:
         )
         assert dry.simulated == []
 
+    def test_delegate_stays_a_read_for_the_loop_and_the_checker(self):
+        assert is_read_only("delegate", {"agent": "researcher", "task": "x"})
+
     @pytest.mark.parametrize(
         ("name", "arguments"),
         [
@@ -98,6 +101,7 @@ class TestDryRunToolRouter:
             ("manage_tasks", {}),
             ("manage_transactions", {"action": "update", "id": "1", "retrospect": True}),
             ("a_tool_nobody_classified", {}),
+            ("delegate", {"agent": "researcher", "task": "la liste de courses"}),
         ],
     )
     async def test_writing_or_unknown_tools_are_simulated_and_reported(self, router, name, arguments):
