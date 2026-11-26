@@ -103,10 +103,12 @@ tags:
       RRULE: "FREQ=WEEKLY;BYDAY={BYDAY}"
 
 - launchApp:
+    clearState: true
     permissions:
       all: allow
     arguments:
       e2e_journey: e2e/mobile/flows/16-proaction-agenda.yaml
+- runFlow: ../subflows/sign-in.yaml
 - runFlow: ../subflows/open-calendar.yaml
 
 - extendedWaitUntil:
