@@ -3,13 +3,16 @@ package com.maggie.app.ui.screens.tasks
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Reward
 import com.maggie.app.data.model.Stars
@@ -21,6 +24,9 @@ import com.maggie.app.data.repository.TasksOfDay
 import com.maggie.app.data.reward.Celebration
 import com.maggie.app.data.reward.TaskRewards
 import com.maggie.app.screentest.ScreenRule
+import com.maggie.app.screentest.assertTopToBottom
+import com.maggie.app.ui.activity.HaloColorKey
+import com.maggie.app.ui.theme.MaggieTokens
 import com.maggie.app.ui.UiTags
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -91,7 +97,7 @@ class BravoScreenTest {
         show()
 
         compose.onNodeWithTag(UiTags.BRAVO_CIRCLE).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.BRAVO_TITLE).assertTextEquals("Renvoyer le formulaire · faite")
+        compose.onNodeWithTag(UiTags.BRAVO_TITLE).assertTextEquals("RENVOYER LE FORMULAIRE · FAITE")
         compose.onNodeWithTag(UiTags.BRAVO_MESSAGE).assertTextEquals("Faite. Suivante.")
         compose.onNodeWithTag(UiTags.BRAVO_DAY_BAR).assertIsDisplayed()
         compose.onNodeWithText("3 sur 5 aujourd'hui").assertIsDisplayed()
@@ -111,6 +117,35 @@ class BravoScreenTest {
     }
 
     @Test
+    fun `the day's bar comes before the constellation, the button last`() {
+        show()
+
+        assertTopToBottom(
+            "circle" to compose.onNodeWithTag(UiTags.BRAVO_CIRCLE),
+            "title" to compose.onNodeWithTag(UiTags.BRAVO_TITLE),
+            "message" to compose.onNodeWithTag(UiTags.BRAVO_MESSAGE),
+            "day bar" to compose.onNodeWithTag(UiTags.BRAVO_DAY_BAR),
+            "constellation" to compose.onNodeWithTag(UiTags.CONSTELLATION),
+            "back" to compose.onNodeWithTag(UiTags.BRAVO_BACK),
+        )
+    }
+
+    @Test
+    fun `the Bravo carries the Tâches halo`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.BRAVO)
+            .assert(SemanticsMatcher.expectValue(HaloColorKey, MaggieTokens.Module.taches.second))
+    }
+
+    @Test
+    fun `the circle is 150 dp`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.BRAVO_CIRCLE).assertWidthIsEqualTo(150.dp)
+    }
+
+    @Test
     fun `a constellation that cannot be read leaves the Bravo whole (MAG-509)`() {
         stars = Result.failure(IllegalStateException("offline"))
         show()
@@ -124,8 +159,8 @@ class BravoScreenTest {
     fun `Retour à ma journée is the only button, and goes back to the day`() {
         show()
 
-        compose.onNodeWithText("Retour à ma journée").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.BRAVO_BACK).performScrollTo().performClick()
+        compose.onNodeWithText("Retour à ma journée").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.BRAVO_BACK).performClick()
         compose.waitForIdle()
 
         assertEquals(1, backs)
@@ -136,7 +171,7 @@ class BravoScreenTest {
         show(doneCount = 5)
 
         compose.onNodeWithText("5 sur 5 aujourd'hui").assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.BRAVO_BACK).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.BRAVO_BACK).assertIsDisplayed()
     }
 
     @Test
