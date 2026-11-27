@@ -4,6 +4,7 @@ import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.Store
+import com.maggie.app.ui.screens.grocery.label
 import java.text.Normalizer
 
 internal fun filterProducts(query: String, products: List<Product>): List<Product> {
@@ -76,3 +77,7 @@ internal fun productLine(product: Product, stores: List<Store>, aislesByStore: M
     val soldAs = product.packagingUnit?.let { "se vend en ${packagingCaption(product, 1)}" }
     return listOfNotNull(store?.name, aisle, soldAs).joinToString(" · ").ifEmpty { null }
 }
+
+/** The search row's line under a product: « Produit · Biocoop · Crèmerie », each piece only when known. */
+internal fun productSubtitle(product: Product, stores: List<Store>): String =
+    listOfNotNull("Produit", resolvePreferredStore(product, stores)?.name, product.category.label()).joinToString(" \u00b7 ")
