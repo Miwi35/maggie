@@ -46,6 +46,29 @@ tags:
     text: "Garde MAG-815"
     childOf:
       id: "period_chip_${output.periodId}"
+
+# « Périodes » in the Agendas drawer hides the chip, and ticking it brings it back (MAG-1052).
+- tapOn:
+    id: "calendar_options"
+- tapOn: "Agendas"
+- tapOn:
+    id: "calendar_periods_filter"
+- back
+- extendedWaitUntil:
+    notVisible:
+      id: "period_chip_${output.periodId}"
+    timeout: 20000
+- tapOn:
+    id: "calendar_options"
+- tapOn: "Agendas"
+- tapOn:
+    id: "calendar_periods_filter"
+- back
+- extendedWaitUntil:
+    visible:
+      id: "period_chip_${output.periodId}"
+    timeout: 20000
+
 - tapOn:
     id: "period_chip_${output.periodId}"
 - extendedWaitUntil:
