@@ -201,7 +201,7 @@ class TestAnnounce:
 
     async def test_announce_says_the_result_in_the_original_thread(self, pending_db, service, gateway, loop):
         approved = await self.approved_action(pending_db)
-        with patch(f"{SVC}.message_repo") as messages, patch(f"{SVC}.message_service", messages), patch(f"{SVC}.context_summarizer") as summarizer:
+        with patch(f"{SVC}.message_service") as messages, patch(f"{SVC}.context_summarizer") as summarizer:
             messages.create = AsyncMock()
             summarizer.maybe_summarize = AsyncMock()
 
@@ -217,7 +217,7 @@ class TestAnnounce:
     async def test_announce_never_raises(self, pending_db, service, loop):
         loop.side_effect = RuntimeError("API down")
         approved = await self.approved_action(pending_db)
-        with patch(f"{SVC}.message_repo") as messages, patch(f"{SVC}.message_service", messages):
+        with patch(f"{SVC}.message_service") as messages:
             messages.create = AsyncMock()
 
             await service.announce(approved)

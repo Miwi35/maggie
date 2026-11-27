@@ -152,7 +152,6 @@ def frozen():
         patch("app.llm.streaming.message_repo", AsyncMock()),
         patch("app.llm.streaming.message_service", AsyncMock()),
         patch("app.runtime.loop.record_llm_usage"),
-        patch("app.domain.approvals.service.message_repo", AsyncMock()),
         patch("app.domain.approvals.service.message_service", AsyncMock()),
         patch("app.domain.approvals.service.context_summarizer", MagicMock(maybe_summarize=AsyncMock())),
     ]

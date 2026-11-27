@@ -750,7 +750,7 @@ class TestApprovals:
         # The failure is announced too: the user clicked and is owed an answer.
         mock_msg_repo.create.assert_awaited_once()
 
-    @patch("app.domain.approvals.service.message_repo")
+    @patch("app.domain.approvals.service.message_service")
     @patch("app.domain.approvals.service.run_tool_loop")
     @patch.object(container, "llm_gateway")
     @patch("app.domain.approvals.service.pending_action_repo")
