@@ -323,6 +323,7 @@ fun ItemDetailContent(
     if (showProductPicker) {
         ProductPickerDialog(
             products = products,
+            stores = stores,
             initialQuery = label,
             onSelectProduct = { product ->
                 label = product.name

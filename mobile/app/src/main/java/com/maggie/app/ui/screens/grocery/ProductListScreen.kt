@@ -141,6 +141,7 @@ fun ProductListScreen(
     if (showSearch) {
         ProductPickerDialog(
             products = uiState.products,
+            stores = uiState.stores,
             onSelectProduct = {
                 showSearch = false
                 viewModel.openProduct(it.id)

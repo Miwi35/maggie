@@ -214,7 +214,7 @@ fun RecurringGroceryTab(
     }
 
     if (showPicker) {
-        // A recurring item is a product's: the search offers no « Utiliser … » free label.
+        // A recurring item is a product's: the search offers no « + Créer … » free label.
         ProductPickerDialog(
             products = products,
             onSelectProduct = {

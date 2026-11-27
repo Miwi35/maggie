@@ -230,6 +230,7 @@ fun AddItemSheet(
     if (showProductPicker) {
         ProductPickerDialog(
             products = products,
+            stores = stores,
             initialQuery = label,
             onSelectProduct = { product -> chooseProduct(product) },
             onSelectCustomLabel = { customLabel ->
