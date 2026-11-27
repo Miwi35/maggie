@@ -82,7 +82,7 @@ tags:
 - tapOn:
     id: "product_list_search"
 - extendedWaitUntil:
-    visible: "Retour"
+    visible: "Fermer la recherche"
     timeout: 20000
 - tapOn:
     id: "product_search"
