@@ -50,6 +50,14 @@ def owner_claims(items: Any, *, source: str, owner_minutes: set[str], limit: int
     ]
 
 
+def existing_target(service: MemoryService, user_id: str, titre: str, dossiers: list[str]) -> str | None:
+    """The fiche a new title and folders point at, when it already exists."""
+    if len(dossiers) > fiches.MAX_FOLDERS:
+        raise fiches.FicheError(f"At most {fiches.MAX_FOLDERS} nested folders.")
+    target = paths.fiche_relative(dossiers, titre, [])
+    return target if service.folder(user_id).exists(target) else None
+
+
 async def merge_into_fiche(
     service: MemoryService,
     user_id: str,
@@ -75,15 +83,11 @@ async def merge_into_fiche(
     when a claim is one of those that are no longer true. `reason(claims written, claims replaced)` is the journal line.
     `left` is filled as the replacements not found in the fiche are met, so the caller has them even on a refusal.
     """
-    folder = service.folder(user_id)
     if chemin is None:
         if not titre:
             return None
         resume = resume or titre
-        if len(dossiers) > fiches.MAX_FOLDERS:
-            raise fiches.FicheError(f"At most {fiches.MAX_FOLDERS} nested folders.")
-        target = paths.fiche_relative(dossiers, titre, [])
-        chemin = target if folder.exists(target) else None
+        chemin = existing_target(service, user_id, titre, dossiers)
 
     previous: list[dict[str, Any]] = []
     marks: list[dict[str, str]] = []

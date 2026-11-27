@@ -54,7 +54,7 @@ from app.memory.night_passes.common import (
     TickLimit,
     _stem,
 )
-from app.memory.proposals import merge_into_fiche
+from app.memory.proposals import existing_target, merge_into_fiche
 from app.memory.service import MemoryService, memory_service
 from app.memory.ulid import is_ulid
 from app.metrics import record_llm_usage, usage_kwargs
@@ -253,7 +253,10 @@ class NightKeeper:
     ) -> tuple[str, str] | None:
         """One fiche, written or corrected: `(path, 'ecrites'|'completees'|'corrigees')`, None if no change."""
         left: list[str] = []
+        unit = chemin
         try:
+            if unit is None and titre:
+                unit = existing_target(p.service, p.user_id, titre, dossiers)
             merged = await merge_into_fiche(
                 p.service,
                 p.user_id,
@@ -274,7 +277,7 @@ class NightKeeper:
             )
         finally:
             for text in left:
-                p.note("laissees", {"unite": chemin, "pourquoi": f"«{text}» ne figure pas dans la fiche"})
+                p.note("laissees", {"unite": unit, "pourquoi": f"«{text}» ne figure pas dans la fiche"})
         if merged is None:
             return None
         return merged.chemin, merged.kind
