@@ -35,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -190,6 +189,6 @@ private fun PickerRow(title: String, subtitle: String, onClick: () -> Unit) {
             Text(text = title, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
             Text(text = subtitle, fontSize = 13.sp, color = surface.textMuted)
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.06f)))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(surface.text.copy(alpha = if (isMaggieDark()) MaggieTokens.Divider.DARK else MaggieTokens.Divider.LIGHT)))
     }
 }
