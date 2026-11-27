@@ -847,6 +847,103 @@ describe('CalendarView', () => {
 })
 
 /** The review appointment is named after its month, whatever its stored summary (MAG-456). */
+describe('CalendarView — the period bands', { timeout: 30_000 }, () => {
+  const GARDE = '/api/agendas/01GARDE'
+  const PERSO = '/api/agendas/01PERSO'
+
+  const period = (id: string, name: string, agenda: string) => {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const day = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    const end = new Date(start.getTime() + 2 * 86400_000)
+
+    return { id, name, agenda, allDay: true, startDate: day(start), endDate: day(end) }
+  }
+
+  const bands = () => screen.queryAllByTestId('period-band').map((band) => band.getAttribute('data-period'))
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetList.mockImplementation((resource: string) => {
+      if (resource === 'agendas') {
+        return Promise.resolve({
+          data: [
+            { id: GARDE, name: 'Garde', default: false },
+            { id: PERSO, name: 'Perso', default: true },
+          ],
+          total: 2,
+        })
+      }
+
+      return Promise.resolve({ data: [], total: 0 })
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve(
+              String(url).includes('/periods?')
+                ? { member: [period('p1', 'Vacances', GARDE), period('p2', 'Stage', PERSO)] }
+                : {},
+            ),
+        }),
+      ),
+    )
+    vi.stubGlobal('EventSource', MockEventSource)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.stubGlobal('EventSource', MockEventSource)
+  })
+
+  const openWeek = async () => {
+    render(<CalendarView />)
+    await userEvent.click(screen.getByText('Semaine'))
+    await waitFor(() => expect(bands()).toHaveLength(2))
+  }
+
+  const agendaRow = async (name: string) =>
+    (await screen.findAllByTestId('agenda-row')).find((row) => row.textContent?.includes(name))!
+
+  test('hides the period bands of an unchecked agenda', async () => {
+    await openWeek()
+
+    await userEvent.click(await agendaRow('Garde'))
+
+    await waitFor(() => expect(bands()).toEqual(['Stage']))
+    await userEvent.click(await agendaRow('Garde'))
+    await waitFor(() => expect(bands()).toHaveLength(2))
+  })
+
+  test('the Périodes line is checked by default and hides every band', async () => {
+    await openWeek()
+
+    const row = screen.getByTestId('periods-row')
+    expect(within(row).getByRole('checkbox')).toBeChecked()
+
+    await userEvent.click(row)
+
+    await waitFor(() => expect(bands()).toEqual([]))
+    expect(within(row).getByRole('checkbox')).not.toBeChecked()
+  })
+
+  test('rechecking Périodes shows the bands of checked agendas only', async () => {
+    await openWeek()
+    await userEvent.click(await agendaRow('Garde'))
+    await userEvent.click(screen.getByTestId('periods-row'))
+    await waitFor(() => expect(bands()).toEqual([]))
+
+    await userEvent.click(screen.getByTestId('periods-row'))
+
+    await waitFor(() => expect(bands()).toEqual(['Stage']))
+  })
+})
+
 describe('CalendarView — the review appointment', { timeout: 30_000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()

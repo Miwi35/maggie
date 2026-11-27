@@ -82,7 +82,13 @@ data class FullCalendarUiState(
     val trips: List<Trip> = emptyList(),
     // The periods of the day or week on screen, series unfolded (MAG-815): chips under the date, never rows of the grid.
     val periods: List<Period> = emptyList(),
+    // The « Périodes » line of the filters: a screen setting like the agenda boxes, never saved (MAG-1052).
+    val showPeriods: Boolean = true,
 )
+
+/** A period shows when « Périodes » is ticked and its agenda is; one without agenda follows « Périodes » alone. */
+fun visiblePeriods(periods: List<Period>, enabledAgendas: Set<String>, showPeriods: Boolean): List<Period> =
+    if (!showPeriods) emptyList() else periods.filter { it.agendaId?.let { id -> id in enabledAgendas } ?: true }
 
 /** Before the module's agenda exists: the id the meals carry, and the colour they take. */
 const val MEALS_FILTER_ID = "__meals__"
@@ -278,6 +284,10 @@ class FullCalendarViewModel(
     fun toggleProactions() {
         _uiState.value = _uiState.value.copy(proactionsEnabled = !_uiState.value.proactionsEnabled)
         expandForCurrentRange()
+    }
+
+    fun togglePeriods() {
+        _uiState.value = _uiState.value.copy(showPeriods = !_uiState.value.showPeriods)
     }
 
     fun toggleAgenda(agendaId: String) {

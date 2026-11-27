@@ -66,6 +66,42 @@ test('a period shows as a band over the week, and a new one is created from the 
     .toContain('Vacances')
 })
 
+test('an unchecked agenda and the Périodes line hide the bands (MAG-1052)', async ({ api, page }) => {
+  const { monday, saturday } = thisWeek()
+
+  const bandsOf = async (name: string, agendaName: string) => {
+    const agenda = await api.post('/api/agendas', { headers: JSON_LD, data: { name: agendaName } })
+    expect(agenda.status(), await agenda.text()).toBe(201)
+    const created = await api.post('/api/periods', {
+      headers: JSON_LD,
+      data: { name, agenda: (await agenda.json())['@id'], allDay: true, startDate: monday, endDate: saturday },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+  }
+  await bandsOf('Garde', 'Famille')
+  await bandsOf('Stage', 'Travail')
+
+  const calendar = new CalendarPage(page, 'Famille')
+  await calendar.open()
+  await calendar.chooseView('Semaine')
+  const garde = page.getByTestId('period-band').filter({ hasText: 'Garde' })
+  const stage = page.getByTestId('period-band').filter({ hasText: 'Stage' })
+  await expect(garde).toBeVisible()
+  await expect(stage).toBeVisible()
+
+  await calendar.agendaCheckbox('Famille').click()
+  await expect(garde).toHaveCount(0)
+  await expect(stage).toBeVisible()
+
+  await expect(calendar.periodsRow.getByRole('checkbox')).toBeChecked()
+  await calendar.periodsRow.click()
+  await expect(page.getByTestId('period-band')).toHaveCount(0)
+
+  await calendar.periodsRow.click()
+  await expect(stage).toBeVisible()
+  await expect(garde).toHaveCount(0)
+})
+
 test('the dialog of an existing period reads its own agenda and saves it unchanged (MAG-913)', async ({ api, page }) => {
   const { monday, saturday } = thisWeek()
 

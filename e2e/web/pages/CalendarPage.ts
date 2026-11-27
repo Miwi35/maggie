@@ -535,6 +535,11 @@ export class CalendarPage extends AdminShell {
     })
   }
 
+  /** The « Périodes » line of the sidebar: shows or hides every period band (MAG-1052). */
+  get periodsRow(): Locator {
+    return this.content.getByTestId('periods-row')
+  }
+
   /** The sidebar checkbox that shows or hides one agenda. */
   agendaCheckbox(name: string): Locator {
     return this.agendaRow(name).getByRole('checkbox')
