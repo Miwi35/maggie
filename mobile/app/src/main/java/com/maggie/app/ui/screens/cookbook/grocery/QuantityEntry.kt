@@ -173,7 +173,7 @@ fun QuantityEntry(
                     Box(
                         modifier = Modifier
                             .height(40.dp)
-                            .background(if (chosen) courses.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.05f), CircleShape)
+                            .background(if (chosen) courses.copy(alpha = 0.16f) else surface.text.copy(alpha = 0.05f), CircleShape)
                             .clickable(role = Role.Button) { onChange(applied) }
                             .padding(horizontal = 16.dp)
                             .testTag(UiTags.groceryQuantitySuggestion(index)),
