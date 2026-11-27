@@ -95,7 +95,7 @@ class TestRecordDecision:
 
     @pytest.mark.asyncio
     async def test_a_failing_store_never_raises(self):
-        with patch("app.policy.decision.message_repo.create", AsyncMock(side_effect=RuntimeError("db down"))):
+        with patch("app.policy.decision.message_service.create", AsyncMock(side_effect=RuntimeError("db down"))):
             assert await record_decision(action(PendingActionStatus.APPROVED), "chat") is None
 
 

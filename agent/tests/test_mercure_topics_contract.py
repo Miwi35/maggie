@@ -20,7 +20,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db.message_repository import MessageRepository
+from app.domain.conversation.service import MessageService
 from app.db.models import Message
 from app.mercure import topics
 from tests.conftest import _SyncSessionAsAsync
@@ -80,12 +80,13 @@ async def test_a_created_message_is_published_on_the_users_chat_topic():
     Message.__table__.create(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
 
-    repo = MessageRepository()
+    service = MessageService()
     with (
         patch("app.db.message_repository.agent_session", lambda: _SyncSessionAsAsync(factory())),
-        patch.object(repo.publisher, "publish", new=AsyncMock()) as publish,
+        patch.object(service.publisher, "publish", new=AsyncMock()) as publish,
+        patch("app.memory.conversations.record", new=AsyncMock()),
     ):
-        message = await repo.create(user_id="01HXYZ", role="user", content="Bonjour")
+        message = await service.create(user_id="01HXYZ", role="user", content="Bonjour")
 
     publish.assert_awaited_once()
     assert publish.await_args.args[0] == "/chat/01HXYZ"

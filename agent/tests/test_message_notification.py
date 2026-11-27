@@ -82,7 +82,7 @@ class TestConsumer:
             gateway.proaction = AsyncMock(return_value=result)
         stored = MagicMock(id="msg-9", audio=audio)
         with (
-            patch("app.queue.proaction_consumer.message_repo") as messages,
+            patch("app.queue.proaction_consumer.message_service") as messages,
             patch("app.queue.proaction_consumer.proactions_api") as proactions,
             patch("app.queue.proaction_consumer.publisher") as publisher,
             patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
@@ -169,7 +169,7 @@ class TestConsumer:
         gateway = MagicMock()
         gateway.proaction = AsyncMock(return_value={"response": "Rien.", "tool_calls": []})
         with (
-            patch("app.queue.proaction_consumer.message_repo") as messages,
+            patch("app.queue.proaction_consumer.message_service") as messages,
             patch("app.queue.proaction_consumer.proactions_api") as proactions,
             patch("app.queue.proaction_consumer.publisher") as publisher,
             patch("app.queue.message_notification.mcp_client") as mcp,

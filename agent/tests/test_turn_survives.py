@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.container import container
 from app.api import chat_routes as routes
 from app.db.message_repository import message_repo
+from app.domain.conversation.service import message_service
 from app.db.models import TURN_EXPIRED, Message
 from app.llm import turns
 from app.llm.history import build_history
@@ -32,7 +33,7 @@ class SlowGateway:
         self.runs += 1
         yield {"type": "RUN_STARTED", "runId": "run-1"}
         await asyncio.sleep(0.05)
-        await message_repo.create(user_id=user_id, role="assistant", content="Rappel programmé.")
+        await message_service.create(user_id=user_id, role="assistant", content="Rappel programmé.")
         yield {"type": "RUN_FINISHED", "runId": "run-1"}
 
 
@@ -54,7 +55,7 @@ class TestAClientThatLeaves:
 
         with (
             container.override(streaming_gateway=gateway),
-            patch.object(message_repo.publisher, "publish", publish),
+            patch.object(message_service.publisher, "publish", publish),
         ):
             response = await routes.chat_stream(
                 routes.ChatRequest(message="rappelle-moi de me servir un café dans 1 min"), user_id="user-1"

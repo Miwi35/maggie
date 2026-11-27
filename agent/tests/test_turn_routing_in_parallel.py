@@ -61,6 +61,7 @@ def _turn_environment(stack: ExitStack, calls: list[str]) -> MagicMock:
     skills.skills_for_moment.return_value = ""
     skills.refresh = AsyncMock()
     messages = stack.enter_context(patch("app.llm.streaming.message_repo"))
+    stack.enter_context(patch("app.llm.streaming.message_service", messages))
     messages.create = AsyncMock()
     summarizer = stack.enter_context(patch("app.llm.streaming.context_summarizer"))
     summarizer.maybe_summarize = AsyncMock(return_value=None)
@@ -226,6 +227,7 @@ async def test_the_open_threads_are_read_once_per_turn():
         stack.enter_context(patch.object(context_repo, "touch", AsyncMock()))
         stack.enter_context(patch("app.llm.contexts.client_for", AsyncMock(side_effect=lambda _user, client: client)))
         routed_messages = stack.enter_context(patch.object(contexts_module, "message_repo"))
+        stack.enter_context(patch.object(contexts_module, "message_service", routed_messages))
         routed_messages.find_recent = AsyncMock(return_value=[])
         routed_messages.update_context = AsyncMock()
         history_messages = stack.enter_context(patch.object(history_module, "message_repo"))

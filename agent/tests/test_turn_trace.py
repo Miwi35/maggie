@@ -51,6 +51,7 @@ async def _turn(gw, message: str = "Ma liste ?") -> list[dict]:
         contexts = stack.enter_context(patch("app.llm.contexts.context_repo"))
         thread = stack.enter_context(patch("app.llm.streaming.context_repo"))
         messages = stack.enter_context(patch("app.llm.streaming.message_repo"))
+        stack.enter_context(patch("app.llm.streaming.message_service", messages))
         stack.enter_context(
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": message}]))
         )

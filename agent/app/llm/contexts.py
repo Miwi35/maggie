@@ -38,6 +38,7 @@ from app.db.context_model import ContextStatus, ConversationContext
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE
+from app.domain.conversation.service import message_service
 from app.llm.client import client_for
 from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.metrics import record_llm_usage
@@ -501,7 +502,7 @@ async def route_message(
 
     if message_id:
         try:
-            await message_repo.update_context(message_id, resolution["id"])
+            await message_service.update_context(message_id, resolution["id"])
         except Exception as e:
             logger.warning(f"Could not tag message {message_id} with its context: {e}")
 

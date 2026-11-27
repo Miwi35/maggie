@@ -166,7 +166,7 @@ class TestRouteMessage:
         created.id = "ctx-new"
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.contexts.message_repo") as messages,
+            patch("app.llm.contexts.message_repo") as messages, patch("app.llm.contexts.message_service", messages),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             contexts.create = AsyncMock(return_value=created)
@@ -188,7 +188,7 @@ class TestRouteMessage:
         created.id = "ctx-new"
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.contexts.message_repo") as messages,
+            patch("app.llm.contexts.message_repo") as messages, patch("app.llm.contexts.message_service", messages),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             contexts.create = AsyncMock(return_value=created)
@@ -206,7 +206,7 @@ class TestRouteMessage:
     async def test_nothing_is_tagged_when_the_routing_failed(self):
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.contexts.message_repo") as messages,
+            patch("app.llm.contexts.message_repo") as messages, patch("app.llm.contexts.message_service", messages),
         ):
             contexts.find_active = AsyncMock(side_effect=RuntimeError("no database"))
             messages.update_context = AsyncMock()
@@ -221,7 +221,7 @@ class TestRouteMessage:
         created.id = "ctx-new"
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.contexts.message_repo") as messages,
+            patch("app.llm.contexts.message_repo") as messages, patch("app.llm.contexts.message_service", messages),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             contexts.create = AsyncMock(return_value=created)

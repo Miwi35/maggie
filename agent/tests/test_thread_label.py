@@ -102,7 +102,7 @@ def _streaming_gateway(answer: str) -> StreamingGateway:
 async def _stream(answer: str) -> tuple[list[dict], AsyncMock]:
     with (
         patch("app.llm.contexts.context_repo") as contexts,
-        patch("app.llm.streaming.message_repo") as messages,
+        patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
         patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Où ?"}])),
         patch("app.prompt_sources.skill_index") as skills,
         patch("app.llm.streaming.context_summarizer") as summarizer,

@@ -122,17 +122,6 @@ class TestTheToolBlocksOfATurn:
             "feedbackComment",
         }
 
-    async def test_the_published_payload_does_not_change_either(self, chat_db):
-        """A phone parsing the Mercure echo must not meet a field it has never seen."""
-        publish = AsyncMock()
-        with patch("app.db.message_repository.message_repo.publisher.publish", new=publish):
-            await message_repo.create(
-                user_id="user-1", role="assistant", content="La voilà.", blocks=self._blocks()
-            )
-
-        _topic, payload = publish.await_args.args
-        assert "blocks" not in payload
-
 
 class TestCountByContext:
     async def test_counts_one_thread_only(self, chat_db):
@@ -183,34 +172,3 @@ class TestFindRecentFiltered:
         await _write(chat_db.session, None, "assistant", "digest écrit", 5)
 
         assert await message_repo.find_recent_filtered("user-1", screen="digest", with_audio=True, limit=1) == []
-
-
-class TestAnnounce:
-    """A stored message is announced (Mercure, then the memory file) apart from its insertion (MAG-850)."""
-
-    async def test_an_answer_stored_without_announce_is_neither_published_nor_recorded(self, chat_db):
-        publish = AsyncMock()
-        record = AsyncMock()
-        with (
-            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
-            patch("app.memory.conversations.record", new=record),
-        ):
-            msg = await message_repo.create(user_id="user-1", role="assistant", content="Oui.", announce=False)
-
-        assert (await message_repo.get(msg.id)) is not None
-        publish.assert_not_awaited()
-        record.assert_not_awaited()
-
-    async def test_announce_publishes_then_records(self, chat_db):
-        calls: list[str] = []
-        publish = AsyncMock(side_effect=lambda *a: calls.append("mercure"))
-        record = AsyncMock(side_effect=lambda *a: calls.append("record"))
-        with (
-            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
-            patch("app.memory.conversations.record", new=record),
-        ):
-            msg = await message_repo.create(user_id="user-1", role="assistant", content="Oui.", announce=False)
-            await message_repo.announce(msg)
-
-        assert calls == ["mercure", "record"]
-        record.assert_awaited_once_with(msg)

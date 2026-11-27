@@ -340,7 +340,7 @@ async def stream_turn(steps, results, options) -> dict:
         patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])),
         patch("app.llm.streaming.build_history", AsyncMock(side_effect=lambda *a, **k: [{"role": "user", "content": "salut"}])),
         patch("app.llm.streaming.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
-        patch("app.llm.streaming.message_repo") as messages,
+        patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
         patch("app.llm.streaming.context_repo") as contexts,
         patch("app.llm.streaming.context_summarizer", MagicMock(maybe_summarize=AsyncMock())),
         patch.object(provider_state_repo, "mark_ok", AsyncMock()),

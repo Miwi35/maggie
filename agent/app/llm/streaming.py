@@ -16,6 +16,7 @@ from app.db.context_repository import context_repo
 from app.db.journal_repository import journal_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID, Message
+from app.domain.conversation.service import message_service
 from app.error_tracking import capture_error
 from app.llm.client import client_for
 from app.llm.context_summary import context_summarizer
@@ -360,7 +361,7 @@ class StreamingGateway:
         # device that streamed it recognises the echo by that id, the others learn of it.
         if answer:
             try:
-                msg = await message_repo.create(
+                msg = await message_service.create(
                     user_id=user_id,
                     role="assistant",
                     content=answer,
@@ -449,7 +450,7 @@ class StreamingGateway:
     @staticmethod
     async def _announce_answer(msg: Message, user_id: str, msg_id: str) -> None:
         try:
-            await message_repo.announce(msg)
+            await message_service.announce(msg)
         except Exception as exc:
             logger.exception("Could not announce answer %s", msg_id)
             capture_error(exc, user_id=user_id, message_id=msg_id)
@@ -466,7 +467,7 @@ class StreamingGateway:
         if not blocks:
             return
         try:
-            await message_repo.create(
+            await message_service.create(
                 user_id=user_id,
                 role="assistant",
                 content=shown or NOTHING_SAID,

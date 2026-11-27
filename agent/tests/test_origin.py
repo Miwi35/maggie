@@ -105,7 +105,7 @@ async def test_a_streamed_turn_schedules_with_the_owner_message_as_origin():
         patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])),
         patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "lait"}])),
         patch("app.llm.streaming.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
-        patch("app.llm.streaming.message_repo") as messages,
+        patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
         patch("app.llm.streaming.context_repo") as contexts,
         patch("app.llm.streaming.context_summarizer", MagicMock(maybe_summarize=AsyncMock())),
         patch.object(provider_state_repo, "mark_ok", AsyncMock()),

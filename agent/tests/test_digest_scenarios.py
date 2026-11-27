@@ -188,7 +188,7 @@ def storage():
     thread.create = AsyncMock(return_value=MagicMock(id="msg-1", audio=None, screen="digest"))
     with (
         patch("app.digest.send_voice_message", voice),
-        patch("app.digest.message_repo", thread),
+        patch("app.digest.message_service", thread),
         patch("app.digest.resolve_user_timezone", AsyncMock(return_value=ZoneInfo("Europe/Paris"))),
         patch("app.digest.datetime", _Frozen),
         patch("app.runtime.loop.record_llm_usage"),

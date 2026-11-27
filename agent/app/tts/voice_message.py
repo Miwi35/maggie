@@ -15,6 +15,7 @@ from app.config import settings
 from app.db.message_repository import message_repo
 from app.db.models import AUDIO_TYPE, MESSAGE_SCREENS, Message
 from app.db.user_setting_repository import user_setting_repo
+from app.domain.conversation.service import message_service
 from app.memory.bucket import Bucket, BucketError, BucketUnavailable
 from app.memory.service import memory_service
 from app.tts.providers import ProviderFailedError
@@ -145,7 +146,7 @@ async def send_voice_message(
         "size": len(audio),
         "transcript": transcript,
     }
-    return await message_repo.create(
+    return await message_service.create(
         user_id,
         "assistant",
         content or transcript,

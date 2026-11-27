@@ -7,10 +7,10 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from app.config import settings
-from app.db.message_repository import message_repo
 from app.db.pending_action_model import PendingAction, PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
 from app.domain.approvals.errors import ApprovalExpired, ApprovalNotFound, ApprovalNotPending, UnknownChannel
+from app.domain.conversation.service import message_service
 from app.llm.context_summary import context_summarizer
 from app.llm.models import CHAT, effort_for, model_for
 from app.llm.runner import run_tool_loop
@@ -144,7 +144,7 @@ class ApprovalService:
             )
             if not answer["response"]:
                 return
-            await message_repo.create(
+            await message_service.create(
                 user_id=action.user_id, role="assistant", content=answer["response"], context_id=action.context_id
             )
             if action.context_id:

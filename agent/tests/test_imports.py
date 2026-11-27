@@ -49,3 +49,8 @@ def test_the_approval_logic_left_the_routes():
         "_is_error_result",
     ):
         assert not hasattr(routes, name), name
+
+
+def test_the_message_repository_is_sql_only():
+    imported = _imported(APP_DIR / "db" / "message_repository.py")
+    assert not any(_is(m, "app.mercure") or _is(m, "app.memory") for m in imported)

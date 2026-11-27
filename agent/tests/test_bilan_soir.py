@@ -69,7 +69,7 @@ class TestTheReviewMessage:
         monkeypatch.setattr(proaction_consumer, "_journal", AsyncMock())
         monkeypatch.setattr(proaction_consumer, "notify_message", AsyncMock())
         create = AsyncMock(return_value=SimpleNamespace(id="m", content=bilan.BILAN_AVAILABLE))
-        monkeypatch.setattr(proaction_consumer.message_repo, "create", create)
+        monkeypatch.setattr(proaction_consumer.message_service, "create", create)
         gateway = AsyncMock()
         gateway.proaction.return_value = {"response": "Rappel", "tool_calls": [], "context_id": None}
         gateway.proaction_context.return_value = "ctx-1"

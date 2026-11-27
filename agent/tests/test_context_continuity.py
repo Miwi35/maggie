@@ -245,7 +245,7 @@ async def _route(client, text: str, previous: list, threads: list | None = None)
     threads = threads if threads is not None else [_thread("ctx-courses", "Courses"), _thread("ctx-budget", "Budget", 30)]
     with (
         patch("app.llm.contexts.context_repo") as contexts,
-        patch("app.llm.contexts.message_repo") as messages,
+        patch("app.llm.contexts.message_repo") as messages, patch("app.llm.contexts.message_service", messages),
     ):
         contexts.find_active = AsyncMock(return_value=threads)
         contexts.create = AsyncMock(return_value=created)
@@ -346,7 +346,7 @@ class TestTheTimeThreshold:
         client = _answering('{"context_id": "ctx-budget"}')
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.contexts.message_repo") as messages,
+            patch("app.llm.contexts.message_repo") as messages, patch("app.llm.contexts.message_service", messages),
         ):
             contexts.find_active = AsyncMock(return_value=[_thread("ctx-budget", "Budget")])
             contexts.touch = AsyncMock()
