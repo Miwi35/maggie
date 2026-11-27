@@ -201,10 +201,15 @@ export const IngredientList = () => (
     pagination={false}
     component="div"
     empty={
-      <ListEmpty
-        title="Aucun ingrédient pour l'instant"
-        action="Ajouter un ingrédient"
-      />
+      <>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 500, fontSize: 26, p: 2 }}>
+          Ingrédients
+        </Typography>
+        <ListEmpty
+          title="Aucun ingrédient pour l'instant"
+          action="Ajouter un ingrédient"
+        />
+      </>
     }
   >
     <IngredientBrowser />

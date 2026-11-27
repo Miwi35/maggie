@@ -219,10 +219,15 @@ export const RecipeList = () => (
     pagination={false}
     component="div"
     empty={
-      <ListEmpty
-        title="Aucune recette pour l'instant"
-        action="Ajouter une recette"
-      />
+      <>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 500, fontSize: 26, p: 2 }}>
+          Recettes
+        </Typography>
+        <ListEmpty
+          title="Aucune recette pour l'instant"
+          action="Ajouter une recette"
+        />
+      </>
     }
   >
     <RecipeBrowser />
