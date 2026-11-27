@@ -36,11 +36,12 @@ from app.db.user_setting_model import UserSetting  # noqa: F401 — register mod
 from app.e2e import setup_e2e
 from app.e2e_coverage import setup_journey_coverage
 from app.error_tracking import init_error_tracking
+from app.llm.transcription import close_transcription_client
 from app.llm.turns import turn_runner
 from app.mcp.client import mcp_client
 from app.memory.service import memory_service
 from app.mercure import topics as mercure_topics
-from app.mercure.publisher import MercurePublisher
+from app.mercure.publisher import MercurePublisher, close_publisher_client
 from app.queue import connection as queue_connection
 from app.queue.proaction_consumer import start_consumer
 from app.queue.scheduler import start_scheduler
@@ -165,6 +166,10 @@ async def lifespan(app: FastAPI):
         await mcp_client.disconnect()
     with contextlib.suppress(Exception):
         await close_providers()
+    with contextlib.suppress(Exception):
+        await close_publisher_client()
+    with contextlib.suppress(Exception):
+        await close_transcription_client()
 
 
 app = FastAPI(
