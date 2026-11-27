@@ -35,7 +35,7 @@ tags:
 - tapOn:
     id: "grocery_add_product"
 - extendedWaitUntil:
-    visible: "Retour"
+    visible: "Fermer la recherche"
     timeout: 20000
 - tapOn:
     id: "product_search"
@@ -43,9 +43,15 @@ tags:
 - extendedWaitUntil:
     visible: "Timbres du voisin"
     timeout: 20000
+- assertVisible: "Produit · .*"
+- eraseText: 30
+- inputText: "Zzzqx inconnu"
+- extendedWaitUntil:
+    visible: ".*Créer.*Zzzqx inconnu.*"
+    timeout: 20000
 
 # The category is read in French, as on the product sheet (MAG-794), never « produce ».
-- tapOn: "Retour"
+- tapOn: "Fermer la recherche"
 - extendedWaitUntil:
     visible:
       id: "grocery_add_product"

@@ -63,7 +63,7 @@ tags:
 - tapOn:
     id: "grocery_add_product"
 - extendedWaitUntil:
-    visible: "Retour"
+    visible: "Fermer la recherche"
     timeout: 20000
 - tapOn:
     id: "product_search"

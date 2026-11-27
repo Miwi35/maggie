@@ -257,4 +257,17 @@ class GroceryPickerUtilsTest {
         assertEquals("Biocoop", productLine(rice.copy(packagingUnit = null, aisles = emptyList()), listOf(biocoop), emptyMap()))
         assertNull(productLine(Product(id = "p2", name = "Poireau", category = ProductCategory.PRODUCE), emptyList(), emptyMap()))
     }
+
+    // --- productSubtitle ---
+
+    @Test
+    fun `productSubtitle names the usual store and the category`() {
+        assertEquals("Produit \u00b7 Carrefour \u00b7 Fruits et l\u00e9gumes", productSubtitle(products[0], stores))
+    }
+
+    @Test
+    fun `productSubtitle omits the store when unknown`() {
+        assertEquals("Produit \u00b7 Produits laitiers", productSubtitle(products[2], stores))
+        assertEquals("Produit \u00b7 Produits laitiers", productSubtitle(products[2].copy(preferredStore = "/api/stores/zz"), stores))
+    }
 }

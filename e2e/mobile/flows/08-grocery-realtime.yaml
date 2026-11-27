@@ -141,10 +141,10 @@ tags:
     timeout: 20000
 - tapOn:
     id: "grocery_add_product"
-# « Retour » is the full-screen search's own back button; its title is also the
+# « Fermer la recherche » is the full-screen search's own back button; the search is also the
 # sheet's search icon, so it would pass before the dialog is up.
 - extendedWaitUntil:
-    visible: "Retour"
+    visible: "Fermer la recherche"
     timeout: 20000
 # Touched before typing: the focus the dialog asks for on opening is not
 # something a journey can count on, and text sent to nothing is lost silently.
@@ -152,9 +152,9 @@ tags:
     id: "product_search"
 - inputText: "Tisane MAG-178"
 - extendedWaitUntil:
-    visible: "Utiliser.*Tisane MAG-178.*"
+    visible: ".*Créer.*Tisane MAG-178.*"
     timeout: 20000
-- tapOn: "Utiliser.*Tisane MAG-178.*"
+- tapOn: ".*Créer.*Tisane MAG-178.*"
 
 # Back on the sheet, with the label filled in; now the shop.
 - extendedWaitUntil:

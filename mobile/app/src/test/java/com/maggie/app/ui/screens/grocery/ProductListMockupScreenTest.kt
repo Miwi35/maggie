@@ -109,7 +109,7 @@ class ProductListMockupScreenTest {
 
         compose.onNodeWithTag(UiTags.PRODUCT_LIST_SEARCH).performClick()
         compose.onNodeWithTag(UiTags.PRODUCT_SEARCH).performTextInput("Ail")
-        compose.onAllNodesWithText("Utiliser", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Cr\u00e9er", substring = true).assertCountEquals(0)
         compose.onAllNodesWithText("Ail").onLast().performClick()
 
         compose.onNodeWithTag(UiTags.PRODUCT_SHEET).assertIsDisplayed()
