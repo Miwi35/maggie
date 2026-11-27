@@ -37,6 +37,7 @@ import ChecklistIcon from '@mui/icons-material/Checklist'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import DateRangeIcon from '@mui/icons-material/DateRange'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EventIcon from '@mui/icons-material/Event'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
@@ -629,6 +630,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
   const [moduleAgendas, setModuleAgendas] = useState<CalendarData[]>([])
   const moduleIdsRef = useRef<string[]>([])
   const [enabledCalendars, setEnabledCalendars] = useState<Set<string> | null>(null)
+  const [showPeriods, setShowPeriods] = useState(true)
   const [miniCalDate, setMiniCalDate] = useState(new Date())
   const [currentView, setCurrentView] = useState<CalendarView>('dayGridMonth')
   const [activeRange, setActiveRange] = useState<{ start: Date; end: Date } | null>(null)
@@ -1344,6 +1346,14 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
       ...(proactionsVisible ? proactionEvents : []),
     ]
   }, [coloredEvents, enabledCalendars, calendars, moduleAgendas, layers, taskEvents, mealEvents, proactionEvents])
+
+  // A period shows when its agenda is ticked and the « Périodes » line is too.
+  const visiblePeriods = useMemo(() => {
+    if (!showPeriods) return []
+    if (!enabledCalendars) return rawPeriods
+    const ticked = new Set([...enabledCalendars].map(bareId))
+    return rawPeriods.filter((p) => ticked.has(bareId(p.agenda)))
+  }, [rawPeriods, enabledCalendars, showPeriods])
 
   // The periods of a short range, read apart from the events: they hold no slot (MAG-816).
   // Resolves `true` when what it read differs from what the screen holds.
@@ -2594,6 +2604,33 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
                 </Box>
               )
             })}
+            <Box
+              data-testid="periods-row"
+              onClick={() => setShowPeriods((v) => !v)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                py: 0.25,
+                px: 0.5,
+                cursor: 'pointer',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Checkbox
+                size="small"
+                checked={showPeriods}
+                tabIndex={-1}
+                disableRipple
+                sx={{
+                  p: 0.25,
+                  color: 'text.secondary',
+                  '&.Mui-checked': { color: 'text.secondary' },
+                }}
+              />
+              <DateRangeIcon sx={{ fontSize: 16, color: 'text.secondary', ml: 0.5, mr: 0.5 }} />
+              <Typography variant="body2">Périodes</Typography>
+            </Box>
           </Box>
           )}
         </Box>
@@ -2602,7 +2639,7 @@ export const CalendarView = ({ moduleKey }: { moduleKey?: keyof typeof MODULE_CA
         <Box ref={calendarBoxRef} sx={calendarThemeSx}>
           {currentView === 'timeGridWeek' && activeRange && (
             <WeekPeriodBands
-              periods={rawPeriods}
+              periods={visiblePeriods}
               weekStart={localDay(activeRange.start)}
               agendas={calendars}
               onOpen={handleOpenPeriod}
