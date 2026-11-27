@@ -7,11 +7,10 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.hasAnyDescendant
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -26,6 +25,7 @@ import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.RecipeNeedMeal
 import com.maggie.app.data.model.RecipeNeedResponse
+import com.maggie.app.data.model.Store
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
@@ -88,7 +88,7 @@ class QuantityEntryScreenTest {
     private fun SemanticsNodeInteraction.tap() = performSemanticsAction(SemanticsActions.OnClick)
 
     private fun openProductPicker() {
-        compose.onNode(hasClickAction() and hasAnyDescendant(hasText("Nom du produit"))).tap()
+        compose.onNodeWithTag(UiTags.GROCERY_ADD_PRODUCT).tap()
     }
 
     private fun needOf(quantity: Double, vararg meals: RecipeNeedMeal) = RecipeNeedResponse(
@@ -123,8 +123,6 @@ class QuantityEntryScreenTest {
 
         compose.onNodeWithTag(UiTags.GROCERY_PACKAGINGS_FIELD).assertTextContains("2")
         compose.onNodeWithTag(UiTags.GROCERY_PACKAGING_CAPTION).assertTextEquals("paquets de 500 g")
-        compose.onNodeWithTag(UiTags.GROCERY_PREFILLED_CHIP).assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.GROCERY_PREFILLED_CHIP).assertTextContains("prérempli · réassort")
         compose.onNodeWithTag(UiTags.GROCERY_QUANTITY_SUMMARY).assertTextEquals("1 kg · 2 paquets")
 
         compose.onNodeWithText("Ajouter").tap()
@@ -133,13 +131,12 @@ class QuantityEntryScreenTest {
     }
 
     @Test
-    fun `the plus button changes the count and drops the prefilled badge`() {
+    fun `the plus button changes the count`() {
         openAddSheetOn(pasta)
 
         compose.onNodeWithContentDescription("Augmenter le nombre de conditionnements").tap()
 
         compose.onNodeWithTag(UiTags.GROCERY_PACKAGINGS_FIELD).assertTextContains("3")
-        compose.onNodeWithTag(UiTags.GROCERY_PREFILLED_CHIP).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.GROCERY_QUANTITY_SUMMARY).assertTextEquals("1,5 kg · 3 paquets")
     }
 
@@ -172,6 +169,67 @@ class QuantityEntryScreenTest {
     }
 
     @Test
+    fun `the header says Ajouter à la liste, a hint before a product and the product with its store line after`() {
+        val rice = pasta.copy(preferredStore = "/api/stores/s1")
+        compose.setContent {
+            AddItemSheet(
+                products = listOf(rice),
+                stores = listOf(Store(id = "s1", name = "Biocoop")),
+                onAddItem = { _, _, _, _, _ -> },
+                onDismiss = {},
+            )
+        }
+        compose.onNodeWithText("Ajouter à la liste").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_ADD_PRODUCT).assertTextEquals("Choisir un produit")
+        compose.onNodeWithContentDescription("Fermer").assertIsDisplayed()
+        compose.onNodeWithText("Ajouter").assertIsNotEnabled()
+
+        openProductPicker()
+        compose.onNodeWithTag(UiTags.PRODUCT_SEARCH).performTextInput(rice.name.take(3))
+        compose.onNodeWithText(rice.name).tap()
+
+        compose.onNodeWithTag(UiTags.GROCERY_ADD_PRODUCT).assertTextEquals(rice.name)
+        compose.onNodeWithText("Biocoop · se vend en paquet de 500 g").assertIsDisplayed()
+        compose.onNodeWithText("Ajouter").assertIsEnabled()
+    }
+
+    @Test
+    fun `category and store fields only for a free label or a product without a store`() {
+        openAddSheetOn(pasta)
+        compose.onNodeWithText("Catégorie").assertIsDisplayed()
+        compose.onNodeWithText("Magasin").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a product with its store leaves no category or store field`() {
+        val rice = pasta.copy(preferredStore = "/api/stores/s1")
+        compose.setContent {
+            AddItemSheet(
+                products = listOf(rice),
+                stores = listOf(Store(id = "s1", name = "Biocoop")),
+                onAddItem = { _, _, _, _, _ -> },
+                onDismiss = {},
+            )
+        }
+        openProductPicker()
+        compose.onNodeWithTag(UiTags.PRODUCT_SEARCH).performTextInput(rice.name.take(3))
+        compose.onNodeWithText(rice.name).tap()
+
+        compose.onNodeWithText("Catégorie").assertDoesNotExist()
+        compose.onNodeWithText("Magasin").assertDoesNotExist()
+    }
+
+    @Test
+    fun `packagings read as a big number between minus and plus, with the caption under`() {
+        openAddSheetOn(pasta)
+
+        compose.onNodeWithContentDescription("Diminuer le nombre de conditionnements").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_PACKAGINGS_FIELD).assertTextEquals("2")
+        compose.onNodeWithContentDescription("Augmenter le nombre de conditionnements").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.GROCERY_PACKAGING_CAPTION).assertTextEquals("paquets de 500 g")
+    }
+
+    @Test
     fun `choosing a product asks for the week's recipe need of that product`() {
         openAddSheetOn(pasta)
 
@@ -183,10 +241,10 @@ class QuantityEntryScreenTest {
         openAddSheetOn(pasta, recipeNeed = needOf(800.0, *riceMeals))
 
         compose.onNodeWithTag(UiTags.GROCERY_RECIPE_NEED_BOX).assertIsDisplayed()
-        compose.onNodeWithText("Pour les recettes de la semaine · 800 g").assertIsDisplayed()
-        compose.onAllNodesWithTag(UiTags.GROCERY_RECIPE_NEED_MEAL).assertCountEquals(2)
-        compose.onNodeWithText("Riz au curry · 24/10 · 500 g").assertIsDisplayed()
-        compose.onNodeWithText("Riz cantonais · 26/10 · 300 g").assertIsDisplayed()
+        compose.onNodeWithText("Pour les recettes de la semaine").assertIsDisplayed()
+        compose.onNodeWithText("800 g").assertIsDisplayed()
+        compose.onAllNodesWithTag(UiTags.GROCERY_RECIPE_NEED_MEAL).assertCountEquals(1)
+        compose.onNodeWithTag(UiTags.GROCERY_RECIPE_NEED_MEAL).assertTextEquals("Riz au curry sam. 500 g · Riz cantonais lun. 300 g")
         compose.onNodeWithTag(UiTags.GROCERY_QUANTITY_SUMMARY).assertTextEquals("1 kg (dont 800 g pour les recettes) · 2 paquets")
         compose.onNodeWithTag(UiTags.GROCERY_COVERAGE_ALERT).assertDoesNotExist()
     }
@@ -212,7 +270,6 @@ class QuantityEntryScreenTest {
         openAddSheetOn(bare, recipeNeed = needOf(800.0, *riceMeals), products = listOf(bare))
 
         compose.onNodeWithTag(UiTags.GROCERY_PACKAGINGS_FIELD).assertTextContains("2")
-        compose.onNodeWithTag(UiTags.GROCERY_PREFILLED_CHIP).assertTextContains("prérempli · recettes de la semaine")
 
         compose.onNodeWithText("Ajouter").tap()
 
@@ -273,7 +330,6 @@ class QuantityEntryScreenTest {
 
         compose.onNodeWithTag(UiTags.GROCERY_PACKAGINGS_FIELD).assertTextContains("3")
         compose.onNodeWithTag(UiTags.GROCERY_COVERAGE_ALERT).assertDoesNotExist()
-        compose.onNodeWithTag(UiTags.GROCERY_PREFILLED_CHIP).assertDoesNotExist()
 
         compose.onNodeWithText("Ajouter").tap()
 

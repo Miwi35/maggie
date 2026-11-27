@@ -968,6 +968,7 @@ object UiTags {
     fun grocerySuggestionSnooze(productId: String) = GROCERY_SUGGESTION_SNOOZE_PREFIX + productId
 
     /** The quantity of a line being added or edited (MAG-573): its modes, stepper, field and conversion text. */
+    const val GROCERY_ADD_PRODUCT = "grocery_add_product"
     const val GROCERY_QUANTITY_ENTRY = "grocery_quantity_entry"
     const val GROCERY_QUANTITY_MODE_QUANTITY = "grocery_quantity_mode_quantity"
     const val GROCERY_QUANTITY_MODE_PACKAGINGS = "grocery_quantity_mode_packagings"
@@ -975,7 +976,6 @@ object UiTags {
     const val GROCERY_PACKAGINGS_FIELD = "grocery_packagings_field"
     const val GROCERY_PACKAGING_CAPTION = "grocery_packaging_caption"
     const val GROCERY_QUANTITY_SUMMARY = "grocery_quantity_summary"
-    const val GROCERY_PREFILLED_CHIP = "grocery_prefilled_chip"
     const val GROCERY_QUANTITY_SUGGESTION_PREFIX = "grocery_quantity_suggestion_"
 
     fun groceryQuantitySuggestion(index: Int) = GROCERY_QUANTITY_SUGGESTION_PREFIX + index
