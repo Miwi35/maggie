@@ -1,6 +1,10 @@
 package com.maggie.app.ui.screens.grocery
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -10,6 +14,7 @@ import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
 import com.maggie.app.data.model.ProductCategory
+import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.Store
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
@@ -32,6 +37,7 @@ class ProductDetailScreenTest {
     private fun show(
         editor: ProductEditorState = ProductEditorState(pasta, ProductDraft.from(pasta)),
         onSave: () -> Unit = {},
+        onDraftChange: ((ProductDraft) -> ProductDraft) -> Unit = {},
         onSelectStore: (StoreSlot, String?) -> Unit = { _, _ -> },
         onSelectAisle: (StoreSlot, AisleChoice?) -> Unit = { _, _ -> },
     ) {
@@ -40,7 +46,7 @@ class ProductDetailScreenTest {
                 editor = editor,
                 stores = listOf(superU),
                 aislesByStore = aisles,
-                onDraftChange = {},
+                onDraftChange = onDraftChange,
                 onSelectStore = onSelectStore,
                 onSelectAisle = onSelectAisle,
                 onPickCiqual = {},
@@ -58,7 +64,7 @@ class ProductDetailScreenTest {
     fun `the sheet shows the product's name and no aisle field without a store`() {
         show()
 
-        compose.onNodeWithText("Pâtes sèches").assertIsDisplayed()
+        compose.onAllNodesWithText("Pâtes sèches").assertCountEquals(2)
         compose.onNodeWithTag(UiTags.PRODUCT_SHEET_STORE).performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag(UiTags.PRODUCT_SHEET_AISLE).assertDoesNotExist()
         compose.onNodeWithTag(UiTags.PRODUCT_SHEET_FALLBACK_AISLE).assertDoesNotExist()
@@ -97,6 +103,82 @@ class ProductDetailScreenTest {
         compose.onNodeWithText("Épicerie").performClick()
 
         assertEquals(AisleChoice("a1"), chosen)
+    }
+
+    @Test
+    fun `header shows breadcrumb, name and Enregistrer pill`() {
+        show()
+
+        compose.onNodeWithText("Courses › Produits").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Fermer").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Plus d'options").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_SAVE).assertIsDisplayed()
+        compose.onNodeWithText("Enregistrer").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an empty name reads Nouveau produit in the header`() {
+        val draft = ProductDraft.from(pasta).copy(name = "")
+        show(ProductEditorState(pasta, draft))
+
+        compose.onNodeWithText("Nouveau produit").assertIsDisplayed()
+    }
+
+    @Test
+    fun `delete is only in the overflow menu`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_DELETE).assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_MORE).performClick()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_DELETE).assertIsDisplayed()
+    }
+
+    @Test
+    fun `stock segments read En stock Bas Épuisé and pick one`() {
+        var draft = ProductDraft.from(pasta)
+        show(onDraftChange = { change -> draft = change(draft) })
+
+        compose.onNodeWithTag(UiTags.productSheetStock(ProductStockState.IN_STOCK)).performScrollTo().assertIsSelected()
+        compose.onNodeWithText("En stock").assertIsDisplayed()
+        compose.onNodeWithText("Épuisé").assertIsDisplayed()
+        compose.onNodeWithText("Bas").performClick()
+
+        assertEquals(ProductStockState.LOW, draft.stockState)
+    }
+
+    @Test
+    fun `restock stepper adds and removes one, never below zero`() {
+        val product = pasta.copy(packagingUnit = CookbookUnit.JAR, restockQuantity = 1)
+        var draft = ProductDraft.from(product)
+        show(ProductEditorState(product, draft), onDraftChange = { change -> draft = change(draft) })
+
+        compose.onNodeWithText("1 bocal").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Un bocal de plus").performScrollTo().performClick()
+        assertEquals("2", draft.restockQuantity)
+
+        draft = draft.copy(restockQuantity = "1")
+        compose.onNodeWithContentDescription("Un bocal de moins").performClick()
+        assertEquals("0", draft.restockQuantity)
+
+        draft = draft.copy(restockQuantity = "0")
+        compose.onNodeWithContentDescription("Un bocal de moins").performClick()
+        assertEquals("0", draft.restockQuantity)
+    }
+
+    @Test
+    fun `aisle rows read Rayon chez store and appear once the store is set`() {
+        val product = pasta.copy(preferredStore = "/api/stores/s1")
+        show(ProductEditorState(product, ProductDraft.from(product)))
+
+        compose.onNodeWithText("Rayon chez Super U").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `no store, no aisle row`() {
+        show()
+
+        compose.onNodeWithText("Rayon chez Super U").assertDoesNotExist()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_AISLE).assertDoesNotExist()
     }
 
     @Test

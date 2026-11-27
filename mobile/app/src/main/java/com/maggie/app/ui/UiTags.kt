@@ -1,5 +1,6 @@
 package com.maggie.app.ui
 
+import com.maggie.app.data.model.ProductStockState
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -1449,8 +1450,14 @@ object UiTags {
     const val GROCERY_MENU = "grocery_menu"
     const val PRODUCT_SHEET_ERROR = "product_sheet_error"
     const val PRODUCT_SHEET_SAVE = "product_sheet_save"
-    /** « Supprimer le produit » at the foot of the sheet, and the « Supprimer » of its confirmation (MAG-671). */
+    /** « Supprimer le produit », an entry of the sheet's « ⋮ » menu, and the « Supprimer » of its confirmation (MAG-671, MAG-1053). */
+    const val PRODUCT_SHEET_MORE = "product_sheet_more"
     const val PRODUCT_SHEET_DELETE = "product_sheet_delete"
+    const val PRODUCT_SHEET_RESTOCK_MINUS = "product_sheet_restock_minus"
+    const val PRODUCT_SHEET_RESTOCK_PLUS = "product_sheet_restock_plus"
+    const val PRODUCT_SHEET_PACKAGING = "product_sheet_packaging"
+    const val PRODUCT_SHEET_SEASON = "product_sheet_season"
+    fun productSheetStock(state: ProductStockState) = "product_sheet_stock_" + state.name.lowercase()
     const val PRODUCT_SHEET_DELETE_CONFIRM = "product_sheet_delete_confirm"
     const val PRODUCT_SHEET_STORE = "product_sheet_store"
     const val PRODUCT_SHEET_AISLE = "product_sheet_aisle"
