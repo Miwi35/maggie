@@ -596,6 +596,7 @@ object UiTags {
     const val CALENDAR_OPTIONS = "calendar_options"
     const val CALENDAR_MEALS_FILTER = "calendar_meals_filter"
     const val CALENDAR_PROACTIONS_FILTER = "calendar_proactions_filter"
+    const val CALENDAR_PERIODS_FILTER = "calendar_periods_filter"
 
     /** The detail of one of Maggie's proactions, opened from the agenda (MAG-328). */
     const val PROACTION_DETAIL_TITLE = "proaction_detail_title"

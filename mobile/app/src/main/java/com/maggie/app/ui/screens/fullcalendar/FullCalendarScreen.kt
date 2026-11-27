@@ -142,6 +142,26 @@ fun FullCalendarScreen(
                             )
                         }
                     }
+                    item(key = "periods-filter") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag(UiTags.CALENDAR_PERIODS_FILTER)
+                                .clickable { viewModel.togglePeriods() }
+                                .padding(horizontal = 12.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = uiState.showPeriods,
+                                onCheckedChange = { viewModel.togglePeriods() },
+                            )
+                            Text(
+                                text = "Périodes",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                     items(uiState.agendas) { agenda ->
                         val color = try {
                             Color(android.graphics.Color.parseColor(agenda.color))
@@ -374,7 +394,7 @@ fun FullCalendarScreen(
                                 viewModel.navigateToDate(date)
                                 viewModel.setViewType(CalendarViewType.DAY)
                             },
-                            periods = uiState.periods,
+                            periods = visiblePeriods(uiState.periods, uiState.enabledAgendas, uiState.showPeriods),
                             agendas = uiState.agendas,
                             onPeriodClick = onPeriodClick,
                         )
@@ -384,7 +404,7 @@ fun FullCalendarScreen(
                             onNavigateForward = { viewModel.navigateForward() },
                             onNavigateBackward = { viewModel.navigateBackward() },
                             onEventClick = onEventClick,
-                            periods = uiState.periods,
+                            periods = visiblePeriods(uiState.periods, uiState.enabledAgendas, uiState.showPeriods),
                             agendas = uiState.agendas,
                             onPeriodClick = onPeriodClick,
                             trips = uiState.trips,

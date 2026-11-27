@@ -1507,4 +1507,17 @@ class CalendarViewModelTest {
         assertEquals(CalendarViewType.DAY, viewModel.uiState.value.viewType)
         assertEquals(setOf("01WORK", "01HOME"), viewModel.uiState.value.enabledAgendas)
     }
+
+    @Test
+    fun `togglePeriods flips showPeriods`() = runTest {
+        stubRepositories()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.showPeriods)
+
+        viewModel.togglePeriods()
+        assertFalse(viewModel.uiState.value.showPeriods)
+        viewModel.togglePeriods()
+        assertTrue(viewModel.uiState.value.showPeriods)
+    }
 }
