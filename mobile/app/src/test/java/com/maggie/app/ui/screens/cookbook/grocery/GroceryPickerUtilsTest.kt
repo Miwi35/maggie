@@ -1,7 +1,9 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.Store
 import org.junit.Assert.assertEquals
@@ -223,5 +225,36 @@ class GroceryPickerUtilsTest {
         val store = resolvePreferredStore(product, stores)
         assertNotNull(store)
         assertEquals("s2", store!!.id)
+    }
+
+    private val biocoop = Store(id = "s1", name = "Biocoop")
+    private val rice = Product(
+        id = "p1",
+        name = "Riz",
+        category = ProductCategory.GRAIN,
+        preferredStore = "/api/stores/s1",
+        packagingUnit = CookbookUnit.PACK,
+        packagingSize = 500f,
+        packagingSizeUnit = CookbookUnit.G,
+        aisles = listOf(ProductAisle(store = "s1", aisle = "a1")),
+    )
+
+    @Test
+    fun `productLine joins store, aisle and packaging`() {
+        val aisles = mapOf("s1" to listOf(Aisle(id = "a1", store = "s1", name = "Épicerie")))
+
+        assertEquals("Biocoop · Épicerie · se vend en paquet de 500 g", productLine(rice, listOf(biocoop), aisles))
+    }
+
+    @Test
+    fun `productLine leaves out the aisle when its name is unknown`() {
+        assertEquals("Biocoop · se vend en paquet de 500 g", productLine(rice, listOf(biocoop), emptyMap()))
+    }
+
+    @Test
+    fun `productLine without a store or a packaging keeps what is known, or is null`() {
+        assertEquals("se vend en paquet de 500 g", productLine(rice.copy(preferredStore = null), emptyList(), emptyMap()))
+        assertEquals("Biocoop", productLine(rice.copy(packagingUnit = null, aisles = emptyList()), listOf(biocoop), emptyMap()))
+        assertNull(productLine(Product(id = "p2", name = "Poireau", category = ProductCategory.PRODUCE), emptyList(), emptyMap()))
     }
 }
