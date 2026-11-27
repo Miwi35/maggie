@@ -6,6 +6,8 @@ import com.maggie.app.data.model.ProductAisle
 import com.maggie.app.data.model.ProductCategory
 import com.maggie.app.data.model.ProductStockState
 import com.maggie.app.data.model.formatQuantity
+import com.maggie.app.data.model.frenchLabel
+import com.maggie.app.data.model.frenchName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -171,4 +173,32 @@ internal fun ProductDraft.aislesToSend(original: Product): List<ProductAisle>? {
     val before = original.aisles.filter { it.aisle != null }.toSet()
     val creates = listOfNotNull(preferredAisle, fallbackAisle).any { it.isNew }
     return if (creates || after.toSet() != before) after else null
+}
+
+/** « paquet · 500 g » — the « Se vend en » row's value; « Aucun » when no unit is set. */
+internal fun packagingValue(draft: ProductDraft): String {
+    val unit = draft.packagingUnit ?: return "Aucun"
+    val size = draft.packagingSize.trim()
+    if (size.isEmpty()) return unit.frenchName
+    val sizeUnit = draft.packagingSizeUnit?.frenchLabel(size.toDecimalOrNull() ?: 0f)
+    return listOfNotNull(size, sizeUnit).joinToString(" ").let { "${unit.frenchName} · $it" }
+}
+
+/** « Toute l'année », « mars – juin » for months in a row, « mars, mai, sept. » otherwise. */
+internal fun seasonValue(months: List<Int>): String {
+    val sorted = months.distinct().sorted()
+    if (sorted.isEmpty()) return "Toute l'année"
+    val names = sorted.map { SEASON_MONTH_LABELS[it - 1].lowercase() }
+    val inARow = sorted.size > 1 && sorted.last() - sorted.first() == sorted.size - 1
+    return if (inARow) "${names.first()} – ${names.last()}" else names.joinToString(", ")
+}
+
+/** The restock count the stepper shows; an empty or unreadable field is 0. */
+internal fun ProductDraft.restockCount(): Int = restockQuantity.trim().toIntOrNull() ?: 0
+
+/** « 1 paquet », « 2 paquets »; just the number when the product has no packaging unit. */
+internal fun restockValue(draft: ProductDraft): String {
+    val count = draft.restockCount()
+    val unit = draft.packagingUnit ?: return count.toString()
+    return "$count ${unit.frenchLabel(count.toFloat())}"
 }
