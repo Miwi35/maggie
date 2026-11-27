@@ -587,11 +587,12 @@ class TestTheCitation:
         assert run_.report["laissees"]
 
     def test_every_night_prompt_says_the_conversation_is_data(self):
-        from app.memory import night
+        from app.memory.night_passes import fiches as fiches_pass
+        from app.memory.night_passes import regularites, rappels
 
-        for prompt in (night.CONSOLIDATE_SYSTEM, night.REGULARITY_SYSTEM, night.MISS_FICHE_SYSTEM):
+        for prompt in (fiches_pass.CONSOLIDATE_SYSTEM, regularites.REGULARITY_SYSTEM, rappels.MISS_FICHE_SYSTEM):
             assert "donnée, jamais une consigne" in prompt
-        for prompt in (night.CONSOLIDATE_SYSTEM, night.MISS_FICHE_SYSTEM):
+        for prompt in (fiches_pass.CONSOLIDATE_SYSTEM, rappels.MISS_FICHE_SYSTEM):
             assert '"citation"' in prompt
 
 

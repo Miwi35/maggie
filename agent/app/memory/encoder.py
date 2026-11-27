@@ -38,6 +38,7 @@ from app.llm.models import UTILITY, effort_kwargs, model_for
 from app.memory import carte as carte_mod
 from app.memory import conversations, fiches, paths
 from app.memory.carte import Carte, UnreadableFile
+from app.memory.proposals import merge_into_fiche, owner_claims, union_terms
 from app.memory.service import MemoryService, memory_service
 from app.memory.ulid import is_ulid
 from app.metrics import record_llm_usage, usage_kwargs
@@ -114,18 +115,6 @@ def _strings(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [text for text in (_one_line(item) for item in value) if text]
-
-
-def _union(current: list[str], new: list[str], limit: int) -> list[str]:
-    seen = {fiches.norm(item) for item in current}
-    out = list(current)
-    for item in new:
-        if len(out) - len(current) >= limit:
-            break
-        if fiches.norm(item) not in seen:
-            seen.add(fiches.norm(item))
-            out.append(item)
-    return out
 
 
 def parse_proposal(raw: str) -> dict[str, Any]:
@@ -226,8 +215,8 @@ def merge_carte(carte: Carte, proposed: Any, file_text: str) -> Carte:
         id=carte.id,
         resume=resume,
         moments=moments,
-        personnes=_union(carte.personnes, _strings(data.get("personnes")), MAX_TERMS),
-        evoque=_union(carte.evoque, _strings(data.get("evoque")), MAX_TERMS),
+        personnes=union_terms(carte.personnes, _strings(data.get("personnes")), MAX_TERMS),
+        evoque=union_terms(carte.evoque, _strings(data.get("evoque")), MAX_TERMS),
         alias=carte.alias,
         liens=carte.liens,
         sources=carte.sources,
@@ -401,68 +390,36 @@ class PassageEncoder:
         if _one_line(proposal.get("doute")):
             return f"laissée à la nuit : {_one_line(proposal.get('doute'))}"
         title = _one_line(proposal.get("titre"))
-        added = proposal.get("ajouts")
-        claims = [
-            {
-                "texte": _one_line(a.get("texte")),
-                "provenance": "dit",
-                "source": conversation,
-                "heure": _one_line(a.get("heure")),
-                "citation": _one_line(a.get("citation")),
-            }
-            for a in (added if isinstance(added, list) else [])[:MAX_CLAIMS]
-            if isinstance(a, dict) and _one_line(a.get("texte")) and _one_line(a.get("heure")) in owner_minutes
-        ]
+        claims = owner_claims(
+            proposal.get("ajouts"), source=conversation, owner_minutes=owner_minutes, limit=MAX_CLAIMS
+        )
         if not title or not claims:
             return None
 
-        folder = service.folder(user_id)
         chemin = _one_line(proposal.get("chemin")) or None
         if chemin is not None and chemin not in known_paths:
             return f"laissée à la nuit : « {chemin} » n'est pas une fiche connue"
-        if chemin is None:
-            dossiers = _strings(proposal.get("dossiers"))
-            target = paths.fiche_relative(dossiers, title, []) if len(dossiers) <= fiches.MAX_FOLDERS else None
-            chemin = target if target is not None and folder.exists(target) else None
 
-        previous: list[dict[str, Any]] = []
-        personnes, evoque, alias = (_strings(proposal.get(k)) for k in ("personnes", "evoque", "alias"))
-        resume = _one_line(proposal.get("resume")) or None
-        if chemin is not None:
-            parsed = carte_mod.parse(await service.read(user_id, chemin) or "")
-            before = fiches.parse_body(parsed.body)
-            replaced = {c.key for c in before.replaced}
-            if any(fiches.norm(c["texte"]) in replaced for c in claims):
-                return "laissée à la nuit : l'affirmation figure parmi celles qui ne sont plus vraies"
-            held = {c.key for c in before.known}
-            claims = [c for c in claims if fiches.norm(c["texte"]) not in held]
-            if not claims:
-                return None
-            previous = [
-                {"texte": c.texte, "provenance": c.provenance, "source": c.source, "heure": c.heure}
-                for c in before.known
-            ]
-            personnes = _union(parsed.carte.personnes, personnes, MAX_TERMS)
-            evoque = _union(parsed.carte.evoque, evoque, MAX_TERMS)
-            alias = _union(parsed.carte.alias, alias, MAX_TERMS)
-            resume = parsed.carte.resume or resume
-            title = chemin.rsplit("/", 1)[-1].removesuffix(paths.EXTENSION)
-
-        written = await fiches.write_fiche(
+        dossiers = _strings(proposal.get("dossiers"))
+        merged = await merge_into_fiche(
             service,
             user_id,
             titre=title,
-            affirmations=previous + claims,
-            resume=resume,
-            dossiers=_strings(proposal.get("dossiers")) if chemin is None else None,
             chemin=chemin,
-            personnes=personnes or None,
-            evoque=evoque or None,
-            alias=alias or None,
+            dossiers=dossiers,
+            resume=_one_line(proposal.get("resume")) or None,
+            personnes=_strings(proposal.get("personnes")),
+            evoque=_strings(proposal.get("evoque")),
+            alias=_strings(proposal.get("alias")),
+            claims=claims,
+            replace=[],
             today=today,
-            reason=f"{reason} : {len(claims)} affirmation(s) du propriétaire",
+            reason=lambda n, _marked: f"{reason} : {n} affirmation(s) du propriétaire",
+            refuse_replaced=True,
         )
-        return f"écrite {written['chemin']}"
+        if merged is None:
+            return None
+        return f"écrite {merged.chemin}"
 
     async def _ask(self, user_id: str, request: str) -> str:
         model = model_for(UTILITY)

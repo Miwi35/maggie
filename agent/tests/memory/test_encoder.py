@@ -616,3 +616,14 @@ class TestTheE2eRoute:
 
         with TestClient(app) as client:
             assert client.post(f"/e2e/memory/{USER_A}/encode").status_code == 401
+
+
+class TestTheSharedMerge:
+    async def test_the_encoder_writes_a_fiche_through_the_shared_merge(self, env, chat_db):
+        exchange(chat_db)
+
+        with patch("app.memory.encoder.merge_into_fiche", AsyncMock(return_value=None)) as merge:
+            await run(ScriptedModel(proposal()), env, "")
+
+        merge.assert_awaited_once()
+        assert merge.await_args.kwargs["refuse_replaced"] is True
