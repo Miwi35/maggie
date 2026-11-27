@@ -35,7 +35,8 @@
 //           sheet; `drop-meals` deletes the meals and their recipes (MAG-573)
 //   expect-product: LABEL is the product's name; waits until it carries STORE as its
 //           usual shop and, when AISLE is given, that aisle in it — what the product sheet
-//           saved, read back from the API (MAG-605)
+//           saved, read back from the API (MAG-605); STOCK (in_stock | low | out) and RESTOCK
+//           (the count, as text) are checked too when given (MAG-1053)
 //   expect-line: the line's quantity and unit as stored (QUANTITY, UNIT) and,
 //           when given, the wanted quantity kept beside the packagings
 //           (DESIRED_QUANTITY, DESIRED_UNIT) and the single need
@@ -400,7 +401,9 @@ if (ACTION === 'add') {
       const aisleId = (stored.aisles || []).filter(function (entry) { return entry.store === store })
         .map(function (entry) { return entry.aisle })[0]
       const aisleName = aisleId ? aislesOf(store).filter(function (a) { return a.id === aisleId }).map(function (a) { return a.name })[0] : undefined
-      if (idOf(stored.preferredStore) === store && (typeof AISLE === 'undefined' || !AISLE || aisleName === AISLE)) {
+      const stockOk = typeof STOCK === 'undefined' || !STOCK || stored.stockState === STOCK
+      const restockOk = typeof RESTOCK === 'undefined' || !RESTOCK || String(stored.restockQuantity) === RESTOCK
+      if (idOf(stored.preferredStore) === store && (typeof AISLE === 'undefined' || !AISLE || aisleName === AISLE) && stockOk && restockOk) {
         break
       }
     }

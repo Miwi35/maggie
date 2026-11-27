@@ -1457,7 +1457,14 @@ object UiTags {
     const val PRODUCT_SHEET_RESTOCK_PLUS = "product_sheet_restock_plus"
     const val PRODUCT_SHEET_PACKAGING = "product_sheet_packaging"
     const val PRODUCT_SHEET_SEASON = "product_sheet_season"
-    fun productSheetStock(state: ProductStockState) = "product_sheet_stock_" + state.name.lowercase()
+    const val PRODUCT_SHEET_STOCK_IN_STOCK = "product_sheet_stock_in_stock"
+    const val PRODUCT_SHEET_STOCK_LOW = "product_sheet_stock_low"
+    const val PRODUCT_SHEET_STOCK_OUT = "product_sheet_stock_out"
+    fun productSheetStock(state: ProductStockState) = when (state) {
+        ProductStockState.IN_STOCK -> PRODUCT_SHEET_STOCK_IN_STOCK
+        ProductStockState.LOW -> PRODUCT_SHEET_STOCK_LOW
+        ProductStockState.OUT -> PRODUCT_SHEET_STOCK_OUT
+    }
     const val PRODUCT_SHEET_DELETE_CONFIRM = "product_sheet_delete_confirm"
     const val PRODUCT_SHEET_STORE = "product_sheet_store"
     const val PRODUCT_SHEET_AISLE = "product_sheet_aisle"
