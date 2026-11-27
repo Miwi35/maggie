@@ -14,6 +14,9 @@ tags:
 # cases — the patch, the cascade, the new aisle, the refused save; this is the one run against the
 # real API, which proves the PATCH is accepted and read back.
 #
+# MAG-1053: the sheet is drawn like the mock-up — the head, « Bas », the restock « + » — and the
+# stock and the restock (2 → 3) are read back with the shop.
+#
 # Signed in as the neighbour, like `08`. The shop is the seed's « Épicerie du coin »; the product and
 # the aisle carry the ticket's number and are gone at the end.
 
@@ -74,6 +77,19 @@ tags:
     visible:
       id: "product_sheet"
     timeout: 10000
+# MAG-1053: the head reads « Courses › Produits » and the name; the stock is chosen among
+# « En stock · Bas · Épuisé », the restock goes up by one with « + ».
+- assertVisible: "Courses › Produits"
+- assertVisible: "Pâtes sèches MAG-605"
+- scrollUntilVisible:
+    element:
+      id: "product_sheet_stock_low"
+- tapOn: "Bas"
+- scrollUntilVisible:
+    element:
+      id: "product_sheet_restock_plus"
+- tapOn:
+    id: "product_sheet_restock_plus"
 - scrollUntilVisible:
     element: "Récurrent"
 - scrollUntilVisible:
@@ -107,6 +123,8 @@ tags:
       LABEL: Pâtes sèches MAG-605
       STORE: Épicerie du coin
       AISLE: Rayon MAG-605
+      STOCK: low
+      RESTOCK: "3"
 
 # Clean-up: the product, then the aisle — the seed is as it was.
 - runScript:

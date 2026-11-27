@@ -168,8 +168,11 @@ class ProductListMockupScreenTest {
 
         compose.onNodeWithTag(UiTags.PRODUCT_SHEET).assertIsDisplayed()
         compose.onNodeWithText("Récurrent").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.SEASON_MONTHS).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_DELETE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_SEASON).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("oct. – nov.").assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_MORE).assertIsDisplayed()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_SEASON).performClick()
+        compose.onNodeWithTag(UiTags.SEASON_MONTHS).assertIsDisplayed()
     }
 
     @Test
@@ -189,7 +192,8 @@ class ProductListMockupScreenTest {
         show(ail, beurre, deleted = deleted)
         compose.onNodeWithText("Ail").performClick()
 
-        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_DELETE).performScrollTo().performClick()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_MORE).performClick()
+        compose.onNodeWithTag(UiTags.PRODUCT_SHEET_DELETE).performClick()
         assertEquals(emptyList<String>(), deleted)
         compose.onNodeWithTag(UiTags.PRODUCT_SHEET_DELETE_CONFIRM).performClick()
         compose.waitForIdle()
