@@ -1,9 +1,12 @@
 
+from unittest.mock import patch
+
 import httpx
 import jwt
 import respx
 
-from app.mercure.publisher import MercurePublisher
+from app.mercure import publisher as publisher_module
+from app.mercure.publisher import MercurePublisher, close_publisher_client
 
 
 class TestMercurePublisher:
@@ -72,3 +75,17 @@ class TestMercurePublisher:
         assert "data=" in body
         # Private: the hub delivers only to tokens whose subscribe grant names the topic
         assert "private=on" in body
+
+    @respx.mock
+    async def test_two_publishes_share_one_http_client(self):
+        hub_url = "http://mercure/.well-known/mercure"
+        route = respx.post(hub_url).mock(return_value=httpx.Response(200))
+        await close_publisher_client()
+
+        with patch.object(publisher_module.httpx, "AsyncClient", wraps=httpx.AsyncClient) as constructed:
+            await self._make_publisher(hub_url=hub_url).publish("/a", {"n": 1})
+            await self._make_publisher(hub_url=hub_url).publish("/b", {"n": 2})
+
+        assert route.call_count == 2
+        assert constructed.call_count == 1
+        await close_publisher_client()

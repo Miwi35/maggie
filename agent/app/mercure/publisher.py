@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -14,6 +15,26 @@ logger = logging.getLogger(__name__)
 ISSUER = "maggie"
 DETAIL_TYPE = "https://mercure.rocks/authorization-detail"
 TOKEN_TTL_SECONDS = 300
+
+_client: httpx.AsyncClient | None = None
+_client_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _http() -> httpx.AsyncClient:
+    """One client for every publication: the connection to the hub is opened once."""
+    global _client, _client_loop
+    loop = asyncio.get_running_loop()
+    if _client is None or _client.is_closed or _client_loop is not loop:
+        _client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=3.0))
+        _client_loop = loop
+    return _client
+
+
+async def close_publisher_client() -> None:
+    global _client
+    if _client is not None:
+        await _client.aclose()
+        _client = None
 
 
 class MercurePublisher:
@@ -52,14 +73,13 @@ class MercurePublisher:
         """Publish a message to a Mercure topic."""
         token = self._generate_jwt([topic])
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self.hub_url,
-                data={"topic": topic, "data": json.dumps(data), "private": "on"},
-                headers={"Authorization": f"Bearer {token}"},
-            )
+        response = await _http().post(
+            self.hub_url,
+            data={"topic": topic, "data": json.dumps(data), "private": "on"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
-            if response.status_code == 200:
-                logger.debug(f"Published to {topic}")
-            else:
-                logger.warning(f"Mercure publish failed ({response.status_code}): {response.text}")
+        if response.status_code == 200:
+            logger.debug(f"Published to {topic}")
+        else:
+            logger.warning(f"Mercure publish failed ({response.status_code}): {response.text}")

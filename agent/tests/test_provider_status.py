@@ -1,13 +1,26 @@
 """The provider's state, global to the account, behind GET /provider-status (MAG-727)."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import anthropic
 import pytest
 
-from app.llm.provider_status import is_context_overflow, note_provider_failure, note_provider_success
+from app.llm.provider_status import (
+    PROVIDER_OK_RECHECK_SECONDS,
+    is_context_overflow,
+    note_provider_failure,
+    note_provider_success,
+    reset_provider_memory,
+)
 from app.llm.runner import run_tool_loop
 from tests.test_provider_unavailable import _credit_error, _status_error
+
+
+@pytest.fixture(autouse=True)
+def _forget_provider_memory():
+    reset_provider_memory()
+    yield
+    reset_provider_memory()
 
 
 def _status(authed_client) -> dict:
@@ -78,3 +91,38 @@ class TestContextOverflow:
     def test_a_credit_error_is_not_a_context_overflow(self):
         assert not is_context_overflow(_credit_error())
         assert not is_context_overflow(RuntimeError("boom"))
+
+
+class TestProviderOkMemory:
+    @pytest.mark.asyncio
+    async def test_a_second_success_within_a_minute_writes_nothing(self):
+        with patch("app.llm.provider_status.provider_state_repo.mark_ok", new=AsyncMock()) as mark_ok:
+            await note_provider_success()
+            await note_provider_success()
+
+        assert mark_ok.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_a_failure_makes_the_next_success_write(self):
+        with (
+            patch("app.llm.provider_status.provider_state_repo.mark_ok", new=AsyncMock()) as mark_ok,
+            patch("app.llm.provider_status.provider_state_repo.mark_down", new=AsyncMock()),
+        ):
+            await note_provider_success()
+            await note_provider_failure(_credit_error())
+            await note_provider_success()
+
+        assert mark_ok.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_a_success_after_a_minute_writes_again(self):
+        with (
+            patch("app.llm.provider_status.provider_state_repo.mark_ok", new=AsyncMock()) as mark_ok,
+            patch("app.llm.provider_status.time.monotonic") as clock,
+        ):
+            clock.return_value = 1000.0
+            await note_provider_success()
+            clock.return_value = 1000.0 + PROVIDER_OK_RECHECK_SECONDS + 1
+            await note_provider_success()
+
+        assert mark_ok.await_count == 2
