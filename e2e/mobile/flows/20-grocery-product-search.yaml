@@ -47,7 +47,7 @@ tags:
 - eraseText: 30
 - inputText: "Zzzqx inconnu"
 - extendedWaitUntil:
-    visible: "+ Créer.*Zzzqx inconnu.*"
+    visible: ".*Créer.*Zzzqx inconnu.*"
     timeout: 20000
 
 # The category is read in French, as on the product sheet (MAG-794), never « produce ».
