@@ -1167,10 +1167,10 @@ class TestTheRealStreamingGateway:
 
         with (
             patch("app.llm.streaming.model_for", return_value="fake"),
-            patch("app.llm.streaming.message_repo") as message_repo,
+            patch("app.llm.streaming.message_repo") as message_repo, patch("app.llm.streaming.message_service", message_repo),
             patch("app.llm.history.message_repo") as history_repo,
             patch("app.llm.history.context_repo") as history_contexts,
-            patch("app.llm.contexts.message_repo") as routing_repo,
+            patch("app.llm.contexts.message_repo") as routing_repo, patch("app.llm.contexts.message_service", routing_repo),
             patch("app.llm.contexts.context_repo") as context_repo,
             patch("app.runtime.loop.record_llm_usage"),
         ):

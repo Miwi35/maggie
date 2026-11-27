@@ -67,7 +67,7 @@ def db():
         patch("app.db.instruction_repository.agent_session", open_session),
         patch("app.db.style_proposal_repository.agent_session", open_session),
         patch("app.db.user_setting_repository.agent_session", open_session),
-        patch("app.db.message_repository.message_repo.publisher.publish", new=AsyncMock()),
+        patch("app.domain.conversation.service.message_service.publisher.publish", new=AsyncMock()),
         patch("app.db.instruction_repository.instruction_repo.publisher.publish", new=AsyncMock()),
     ):
         yield open_session

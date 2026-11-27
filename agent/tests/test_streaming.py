@@ -46,7 +46,7 @@ class TestStreamingGateway:
         """When no contexts exist, creates a new one."""
         with (
             patch("app.llm.contexts.context_repo") as mock_repo,
-            patch("app.llm.streaming.message_repo") as mock_msg_repo,
+            patch("app.llm.streaming.message_repo") as mock_msg_repo, patch("app.llm.streaming.message_service", mock_msg_repo),
         ):
             mock_repo.find_active = AsyncMock(return_value=[])
             ctx = MagicMock()
@@ -78,7 +78,7 @@ class TestStreamingGateway:
         """When an existing context matches, returns it."""
         with (
             patch("app.llm.contexts.context_repo") as mock_repo,
-            patch("app.llm.streaming.message_repo") as mock_msg_repo,
+            patch("app.llm.streaming.message_repo") as mock_msg_repo, patch("app.llm.streaming.message_service", mock_msg_repo),
         ):
             existing = MagicMock()
             existing.id = "ctx-123"
@@ -131,7 +131,7 @@ class TestStreamingGateway:
         """The Mind panel replaces the whole context on this event — a missing summary erases it (MAG-11)."""
         with (
             patch("app.llm.contexts.context_repo") as mock_repo,
-            patch("app.llm.streaming.message_repo") as mock_msg_repo,
+            patch("app.llm.streaming.message_repo") as mock_msg_repo, patch("app.llm.streaming.message_service", mock_msg_repo),
         ):
             existing = MagicMock()
             existing.id = "ctx-123"
@@ -157,7 +157,7 @@ class TestStreamingGateway:
     async def test_resolve_context_new_has_no_summary_yet(self):
         with (
             patch("app.llm.contexts.context_repo") as mock_repo,
-            patch("app.llm.streaming.message_repo") as mock_msg_repo,
+            patch("app.llm.streaming.message_repo") as mock_msg_repo, patch("app.llm.streaming.message_service", mock_msg_repo),
         ):
             mock_repo.find_active = AsyncMock(return_value=[])
             ctx = MagicMock()
@@ -297,7 +297,7 @@ class TestSummaryTrigger:
 
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -324,7 +324,7 @@ class TestSummaryTrigger:
     async def test_it_summarizes_the_thread_the_exchange_landed_in(self):
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -359,7 +359,7 @@ class TestSummaryTrigger:
 
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", history),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -406,7 +406,7 @@ class TestSummaryTrigger:
 
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", history),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -428,7 +428,7 @@ class TestSummaryTrigger:
     async def test_a_run_with_no_context_summarizes_nothing(self):
         with (
             patch("app.llm.contexts.context_repo") as contexts,
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Il me faut de la farine"}])),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -477,7 +477,7 @@ class TestWhatTheToolsSaidIsStored:
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.context_repo") as thread,
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Ma liste ?"}])),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
@@ -539,7 +539,7 @@ class TestTheVoiceStartsFirst:
         )
         skills = stack.enter_context(patch("app.prompt_sources.skill_index"))
         summarizer = stack.enter_context(patch("app.llm.streaming.context_summarizer"))
-        stack.enter_context(patch("app.db.message_repository.message_repo.publisher.publish", new=publish))
+        stack.enter_context(patch("app.domain.conversation.service.message_service.publisher.publish", new=publish))
         stack.enter_context(patch("app.memory.conversations.record", new=record))
         contexts.find_active = AsyncMock(return_value=[])
         skills.get_skills_index.return_value = ""
@@ -583,7 +583,7 @@ class TestTheVoiceStartsFirst:
 
         with (
             self._patches(AsyncMock(), AsyncMock()),
-            patch("app.db.message_repository.message_repo.announce", AsyncMock(side_effect=RuntimeError("boom"))),
+            patch("app.domain.conversation.service.message_service.announce", AsyncMock(side_effect=RuntimeError("boom"))),
             patch("app.llm.streaming.capture_error") as capture,
         ):
             gw = TestSummaryTrigger._gateway()
@@ -634,7 +634,7 @@ class TestStreamedExchangeReachesOtherDevices:
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Bonjour"}])),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,
-            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
+            patch("app.domain.conversation.service.message_service.publisher.publish", new=publish),
         ):
             contexts.find_active = AsyncMock(return_value=[])
             skills.get_skills_index.return_value = ""
@@ -664,7 +664,7 @@ class TestStreamedExchangeReachesOtherDevices:
 
         with (
             patch.object(container, "streaming_gateway") as gateway,
-            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
+            patch("app.domain.conversation.service.message_service.publisher.publish", new=publish),
         ):
             gateway.chat_stream = empty_run
             response = authed_client.post("/chat/stream", json={"message": "Bonjour Maggie"})
@@ -690,7 +690,7 @@ class TestStreamedExchangeReachesOtherDevices:
 
         with (
             patch.object(container, "streaming_gateway") as gateway,
-            patch("app.db.message_repository.message_repo.publisher.publish", new=publish),
+            patch("app.domain.conversation.service.message_service.publisher.publish", new=publish),
         ):
             gateway.chat_stream = empty_run
             response = authed_client.post(
@@ -772,7 +772,7 @@ class TestWebSearchStreamed:
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.context_repo"),
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Toussaint ?"}])),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer") as summarizer,

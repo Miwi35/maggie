@@ -92,7 +92,7 @@ class TestTheSpokenInstruction:
 
 class TestWhoAsksForIt:
     @pytest.mark.parametrize("spoken", [True, False])
-    @patch("app.api.chat_routes.message_repo")
+    @patch("app.api.chat_routes.message_service")
     @patch.object(container, "llm_gateway")
     def test_the_chat_route_hands_the_flag_to_the_gateway(self, mock_gateway, mock_msg_repo, spoken, authed_client):
         seen = {}
@@ -109,7 +109,7 @@ class TestWhoAsksForIt:
         assert response.status_code == 200
         assert seen["spoken"] is spoken
 
-    @patch("app.api.chat_routes.message_repo")
+    @patch("app.api.chat_routes.message_service")
     @patch.object(container, "llm_gateway")
     def test_a_written_message_is_not_spoken_by_default(self, mock_gateway, mock_msg_repo, authed_client):
         seen = {}
@@ -176,7 +176,7 @@ class TestTheDrivingInstruction:
         assert DRIVING_MARKER not in _text(await _prompt(gateway, "app.llm.gateway"))
 
     @pytest.mark.parametrize("in_car", [True, False])
-    @patch("app.api.chat_routes.message_repo")
+    @patch("app.api.chat_routes.message_service")
     @patch.object(container, "llm_gateway")
     def test_the_chat_route_hands_the_context_to_the_gateway(self, mock_gateway, mock_msg_repo, in_car, authed_client):
         seen = {}

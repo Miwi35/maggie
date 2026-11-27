@@ -264,7 +264,7 @@ class TestAStoppedTurnKeepsWhatItDid:
         with (
             patch("app.llm.contexts.context_repo") as contexts,
             patch("app.llm.streaming.context_repo") as thread,
-            patch("app.llm.streaming.message_repo") as messages,
+            patch("app.llm.streaming.message_repo") as messages, patch("app.llm.streaming.message_service", messages),
             patch("app.llm.streaming.build_history", AsyncMock(return_value=[{"role": "user", "content": "Crée"}])),
             patch("app.prompt_sources.skill_index") as skills,
             patch("app.llm.streaming.context_summarizer"),

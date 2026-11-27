@@ -6,8 +6,6 @@ from sqlalchemy import delete, func, or_, select, text, update
 from app.db.agent_engine import agent_engine, agent_session
 from app.db.base import AgentBase
 from app.db.models import TURN_EXPIRED, TURN_RUNNING, Message
-from app.mercure import topics
-from app.mercure.publisher import MercurePublisher
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +15,8 @@ QUESTION_LOOKBACK = 200
 
 
 class MessageRepository:
-    """Async message persistence using SQLAlchemy + asyncpg.
-
-    Every created message is published to Mercure on the user's chat topic
-    (app.mercure.topics), the streamed ones included: a second tab or the phone
-    only learns of an exchange that way. The clients recognise their own echo.
-    """
-
-    def __init__(self):
-        self.publisher = MercurePublisher()
+    """Async message persistence using SQLAlchemy + asyncpg. SQL only: publishing and the
+    conversation's memory belong to `app.domain.conversation.service.message_service`."""
 
     async def ensure_table(self) -> None:
         """Create the agent_message table if it doesn't exist."""
@@ -50,11 +41,8 @@ class MessageRepository:
         audio: dict | None = None,
         screen: str | None = None,
         ui_blocks: list[dict] | None = None,
-        announce: bool = True,
     ) -> Message:
-        """Store a message and publish it on the user's chat topic.
-
-        `announce=False` stores only: the caller then calls `announce(msg)` when it chooses (MAG-850).
+        """Store a message.
 
         `message_id` lets a streamed answer be stored under the id its stream announced: the
         device that streamed it then recognises the Mercure echo of the same message.
@@ -94,22 +82,7 @@ class MessageRepository:
             await session.commit()
             await session.refresh(msg)
 
-        if announce:
-            await self.announce(msg)
-
         return msg
-
-    async def announce(self, msg: Message) -> None:
-        """Publish a stored message on Mercure, then write it into the conversation's memory file."""
-        try:
-            await self.publisher.publish(topics.for_user(topics.CHAT, msg.user_id), msg.to_dict())
-        except Exception as e:
-            logger.warning(f"Failed to publish message to Mercure: {e}")
-
-        # Imported here: the conversation layer reads this repository back.
-        from app.memory import conversations
-
-        await conversations.record(msg)
 
     async def answer_question(
         self, user_id: str, question_id: str, choices: list[str]
@@ -118,8 +91,7 @@ class MessageRepository:
 
         Returns `(status, message, block)`: `ok`, `unknown`, `answered` (someone got there first) or
         `invalid` (a choice that is not an option, or several for a single-choice question). The row
-        is locked, so two answers at once cannot both win. The updated message is published: every
-        client replaces the card with its answered state.
+        is locked, so two answers at once cannot both win.
         """
         async with agent_session() as session:
             result = await session.execute(
@@ -160,17 +132,13 @@ class MessageRepository:
             await session.commit()
             await session.refresh(msg)
 
-        try:
-            await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
-        except Exception as e:
-            logger.warning(f"Failed to publish answered question to Mercure: {e}")
         return "ok", msg, block
 
-    async def mark_digest_opened(self, user_id: str, message_id: str) -> str:
+    async def mark_digest_opened(self, user_id: str, message_id: str) -> tuple[str, Message | None]:
         """Set `openedAt` on the digest block of one of the user's messages, once (MAG-808).
 
-        Returns `unknown` (not the user's, or no digest block), `already` or `ok`. The row is locked, so two
-        openings at once set it once. The message is published on `ok`: the Home tile goes away.
+        Returns `(status, message)`: `unknown` (not the user's, or no digest block), `already` or `ok`.
+        The row is locked, so two openings at once set it once.
         """
         async with agent_session() as session:
             result = await session.execute(
@@ -182,19 +150,15 @@ class MessageRepository:
             blocks = [dict(b) for b in (msg.ui_blocks or [])] if msg else []
             block = next((b for b in blocks if b.get("type") == "digest"), None)
             if msg is None or block is None:
-                return "unknown"
+                return "unknown", None
             if block.get("openedAt"):
-                return "already"
+                return "already", None
             block["openedAt"] = datetime.now(UTC).isoformat()
             msg.ui_blocks = blocks
             await session.commit()
             await session.refresh(msg)
 
-        try:
-            await self.publisher.publish(topics.for_user(topics.CHAT, user_id), msg.to_dict())
-        except Exception as e:
-            logger.warning(f"Failed to publish the opened digest to Mercure: {e}")
-        return "ok"
+        return "ok", msg
 
     async def get(self, message_id: str) -> Message | None:
         async with agent_session() as session:
@@ -315,11 +279,7 @@ class MessageRepository:
         return claimed
 
     async def mark_interrupted(self, message_id: str, content: str) -> Message | None:
-        """Cut a stored answer down to what was said or shown, and say it was cut (MAG-223).
-
-        Published like any message: another window or the phone holds the full text and
-        replaces it on seeing the same id again.
-        """
+        """Cut a stored answer down to what was said or shown, and say it was cut (MAG-223)."""
         async with agent_session() as session:
             result = await session.execute(select(Message).where(Message.id == message_id))
             msg = result.scalar_one_or_none()
@@ -329,11 +289,6 @@ class MessageRepository:
             msg.interrupted = True
             await session.commit()
             await session.refresh(msg)
-
-        try:
-            await self.publisher.publish(topics.for_user(topics.CHAT, msg.user_id), msg.to_dict())
-        except Exception as e:
-            logger.warning(f"Failed to publish message to Mercure: {e}")
 
         return msg
 
@@ -379,40 +334,20 @@ class MessageRepository:
             return result.rowcount
 
     async def delete_for_user(self, message_id: str, user_id: str) -> bool:
-        """Remove one of the user's messages, tell the chat stream; `False` if not theirs or absent (MAG-342)."""
+        """Remove one of the user's messages; `False` if not theirs or absent (MAG-342)."""
         async with agent_session() as session:
             result = await session.execute(delete(Message).where(Message.id == message_id, Message.user_id == user_id))
             await session.commit()
-            if not result.rowcount:
-                return False
-
-        try:
-            await self.publisher.publish(
-                topics.for_user(topics.CHAT, user_id), {"deleted": True, "contextId": None, "messageIds": [message_id]}
-            )
-        except Exception as e:
-            logger.warning(f"Failed to publish message deletion to Mercure: {e}")
-
-        return True
+            return bool(result.rowcount)
 
     async def delete_many_for_user(self, message_ids: list[str], user_id: str) -> list[str]:
-        """Remove some of the user's messages in one go and tell the chat stream (MAG-320)."""
+        """Remove some of the user's messages in one go (MAG-320)."""
         async with agent_session() as session:
             result = await session.execute(
                 delete(Message).where(Message.id.in_(message_ids), Message.user_id == user_id).returning(Message.id)
             )
             deleted = [row.id for row in result.all()]
             await session.commit()
-        if not deleted:
-            return []
-
-        try:
-            await self.publisher.publish(
-                topics.for_user(topics.CHAT, user_id), {"deleted": True, "contextId": None, "messageIds": deleted}
-            )
-        except Exception as e:
-            logger.warning(f"Failed to publish message deletion to Mercure: {e}")
-
         return deleted
 
     async def set_feedback(
@@ -637,8 +572,8 @@ class MessageRepository:
             result = await session.execute(query)
             return int(result.scalar_one() or 0)
 
-    async def update_context(self, message_id: str, context_id: str) -> None:
-        """Retroactively tag a message with a context ID."""
+    async def update_context(self, message_id: str, context_id: str) -> str | None:
+        """Retroactively tag a message with a context ID; the message's `user_id`, `None` if it does not exist."""
         user_id = None
         async with agent_session() as session:
             result = await session.execute(select(Message).where(Message.id == message_id))
@@ -647,11 +582,7 @@ class MessageRepository:
                 msg.context_id = context_id
                 await session.commit()
                 user_id = msg.user_id
-        if user_id:
-            # The question is on file as soon as its thread is known, before the turn that answers it runs.
-            from app.memory import conversations
-
-            await conversations.record_thread(user_id, context_id)
+        return user_id
 
     async def find_after(self, user_id: str, after: str | None = None) -> list[Message]:
         """Find messages after a given ISO timestamp (for incremental sync)."""

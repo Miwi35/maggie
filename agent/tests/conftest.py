@@ -190,7 +190,7 @@ def chat_db():
         patch("app.db.context_repository.agent_session", open_session),
         patch("app.db.message_repository.agent_session", open_session),
         patch("app.db.context_repository.context_repo.publisher.publish", new=published),
-        patch("app.db.message_repository.message_repo.publisher.publish", new=chat_published),
+        patch("app.domain.conversation.service.message_service.publisher.publish", new=chat_published),
     ):
         yield ChatDb(session=open_session, published=published, chat_published=chat_published)
     engine.dispose()

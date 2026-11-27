@@ -146,7 +146,7 @@ def recette_db(proaction_api):
     with (
         patch("app.db.message_repository.agent_session", open_session),
         patch("app.db.user_data.agent_session", open_session),
-        patch("app.db.message_repository.message_repo.publisher.publish", new=AsyncMock()),
+        patch("app.domain.conversation.service.message_service.publisher.publish", new=AsyncMock()),
         patch("app.queue.proaction_consumer.context_summarizer.maybe_summarize", new=AsyncMock()),
         patch("app.api.chat_routes.context_summarizer.maybe_summarize", new=AsyncMock()),
     ):
@@ -376,13 +376,13 @@ class TestExecute:
 
     def test_dry_run_publishes_nothing(self, api):
         proaction_id = seed_proaction(api)
-        from app.db.message_repository import message_repo
+        from app.domain.conversation.service import message_service
         from app.queue.proaction_consumer import publisher
 
         api.post(f"/proactions/{proaction_id}/execute?dry_run=true", headers=bearer(roles=TRIGGER))
 
         publisher.publish.assert_not_awaited()
-        message_repo.publisher.publish.assert_not_awaited()
+        message_service.publisher.publish.assert_not_awaited()
 
 
 def seed_everything(factory, user_id: str) -> None:

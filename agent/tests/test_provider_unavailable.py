@@ -62,7 +62,7 @@ def collaborators():
     stored = Message(id="msg-1", user_id="test-user", role="user", content="Bonjour")
     alert = AsyncMock()
     with (
-        patch("app.api.chat_routes.message_repo", MagicMock(create=AsyncMock(return_value=stored))),
+        patch("app.api.chat_routes.message_service", MagicMock(create=AsyncMock(return_value=stored))),
         patch("app.api.chat_routes.context_summarizer", MagicMock(maybe_summarize=AsyncMock())),
         patch("app.api.chat_routes.find_settled_answer", AsyncMock(return_value=None)),
         patch("app.llm.gateway.route_message", AsyncMock(return_value=None)),
@@ -112,7 +112,7 @@ class TestChatSaysTheProviderIsDown:
     def test_a_healthy_answer_carries_no_error(self, authed_client):
         stored = Message(id="msg-1", user_id="test-user", role="user", content="Bonjour")
         with (
-            patch("app.api.chat_routes.message_repo", MagicMock(create=AsyncMock(return_value=stored))),
+            patch("app.api.chat_routes.message_service", MagicMock(create=AsyncMock(return_value=stored))),
             patch("app.api.chat_routes.find_settled_answer", AsyncMock(return_value=None)),
             container.override(
                 llm_gateway=MagicMock(chat=AsyncMock(return_value={"response": "Bonjour !", "tool_calls": []})),

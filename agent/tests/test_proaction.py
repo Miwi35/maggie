@@ -89,7 +89,7 @@ class TestProactionRoute:
         stored.to_dict.return_value = {"id": "msg-1", "role": "assistant", "contextId": result.get("context_id")}
         with (
             patch.object(container, "llm_gateway") as gateway,
-            patch("app.api.proaction_routes.message_repo") as messages,
+            patch("app.api.proaction_routes.message_service") as messages,
             patch("app.api.proaction_routes.context_summarizer") as summarizer,
         ):
             gateway.proaction = AsyncMock(return_value=result)
@@ -344,7 +344,7 @@ async def _consume(
         )
 
     with (
-        patch("app.queue.proaction_consumer.message_repo") as messages,
+        patch("app.queue.proaction_consumer.message_service") as messages,
         patch("app.queue.proaction_consumer.proactions_api") as proactions,
         patch("app.queue.proaction_consumer.publisher") as publisher,
         patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
@@ -505,7 +505,7 @@ class TestProactionConsumer:
         gateway = MagicMock()
         gateway.proaction = AsyncMock(return_value={"response": "Pense au plombier.", "tool_calls": [], "context_id": "ctx-1"})
         with (
-            patch("app.queue.proaction_consumer.message_repo") as messages,
+            patch("app.queue.proaction_consumer.message_service") as messages,
             patch("app.queue.proaction_consumer.proactions_api") as proactions,
             patch("app.queue.proaction_consumer.publisher") as publisher,
             patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
@@ -893,7 +893,7 @@ class TestTreasuryAlertProaction:
                 patch("app.llm.gateway.resolve_context", AsyncMock(return_value={"action": "matched", "id": "ctx-1"})),
                 patch("app.queue.proaction_consumer.proactions_api") as repo,
                 patch("app.queue.proaction_consumer.publisher") as publisher,
-                patch("app.queue.proaction_consumer.message_repo") as messages,
+                patch("app.queue.proaction_consumer.message_service") as messages,
                 patch("app.queue.proaction_consumer.context_summarizer") as summarizer,
             ):
                 repo.record = AsyncMock(return_value=proaction)

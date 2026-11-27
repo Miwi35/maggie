@@ -20,6 +20,7 @@ from fastapi import HTTPException
 from app.db.message_repository import message_repo
 from app.db.pending_action_model import PendingActionStatus
 from app.db.pending_action_repository import pending_action_repo
+from app.domain.conversation.service import message_service
 from app.llm.streaming import answer_message_id
 from app.llm.tool_failures import PENDING_APPROVAL_STATUS, tool_result_status
 from app.llm.turns import turn_runner
@@ -123,5 +124,5 @@ async def withdraw_turn(user_id: str, message_id: str) -> str | None:
     await abandon_approvals(blocks)
 
     withdrawn = [question.id] + ([answer.id] if answer is not None else [])
-    await message_repo.delete_many_for_user(withdrawn, user_id)
+    await message_service.delete_many_for_user(withdrawn, user_id)
     return carried_over_note(done_actions(blocks))

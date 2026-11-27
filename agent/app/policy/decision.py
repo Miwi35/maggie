@@ -8,9 +8,9 @@ once, and published on the chat topic like any message: every client shows it, n
 
 import logging
 
-from app.db.message_repository import message_repo
 from app.db.models import DECISION_ROLE, Message
 from app.db.pending_action_model import PendingAction, PendingActionStatus
+from app.domain.conversation.service import message_service
 from app.policy.summary import without_reason
 
 logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ async def record_decision(action: PendingAction, channel: str | None) -> Message
     """
     summary = action.display_summary
     try:
-        return await message_repo.create(
+        return await message_service.create(
             user_id=str(action.user_id),
             role=DECISION_ROLE,
             content=decision_line(action.status, summary),

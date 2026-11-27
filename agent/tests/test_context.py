@@ -371,7 +371,7 @@ class TestStreamRoute:
         assert response.status_code in (401, 403)
 
     @patch.object(container, "streaming_gateway")
-    @patch("app.api.chat_routes.message_repo")
+    @patch("app.api.chat_routes.message_service")
     def test_stream_returns_sse(self, mock_msg_repo, mock_gateway, authed_client):
         fake_msg = MagicMock()
         fake_msg.id = "msg-1"
@@ -408,7 +408,7 @@ class TestStreamRoute:
         assert events[4]["type"] == "RUN_FINISHED"
 
     @patch.object(container, "streaming_gateway")
-    @patch("app.api.chat_routes.message_repo")
+    @patch("app.api.chat_routes.message_service")
     def test_stream_creates_user_message(self, mock_msg_repo, mock_gateway, authed_client):
         fake_msg = MagicMock()
         fake_msg.id = "msg-1"

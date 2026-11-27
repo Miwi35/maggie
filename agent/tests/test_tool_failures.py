@@ -136,7 +136,7 @@ class TestChatStream:
             return FakeStream(turns[len(seen) - 1])
 
         with (
-            patch("app.llm.streaming.message_repo") as message_repo,
+            patch("app.llm.streaming.message_repo") as message_repo, patch("app.llm.streaming.message_service", message_repo),
             patch("app.llm.streaming.open_threads", AsyncMock(return_value=[])),
             patch("app.llm.tool_failures.capture_signal"),
         ):

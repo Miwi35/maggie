@@ -13,6 +13,7 @@ from app.container import container
 from app.db.context_repository import context_repo
 from app.db.message_repository import message_repo
 from app.db.models import NOTHING_SAID
+from app.domain.conversation.service import message_service
 from app.llm.context_summary import context_summarizer
 from app.llm.duplicates import find_duplicated_turn, find_settled_answer, normalize, user_lock
 from app.llm.held_secret import hold_secrets
@@ -98,7 +99,7 @@ async def _store_reply(user_id: str, result: dict):
     # nothing on this path was ever tagged: the exchange existed outside every thread, so
     # the Mind panel never saw it and no summary could be written from it.
     context_id = result.get("context_id")
-    assistant_msg = await message_repo.create(
+    assistant_msg = await message_service.create(
         user_id=user_id,
         role="assistant",
         content=result["response"],
@@ -117,7 +118,7 @@ async def _store_reply(user_id: str, result: dict):
 
 
 async def _answer_chat(request: ChatRequest, user_id: str, said: str, screen: str | None) -> ChatResponse:
-    user_msg = await message_repo.create(
+    user_msg = await message_service.create(
         user_id=user_id, role="user", content=said, has_image=request.image is not None
     )
 
@@ -177,7 +178,7 @@ async def chat_stream(request: ChatRequest, user_id: str = Depends(get_current_u
                 logger.info(f"Message {received.id} repeated without its key: not answered twice")
         if received is None:
             try:
-                user_msg = await message_repo.create(
+                user_msg = await message_service.create(
                     user_id=user_id,
                     role="user",
                     content=said,
@@ -266,7 +267,7 @@ async def chat_interrupt(request: InterruptRequest, user_id: str = Depends(get_c
     existing = await message_repo.get(message_id) if message_id else None
     if existing is None:
         try:
-            msg = await message_repo.create(
+            msg = await message_service.create(
                 user_id=user_id,
                 role="assistant",
                 content=content,
@@ -284,7 +285,7 @@ async def chat_interrupt(request: InterruptRequest, user_id: str = Depends(get_c
         raise HTTPException(status_code=404, detail="Message not found")
     if existing.role != "assistant":
         raise HTTPException(status_code=400, detail="Only an answer of Maggie can be interrupted")
-    msg = await message_repo.mark_interrupted(existing.id, content)
+    msg = await message_service.mark_interrupted(existing.id, content)
 
     return msg.to_dict() if msg else {}
 

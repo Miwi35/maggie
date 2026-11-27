@@ -8,7 +8,7 @@ from app.auth import get_current_user_id, require_proaction_trigger
 from app.container import container
 from app.db.journal_model import PLANNING, PROACTION
 from app.db.journal_repository import journal_repo
-from app.db.message_repository import message_repo
+from app.domain.conversation.service import message_service
 from app.llm.context_summary import context_summarizer
 from app.proactions import api as proactions_api
 from app.queue.proaction_consumer import execute_proaction
@@ -34,7 +34,7 @@ async def proaction(request: ChatRequest, user_id: str = Depends(get_current_use
     # this route stores, because `ChatResponse` owes its caller a message either way.
     # Awaited, not spawned: nothing is streaming, and `maybe_summarize` never raises.
     context_id = result.get("context_id")
-    assistant_msg = await message_repo.create(
+    assistant_msg = await message_service.create(
         user_id=user_id,
         role="assistant",
         content=result["response"],

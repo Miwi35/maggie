@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.db.message_repository import message_repo
+from app.domain.conversation.service import message_service
 from app.db.models import NOTHING_SAID, Message
 from app.llm.history import build_history
 from app.llm.streaming import answer_message_id
@@ -133,7 +134,7 @@ class TestInterruptEndpoint:
         await _write(chat_db.session, id="u1", user_id="test-user", role="user", content="Raconte")
         from unittest.mock import patch
 
-        with patch.object(message_repo.publisher, "publish", record):
+        with patch.object(message_service.publisher, "publish", record):
             _ask(authed_client, messageId="a1", spokenText="Il était")
 
         assert [(p["id"], p["content"], p["interrupted"]) for p in published] == [("a1", "Il était", True)]

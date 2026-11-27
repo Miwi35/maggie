@@ -284,7 +284,7 @@ class TestStreamingPrefix:
             async def get_final_message(self):
                 return final
 
-        with patch("app.llm.streaming.message_repo") as message_repo:
+        with patch("app.llm.streaming.message_repo") as message_repo, patch("app.llm.streaming.message_service", message_repo):
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
             gateway = Container().streaming_gateway
@@ -329,7 +329,7 @@ class TestStreamingPrefix:
             async def get_final_message(self):
                 return final
 
-        with patch("app.llm.streaming.message_repo") as message_repo:
+        with patch("app.llm.streaming.message_repo") as message_repo, patch("app.llm.streaming.message_service", message_repo):
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
             gateway = Container().streaming_gateway
@@ -382,7 +382,7 @@ class TestSharedToolPrefix:
             async def get_final_message(self):
                 return final
 
-        with patch("app.llm.streaming.message_repo") as message_repo:
+        with patch("app.llm.streaming.message_repo") as message_repo, patch("app.llm.streaming.message_service", message_repo):
             message_repo.find_recent = AsyncMock(return_value=[])
             message_repo.create = AsyncMock()
             chat = Container().streaming_gateway

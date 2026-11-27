@@ -8,9 +8,9 @@ import aio_pika
 from app.bilan import BILAN_AVAILABLE, bilan_block, is_bilan, is_retired_relance, prepare_bilan
 from app.container import container
 from app.db.journal_repository import journal_repo
-from app.db.message_repository import message_repo
 from app.db.models import SCREEN_DIGEST
 from app.digest import is_digest, run_digest
+from app.domain.conversation.service import message_service
 from app.error_tracking import PROACTION_FAILED, capture_signal
 from app.llm.context_summary import context_summarizer
 from app.llm.gateway import LLMGateway
@@ -209,7 +209,7 @@ async def execute_proaction(gateway: LLMGateway, proaction: Proaction, *, dry_ru
             ui_blocks = result.get("ui_blocks")
             if is_bilan(proaction.summary):
                 ui_blocks = [*(ui_blocks or []), bilan_block(bilan_day)]
-            stored = await message_repo.create(
+            stored = await message_service.create(
                 user_id=proaction.user_id,
                 role="assistant",
                 content=result["response"],

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.auth import get_current_user_id
 from app.db.chat_read_state_repository import UnknownMessage, chat_read_state_repo
 from app.db.message_repository import message_repo
+from app.domain.conversation.service import message_service
 from app.mercure import topics as mercure_topics
 from app.mercure.publisher import MercurePublisher
 from app.tts.voice_message import VoiceMessageError, signed_audio_url
@@ -37,7 +38,7 @@ class FeedbackRequest(BaseModel):
 @router.post("/messages/{message_id}/digest/opened")
 async def digest_opened(message_id: str, user_id: str = Depends(get_current_user_id)):
     """The owner opened the digest screen: `openedAt` is set on the first call, later ones change nothing (MAG-808)."""
-    status = await message_repo.mark_digest_opened(user_id, message_id)
+    status = await message_service.mark_digest_opened(user_id, message_id)
     if status == "unknown":
         raise HTTPException(status_code=404, detail="Digest not found")
     return {"status": status}
@@ -88,7 +89,7 @@ async def mark_chat_read(data: ReadRequest, user_id: str = Depends(get_current_u
 @router.delete("/messages/{message_id}", status_code=204)
 async def delete_message(message_id: str, user_id: str = Depends(get_current_user_id)):
     """Delete one of the caller's messages (MAG-342). 404 for another user's, like an unknown one."""
-    if not await message_repo.delete_for_user(message_id, user_id):
+    if not await message_service.delete_for_user(message_id, user_id):
         raise HTTPException(status_code=404, detail="Message not found")
 
 

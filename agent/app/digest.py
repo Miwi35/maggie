@@ -9,9 +9,9 @@ screen, with its audio when the voice answers.
 import logging
 from datetime import date, datetime, time, tzinfo
 
-from app.db.message_repository import message_repo
 from app.db.models import SCREEN_DIGEST, Message
 from app.digest_facts import empty_sentences, missing_facts, required_facts, signal
+from app.domain.conversation.service import message_service
 from app.error_tracking import DIGEST_FACTS_MISSING, DIGEST_SAYS_EMPTY, capture_signal
 from app.rendezvous import DEFAULT_AFTERNOON_POINT_TIME, DIGEST_SUMMARY
 from app.tts.voice_message import VoiceMessageError, send_voice_message
@@ -72,7 +72,7 @@ async def run_digest(gateway, proaction) -> tuple[dict, Message | None]:
         )
     except VoiceMessageError as e:
         logger.warning(f"Digest of {user_id} without its vocal: {e}")
-        stored = await message_repo.create(
+        stored = await message_service.create(
             user_id=user_id,
             role="assistant",
             content=DIGEST_AVAILABLE,

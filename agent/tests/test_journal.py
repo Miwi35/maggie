@@ -72,7 +72,7 @@ def _gateway(result: dict | Exception) -> MagicMock:
 async def _execute(result: dict | Exception, proaction_id: str = SCHEDULED["id"]) -> dict:
     proaction = Proaction.from_api(SCHEDULED | {"id": proaction_id, "userId": "user-1", "status": "running"})
     with (
-        patch("app.queue.proaction_consumer.message_repo") as messages,
+        patch("app.queue.proaction_consumer.message_service") as messages,
         patch("app.queue.proaction_consumer.proactions_api") as proactions,
         patch("app.queue.proaction_consumer.publisher") as publisher,
         patch("app.queue.proaction_consumer.context_summarizer") as summarizer,

@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from app.api.chat_routes import _store_reply
 from app.auth import get_current_user_id
 from app.container import container
-from app.db.message_repository import message_repo
 from app.db.pending_action_repository import pending_action_repo
 from app.domain.approvals.errors import (
     ApprovalError,
@@ -17,6 +16,7 @@ from app.domain.approvals.errors import (
     ApprovalNotPending,
     UnknownChannel,
 )
+from app.domain.conversation.service import message_service
 from app.llm.questions import choices_message
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ async def answer_question(
     second. The answer reads « A · B » in the thread as a message of the owner's, and Maggie's turn resumes
     from it in the background.
     """
-    status, question_msg, block = await message_repo.answer_question(user_id, question_id, answer.choices)
+    status, question_msg, block = await message_service.answer_question(user_id, question_id, answer.choices)
     if status == "unknown":
         raise HTTPException(status_code=404, detail="Question not found")
     if status == "answered":
@@ -58,7 +58,9 @@ async def answer_question(
         raise HTTPException(status_code=400, detail="Choices must be distinct options of the question")
 
     said = choices_message(block["answered"])
-    user_msg = await message_repo.create(user_id=user_id, role="user", content=said, context_id=question_msg.context_id)
+    user_msg = await message_service.create(
+        user_id=user_id, role="user", content=said, context_id=question_msg.context_id
+    )
     background_tasks.add_task(_resume_after_answer, user_id, said, user_msg.id)
     return block
 
