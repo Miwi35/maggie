@@ -100,9 +100,27 @@ class TestTranscriptionService:
 
     @pytest.mark.asyncio
     @patch("app.llm.transcription.openai")
+    async def test_two_transcriptions_share_one_openai_client(self, mock_openai_module):
+        from app.llm.transcription import _whisper_transcribe, close_transcription_client
+
+        mock_client = AsyncMock()
+        mock_openai_module.AsyncOpenAI.return_value = mock_client
+        mock_client.audio.transcriptions.create = AsyncMock(return_value="Bonjour")
+        await close_transcription_client()
+
+        await _whisper_transcribe(b"one", "a.webm")
+        await _whisper_transcribe(b"two", "b.webm")
+
+        assert mock_openai_module.AsyncOpenAI.call_count == 1
+        await close_transcription_client()
+
+    @pytest.mark.asyncio
+    @patch("app.llm.transcription.openai")
     async def test_whisper_called_with_correct_params(self, mock_openai_module):
         """_whisper_transcribe passes correct model and file to OpenAI."""
-        from app.llm.transcription import _whisper_transcribe
+        from app.llm.transcription import _whisper_transcribe, close_transcription_client
+
+        await close_transcription_client()
 
         mock_client = AsyncMock()
         mock_openai_module.AsyncOpenAI.return_value = mock_client
@@ -118,6 +136,7 @@ class TestTranscriptionService:
             # (tests/test_transcription_silence.py).
             response_format="verbose_json",
         )
+        await close_transcription_client()
 
     @pytest.mark.asyncio
     async def test_cleanup_runs_on_the_fast_model_and_counts(self):

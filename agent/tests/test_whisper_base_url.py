@@ -7,6 +7,9 @@ instead of OpenAI, and nothing may change for dev and prod.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from app.llm import transcription
 from app.llm.transcription import _whisper_transcribe
 
 
@@ -18,6 +21,13 @@ def openai_client_spy() -> tuple[MagicMock, MagicMock]:
     factory = MagicMock(return_value=client)
 
     return factory, client
+
+
+@pytest.fixture(autouse=True)
+def _fresh_openai_client():
+    transcription._client = None
+    yield
+    transcription._client = None
 
 
 class TestWhisperBaseUrl:

@@ -8,6 +8,7 @@ it, and it runs on the fast model. Everything else gets the rule below, which co
 nothing: the isolated fillers are dropped and the rest is left alone.
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -239,6 +240,32 @@ def holds_speech(transcript: WhisperTranscript) -> bool:
     return any(not _is_silent_segment(segment) for segment in transcript.segments)
 
 
+_client: openai.AsyncOpenAI | None = None
+_client_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _openai_client() -> openai.AsyncOpenAI:
+    """One client for every transcription: the connection to OpenAI is opened once."""
+    global _client, _client_loop
+    loop = asyncio.get_running_loop()
+    if _client is None or _client_loop is not loop:
+        # base_url is only set on the e2e stack, where it points at WireMock.
+        # Passing None keeps the library's own default for dev and prod.
+        _client = openai.AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            base_url=settings.openai_base_url or None,
+        )
+        _client_loop = loop
+    return _client
+
+
+async def close_transcription_client() -> None:
+    global _client
+    if _client is not None:
+        client, _client = _client, None
+        await client.close()
+
+
 async def _whisper_transcribe(audio_bytes: bytes, filename: str) -> WhisperTranscript:
     """Transcribe audio using OpenAI Whisper, asking for the scores that judge it.
 
@@ -246,13 +273,7 @@ async def _whisper_transcribe(audio_bytes: bytes, filename: str) -> WhisperTrans
     `no_speech_prob` and `avg_logprob`, without which nothing can tell a sentence from
     an invention over silence.
     """
-    # base_url is only set on the e2e stack, where it points at WireMock.
-    # Passing None keeps the library's own default for dev and prod.
-    client = openai.AsyncOpenAI(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url or None,
-    )
-    transcript = await client.audio.transcriptions.create(
+    transcript = await _openai_client().audio.transcriptions.create(
         model="whisper-1",
         file=(filename, audio_bytes),
         response_format="verbose_json",
