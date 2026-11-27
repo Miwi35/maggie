@@ -1,25 +1,30 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,30 +35,38 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import com.maggie.app.data.model.CiqualFood
 import com.maggie.app.data.model.Product
+import com.maggie.app.data.model.Store
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.screens.grocery.label
+import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
 import com.maggie.app.ui.uiTagRoot
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductPickerDialog(
     products: List<Product>,
     initialQuery: String = "",
     onSelectProduct: (Product) -> Unit,
-    /** null hides the « Utiliser … » row: the caller needs a real product (the recurring items). */
+    /** null hides the « + Créer … » row: the caller needs a real product (the recurring items). */
     onSelectCustomLabel: ((String) -> Unit)?,
     onDismiss: () -> Unit,
     /** Ciqual foods offered when no product matches; null hides them (the recurring items need a real product). */
     onSearchCiqual: (suspend (String) -> List<CiqualFood>)? = null,
     onSelectCiqualFood: ((CiqualFood) -> Unit)? = null,
+    /** Names each product's usual store on its row; empty omits it. */
+    stores: List<Store> = emptyList(),
 ) {
     var searchQuery by remember { mutableStateOf(initialQuery) }
     val focusRequester = remember { FocusRequester() }
@@ -83,114 +96,100 @@ fun ProductPickerDialog(
         focusRequester.requestFocus()
     }
 
+    val coursesBlue = MaggieTokens.Module.courses.let { if (isMaggieDark()) it.second else it.first }
+    val surface = maggieSurface()
+    val ink = MaterialTheme.colorScheme.onSurface
+    val trimmed = searchQuery.trim()
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Scaffold(
-            modifier = Modifier.uiTagRoot(),
-            topBar = {
-                TopAppBar(
-                    title = { Text("Rechercher un produit") },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                    },
-                )
-            },
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Nom du produit") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .focusRequester(focusRequester)
-                        .testTag(UiTags.PRODUCT_SEARCH),
-                    singleLine = true,
-                )
+        Surface(
+            modifier = Modifier.fillMaxSize().uiTagRoot(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Fermer la recherche",
+                            tint = ink,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .background(surface.raised, RoundedCornerShape(14.dp))
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = surface.textMuted, modifier = Modifier.size(18.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(focusRequester)
+                                .testTag(UiTags.PRODUCT_SEARCH),
+                            singleLine = true,
+                            textStyle = TextStyle(color = ink, fontSize = 17.sp),
+                            cursorBrush = SolidColor(coursesBlue),
+                        )
+                    }
+                }
 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    if (onSelectCustomLabel != null && searchQuery.isNotBlank()) {
+                    items(filteredProducts) { product ->
+                        PickerRow(product.name, productSubtitle(product, stores)) { onSelectProduct(product) }
+                    }
+                    items(ciqualFoods) { food ->
+                        PickerRow(food.alimNameFr, "Ingr\u00e9dient Ciqual") { onSelectCiqualFood?.invoke(food) }
+                    }
+                    if (onSelectCustomLabel != null && trimmed.isNotEmpty()) {
                         item {
-                            Row(
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onSelectCustomLabel(searchQuery.trim()) }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                    .height(56.dp)
+                                    .clickable { onSelectCustomLabel(trimmed) }
+                                    .padding(horizontal = 4.dp),
+                                contentAlignment = Alignment.CenterStart,
                             ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(end = 12.dp),
-                                )
-                                Text(
-                                    text = "Utiliser \u00ab ${searchQuery.trim()} \u00bb",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                            HorizontalDivider()
-                        }
-                    }
-
-                    items(filteredProducts) { product ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectProduct(product) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = product.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                Text(
-                                    text = product.category.label(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            product.defaultUnit?.let { unit ->
-                                Text(
-                                    text = unit.name.lowercase(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Text(text = "+ Cr\u00e9er \u00ab $trimmed \u00bb", fontSize = 16.sp, color = coursesBlue)
                             }
                         }
-                        HorizontalDivider()
-                    }
-
-                    items(ciqualFoods) { food ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectCiqualFood?.invoke(food) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                        ) {
-                            Text(text = food.alimNameFr, style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                text = "Ciqual" + (food.alimGroupNameFr?.let { " \u00b7 $it" } ?: ""),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        HorizontalDivider()
                     }
                 }
             }
         }
+    }
+}
+
+/** A search row: 60 dp, the name over a muted line, a hairline underneath. */
+@Composable
+private fun PickerRow(title: String, subtitle: String, onClick: () -> Unit) {
+    val surface = maggieSurface()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = 60.dp)
+            .padding(horizontal = 4.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Column(modifier = Modifier.heightIn(min = 59.dp), verticalArrangement = Arrangement.Center) {
+            Text(text = title, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(text = subtitle, fontSize = 13.sp, color = surface.textMuted)
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.06f)))
     }
 }
