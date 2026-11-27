@@ -7,7 +7,7 @@ tags:
 # restock, and the week's meals are counted in (MAG-573). « Riz basmati MAG-573 » comes in
 # 500 g packs, two packs when it runs low, and two meals of the week need 500 g and 300 g
 # of it: the add sheet, opened after the full-screen search, shows « Pour les recettes de la
-# semaine · 800 g » with the meals, « 2 paquets » flagged « prérempli · réassort » and
+# semaine » with 800 g and the meals on one line, « 2 paquets » read as « − 2 + » (restock) and
 # « 1 kg (dont 800 g pour les recettes) · 2 paquets ». Added with nothing touched, the line
 # is stored as 2 packs with 1 kg kept as the wanted quantity, and the list reads
 # « 1 kg (dont 800 g pour les recettes) » under « 2 paquets ».
@@ -57,9 +57,11 @@ tags:
 # The add sheet, then the full-screen search where the packaged product is picked.
 - tapOn: "Ajouter un article"
 - extendedWaitUntil:
-    visible: "Nom du produit"
+    visible:
+      id: "grocery_add_product"
     timeout: 20000
-- tapOn: "Nom du produit"
+- tapOn:
+    id: "grocery_add_product"
 - extendedWaitUntil:
     visible: "Retour"
     timeout: 20000
@@ -78,13 +80,12 @@ tags:
     timeout: 20000
 - assertVisible:
     id: "grocery_recipe_need_box"
-- assertVisible: "Pour les recettes de la semaine · 800 g"
-- assertVisible: ".*Riz au curry MAG-573 · .* · 500 g"
-- assertVisible: ".*Riz cantonais MAG-573 · .* · 300 g"
-- assertVisible:
-    id: "grocery_prefilled_chip"
+- assertVisible: "Ajouter à la liste"
+- assertVisible: "Riz basmati MAG-573"
+- assertVisible: "Pour les recettes de la semaine"
+- assertVisible: "800 g"
+- assertVisible: ".*Riz au curry MAG-573 .* 500 g · Riz cantonais MAG-573 .* 300 g"
 - assertVisible: "paquets de 500 g"
-- assertVisible: "prérempli · réassort"
 - assertVisible: "1 kg \\(dont 800 g pour les recettes\\) · 2 paquets"
 - assertNotVisible:
     id: "grocery_coverage_alert"

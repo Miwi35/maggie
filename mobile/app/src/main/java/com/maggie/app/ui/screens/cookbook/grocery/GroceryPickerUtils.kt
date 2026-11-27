@@ -62,3 +62,17 @@ internal fun resolvePreferredStore(product: Product, stores: List<Store>): Store
     val id = iri.substringAfterLast("/")
     return stores.find { it.id == id }
 }
+
+/**
+ * The line under the product's name on the add sheet: « Biocoop · Épicerie · se vend en paquet de 500 g ».
+ * Each piece only when known (the aisle needs its store's aisles); null when none is.
+ */
+internal fun productLine(product: Product, stores: List<Store>, aislesByStore: Map<String, List<Aisle>>): String? {
+    val store = resolvePreferredStore(product, stores)
+    val aisle = store?.let { s ->
+        val id = product.aisles.firstOrNull { it.store == s.id }?.aisle
+        aislesByStore[s.id].orEmpty().firstOrNull { it.id == id }?.name
+    }
+    val soldAs = product.packagingUnit?.let { "se vend en ${packagingCaption(product, 1)}" }
+    return listOfNotNull(store?.name, aisle, soldAs).joinToString(" · ").ifEmpty { null }
+}

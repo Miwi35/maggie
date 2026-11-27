@@ -9,7 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** The category of a new line is read in French, never as the enum name (MAG-794). */
+/** The category of a free label is read in French, never as the enum name (MAG-794); only a free label is asked for it (MAG-1054). */
 @RunWith(AndroidJUnit4::class)
 class AddItemSheetCategoryTest {
 

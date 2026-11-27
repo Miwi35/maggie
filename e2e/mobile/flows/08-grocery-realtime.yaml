@@ -136,9 +136,11 @@ tags:
 # ---------------------------------------------------------------------------
 - tapOn: "Ajouter un article"
 - extendedWaitUntil:
-    visible: "Nom du produit"
+    visible:
+      id: "grocery_add_product"
     timeout: 20000
-- tapOn: "Nom du produit"
+- tapOn:
+    id: "grocery_add_product"
 # « Retour » is the full-screen search's own back button; its title is also the
 # sheet's search icon, so it would pass before the dialog is up.
 - extendedWaitUntil:

@@ -405,6 +405,7 @@ fun GroceryScreen(
         AddItemSheet(
             products = uiState.products,
             stores = uiState.stores,
+            aislesByStore = uiState.aislesByStore,
             onAddItem = { label, quantity, storeId, storeName, category ->
                 viewModel.addItem(label, quantity.quantity, quantity.unit, storeId, storeName, category, quantity.packagings)
             },

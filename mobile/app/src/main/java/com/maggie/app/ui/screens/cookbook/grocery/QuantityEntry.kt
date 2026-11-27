@@ -1,35 +1,31 @@
 package com.maggie.app.ui.screens.cookbook.grocery
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,24 +33,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.CookbookUnit
 import com.maggie.app.data.model.Need
 import com.maggie.app.data.model.Product
-import com.maggie.app.data.model.frenchLabel
 import com.maggie.app.data.model.label
 import com.maggie.app.ui.UiTags
-import com.maggie.app.ui.uiTagRoot
 import com.maggie.app.ui.theme.MaggieTokens
+import com.maggie.app.ui.theme.isMaggieDark
+import com.maggie.app.ui.theme.maggieSurface
+import com.maggie.app.ui.uiTagRoot
 
 /**
  * The quantity of a line (MAG-573): « Quantité · Conditionnement » when the product is bought in a
  * packaging, a quantity and its unit otherwise. [need] is what the week's meals need of the product
  * (the add sheet reads it): it feeds the suggested quantities, the summary and the coverage alert.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuantityEntry(
     product: Product?,
@@ -72,96 +76,90 @@ fun QuantityEntry(
     val adjustLabel = effective.adjustLabel(product, need)
     val suggestions = if (mode == QuantityMode.QUANTITY) suggestedQuantities(product, need) else emptyList()
     var unitExpanded by remember { mutableStateOf(false) }
+    val surface = maggieSurface()
+    val courses = MaggieTokens.Module.courses.second
 
-    Column(modifier = modifier.fillMaxWidth().testTag(UiTags.GROCERY_QUANTITY_ENTRY), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier.fillMaxWidth().testTag(UiTags.GROCERY_QUANTITY_ENTRY), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (packagingUnit != null) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = mode == QuantityMode.QUANTITY,
-                    onClick = { onChange(draft.copy(mode = QuantityMode.QUANTITY)) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    modifier = Modifier.testTag(UiTags.GROCERY_QUANTITY_MODE_QUANTITY),
-                ) { Text("Quantité") }
-                SegmentedButton(
-                    selected = mode == QuantityMode.PACKAGINGS,
-                    onClick = { onChange(draft.copy(mode = QuantityMode.PACKAGINGS)) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    modifier = Modifier.testTag(UiTags.GROCERY_QUANTITY_MODE_PACKAGINGS),
-                ) { Text("Conditionnement") }
+            Row(
+                modifier = Modifier.fillMaxWidth().background(surface.background, CircleShape).padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ModeSegment("Quantité", mode == QuantityMode.QUANTITY, courses, UiTags.GROCERY_QUANTITY_MODE_QUANTITY, Modifier.weight(1f)) {
+                    onChange(draft.copy(mode = QuantityMode.QUANTITY))
+                }
+                ModeSegment("Conditionnement", mode == QuantityMode.PACKAGINGS, courses, UiTags.GROCERY_QUANTITY_MODE_PACKAGINGS, Modifier.weight(1f)) {
+                    onChange(draft.copy(mode = QuantityMode.PACKAGINGS))
+                }
             }
         }
 
         if (mode == QuantityMode.PACKAGINGS && product != null) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(
-                    onClick = { onChange(draft.copy(packagings = ((count ?: 2) - 1).coerceAtLeast(1).toString(), prefill = Prefill.NONE)) },
-                    enabled = count != null && count > 1,
-                ) {
-                    Icon(Icons.Default.Remove, contentDescription = "Diminuer le nombre de conditionnements")
-                }
-                OutlinedTextField(
-                    value = draft.packagings,
-                    onValueChange = { onChange(draft.copy(packagings = it, prefill = Prefill.NONE)) },
-                    label = { Text("Nombre de ${packagingUnit?.frenchLabel(2f)}") },
-                    isError = count == null,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.width(120.dp).testTag(UiTags.GROCERY_PACKAGINGS_FIELD),
-                )
-                IconButton(onClick = { onChange(draft.copy(packagings = ((count ?: 0) + 1).toString(), prefill = Prefill.NONE)) }) {
-                    Icon(Icons.Default.Add, contentDescription = "Augmenter le nombre de conditionnements")
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    StepButton("−", "Diminuer le nombre de conditionnements", enabled = count != null && count > 1) {
+                        onChange(draft.copy(packagings = ((count ?: 2) - 1).coerceAtLeast(1).toString(), prefill = Prefill.NONE))
+                    }
+                    Text(
+                        text = draft.packagings,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        color = if (count == null) MaterialTheme.colorScheme.error else surface.text,
+                        modifier = Modifier.widthIn(min = 48.dp).testTag(UiTags.GROCERY_PACKAGINGS_FIELD),
+                    )
+                    StepButton("+", "Augmenter le nombre de conditionnements", enabled = true) {
+                        onChange(draft.copy(packagings = ((count ?: 0) + 1).toString(), prefill = Prefill.NONE))
+                    }
                 }
                 Text(
                     text = packagingCaption(product, count ?: 1),
-                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 15.sp,
+                    color = surface.textMuted,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.testTag(UiTags.GROCERY_PACKAGING_CAPTION),
                 )
             }
-            if (draft.prefilled) {
-                val origin = if (draft.prefill == Prefill.RESTOCK) "réassort" else "recettes de la semaine"
-                AssistChip(onClick = {}, label = { Text("prérempli · $origin") }, modifier = Modifier.testTag(UiTags.GROCERY_PREFILLED_CHIP))
-            }
         } else {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = draft.quantity,
-                    onValueChange = { onChange(draft.copy(quantity = it)) },
-                    label = { Text("Quantité") },
-                    isError = !draft.copy(mode = mode).isValid(),
-                    modifier = Modifier.weight(1f).testTag(UiTags.GROCERY_QUANTITY_FIELD),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                )
-                ExposedDropdownMenuBox(
-                    expanded = unitExpanded,
-                    onExpandedChange = { unitExpanded = it },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    OutlinedTextField(
-                        value = draft.unit?.name?.lowercase() ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Unité") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unitExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = unitExpanded,
-                        onDismissRequest = { unitExpanded = false },
-                        modifier = Modifier.uiTagRoot(),
-                    ) {
-                        CookbookUnit.entries.forEach { unit ->
-                            DropdownMenuItem(
-                                text = { Text(unit.name.lowercase()) },
-                                onClick = {
-                                    onChange(draft.copy(unit = unit))
-                                    unitExpanded = false
-                                },
-                            )
+            TextField(
+                value = draft.quantity,
+                onValueChange = { onChange(draft.copy(quantity = it)) },
+                isError = !draft.copy(mode = mode).isValid(),
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 22.sp, color = surface.text),
+                placeholder = { Text("Quantité", fontSize = 22.sp, color = surface.textMuted) },
+                trailingIcon = {
+                    Box {
+                        Text(
+                            text = draft.unit?.name?.lowercase() ?: "unité",
+                            fontSize = 15.sp,
+                            color = surface.textMuted,
+                            modifier = Modifier
+                                .clickable(role = Role.Button) { unitExpanded = true }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                        DropdownMenu(
+                            expanded = unitExpanded,
+                            onDismissRequest = { unitExpanded = false },
+                            modifier = Modifier.uiTagRoot(),
+                        ) {
+                            CookbookUnit.entries.forEach { unit ->
+                                DropdownMenuItem(
+                                    text = { Text(unit.name.lowercase()) },
+                                    onClick = {
+                                        onChange(draft.copy(unit = unit))
+                                        unitExpanded = false
+                                    },
+                                )
+                            }
                         }
                     }
-                }
-            }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                shape = RoundedCornerShape(14.dp),
+                colors = filledFieldColors(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag(UiTags.GROCERY_QUANTITY_FIELD),
+            )
         }
 
         if (suggestions.isNotEmpty()) {
@@ -170,11 +168,24 @@ fun QuantityEntry(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 suggestions.forEachIndexed { index, suggestion ->
-                    AssistChip(
-                        onClick = { onChange(draft.withSuggestedQuantity(suggestion)) },
-                        label = { Text(suggestion.label()) },
-                        modifier = Modifier.testTag(UiTags.groceryQuantitySuggestion(index)),
-                    )
+                    val applied = draft.withSuggestedQuantity(suggestion)
+                    val chosen = applied.quantity == draft.quantity && applied.unit == draft.unit
+                    Box(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .background(if (chosen) courses.copy(alpha = 0.16f) else surface.text.copy(alpha = 0.05f), CircleShape)
+                            .clickable(role = Role.Button) { onChange(applied) }
+                            .padding(horizontal = 16.dp)
+                            .testTag(UiTags.groceryQuantitySuggestion(index)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = suggestion.label(),
+                            fontSize = 15.sp,
+                            fontWeight = if (chosen) FontWeight.Medium else FontWeight.Normal,
+                            color = if (chosen) courses else surface.textMuted,
+                        )
+                    }
                 }
             }
         }
@@ -182,29 +193,73 @@ fun QuantityEntry(
         if (summary != null) {
             Text(
                 text = summary,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.testTag(UiTags.GROCERY_QUANTITY_SUMMARY),
+                fontSize = 14.sp,
+                color = courses,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().testTag(UiTags.GROCERY_QUANTITY_SUMMARY),
             )
         }
 
         if (alert != null) {
-            Column(
+            val warning = (if (isMaggieDark()) MaggieTokens.feedbackDark else MaggieTokens.feedbackLight).warning
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, MaggieTokens.Signal.warning, RoundedCornerShape(8.dp))
-                    .background(MaggieTokens.Signal.warning.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                    .padding(12.dp)
+                    .background(warning.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                    .padding(start = 14.dp, top = 10.dp, end = 10.dp, bottom = 10.dp)
                     .testTag(UiTags.GROCERY_COVERAGE_ALERT),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(text = alert, style = MaterialTheme.typography.bodyMedium)
+                Icon(Icons.Default.Warning, contentDescription = null, tint = warning, modifier = Modifier.size(20.dp))
+                Text(text = alert, fontSize = 14.sp, color = warning, modifier = Modifier.weight(1f))
                 if (adjustLabel != null) {
-                    OutlinedButton(
-                        onClick = { onChange(draft.adjustedToNeed(product, need)) },
-                        modifier = Modifier.testTag(UiTags.GROCERY_COVERAGE_ADJUST),
-                    ) { Text(adjustLabel) }
+                    Box(
+                        modifier = Modifier
+                            .height(44.dp)
+                            .background(warning.copy(alpha = 0.18f), CircleShape)
+                            .clickable(role = Role.Button) { onChange(draft.adjustedToNeed(product, need)) }
+                            .padding(horizontal = 16.dp)
+                            .testTag(UiTags.GROCERY_COVERAGE_ADJUST),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(adjustLabel, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = warning) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ModeSegment(text: String, selected: Boolean, accent: Color, tag: String, modifier: Modifier, onClick: () -> Unit) {
+    val surface = maggieSurface()
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .background(if (selected) accent else Color.Transparent, CircleShape)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .testTag(tag),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            color = if (selected) MaggieTokens.surfaceDark.background else surface.textMuted,
+        )
+    }
+}
+
+@Composable
+private fun StepButton(symbol: String, description: String, enabled: Boolean, onClick: () -> Unit) {
+    val surface = maggieSurface()
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .background(surface.raised, CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(symbol, fontSize = 20.sp, color = if (enabled) surface.text else surface.textMuted.copy(alpha = 0.4f))
     }
 }

@@ -29,9 +29,11 @@ tags:
 
 - tapOn: "Ajouter un article"
 - extendedWaitUntil:
-    visible: "Nom du produit"
+    visible:
+      id: "grocery_add_product"
     timeout: 20000
-- tapOn: "Nom du produit"
+- tapOn:
+    id: "grocery_add_product"
 - extendedWaitUntil:
     visible: "Retour"
     timeout: 20000
@@ -45,7 +47,8 @@ tags:
 # The category is read in French, as on the product sheet (MAG-794), never « produce ».
 - tapOn: "Retour"
 - extendedWaitUntil:
-    visible: "Nom du produit"
+    visible:
+      id: "grocery_add_product"
     timeout: 20000
 - scrollUntilVisible:
     element: "Catégorie"
