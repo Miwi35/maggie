@@ -9,6 +9,7 @@ apart, so `/chat` can say so and the smoke test can warn instead of failing.
 
 import json
 import logging
+import time
 from datetime import datetime
 
 import anthropic
@@ -140,8 +141,21 @@ async def alert_owner(user_id: str, reason: str, *, now: datetime | None = None)
 BANNER_REASONS = ("credit", "auth")
 
 
+# A success already written is not written again for this long: the banner another worker
+# raised clears within a minute at most, and a quiet turn costs no UPDATE.
+PROVIDER_OK_RECHECK_SECONDS = 60
+_ok_seen_at: float | None = None
+
+
+def reset_provider_memory() -> None:
+    global _ok_seen_at
+    _ok_seen_at = None
+
+
 async def note_provider_failure(error: BaseException) -> None:
     """Remember a failure only the owner can fix, whatever call it came from. Never raises."""
+    global _ok_seen_at
+    _ok_seen_at = None
     reason = provider_reason(error)
     if reason not in BANNER_REASONS:
         return
@@ -153,7 +167,11 @@ async def note_provider_failure(error: BaseException) -> None:
 
 async def note_provider_success() -> None:
     """The model answered: whatever was down is up again. Never raises."""
+    global _ok_seen_at
+    if _ok_seen_at is not None and time.monotonic() - _ok_seen_at < PROVIDER_OK_RECHECK_SECONDS:
+        return
     try:
         await provider_state_repo.mark_ok()
+        _ok_seen_at = time.monotonic()
     except Exception as e:
         logger.error(f"Could not record the provider status (ok): {e!r}")
