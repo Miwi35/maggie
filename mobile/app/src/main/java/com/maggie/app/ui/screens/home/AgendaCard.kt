@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,7 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -36,11 +39,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maggie.app.data.model.ACTIVITY_SPORT
 import com.maggie.app.ui.screens.health.sport.SportResumeViewModel
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
 import com.maggie.app.data.model.AgendaRow
+import com.maggie.app.data.model.AgendaTimeline
 import com.maggie.app.data.model.AgendaRowKind
 import com.maggie.app.data.model.HomeDay
 import com.maggie.app.data.model.Trip
@@ -55,18 +60,23 @@ import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.ceil
 
 /** How often the line and « dans 48 min » are recomputed. */
 private const val TICK_MS = 20_000L
 
 /** Past rows stay readable: dimmed, not struck out. */
-private const val PAST_ALPHA = 0.6f
+private const val PAST_ALPHA = 0.72f
 
-/** The next event sits on its agenda's colour, this faint. */
-private const val NEXT_TINT_ALPHA = 0.13f
+/** The next event sits on the Agenda's turquoise, this faint. */
+private const val NEXT_TINT_ALPHA = 0.10f
+
+/** The share of the Agenda's turquoise at the top of the card's gradient. */
+private const val CARD_TINT_ALPHA = 0.12f
 
 /** The owner's zone, which the « maintenant » line is read in. */
 private val OWNER_ZONE: ZoneId = ZoneId.of("Europe/Paris")
@@ -74,6 +84,25 @@ private val OWNER_ZONE: ZoneId = ZoneId.of("Europe/Paris")
 private val clockFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 internal fun clockLabel(instant: Instant, zone: ZoneId = OWNER_ZONE): String = clockFormatter.format(instant.atZone(zone))
+
+/** « mer. 22 oct. »: the short day of the card's title. */
+internal fun agendaDayLabel(date: String): String =
+    LocalDate.parse(date).format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.FRENCH))
+
+/** « 2 passés · 4 à venir » today (a zero part omitted), « 3 prévus » for another day. */
+internal fun agendaCountLabel(timeline: AgendaTimeline): String {
+    val ahead = timeline.allDay.size + timeline.following.size
+    if (!timeline.hasNowLine) return "$ahead prévu${if (ahead > 1) "s" else ""}"
+    val done = timeline.past.size
+    return listOfNotNull(
+        done.takeIf { it > 0 }?.let { "$it passé${if (it > 1) "s" else ""}" },
+        ahead.takeIf { it > 0 }?.let { "$it à venir" },
+    ).joinToString(" · ")
+}
+
+/** « lieu · agenda », with « · fait » at the end of a done event's. */
+internal fun agendaRowSub(event: AgendaHomeEvent, past: Boolean): String =
+    listOfNotNull(event.locationShort, event.agendaName, if (past) "fait" else null).joinToString(" · ")
 
 /** « dans 48 min », « dans 1 h », « dans 1 h 35 »: the minutes rounded up, one at least. */
 internal fun untilLabel(start: Instant, now: Instant): String {
@@ -166,7 +195,31 @@ internal fun AgendaCardContent(
 ) {
     if (state != null && state.events.isEmpty()) return
 
-    HomeCard(title = "Agenda", module = HomeModules.AGENDA, onOpen = onOpenAgenda) {
+    val agenda = homeModuleColor(HomeModules.AGENDA)
+    val surface = MaterialTheme.colorScheme.surface
+    val countLabel = state?.let { agendaCountLabel(it.timeline(now, compact = false)) }
+    HomeCard(
+        title = state?.let { "Agenda · ${agendaDayLabel(it.date)}" } ?: "Agenda",
+        module = HomeModules.AGENDA,
+        onOpen = onOpenAgenda,
+        trailing = countLabel?.let { label ->
+            {
+                Text(
+                    text = label,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        },
+        containerBrush = Brush.linearGradient(
+            0f to agenda.copy(alpha = CARD_TINT_ALPHA).compositeOver(surface),
+            0.55f to surface,
+            start = Offset(0f, 0f),
+            end = Offset(0f, Float.POSITIVE_INFINITY),
+        ),
+    ) {
         when {
             state == null && error -> {
                 Text("L'agenda n'a pas pu être chargé.", style = MaterialTheme.typography.bodyMedium)
@@ -193,18 +246,24 @@ internal fun AgendaCardContent(
 
 @Composable
 private fun NowLine(now: Instant) {
-    val color = MaterialTheme.colorScheme.error
+    val color = homeModuleColor(HomeModules.AGENDA)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
             .semantics(mergeDescendants = true) {}
             .testTag(UiTags.HOME_AGENDA_NOW_LINE),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("maintenant · ${clockLabel(now)}", style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.SemiBold)
-        HorizontalDivider(modifier = Modifier.weight(1f), thickness = 2.dp, color = color)
+        Text("maintenant · ${clockLabel(now)}", fontSize = 12.sp, color = color, fontWeight = FontWeight.Medium)
+        Box(
+            Modifier
+                .weight(1f)
+                .height(2.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Brush.horizontalGradient(listOf(color, color.copy(alpha = 0f)))),
+        )
     }
 }
 
@@ -237,6 +296,7 @@ private fun AgendaEventRow(row: AgendaRow, date: String, now: Instant?, day: Hom
     val event = row.event
     val past = row.kind == AgendaRowKind.PAST
     val next = row.kind == AgendaRowKind.NEXT
+    val agendaModule = homeModuleColor(HomeModules.AGENDA)
     val agendaColor = event.agendaColor?.let(::parseColor) ?: MaterialTheme.colorScheme.primary
     val start = event.start
     val hint = when {
@@ -244,7 +304,7 @@ private fun AgendaEventRow(row: AgendaRow, date: String, now: Instant?, day: Hom
         row.kind == AgendaRowKind.CURRENT -> "en cours"
         else -> null
     }
-    val details = listOfNotNull(event.locationShort, hint).joinToString(" · ")
+    val sub = agendaRowSub(event, past)
 
     val launchRoute = launchRouteFor(event.activity, event.id)
     val sport = event.activity == ACTIVITY_SPORT
@@ -253,16 +313,16 @@ private fun AgendaEventRow(row: AgendaRow, date: String, now: Instant?, day: Hom
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
+            .heightIn(min = 52.dp)
             .alpha(if (past) PAST_ALPHA else 1f)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (next) agendaColor.copy(alpha = NEXT_TINT_ALPHA) else Color.Transparent),
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (next) agendaModule.copy(alpha = NEXT_TINT_ALPHA) else Color.Transparent),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             modifier = Modifier
                 .weight(1f)
-                .heightIn(min = 48.dp)
+                .heightIn(min = 52.dp)
                 .clickable(role = Role.Button) { onOpen(event) }
                 .padding(horizontal = 8.dp, vertical = 6.dp)
                 .testTag(UiTags.homeAgendaRow(event.id)),
@@ -271,32 +331,34 @@ private fun AgendaEventRow(row: AgendaRow, date: String, now: Instant?, day: Hom
         ) {
             Text(
                 text = rowTimeLabel(event, date).ifEmpty { if (event.allDay) "Journée" else "" },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(56.dp),
+                fontSize = 15.sp,
+                fontWeight = if (next) FontWeight.Medium else FontWeight.Normal,
+                color = if (past) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.width(48.dp),
             )
-            Box(Modifier.size(width = 4.dp, height = 28.dp).clip(RoundedCornerShape(2.dp)).background(agendaColor))
+            Box(Modifier.size(width = 4.dp, height = 32.dp).clip(RoundedCornerShape(4.dp)).background(agendaColor))
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = event.summary,
+                    fontSize = 15.sp,
+                    fontWeight = if (next) FontWeight.Medium else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (sub.isNotEmpty()) {
                     Text(
-                        text = event.summary + if (past) " · fait" else "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (next) FontWeight.SemiBold else FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (past) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(14.dp))
-                }
-                if (details.isNotEmpty()) {
-                    Text(
-                        text = details,
-                        style = MaterialTheme.typography.bodySmall,
+                        text = sub,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+            if (past) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            } else if (hint != null) {
+                Text(text = hint, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = agendaModule, maxLines = 1)
             }
         }
         // « ▶ Lancer » on an event that is an activity — today only; the pill draws nothing for tomorrow.

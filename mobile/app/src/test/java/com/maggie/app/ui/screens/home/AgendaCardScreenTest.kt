@@ -13,6 +13,9 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.AgendaHomeEvent
 import com.maggie.app.data.model.AgendaHomeState
+import com.maggie.app.data.model.AgendaRow
+import com.maggie.app.data.model.AgendaRowKind
+import com.maggie.app.data.model.AgendaTimeline
 import com.maggie.app.data.model.EventReminder
 import com.maggie.app.data.model.EventReminders
 import com.maggie.app.data.model.HomeDay
@@ -121,8 +124,44 @@ class AgendaCardScreenTest {
     fun `a done event is dimmed but readable, the next one says when`() {
         draw(today(standup, dentist, review))
 
-        compose.onNodeWithText("Point d'équipe · fait").assertIsDisplayed()
-        compose.onNodeWithText("Cabinet Martin · dans 48 min").assertIsDisplayed()
+        compose.onNodeWithText("Point d'équipe", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Perso · fait", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Cabinet Martin · Perso", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("dans 48 min", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the header reads the day and the count of the whole day`() {
+        draw(today(standup, dentist, review))
+
+        compose.onNodeWithText("Agenda · mer. 14 oct.").assertIsDisplayed()
+        compose.onNodeWithText("1 passé · 2 à venir").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a phone counts the rows it leaves out`() {
+        val done = (1..3).map { timed("d$it", "Fini $it", "0$it:00", "0$it:30") }
+        val coming = (1..5).map { timed("c$it", "A venir $it", "1${it + 3}:00", "1${it + 3}:30") }
+        draw(today(*(done + coming).toTypedArray()))
+
+        compose.onNodeWithText("3 passés · 5 à venir").assertIsDisplayed()
+    }
+
+    @Test
+    fun `tomorrow counts what is planned`() {
+        draw(AgendaHomeState(date = "2026-10-15", events = listOf(standup, dentist, review)), day = HomeDay.TOMORROW)
+
+        compose.onNodeWithText("Agenda · jeu. 15 oct.").assertIsDisplayed()
+        compose.onNodeWithText("3 prévus").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the header no longer has a chevron and still opens the agenda`() {
+        var opened = 0
+        draw(today(standup, dentist), onOpenAgenda = { opened++ })
+
+        compose.onNodeWithTag(UiTags.homeCardHeader(HomeModules.AGENDA)).performClick()
+        assertEquals(1, opened)
     }
 
     @Test
@@ -131,7 +170,7 @@ class AgendaCardScreenTest {
         draw(today(running, dentist))
 
         compose.onNodeWithText("Atelier").assertIsDisplayed()
-        compose.onNodeWithText("en cours", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("en cours", useUnmergedTree = true).assertIsDisplayed()
         assertTrue(top(UiTags.HOME_AGENDA_NOW_LINE) < top(UiTags.homeAgendaRow("e5")))
     }
 
@@ -290,10 +329,25 @@ class AgendaCardScreenTest {
         assertEquals("dans 1 h 35", untilLabel(start, start.minusSeconds(95 * 60)))
         assertEquals("dans 2 h 05", untilLabel(start, start.minusSeconds(125 * 60)))
         assertEquals("dans 1 min", untilLabel(start, start.minusSeconds(5)))
+        assertEquals("Cabinet Martin · Perso", agendaRowSub(dentist, past = false))
+        assertEquals("Perso · fait", agendaRowSub(standup, past = true))
+        assertEquals("fait", agendaRowSub(standup.copy(agendaName = null), past = true))
+        assertEquals("mer. 14 oct.", agendaDayLabel("2026-10-14"))
+        assertEquals("1 passé · 1 à venir", agendaCountLabel(timeline(past = 1, following = 1)))
+        assertEquals("2 passés", agendaCountLabel(timeline(past = 2)))
+        assertEquals("3 à venir", agendaCountLabel(timeline(following = 3)))
+        assertEquals("2 à venir", agendaCountLabel(timeline(following = 1, allDay = 1)))
+        assertEquals("1 prévu", agendaCountLabel(timeline(following = 1, nowLine = false)))
+        assertEquals("4 prévus", agendaCountLabel(timeline(following = 3, allDay = 1, nowLine = false)))
         assertEquals("15:00", rowTimeLabel(dentist, "2026-10-14"))
         assertEquals("", rowTimeLabel(stay, "2026-10-14"))
         val overMidnight = timed("o", "Soirée", "23:00", "23:30").copy(startAt = "2026-10-13T23:00:00+02:00", endAt = "2026-10-14T01:00:00+02:00")
         assertEquals("→ 01:00", rowTimeLabel(overMidnight, "2026-10-14"))
+    }
+
+    private fun timeline(past: Int = 0, following: Int = 0, allDay: Int = 0, nowLine: Boolean = true): AgendaTimeline {
+        fun rows(n: Int, kind: AgendaRowKind) = (1..n).map { AgendaRow(standup, kind) }
+        return AgendaTimeline(rows(allDay, AgendaRowKind.PLAIN), rows(past, AgendaRowKind.PAST), rows(following, AgendaRowKind.LATER), nowLine)
     }
 
     // 16:42 in Paris, three trips: left at 08:09, next at 17:04, then 18:05.

@@ -1,11 +1,13 @@
 package com.maggie.app.ui.screens.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -23,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -71,6 +74,8 @@ fun HomeCard(
     module: String,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    containerBrush: Brush? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val color = homeModuleColor(module)
@@ -78,36 +83,44 @@ fun HomeCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag(UiTags.homeCard(module)),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = if (containerBrush != null) Color.Transparent else MaterialTheme.colorScheme.surface,
+        ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = MIN_TOUCH_TARGET)
-                .testTag(UiTags.homeCardHeader(module))
-                .clickable(role = Role.Button, onClick = onOpen)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = color,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(24.dp),
+        Column(modifier = if (containerBrush != null) Modifier.background(containerBrush) else Modifier) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = MIN_TOUCH_TARGET)
+                    .testTag(UiTags.homeCardHeader(module))
+                    .clickable(role = Role.Button, onClick = onOpen)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = color,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (trailing != null) {
+                    trailing()
+                } else {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                content = content,
             )
         }
-        Column(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-            content = content,
-        )
     }
 }
 
