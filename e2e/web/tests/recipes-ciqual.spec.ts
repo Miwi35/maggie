@@ -175,6 +175,7 @@ test("Cuisine › Ingrédients reads the state of each ingredient's values, and 
   const shell = new AdminShell(page)
   await shell.goto(ROUTES.ingredients)
   const search = shell.content.getByRole('searchbox', { name: 'Rechercher un ingrédient' })
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
 
   await search.fill(COURGETTE.name)
   const courgette = shell.content.getByRole('row', { name: new RegExp(COURGETTE.name) })
@@ -191,6 +192,14 @@ test("Cuisine › Ingrédients reads the state of each ingredient's values, and 
   await expect(shell.content.getByRole('button', { name: /Sans valeurs/ })).toHaveAttribute('aria-pressed', 'true')
   await expect(shell.content.getByRole('row', { name: new RegExp(bare) })).toBeVisible()
   await expect(shell.content.getByRole('row', { name: new RegExp(COURGETTE.name) })).toHaveCount(0)
+})
+
+test('Cuisine › Recettes carries a single h1', async ({ page }) => {
+  // MAG-1048: the layout's title and the list's own used to stack.
+  const shell = new AdminShell(page)
+  await shell.goto(ROUTES.recipes)
+  await expect(page.getByRole('heading', { level: 1, name: 'Recettes' })).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
 })
 
 test('the ingredient a recipe creates from a Ciqual code is searchable at once, without a reindex', async ({ api }) => {
