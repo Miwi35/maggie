@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maggie.app.data.model.Aisle
 import com.maggie.app.data.model.CookbookUnit
@@ -19,6 +20,7 @@ import com.maggie.app.data.model.Store
 import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -163,6 +165,16 @@ class ProductDetailScreenTest {
         draft = draft.copy(restockQuantity = "0")
         compose.onNodeWithContentDescription("Un bocal de moins").performClick()
         assertEquals("0", draft.restockQuantity)
+    }
+
+    @Test
+    fun `restock reads key over value inside a tile`() {
+        val product = pasta.copy(packagingUnit = CookbookUnit.JAR, restockQuantity = 1)
+        show(ProductEditorState(product, ProductDraft.from(product)))
+
+        val key = compose.onNodeWithText("Réassort").performScrollTo().fetchSemanticsNode().boundsInRoot
+        val value = compose.onNodeWithText("1 bocal").fetchSemanticsNode().boundsInRoot
+        assertTrue(value.top >= key.bottom)
     }
 
     @Test
