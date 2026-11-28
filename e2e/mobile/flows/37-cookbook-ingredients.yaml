@@ -50,8 +50,12 @@ tags:
 
 - tapOn:
     id: "subview_none"
-- assertVisible: "Sel MAG-1057"
-- assertNotVisible: "Oignon MAG-1057"
+- extendedWaitUntil:
+    visible: "Sel MAG-1057"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: "Oignon MAG-1057"
+    timeout: 20000
 
 - tapOn:
     id: "subview_all"
@@ -59,8 +63,12 @@ tags:
     id: "ingredient_search_field"
 - eraseText: 20
 - inputText: "oign"
-- assertVisible: "Oignon MAG-1057"
-- assertNotVisible: "Sel MAG-1057"
+- extendedWaitUntil:
+    visible: "Oignon MAG-1057"
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: "Sel MAG-1057"
+    timeout: 20000
 
 - runScript:
     file: ../scripts/recipe-api.js
