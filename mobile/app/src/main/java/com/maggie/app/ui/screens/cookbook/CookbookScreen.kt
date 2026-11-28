@@ -25,15 +25,18 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.components.BreadcrumbSection
 import com.maggie.app.ui.components.ModuleBreadcrumb
 import com.maggie.app.ui.navigation.LocalModuleBar
+import com.maggie.app.ui.screens.cookbook.ingredients.IngredientListScreen
+import com.maggie.app.ui.screens.cookbook.ingredients.IngredientListViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekScreen
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 
-/** What Cuisine shows: the week's meals first, as the mock-up opens it, or the recipes. */
+/** What Cuisine shows: the week's meals first, as the mock-up opens it, the recipes or the ingredients. */
 enum class CookbookSection(val key: String, val title: String) {
     Meals("meals", "Repas"),
     Recipes("recipes", "Recettes"),
+    Ingredients("ingredients", "Ingrédients"),
 }
 
 /**
@@ -43,8 +46,10 @@ enum class CookbookSection(val key: String, val title: String) {
 @Composable
 fun CookbookScreen(
     recipeListViewModel: RecipeListViewModel,
+    ingredientListViewModel: IngredientListViewModel,
     mealsWeekViewModel: MealsWeekViewModel,
     onRecipeClick: (String) -> Unit,
+    onIngredientClick: (String) -> Unit,
     onCreateRecipe: () -> Unit,
     onCreateMeal: (day: String, slot: String) -> Unit,
     onOpenMeal: (Meal) -> Unit,
@@ -75,6 +80,10 @@ fun CookbookScreen(
                 CookbookSection.Recipes -> RecipeListScreen(
                     viewModel = recipeListViewModel,
                     onRecipeClick = onRecipeClick,
+                )
+                CookbookSection.Ingredients -> IngredientListScreen(
+                    viewModel = ingredientListViewModel,
+                    onIngredientClick = onIngredientClick,
                 )
             }
         }

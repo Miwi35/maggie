@@ -22,6 +22,8 @@ import com.maggie.app.ui.screens.cookbook.meals.MealCreateViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealDetailUiState
 import com.maggie.app.ui.screens.cookbook.meals.MealDetailViewModel
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
+import com.maggie.app.ui.screens.cookbook.ingredients.IngredientListUiState
+import com.maggie.app.ui.screens.cookbook.ingredients.IngredientListViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailUiState
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeDetailViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListUiState
@@ -97,6 +99,7 @@ internal fun startNavGraphApp() {
     val recipes = mockk<RecipeListViewModel>(relaxed = true) {
         every { uiState } returns state(RecipeListUiState(recipes = listOf(Recipe(id = "r1", name = "Chili"), Recipe(id = "r2", name = "Risotto"))))
     }
+    val ingredients = mockk<IngredientListViewModel>(relaxed = true) { every { uiState } returns state(IngredientListUiState()) }
     val meals = mockk<MealsWeekViewModel>(relaxed = true) { every { uiState } returns state(MealsWeekUiState()) }
     val mealCreate = mockk<MealCreateViewModel>(relaxed = true) { every { uiState } returns state(MealCreateUiState()) }
     val mealDetail = mockk<MealDetailViewModel>(relaxed = true) { every { uiState } returns state(MealDetailUiState()) }
@@ -158,6 +161,7 @@ internal fun startNavGraphApp() {
                 viewModel { drawerSummary }
                 viewModel { providerStatus }
                 viewModel { recipes }
+                viewModel { ingredients }
                 viewModel { meals }
                 viewModel { mealCreate }
                 viewModel { mealDetail }

@@ -1417,6 +1417,11 @@ object UiTags {
     const val RECIPE_ROW_AVATAR = "recipe_row_avatar"
     const val RECIPE_ROW_FACTS = "recipe_row_facts"
 
+    /** The ingredient list (MAG-1057): the search field, a card, and the state pill (Ciqual / Sans valeurs) of a card. */
+    const val INGREDIENT_SEARCH_FIELD = "ingredient_search_field"
+    const val INGREDIENT_ROW = "ingredient_row"
+    const val INGREDIENT_ROW_STATE = "ingredient_row_state"
+
     /**
      * « Pour N personnes » on the recipe sheet (MAG-483): the stepper (`recipe_guests_minus`, `_value`,
      * `_plus`), « Parts de la recette », the line that says a simulation is shown, its error, and the
