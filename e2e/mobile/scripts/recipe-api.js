@@ -13,6 +13,8 @@
 //             sauté 8 min, drain and mix (waits 3 and 4) — with its utensils; 1 kg of pasta at
 //             100 kcal per 100 g (500 kcal per serving, MAG-630); 300 g of vegetables linked to Ciqual
 //             20385, 20.1 mg of vitamin C per 100 g (30 mg per serving, 38 % of 80 mg, MAG-648)
+//             create-ingredients (MAG-1057): « Oignon MAG-1057 » linked to Ciqual 20034 with 40 kcal, and
+//             « Sel MAG-1057 » with no values; remove then deletes them
 //   RECIPE    the recipe's name
 //   QUANTITY  create, set-quantity: grams of the recipe's single line
 //   NOTES     set-notes: the notes
@@ -28,6 +30,7 @@ const base = E2E_BASE_URL
 const email = typeof EMAIL !== 'undefined' && EMAIL ? EMAIL : 'e2e@maggie.local'
 const ingredientName = 'Orge MAG-330'
 const methodIngredients = ['Pâtes MAG-492', 'Légumes MAG-492']
+const listIngredients = ['Oignon MAG-1057', 'Sel MAG-1057']
 const methodUtensils = ['Casserole MAG-492', 'Poêle MAG-492', 'Mixeur MAG-492']
 
 function fail(message) {
@@ -112,7 +115,7 @@ function removeLeftovers() {
       http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
     })
   collection('/api/ingredients?itemsPerPage=200')
-    .filter(function (row) { return row.name === ingredientName || methodIngredients.indexOf(row.name) !== -1 })
+    .filter(function (row) { return row.name === ingredientName || methodIngredients.indexOf(row.name) !== -1 || listIngredients.indexOf(row.name) !== -1 })
     .forEach(function (row) {
       http.request(base + row['@id'], { method: 'DELETE', headers: authorized() })
     })
@@ -189,10 +192,16 @@ if (ACTION === 'create') {
   }
   waitFor(function (row) { return row !== undefined }, 'the created recipe never became findable')
   output.recipeId = JSON.parse(response.body).id
+} else if (ACTION === 'create-ingredients') {
+  removeLeftovers()
+  createIngredient(listIngredients[0], { ciqualAlimCode: '20034', kcalPer100g: 40, pieceWeightGrams: 100 })
+  createIngredient(listIngredients[1])
 } else if (ACTION === 'set-quantity') {
   patch(function (record) { record.ingredients[0].quantity = Number(QUANTITY) })
 } else if (ACTION === 'set-notes') {
   patch(function (record) { record.notes = NOTES })
+} else if (ACTION === 'remove-ingredients') {
+  removeLeftovers()
 } else if (ACTION === 'remove') {
   const recipe = waitFor(function (row) { return row !== undefined }, 'the recipe never became findable')
   const response = http.request(base + recipe['@id'], { method: 'DELETE', headers: authorized() })
