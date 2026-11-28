@@ -56,6 +56,7 @@ test('a period shows as a band over the week, and a new one is created from the 
   const periods = new PeriodsPage(page)
   await calendar.content.getByRole('link', { name: 'Périodes' }).click()
   await expect(periods.heading).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1)
   await expect(periods.row('Garde')).toBeVisible()
 
   await periods.create('Vacances')
