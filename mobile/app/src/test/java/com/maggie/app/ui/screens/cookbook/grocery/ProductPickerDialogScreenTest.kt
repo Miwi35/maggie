@@ -100,6 +100,17 @@ class ProductPickerDialogScreenTest {
     }
 
     @Test
+    fun `result rows sit 16 dp in from the screen edge`() {
+        show()
+
+        compose.onNodeWithTag(UiTags.PRODUCT_SEARCH).performTextInput("Lait")
+
+        // 16 dp screen padding + 4 dp row padding
+        assertEquals(20f, compose.onNodeWithText("Produit · Biocoop · Produits laitiers", useUnmergedTree = true).getUnclippedBoundsInRoot().left.value, 0.5f)
+        assertEquals(20f, compose.onNodeWithText("+ Créer « Lait »", useUnmergedTree = true).getUnclippedBoundsInRoot().left.value, 0.5f)
+    }
+
+    @Test
     fun `create row hidden without onSelectCustomLabel`() {
         show(withCustom = false)
 
