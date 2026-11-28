@@ -30,6 +30,7 @@ import com.maggie.app.screentest.ScreenRule
 import com.maggie.app.ui.UiTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -227,6 +228,19 @@ class QuantityEntryScreenTest {
         compose.onNodeWithTag(UiTags.GROCERY_PACKAGINGS_FIELD).assertTextEquals("2")
         compose.onNodeWithContentDescription("Augmenter le nombre de conditionnements").assertIsDisplayed()
         compose.onNodeWithTag(UiTags.GROCERY_PACKAGING_CAPTION).assertTextEquals("paquets de 500 g")
+    }
+
+    @Test
+    fun `packaging steppers sit at both edges`() {
+        openAddSheetOn(pasta)
+
+        val entry = compose.onNodeWithTag(UiTags.GROCERY_QUANTITY_ENTRY).fetchSemanticsNode().boundsInRoot
+        val third = entry.width / 3
+        val minus = compose.onNodeWithContentDescription("Diminuer le nombre de conditionnements").fetchSemanticsNode().boundsInRoot
+        val plus = compose.onNodeWithContentDescription("Augmenter le nombre de conditionnements").fetchSemanticsNode().boundsInRoot
+
+        assertTrue(minus.right < entry.left + third)
+        assertTrue(plus.left > entry.right - third)
     }
 
     @Test
