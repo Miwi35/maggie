@@ -226,6 +226,7 @@ import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeCreateViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditScreen
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeEditViewModel
+import com.maggie.app.ui.screens.cookbook.ingredients.IngredientListViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import com.maggie.app.ui.screens.home.HomeScreen
 import com.maggie.app.ui.screens.home.HomeViewModel
@@ -987,6 +988,7 @@ fun NavGraph() {
     val providerBanner by providerStatusViewModel.banner.collectAsState()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { providerStatusViewModel.refresh() }
     val recipeListViewModel: RecipeListViewModel = koinViewModel()
+    val ingredientListViewModel: IngredientListViewModel = koinViewModel()
     val mealsWeekViewModel: MealsWeekViewModel = koinViewModel()
     val mealCreateViewModel: MealCreateViewModel = koinViewModel()
     val mealDetailViewModel: MealDetailViewModel = koinViewModel()
@@ -2012,6 +2014,8 @@ fun NavGraph() {
                             list = {
                                 CookbookScreen(
                                     recipeListViewModel = recipeListViewModel,
+                                    ingredientListViewModel = ingredientListViewModel,
+                                    onIngredientClick = {},
                                     mealsWeekViewModel = mealsWeekViewModel,
                                     onRecipeClick = { id ->
                                         detailRecipeId = id

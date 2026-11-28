@@ -14,6 +14,8 @@ import com.maggie.app.ui.UiTags
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekUiState
 import com.maggie.app.ui.screens.cookbook.meals.MealsWeekViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListUiState
+import com.maggie.app.ui.screens.cookbook.ingredients.IngredientListUiState
+import com.maggie.app.ui.screens.cookbook.ingredients.IngredientListViewModel
 import com.maggie.app.ui.screens.cookbook.recipes.RecipeListViewModel
 import io.mockk.every
 import io.mockk.mockk
@@ -32,12 +34,17 @@ class CookbookScreenTest {
         val recipes = mockk<RecipeListViewModel>(relaxed = true) {
             every { uiState } returns MutableStateFlow(RecipeListUiState(recipes = listOf(Recipe(id = "r1", name = "Chili sin carne"))))
         }
+        val ingredients = mockk<IngredientListViewModel>(relaxed = true) {
+            every { uiState } returns MutableStateFlow(IngredientListUiState())
+        }
         val meals = mockk<MealsWeekViewModel>(relaxed = true) {
             every { uiState } returns MutableStateFlow(MealsWeekUiState())
         }
         compose.setContent {
             CookbookScreen(
                 recipeListViewModel = recipes,
+                ingredientListViewModel = ingredients,
+                onIngredientClick = {},
                 mealsWeekViewModel = meals,
                 onRecipeClick = {},
                 onCreateRecipe = onCreateRecipe,
