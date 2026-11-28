@@ -8,7 +8,7 @@ from tests.prompt_helpers import stub_system_prompt, system_prompt_with
 from app.skills.index import MOMENT_CHAT
 from app.container import Container
 from app.llm.gateway import LLMGateway
-from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H, build_system, cache_tools
+from app.llm.prompt_cache import EPHEMERAL, EPHEMERAL_1H, MAX_BREAKPOINTS, build_system, cache_history, cache_tools
 from app.llm.web_search import with_web_search
 from app.memory.agent_memory import MemoryBlocks
 from app.metrics import LLM_COST_USD, usage_kwargs
@@ -449,3 +449,96 @@ class TestStreamingSystemPrompt:
         assert "Courses" in blocks[1]["text"]
         assert "Allergie : noix" in blocks[1]["text"]
         assert "Nous sommes lundi, il est 9h." in blocks[1]["text"]
+
+
+def _count(tools, system, messages) -> int:
+    blocks = [*(tools or []), *(system if isinstance(system, list) else [])]
+    for message in messages:
+        if isinstance(message["content"], list):
+            blocks += message["content"]
+    return sum(1 for block in blocks if "cache_control" in block)
+
+
+TOOLS = cache_tools([{"name": "a"}, {"name": "b"}])
+SYSTEM = build_system("STABLE", "V", "MOMENT", "PROFILE")
+HISTORY = [
+    {"role": "user", "content": "salut"},
+    {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "a", "input": {}}]},
+    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]},
+]
+
+
+class TestHistoryBreakpoint:
+    def test_the_first_step_sends_no_breakpoint_on_the_history(self):
+        system, messages = cache_history(SYSTEM, TOOLS, HISTORY, 0)
+
+        assert system is SYSTEM
+        assert messages is HISTORY
+
+    def test_the_second_step_caches_the_history_on_its_last_block(self):
+        _, messages = cache_history(SYSTEM, TOOLS, HISTORY, 1)
+
+        assert messages[-1]["content"][-1]["cache_control"] == EPHEMERAL
+        assert "ttl" not in messages[-1]["content"][-1]
+        assert messages[:-1] == HISTORY[:-1]
+
+    def test_a_request_never_carries_more_than_four_breakpoints(self):
+        for iteration in range(4):
+            system, messages = cache_history(SYSTEM, TOOLS, HISTORY, iteration)
+            assert _count(TOOLS, system, messages) <= MAX_BREAKPOINTS
+
+        system, messages = cache_history(SYSTEM, TOOLS, HISTORY, 1)
+        assert _count(TOOLS, system, messages) == 4
+
+    def test_the_profile_gives_way_to_the_history_and_keeps_its_text(self):
+        system, _ = cache_history(SYSTEM, TOOLS, HISTORY, 1)
+
+        assert [b["text"] for b in system] == [b["text"] for b in SYSTEM]
+        assert [("cache_control" in b) for b in system] == [True, True, False, False]
+
+    def test_the_moment_keeps_its_point_when_there_is_no_profile(self):
+        system, _ = cache_history(build_system("STABLE", "V", "MOMENT"), TOOLS, HISTORY, 1)
+
+        assert [("cache_control" in b) for b in system] == [True, True, False]
+
+    def test_the_moment_gives_way_when_the_tools_take_a_point_and_nothing_else_can(self):
+        crowded = [{"type": "text", "text": "S", "cache_control": EPHEMERAL_1H}] + [
+            {"type": "text", "text": t, "cache_control": EPHEMERAL} for t in ("M", "P")
+        ]
+        system, messages = cache_history(crowded, TOOLS, HISTORY, 1)
+
+        assert [("cache_control" in b) for b in system] == [True, True, False]
+        assert _count(TOOLS, system, messages) == 4
+
+    def test_nothing_gives_way_while_there_is_room(self):
+        system, _ = cache_history(build_system("STABLE", "V"), TOOLS, HISTORY, 1)
+
+        assert system[0]["cache_control"] == EPHEMERAL_1H
+
+    def test_one_hour_entries_stay_before_five_minute_ones_at_every_step(self):
+        for iteration in range(3):
+            system, messages = cache_history(SYSTEM, TOOLS, HISTORY, iteration)
+            entries = [*TOOLS, *system, *(b for m in messages if isinstance(m["content"], list) for b in m["content"])]
+            ttls = [b["cache_control"].get("ttl") for b in entries if "cache_control" in b]
+            assert ttls == sorted(ttls, key=lambda ttl: ttl is None)
+
+    def test_the_inputs_are_never_changed(self):
+        before = (repr(SYSTEM), repr(TOOLS), repr(HISTORY))
+
+        cache_history(SYSTEM, TOOLS, HISTORY, 1)
+
+        assert (repr(SYSTEM), repr(TOOLS), repr(HISTORY)) == before
+
+    def test_a_string_content_becomes_a_cached_text_block(self):
+        messages = [{"role": "user", "content": "salut"}]
+
+        _, sent = cache_history(SYSTEM, TOOLS, messages, 1)
+
+        assert sent == [{"role": "user", "content": [{"type": "text", "text": "salut", "cache_control": EPHEMERAL}]}]
+        assert messages == [{"role": "user", "content": "salut"}]
+
+    def test_a_string_system_prompt_still_caches_the_history(self):
+        system, messages = cache_history("SYSTEM", TOOLS, HISTORY, 1)
+
+        assert system == "SYSTEM"
+        assert messages[-1]["content"][-1]["cache_control"] == EPHEMERAL

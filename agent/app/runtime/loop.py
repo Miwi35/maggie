@@ -20,7 +20,7 @@ import anthropic
 from app.config import settings
 from app.llm.claim_guard import ClaimGuard, Verdict
 from app.llm.dry_run import is_read_only
-from app.llm.prompt_cache import cache_tools
+from app.llm.prompt_cache import cache_history, cache_tools
 from app.llm.provider_status import (
     is_context_overflow,
     note_provider_failure,
@@ -373,11 +373,12 @@ async def run_loop(
         t0 = time.monotonic()
         calling = True
         try:
+            system_sent, messages_sent = cache_history(system, cached_tools, messages, iteration)
             request = {
                 "model": options.model,
                 "max_tokens": options.max_tokens or settings.llm_max_tokens,
-                "system": system,
-                "messages": messages,
+                "system": system_sent,
+                "messages": messages_sent,
                 "tools": cached_tools if cached_tools else anthropic.NOT_GIVEN,
                 "tool_choice": {"type": "none"} if stop_tools else anthropic.NOT_GIVEN,
                 **({"output_config": {"effort": options.effort}} if options.effort else {}),
@@ -416,6 +417,7 @@ async def run_loop(
                     if emitted or shrunk or not is_context_overflow(overflow) or not without_old_results(messages):
                         raise
                     shrunk = True
+                    request["system"], request["messages"] = cache_history(system, cached_tools, messages, iteration)
                     logger.warning("Context window overflow: retrying the step without the older tool results")
                     record_llm_usage(
                         model=options.model,

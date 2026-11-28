@@ -73,6 +73,23 @@ async def test_a_tool_round_emits_planned_then_each_call_ended_in_order():
     assert events[-1].outcome.response == "Fini."
 
 
+async def test_the_kept_messages_carry_no_cache_control():
+    messages = [{"role": "user", "content": "salut"}]
+    state = TurnState()
+    steps = [_uses(_use("a")), _ends(_text("Fini."))]
+    client = ScriptedClient(steps)
+
+    async for _ in run_loop(
+        "system", messages, TOOLS, client=client, tool_router=ScriptedRouter({"get_events": [EVENTS]}),
+        options=_blocking(), state=state,
+    ):
+        pass
+
+    assert "cache_control" in str(client.requests[1]["messages"][-1])
+    assert "cache_control" not in str(messages)
+    assert "cache_control" not in str(state.blocks)
+
+
 async def test_a_stopped_turn_lets_the_running_tool_finish_and_records_it():
     gate = asyncio.Event()
     router = ScriptedRouter({"get_events": [EVENTS]}, gate)

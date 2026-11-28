@@ -181,7 +181,11 @@ class TestTheToolLoop:
 
         assert client.messages.create.await_count == 2
         second = client.messages.create.await_args.kwargs["messages"]
-        assert second[-1] == {"role": "assistant", "content": paused.content}
+        *others, last = paused.content
+        assert second[-1] == {
+            "role": "assistant",
+            "content": [*others, {**last, "cache_control": {"type": "ephemeral"}}],
+        }
         assert result["response"].startswith("Voilà.")
 
 
