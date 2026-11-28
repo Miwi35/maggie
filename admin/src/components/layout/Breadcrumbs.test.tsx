@@ -382,7 +382,7 @@ describe('PageHeading — the h1 of every page', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 
-  test.each(['/recipes', '/ingredients'])('%s draws none: the list titles itself', (path) => {
+  test.each(['/recipes', '/ingredients', '/stores'])('%s draws none: the list titles itself', (path) => {
     renderHeading(path)
 
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()

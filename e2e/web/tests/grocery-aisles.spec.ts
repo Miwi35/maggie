@@ -139,6 +139,8 @@ test('the grocery list follows the aisles reordered on the stores page — MAG-4
     const storeRow = shell.content.getByTestId('store-row').filter({ hasText: storeName })
     await expect(storeRow).toContainText('3 rayons · 3 produits')
     await storeRow.click()
+    await expect(shell.content.getByRole('heading', { level: 1 })).toHaveText('Magasins')
+    await expect(shell.content.getByRole('heading', { level: 2 })).toHaveText(`${storeName} · ordre du parcours`)
     const aisles = shell.content.getByTestId('store-aisles').getByTestId('store-aisle')
     const names = aisles.getByTestId('store-aisle-name')
     const ranks = aisles.getByTestId('store-aisle-rank')
@@ -173,6 +175,36 @@ test('the grocery list follows the aisles reordered on the stores page — MAG-4
     await expect(linesOfStore).toHaveText([new RegExp(bread), new RegExp(apples), new RegExp(milk)])
   } finally {
     for (const line of await linesOnList(api, labels)) await api.delete(`/api/grocery_items/${line.id}`)
+    for (const iri of cleanup) await api.delete(iri)
+  }
+})
+
+test('« + Rayon » opens the name field and the aisle lands last — MAG-1056', async ({ page, api }) => {
+  const storeName = `E2E Rayon ${Date.now()}`
+  const cleanup: string[] = []
+
+  try {
+    // --- Given: a store with three aisles ----------------------------------
+    const store = await create(api, '/api/stores', { name: storeName, visitOrder: 0 })
+    cleanup.unshift(store['@id'])
+    for (const name of ['Fruits', 'Crèmerie', 'Boulangerie']) {
+      cleanup.unshift((await create(api, '/api/aisles', { store: store['@id'], name }))['@id'])
+    }
+
+    // --- When: the aisle is added from the footer button ---------------------
+    const shell = new AdminShell(page)
+    await shell.goto(ROUTES.stores)
+    await shell.content.getByTestId('store-row').filter({ hasText: storeName }).click()
+    await expect(shell.content.getByTestId('store-aisle-name')).toHaveText(['Fruits', 'Crèmerie', 'Boulangerie'])
+    await shell.content.getByRole('button', { name: '+ Rayon' }).click()
+    await shell.content.getByLabel('Nouveau rayon').fill('Surgelés')
+    await shell.content.getByLabel('Nouveau rayon').press('Enter')
+
+    // --- Then: it is the last line -----------------------------------------
+    await expect(shell.content.getByTestId('store-aisle-name')).toHaveText(['Fruits', 'Crèmerie', 'Boulangerie', 'Surgelés'])
+    const all = await getCollection<{ '@id': string }>(api, `/api/aisles?store=${store.id}`)
+    for (const row of all) cleanup.unshift(row['@id'])
+  } finally {
     for (const iri of cleanup) await api.delete(iri)
   }
 })

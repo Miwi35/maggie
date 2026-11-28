@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useCreate, useDelete, useListContext, useNotify, useUpdate } from 'react-admin'
@@ -9,12 +9,12 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
-import List from '@mui/material/List'
-import ListItemButton from '@mui/material/ListItemButton'
-import ListItemText from '@mui/material/ListItemText'
+import ButtonBase from '@mui/material/ButtonBase'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { LiveList } from '../../components/list/LiveList'
 import type { LiveConfig } from '../../hooks/liveList'
 import { STORES_PAGE_TOPICS } from './aislesApi'
@@ -43,7 +43,7 @@ const countsLabel = (count?: StoreCount) =>
 const byTour = (a: StoreRecord, b: StoreRecord) =>
   (a.visitOrder ?? 0) - (b.visitOrder ?? 0) || a.name.localeCompare(b.name, 'fr')
 
-const StoreName = ({ store }: { store: StoreRecord }) => {
+const StoreName = ({ store, onDone }: { store: StoreRecord; onDone: () => void }) => {
   const notify = useNotify()
   const [update] = useUpdate()
   const [draft, setDraft] = useState<string | null>(null)
@@ -52,6 +52,7 @@ const StoreName = ({ store }: { store: StoreRecord }) => {
     if (draft === null) return
     const name = draft.trim()
     setDraft(null)
+    onDone()
     if (!name || name === store.name) return
     update(
       'stores',
@@ -66,11 +67,13 @@ const StoreName = ({ store }: { store: StoreRecord }) => {
       commit()
     } else if (event.key === 'Escape') {
       setDraft(null)
+      onDone()
     }
   }
 
   return (
     <TextField
+      autoFocus
       variant="standard"
       value={draft ?? store.name}
       onChange={(e) => setDraft(e.target.value)}
@@ -78,7 +81,7 @@ const StoreName = ({ store }: { store: StoreRecord }) => {
       onBlur={commit}
       slotProps={{
         htmlInput: { 'aria-label': 'Nom du magasin' },
-        input: { sx: { fontSize: '1.5rem', fontWeight: 600 } },
+        input: { sx: { fontSize: 18, fontWeight: 500 } },
       }}
       sx={{ flex: 1 }}
     />
@@ -89,6 +92,9 @@ const StoreDetail = ({ store, onDeleted }: { store: StoreRecord; onDeleted: () =
   const notify = useNotify()
   const [deleteOne] = useDelete()
   const [confirming, setConfirming] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const renameOnClose = useRef(false)
 
   const remove = () => {
     setConfirming(false)
@@ -103,15 +109,54 @@ const StoreDetail = ({ store, onDeleted }: { store: StoreRecord; onDeleted: () =
   }
 
   return (
-    <Box data-testid="store-detail" sx={{ minWidth: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <StoreName store={store} />
-        <Button component={Link} to={`/stores/${encodeURIComponent(store.id)}`} size="small">
-          Détails
-        </Button>
-        <IconButton aria-label={`Supprimer ${store.name}`} onClick={() => setConfirming(true)}>
-          <DeleteOutlineIcon />
+    <Box data-testid="store-detail" sx={{ minWidth: 0, bgcolor: 'background.paper', borderRadius: '20px', p: '18px' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        {renaming ? (
+          <StoreName store={store} onDone={() => setRenaming(false)} />
+        ) : (
+          <Typography component="h2" sx={{ flex: 1, minWidth: 0, fontSize: 18, fontWeight: 500, overflowWrap: 'anywhere' }}>
+            {store.name} · ordre du parcours
+          </Typography>
+        )}
+        <IconButton aria-label="Options du magasin" size="small" onClick={(e) => setAnchor(e.currentTarget)}>
+          <MoreVertIcon fontSize="small" />
         </IconButton>
+        <Menu
+          anchorEl={anchor}
+          open={anchor !== null}
+          onClose={() => setAnchor(null)}
+          disableRestoreFocus
+          slotProps={{
+            transition: {
+              // The field takes the focus once the menu has let go of it, or its blur would end the edit.
+              onExited: () => {
+                if (!renameOnClose.current) return
+                renameOnClose.current = false
+                setRenaming(true)
+              },
+            },
+          }}
+        >
+          <MenuItem
+            onClick={() => {
+              renameOnClose.current = true
+              setAnchor(null)
+            }}
+          >
+            Renommer
+          </MenuItem>
+          <MenuItem component={Link} to={`/stores/${encodeURIComponent(store.id)}`} onClick={() => setAnchor(null)}>
+            Détails
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setAnchor(null)
+              setConfirming(true)
+            }}
+          >
+            Supprimer
+          </MenuItem>
+        </Menu>
       </Box>
       <StoreAisles storeId={bareId(store.id)} />
 
@@ -190,34 +235,57 @@ const StoresBoard = () => {
   const selected = stores.find((s) => String(s.id) === selectedId) ?? stores[0]
 
   return (
-    <Box
-      data-testid="stores-board"
-      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 340px) 1fr' }, gap: 4, py: 2 }}
-    >
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600 }}>
-            Magasins
-          </Typography>
-          <Button onClick={() => setAdding(true)}>+ Magasin</Button>
-        </Box>
-        <List disablePadding>
-          {stores.map((store) => (
-            <ListItemButton
-              key={store.id}
-              data-testid="store-row"
-              data-store={store.name}
-              selected={store === selected}
-              onClick={() => setSelectedId(String(store.id))}
-              sx={{ borderRadius: 1 }}
-            >
-              <ListItemText primary={store.name} secondary={countsLabel(counts[bareId(String(store.id))])} />
-            </ListItemButton>
-          ))}
-        </List>
-        {stores.length === 0 && <Typography color="text.secondary">Aucun magasin pour l'instant</Typography>}
+    <Box data-testid="stores-board" sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 500, fontSize: 26 }}>
+          Magasins
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => setAdding(true)}
+          sx={{ flexShrink: 0, height: 40, borderRadius: '10px', bgcolor: 'module.courses', color: 'background.default', boxShadow: 'none' }}
+        >
+          + Magasin
+        </Button>
       </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '320px minmax(0, 560px)' }, gap: 2, alignItems: 'start' }}>
+        <Box sx={{ bgcolor: 'background.paper', borderRadius: '20px', p: 1 }}>
+          {stores.map((store) => {
+            const active = store === selected
+            return (
+              <ButtonBase
+                key={store.id}
+                data-testid="store-row"
+                data-store={store.name}
+                aria-current={active || undefined}
+                onClick={() => setSelectedId(String(store.id))}
+                sx={(theme) => ({
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: 60,
+                  px: 2,
+                  borderRadius: '12px',
+                  textAlign: 'left',
+                  bgcolor: active ? 'rgba(143,184,255,0.16)' : 'transparent',
+                  color: active ? theme.palette.module?.courses : 'text.primary',
+                })}
+              >
+                <Typography component="span" sx={{ fontSize: 15, fontWeight: active ? 500 : 400, color: 'inherit' }}>
+                  {store.name}
+                </Typography>
+                <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
+                  {countsLabel(counts[bareId(String(store.id))])}
+                </Typography>
+              </ButtonBase>
+            )
+          })}
+          {stores.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>Aucun magasin pour l'instant</Typography>}
+        </Box>
       {selected && <StoreDetail key={selected.id} store={selected} onDeleted={() => setSelectedId(null)} />}
+      </Box>
       <NewStore
         open={adding}
         size={stores.length}
