@@ -417,6 +417,7 @@ async def run_loop(
                     if emitted or shrunk or not is_context_overflow(overflow) or not without_old_results(messages):
                         raise
                     shrunk = True
+                    request["system"], request["messages"] = cache_history(system, cached_tools, messages, iteration)
                     logger.warning("Context window overflow: retrying the step without the older tool results")
                     record_llm_usage(
                         model=options.model,
