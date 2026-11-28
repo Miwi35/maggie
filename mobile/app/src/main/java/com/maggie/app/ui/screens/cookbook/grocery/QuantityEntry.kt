@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -96,7 +95,7 @@ fun QuantityEntry(
 
         if (mode == QuantityMode.PACKAGINGS && product != null) {
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StepButton("−", "Diminuer le nombre de conditionnements", enabled = count != null && count > 1) {
                         onChange(draft.copy(packagings = ((count ?: 2) - 1).coerceAtLeast(1).toString(), prefill = Prefill.NONE))
                     }
@@ -106,7 +105,7 @@ fun QuantityEntry(
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center,
                         color = if (count == null) MaterialTheme.colorScheme.error else surface.text,
-                        modifier = Modifier.widthIn(min = 48.dp).testTag(UiTags.GROCERY_PACKAGINGS_FIELD),
+                        modifier = Modifier.weight(1f).testTag(UiTags.GROCERY_PACKAGINGS_FIELD),
                     )
                     StepButton("+", "Augmenter le nombre de conditionnements", enabled = true) {
                         onChange(draft.copy(packagings = ((count ?: 0) + 1).toString(), prefill = Prefill.NONE))
