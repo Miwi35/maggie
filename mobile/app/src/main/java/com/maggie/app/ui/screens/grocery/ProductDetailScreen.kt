@@ -575,15 +575,23 @@ private fun RestockStepper(draft: ProductDraft, onChange: (Int) -> Unit) {
     val surface = maggieSurface()
     val count = draft.restockCount()
     val unit = draft.packagingUnit?.frenchName ?: "conditionnement"
-    Row(modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("Réassort", fontSize = 15.sp, modifier = Modifier.weight(1f))
-        Text(restockValue(draft), fontSize = 15.sp, color = surface.textMuted)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .background(surface.raised, RoundedCornerShape(14.dp))
+            .padding(start = 14.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Réassort", fontSize = 12.sp, color = surface.textMuted)
+            Text(restockValue(draft), fontSize = 15.sp)
+        }
         StepButton(
             icon = Icons.Default.Remove,
             description = "Un $unit de moins",
             tag = UiTags.PRODUCT_SHEET_RESTOCK_MINUS,
             onClick = { onChange((count - 1).coerceAtLeast(0)) },
-            modifier = Modifier.padding(start = 12.dp),
         )
         StepButton(
             icon = Icons.Default.Add,
@@ -625,7 +633,10 @@ private fun CheckRow(label: String, checked: Boolean, onCheckedChange: (Boolean)
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange),
+            .background(surface.raised, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, fontSize = 15.sp, modifier = Modifier.weight(1f))
