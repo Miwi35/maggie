@@ -19,12 +19,12 @@ import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
-import ListItemText from '@mui/material/ListItemText'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useMercure } from '../../hooks/useMercure'
 import {
   STORES_PAGE_TOPICS,
@@ -61,6 +61,8 @@ function SortableAisle({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: aisle.id })
   const [draft, setDraft] = useState<string | null>(null)
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const renameOnClose = useRef(false)
 
   const commit = () => {
     if (draft === null) return
@@ -85,7 +87,16 @@ function SortableAisle({
       data-testid="store-aisle"
       data-aisle={aisle.name}
       disablePadding
-      sx={{ gap: 0.5, minHeight: 52, borderRadius: '12px', bgcolor: 'action.hover', mb: 0.5, pr: 0.5 }}
+      sx={{
+        gap: 0.5,
+        minHeight: 52,
+        borderRadius: '12px',
+        bgcolor: 'action.hover',
+        mb: 0.5,
+        pr: 0.5,
+        cursor: 'grab',
+        '&:hover .aisle-menu, & .aisle-menu:focus-visible': { opacity: 1 },
+      }}
     >
       <IconButton
         size="small"
@@ -94,20 +105,22 @@ function SortableAisle({
         {...attributes}
         {...listeners}
       >
-        <DragIndicatorIcon fontSize="small" sx={{ color: 'action.disabled' }} />
+        <DragIndicatorIcon fontSize="small" sx={{ color: 'text.disabled' }} />
       </IconButton>
       <Typography
         data-testid="store-aisle-rank"
-        sx={(theme) => ({ minWidth: 20, fontWeight: 600, color: theme.palette.module?.cuisine })}
+        sx={(theme) => ({ width: 18, fontSize: 13, fontWeight: 500, color: theme.palette.module?.courses })}
       >
         {rank}
       </Typography>
       {draft === null ? (
-        <ListItemText
-          primary={aisle.name}
-          slotProps={{ primary: { 'data-testid': 'store-aisle-name' } as object }}
+        <Typography
+          data-testid="store-aisle-name"
           onDoubleClick={() => setDraft(aisle.name)}
-        />
+          sx={{ flex: 1, minWidth: 0, fontSize: 15, overflowWrap: 'anywhere' }}
+        >
+          {aisle.name}
+        </Typography>
       ) : (
         <TextField
           size="small"
@@ -121,16 +134,52 @@ function SortableAisle({
         />
       )}
       {count !== undefined && (
-        <Typography data-testid="store-aisle-count" variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+        <Typography data-testid="store-aisle-count" sx={{ fontSize: 13, color: 'text.secondary', whiteSpace: 'nowrap' }}>
           {`${count} produit${count > 1 ? 's' : ''}`}
         </Typography>
       )}
-      <IconButton size="small" aria-label={`Renommer ${aisle.name}`} onClick={() => setDraft(aisle.name)}>
-        <EditOutlinedIcon fontSize="small" />
+      <IconButton
+        className="aisle-menu"
+        size="small"
+        aria-label={`Options du rayon ${aisle.name}`}
+        onClick={(e) => setAnchor(e.currentTarget)}
+        sx={{ opacity: 0 }}
+      >
+        <MoreVertIcon fontSize="small" />
       </IconButton>
-      <IconButton size="small" aria-label={`Supprimer ${aisle.name}`} onClick={() => onDelete(aisle)}>
-        <DeleteOutlineIcon fontSize="small" />
-      </IconButton>
+      <Menu
+        anchorEl={anchor}
+        open={anchor !== null}
+        onClose={() => setAnchor(null)}
+        disableRestoreFocus
+        slotProps={{
+          transition: {
+            // The field takes the focus once the menu has let go of it, or its blur would end the edit.
+            onExited: () => {
+              if (!renameOnClose.current) return
+              renameOnClose.current = false
+              setDraft(aisle.name)
+            },
+          },
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            renameOnClose.current = true
+            setAnchor(null)
+          }}
+        >
+          Renommer
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setAnchor(null)
+            onDelete(aisle)
+          }}
+        >
+          Supprimer
+        </MenuItem>
+      </Menu>
     </ListItem>
   )
 }
@@ -143,6 +192,7 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
   const notify = useNotify()
   const [aisles, setAisles] = useState<Aisle[]>([])
   const [newName, setNewName] = useState('')
+  const [adding, setAdding] = useState(false)
   const [toDelete, setToDelete] = useState<Aisle | null>(null)
   const [counts, setCounts] = useState<Record<string, number>>({})
 
@@ -252,6 +302,7 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
     try {
       const created = await createAisle(storeId, name)
       setNewName('')
+      setAdding(false)
       setAisles((prev) => (prev.some((a) => a.id === created.id) ? prev : [...prev, created]))
     } catch (error) {
       notify(errorText(error, `Erreur : le rayon « ${name} » n'a pas été ajouté`), { type: 'error' })
@@ -281,9 +332,6 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
 
   return (
     <Box data-testid="store-aisles">
-      <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mb: 1 }}>
-        Ordre du parcours
-      </Typography>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={aisles.map((a) => a.id)} strategy={verticalListSortingStrategy}>
           <List dense disablePadding>
@@ -300,24 +348,44 @@ export const StoreAisles = ({ storeId }: { storeId: string }) => {
           </List>
         </SortableContext>
       </DndContext>
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
-        <TextField
-          size="small"
-          label="Nouveau rayon"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              handleAdd()
-            }
-          }}
-          sx={{ flex: 1 }}
-        />
-        <Button onClick={handleAdd} disabled={!newName.trim()}>
+      {adding ? (
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+          <TextField
+            size="small"
+            autoFocus
+            label="Nouveau rayon"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleAdd()
+              } else if (e.key === 'Escape') {
+                setNewName('')
+                setAdding(false)
+              }
+            }}
+            sx={{ flex: 1 }}
+          />
+          <Button onClick={handleAdd} disabled={!newName.trim()}>
+            Ajouter
+          </Button>
+        </Box>
+      ) : (
+        <Button
+          fullWidth
+          onClick={() => setAdding(true)}
+          sx={(theme) => ({
+            mt: 1,
+            height: 44,
+            borderRadius: '12px',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)',
+            color: theme.palette.module?.courses,
+          })}
+        >
           + Rayon
         </Button>
-      </Box>
+      )}
 
       <Dialog open={toDelete !== null} onClose={() => setToDelete(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Supprimer le rayon « {toDelete?.name} » ?</DialogTitle>

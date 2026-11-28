@@ -83,8 +83,48 @@ describe('StoreList — the stores page', () => {
     renderStores()
 
     await waitFor(() => expect(aisleNames()).toEqual(['Fruits et légumes', 'Crèmerie', 'Boulangerie']))
-    expect(screen.getByRole('textbox', { name: 'Nom du magasin' })).toHaveValue('Carrefour')
-    expect(screen.getByText('Ordre du parcours')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Carrefour · ordre du parcours' })).toBeInTheDocument()
+  })
+
+  test('draws one h1 « Magasins » with a contained « + Magasin »', async () => {
+    renderStores()
+    await waitFor(() => expect(aisleNames()).toHaveLength(3))
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'Magasins' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ Magasin' })).toHaveClass('MuiButton-contained')
+  })
+
+  test('the selected store is tinted', async () => {
+    const user = userEvent.setup()
+    renderStores()
+    await waitFor(() => expect(aisleNames()).toHaveLength(3))
+
+    expect(rows()[0]).toHaveAttribute('aria-current', 'true')
+    expect(rows()[1]).not.toHaveAttribute('aria-current')
+    await user.click(rows()[1])
+    expect(rows()[1]).toHaveAttribute('aria-current', 'true')
+  })
+
+  test('the aisles card is titled « <store> · ordre du parcours »', async () => {
+    const user = userEvent.setup()
+    renderStores()
+    await waitFor(() => expect(aisleNames()).toHaveLength(3))
+    await user.click(screen.getByText('Biocoop'))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Biocoop · ordre du parcours' })).toBeInTheDocument()
+  })
+
+  test('rename, details and delete live in the store menu', async () => {
+    const user = userEvent.setup()
+    renderStores()
+    await waitFor(() => expect(aisleNames()).toHaveLength(3))
+
+    await user.click(screen.getByRole('button', { name: 'Options du magasin' }))
+
+    expect(screen.getByRole('menuitem', { name: 'Renommer' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Détails' })).toHaveAttribute('href', '/stores/%2Fapi%2Fstores%2Fcarrefour')
+    expect(screen.getByRole('menuitem', { name: 'Supprimer' })).toBeInTheDocument()
   })
 
   test('selecting another store shows its own aisles', async () => {
@@ -95,7 +135,7 @@ describe('StoreList — the stores page', () => {
     await user.click(screen.getByText('Biocoop'))
 
     await waitFor(() => expect(aisleNames()).toEqual(['Vrac']))
-    expect(screen.getByRole('textbox', { name: 'Nom du magasin' })).toHaveValue('Biocoop')
+    expect(await screen.findByRole('heading', { level: 2, name: 'Biocoop · ordre du parcours' })).toBeInTheDocument()
   })
 
   test('renames the store in place and sends only the name', async () => {
@@ -104,6 +144,8 @@ describe('StoreList — the stores page', () => {
     renderStores(STORES, { update: update as unknown as DataProvider['update'] })
     await waitFor(() => expect(aisleNames()).toHaveLength(3))
 
+    await user.click(screen.getByRole('button', { name: 'Options du magasin' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Renommer' }))
     const input = screen.getByRole('textbox', { name: 'Nom du magasin' })
     await user.clear(input)
     await user.type(input, 'Carrefour Market{Enter}')
@@ -118,9 +160,12 @@ describe('StoreList — the stores page', () => {
     renderStores(STORES, { update: update as unknown as DataProvider['update'] })
     await waitFor(() => expect(aisleNames()).toHaveLength(3))
 
+    await user.click(screen.getByRole('button', { name: 'Options du magasin' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Renommer' }))
     await user.type(screen.getByRole('textbox', { name: 'Nom du magasin' }), ' bis{Escape}')
 
-    expect(screen.getByRole('textbox', { name: 'Nom du magasin' })).toHaveValue('Carrefour')
+    expect(screen.queryByRole('textbox', { name: 'Nom du magasin' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Carrefour · ordre du parcours' })).toBeInTheDocument()
     expect(update).not.toHaveBeenCalled()
   })
 
@@ -130,7 +175,8 @@ describe('StoreList — the stores page', () => {
     renderStores(STORES, { delete: deleteOne as unknown as DataProvider['delete'] })
     await waitFor(() => expect(aisleNames()).toHaveLength(3))
 
-    await user.click(screen.getByRole('button', { name: 'Supprimer Carrefour' }))
+    await user.click(screen.getByRole('button', { name: 'Options du magasin' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Supprimer' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Supprimer le magasin « Carrefour » ?')).toBeInTheDocument()
     expect(deleteOne).not.toHaveBeenCalled()

@@ -78,7 +78,18 @@ describe('StoreAisles', () => {
     render(<StoreAisles storeId="carrefour" />)
 
     await waitFor(() => expect(shown()).toEqual(['Fruits et légumes', 'Crèmerie', 'Boulangerie']))
-    expect(screen.getByText('Ordre du parcours')).toBeInTheDocument()
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+  })
+
+  test('an aisle row shows handle, rank, name and count, no inline buttons', async () => {
+    stubAislesApi(CARREFOUR)
+    render(<StoreAisles storeId="carrefour" />)
+    await waitFor(() => expect(shown()).toHaveLength(3))
+
+    const row = screen.getAllByTestId('store-aisle')[1]
+    expect(within(row).getByRole('button', { name: 'Déplacer Crèmerie' })).toBeInTheDocument()
+    expect(within(row).getByTestId('store-aisle-rank')).toHaveTextContent('2')
+    expect(within(row).queryByRole('button', { name: /^(Renommer|Supprimer) / })).not.toBeInTheDocument()
   })
 
   test('adds an aisle at the end with Enter', async () => {
@@ -87,13 +98,15 @@ describe('StoreAisles', () => {
     render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
+    await user.click(screen.getByRole('button', { name: '+ Rayon' }))
     await user.type(screen.getByLabelText('Nouveau rayon'), 'Surgelés{Enter}')
 
     await waitFor(() => expect(shown()).toEqual(['Fruits et légumes', 'Crèmerie', 'Boulangerie', 'Surgelés']))
     expect(writes).toEqual([
       { method: 'POST', url: expect.stringMatching(/\/aisles$/), body: { store: '/api/stores/carrefour', name: 'Surgelés' } },
     ])
-    expect(screen.getByLabelText('Nouveau rayon')).toHaveValue('')
+    expect(screen.queryByLabelText('Nouveau rayon')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ Rayon' })).toBeInTheDocument()
   })
 
   test('says why an aisle was refused, and keeps what was typed', async () => {
@@ -102,8 +115,9 @@ describe('StoreAisles', () => {
     render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
-    await user.type(screen.getByLabelText('Nouveau rayon'), 'crèmerie')
     await user.click(screen.getByRole('button', { name: '+ Rayon' }))
+    await user.type(screen.getByLabelText('Nouveau rayon'), 'crèmerie')
+    await user.click(screen.getByRole('button', { name: 'Ajouter' }))
 
     await waitFor(() => expect(mockNotify).toHaveBeenCalledWith('Ce magasin a déjà ce rayon.', { type: 'error' }))
     expect(shown()).toHaveLength(3)
@@ -116,7 +130,8 @@ describe('StoreAisles', () => {
     render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
-    await user.click(screen.getByRole('button', { name: 'Renommer Crèmerie' }))
+    await user.click(screen.getByRole('button', { name: 'Options du rayon Crèmerie' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Renommer' }))
     const input = screen.getByLabelText('Nom du rayon Crèmerie')
     await user.clear(input)
     await user.type(input, 'Produits frais{Enter}')
@@ -131,7 +146,8 @@ describe('StoreAisles', () => {
     render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
-    await user.click(screen.getByRole('button', { name: 'Renommer Crèmerie' }))
+    await user.click(screen.getByRole('button', { name: 'Options du rayon Crèmerie' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Renommer' }))
     await user.type(screen.getByLabelText('Nom du rayon Crèmerie'), ' bio{Escape}')
 
     expect(shown()).toEqual(['Fruits et légumes', 'Crèmerie', 'Boulangerie'])
@@ -144,7 +160,8 @@ describe('StoreAisles', () => {
     render(<StoreAisles storeId="carrefour" />)
     await waitFor(() => expect(shown()).toHaveLength(3))
 
-    await user.click(screen.getByRole('button', { name: 'Supprimer Crèmerie' }))
+    await user.click(screen.getByRole('button', { name: 'Options du rayon Crèmerie' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Supprimer' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Supprimer le rayon « Crèmerie » ?')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Supprimer' }))
